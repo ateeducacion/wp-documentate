@@ -45,11 +45,8 @@ class Resolate_Collabora_Converter {
 	 * @return bool
 	 */
 	public static function is_available() {
-		// Collabora doesn't work in WordPress Playground due to CORS restrictions.
-		if ( self::is_wordpress_playground() ) {
-			return false;
-		}
-
+		// Collabora works in WordPress Playground when using server-side proxy.
+		// No need to disable it completely.
 		return '' !== self::get_base_url();
 	}
 
@@ -78,10 +75,6 @@ class Resolate_Collabora_Converter {
 	 * @return string
 	 */
 	public static function get_status_message() {
-		if ( self::is_wordpress_playground() ) {
-			return __( 'Collabora Online no está disponible en WordPress Playground debido a restricciones CORS. Usa LibreOffice WASM (ZetaJS) en su lugar cambiando el motor de conversión en los ajustes del plugin.', 'resolate' );
-		}
-
 		if ( '' === self::get_base_url() ) {
 			return __( 'Configura la URL base del servicio Collabora Online en los ajustes.', 'resolate' );
 		}
@@ -111,14 +104,6 @@ class Resolate_Collabora_Converter {
 		$base_url = self::get_base_url();
 		if ( '' === $base_url ) {
 			return new WP_Error( 'resolate_collabora_not_configured', __( 'Configura la URL del servicio Collabora Online para convertir documentos.', 'resolate' ) );
-		}
-
-		// Check if we're in WordPress Playground (CORS restrictions).
-		if ( self::is_wordpress_playground() ) {
-			return new WP_Error(
-				'resolate_collabora_playground',
-				__( 'Collabora Online no funciona en WordPress Playground debido a restricciones CORS del navegador. Por favor, cambia al motor "LibreOffice WASM" en los ajustes del plugin para realizar conversiones en el navegador.', 'resolate' )
-			);
 		}
 
 			$supported_formats = array( 'pdf', 'docx', 'odt' );
