@@ -110,7 +110,8 @@ class Resolate_Collabora_Converter {
 			return new WP_Error( 'resolate_collabora_read_failed', __( 'No se pudo leer el fichero de entrada para la conversión.', 'resolate' ) );
 		}
 
-		$boundary = wp_generate_password( 24, false );
+		// Generate a safe boundary using only alphanumeric characters and hyphens.
+		$boundary = '----ResolateBoundary' . bin2hex( random_bytes( 16 ) );
 		$eol      = "\r\n";
 		$body     = '';
 		$body    .= '--' . $boundary . $eol;
