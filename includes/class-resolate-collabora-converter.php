@@ -45,7 +45,31 @@ class Resolate_Collabora_Converter {
 	 * @return bool
 	 */
 	public static function is_available() {
+		// Collabora doesn't work in WordPress Playground due to CORS restrictions.
+		if ( self::is_wordpress_playground() ) {
+			return false;
+		}
+
 		return '' !== self::get_base_url();
+	}
+
+	/**
+	 * Detect if running in WordPress Playground environment.
+	 *
+	 * @return bool
+	 */
+	private static function is_wordpress_playground() {
+		// Check if we're running in WordPress Playground.
+		if ( isset( $_SERVER['HTTP_HOST'] ) && strpos( $_SERVER['HTTP_HOST'], 'playground.wordpress.net' ) !== false ) {
+			return true;
+		}
+
+		// Alternative check: Playground sets specific environment variables.
+		if ( defined( 'PLAYGROUND_SITE_URL' ) || getenv( 'PLAYGROUND_SITE_URL' ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -54,6 +78,10 @@ class Resolate_Collabora_Converter {
 	 * @return string
 	 */
 	public static function get_status_message() {
+		if ( self::is_wordpress_playground() ) {
+			return __( 'Collabora Online no está disponible en WordPress Playground debido a restricciones CORS. Usa LibreOffice WASM (ZetaJS) en su lugar cambiando el motor de conversión en los ajustes del plugin.', 'resolate' );
+		}
+
 		if ( '' === self::get_base_url() ) {
 			return __( 'Configura la URL base del servicio Collabora Online en los ajustes.', 'resolate' );
 		}
@@ -85,26 +113,11 @@ class Resolate_Collabora_Converter {
 			return new WP_Error( 'resolate_collabora_not_configured', __( 'Configura la URL del servicio Collabora Online para convertir documentos.', 'resolate' ) );
 		}
 
-		// Test basic connectivity to Collabora server.
-		$test_response = wp_remote_get(
-			$base_url,
-			array(
-				'timeout'   => 10,
-				'sslverify' => ! self::is_ssl_verification_disabled(),
-			)
-		);
-		if ( is_wp_error( $test_response ) ) {
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( 'Resolate Collabora: Cannot reach server at ' . $base_url . ' - ' . $test_response->get_error_message() );
-			}
+		// Check if we're in WordPress Playground (CORS restrictions).
+		if ( self::is_wordpress_playground() ) {
 			return new WP_Error(
-				'resolate_collabora_unreachable',
-				sprintf(
-					/* translators: 1: server URL, 2: error message. */
-					__( 'No se puede conectar con el servidor Collabora en %1$s: %2$s. Esto puede ocurrir si estás en WordPress Playground que bloquea conexiones externas.', 'resolate' ),
-					$base_url,
-					$test_response->get_error_message()
-				)
+				'resolate_collabora_playground',
+				__( 'Collabora Online no funciona en WordPress Playground debido a restricciones CORS del navegador. Por favor, cambia al motor "LibreOffice WASM" en los ajustes del plugin para realizar conversiones en el navegador.', 'resolate' )
 			);
 		}
 
