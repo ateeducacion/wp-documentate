@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Only the latest version of the plugin is supported with security updates. `wp-resolate` follows a rolling release model.
+Only the latest version of the plugin is supported with security updates. `wp-documentate` follows a rolling release model.
 
 | Version | Supported          |
 | ------- | ------------------ |

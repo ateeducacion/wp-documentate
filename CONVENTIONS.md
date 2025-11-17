@@ -1,11 +1,11 @@
-# Development Conventions for Resolate Plugin
+# Development Conventions for Documentate Plugin
 
 ## Coding Style Guidelines
 - Follow the [WordPress Coding Standards](https://developer.wordpress.org/coding-standards/wordpress-coding-standards/) for PHP, HTML, CSS, and JavaScript.
 - Use spaces for indentation, with four spaces per level.
 - Limit lines to 80 characters where possible.
 - Use `snake_case` for functions, methods, and variables; `CamelCase` for classes.
-- Name files with lowercase letters and hyphens (e.g., `class-resolate-admin.php`).
+- Name files with lowercase letters and hyphens (e.g., `class-documentate-admin.php`).
 - Include a file header in all PHP files with a brief description and author information.
 
 ## Code Comments
@@ -28,8 +28,8 @@
 - Submit pull requests for all changes, ensuring review before merging.
 
 ## Directory Structure
-- The main plugin file should be named `resolate.php`.
-- Place each class in its own file, named `class-pluginname-component.php` (e.g., `class-resolate-admin.php`).
+- The main plugin file should be named `documentate.php`.
+- Place each class in its own file, named `class-pluginname-component.php` (e.g., `class-documentate-admin.php`).
 - Place admin-specific functionality in the `admin` directory, including classes, assets, and templates.
 - Place shared functions, utilities, and custom post types in the `includes` directory.
 - Place public-facing functionality in the `public` directory.
@@ -37,7 +37,7 @@
 - Place tests in the `tests` directory.
 
 ## Constants and Configuration
-- Define plugin-specific constants in the main plugin file (`resolate.php`).
+- Define plugin-specific constants in the main plugin file (`documentate.php`).
 - Use the WordPress options API for configuration, following a consistent naming scheme.
 
 ## Security Best Practices
@@ -46,7 +46,7 @@
 
 ## Localization
 
-- Use the plugin's slug as the text domain (e.g., `resolate`).
+- Use the plugin's slug as the text domain (e.g., `documentate`).
 - Wrap all user-facing text in translation functions like `__()`.
 - Use WordPress translation functions like `__()`, `esc_html_e()`, `_n()`, and `_x()` for all user-facing strings.
 

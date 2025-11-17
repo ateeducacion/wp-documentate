@@ -34,14 +34,14 @@
     },
     "autoload": {
         "psr-4": {
-            "Resolate\\": "includes/",
-            "Resolate\\Admin\\": "admin/",
-            "Resolate\\Public\\": "public/"
+            "Documentate\\": "includes/",
+            "Documentate\\Admin\\": "admin/",
+            "Documentate\\Public\\": "public/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Resolate\\Tests\\": "tests/"
+            "Documentate\\Tests\\": "tests/"
         }
     },
     "type": "project"

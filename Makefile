@@ -18,8 +18,8 @@ start-if-not-running:
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
 		echo "wp-env is NOT running. Starting (previous updating) containers..."; \
 		npx wp-env start --update; \
-		npx wp-env run cli wp plugin activate resolate; \
-		echo "Visit http://localhost:8888/wp-admin/ to access the Resolate dashboard."; \
+		npx wp-env run cli wp plugin activate documentate; \
+		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
 	else \
 		echo "wp-env is already running, skipping start."; \
 	fi
@@ -47,7 +47,7 @@ down: check-docker
 clean:
 	npx wp-env clean development
 	npx wp-env clean tests
-	npx wp-env run cli wp plugin activate resolate
+	npx wp-env run cli wp plugin activate documentate
 # 	npx wp-env run cli wp plugin install tinymce-advanced --activate
 
 destroy:
@@ -56,7 +56,7 @@ destroy:
 # Pass the wp plugin-check
 check-plugin-old: check-docker start-if-not-running
 	npx wp-env run cli wp plugin install plugin-check --activate --color
-	npx wp-env run cli wp plugin check resolate --exclude-directories=tests --exclude-checks=file_type,image_functions --ignore-warnings --color
+	npx wp-env run cli wp plugin check documentate --exclude-directories=tests --exclude-checks=file_type,image_functions --ignore-warnings --color
 
 # Human output + fail if there are errors (parsed from JSON)
 check-plugin: check-docker start-if-not-running
@@ -64,14 +64,14 @@ check-plugin: check-docker start-if-not-running
 	npx wp-env run cli wp plugin install plugin-check --activate --color || true
 
 	# 1) Salida legible con colores (lo que quieres ver en pantalla)
-	npx wp-env run cli wp plugin check resolate \
+	npx wp-env run cli wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
 		--color
 
 	# 2) Pasada en JSON para contar errores y devolver exit 1 si hay
-	@ERRS=$$(npx wp-env run cli wp plugin check resolate \
+	@ERRS=$$(npx wp-env run cli wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
@@ -99,14 +99,14 @@ test: start-if-not-running
 	@CMD="./vendor/bin/phpunit"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/resolate $$CMD --testdox --colors=always
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --testdox --colors=always
 
 # Run unit tests in verbose mode. Honor TEST filter if provided.
 test-verbose: start-if-not-running
 	@CMD="./vendor/bin/phpunit"; \
 	if [ -n "$(TEST)" ]; then CMD="$$CMD --filter $(TEST)"; fi; \
 	CMD="$$CMD --debug --verbose"; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/resolate $$CMD --colors=always
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
 test-e2e:
 	npm run test:e2e
@@ -136,11 +136,11 @@ install-phpcs: check-docker start-if-not-running
 
 # Check code style with PHP Code Sniffer inside the container
 lint: install-phpcs
-	npx wp-env run cli phpcs --standard=wp-content/plugins/resolate/.phpcs.xml.dist wp-content/plugins/resolate
+	npx wp-env run cli phpcs --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
 
 # Automatically fix code style with PHP Code Beautifier inside the container
 fix: install-phpcs
-	npx wp-env run cli phpcbf --standard=wp-content/plugins/resolate/.phpcs.xml.dist wp-content/plugins/resolate
+	npx wp-env run cli phpcbf --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
 
 # Run PHP Mess Detector ignoring vendor and node_modules
 phpmd:
@@ -165,7 +165,7 @@ fix-no-tty: cli-container start-if-not-running
 	) && \
 	echo "Running PHPCBF (no TTY) inside $$CONTAINER_CLI..." && \
 	docker exec -i $$CONTAINER_CLI \
-		phpcbf --standard=wp-content/plugins/resolate/.phpcs.xml.dist wp-content/plugins/resolate
+		phpcbf --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
 
 # Lint wihout tty for use on git hooks
 lint-no-tty: cli-container start-if-not-running
@@ -176,7 +176,7 @@ lint-no-tty: cli-container start-if-not-running
 	) && \
 	echo "Running PHPCS (no TTY) inside $$CONTAINER_CLI..." && \
 	docker exec -i $$CONTAINER_CLI \
-		phpcs --standard=wp-content/plugins/resolate/.phpcs.xml.dist wp-content/plugins/resolate
+		phpcs --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
 
 
 # Update Composer dependencies
@@ -199,23 +199,23 @@ mo:
 check-untranslated:
 	composer check-untranslated
 
-# Generate the resolate-X.X.X.zip package
+# Generate the documentate-X.X.X.zip package
 package:
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Error: No se ha especificado una versión. Usa 'make package VERSION=1.2.3'"; \
 		exit 1; \
 	fi
-	# Update the version in resolate.php & readme.txt
-	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" resolate.php
-	$(SED_INPLACE) "s/define( 'RESOLATE_VERSION', '[^']*'/define( 'RESOLATE_VERSION', '$(VERSION)'/" resolate.php
+	# Update the version in documentate.php & readme.txt
+	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" documentate.php
+	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
 	# Create the ZIP package
-	composer archive --format=zip --file="resolate-$(VERSION)"
+	composer archive --format=zip --file="documentate-$(VERSION)"
 
-	# Restore the version in resolate.php & readme.txt
-	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" resolate.php
-	$(SED_INPLACE) "s/define( 'RESOLATE_VERSION', '[^']*'/define( 'RESOLATE_VERSION', '0.0.0'/" resolate.php
+	# Restore the version in documentate.php & readme.txt
+	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
+	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: 0.0.0/" readme.txt
 
 # Show help with available commands

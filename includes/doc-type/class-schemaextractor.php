@@ -2,10 +2,10 @@
 /**
  * Schema extractor for document type templates.
  *
- * @package Resolate
+ * @package Documentate
  */
 
-namespace Resolate\DocType;
+namespace Documentate\DocType;
 
 use WP_Error;
 use ZipArchive;
@@ -28,16 +28,16 @@ class SchemaExtractor {
 
 		if ( '' === $template_path || ! file_exists( $template_path ) || ! is_readable( $template_path ) ) {
 			return new WP_Error(
-				'resolate_schema_template_missing',
-				__( 'The selected template file is not accessible.', 'resolate' )
+				'documentate_schema_template_missing',
+				__( 'The selected template file is not accessible.', 'documentate' )
 			);
 		}
 
 		$template_type = $this->detect_template_type( $template_path );
 		if ( '' === $template_type ) {
 			return new WP_Error(
-				'resolate_schema_template_type',
-				__( 'The template must be a DOCX or ODT file.', 'resolate' )
+				'documentate_schema_template_type',
+				__( 'The template must be a DOCX or ODT file.', 'documentate' )
 			);
 		}
 
@@ -79,8 +79,8 @@ class SchemaExtractor {
 		$zip = new ZipArchive();
 		if ( true !== $zip->open( $template_path ) ) {
 			return new WP_Error(
-				'resolate_schema_template_open',
-				__( 'The template file could not be opened.', 'resolate' )
+				'documentate_schema_template_open',
+				__( 'The template file could not be opened.', 'documentate' )
 			);
 		}
 
@@ -486,7 +486,7 @@ class SchemaExtractor {
 				case 'email':
 					$pattern = '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$';
 					if ( '' === $pattern_msg ) {
-						$pattern_msg = __( 'Introduce un email válido (usuario@dominio.tld)', 'resolate' );
+						$pattern_msg = __( 'Introduce un email válido (usuario@dominio.tld)', 'documentate' );
 					}
 					break;
 			}

@@ -1,14 +1,14 @@
-site_name: Resolate
+site_name: Documentate
 site_description: A WordPress plugin that provides a Kanban board interface with a unique priority system for managing tasks
 
 site_author: ATE
-repo_url: https://github.com/erseco/wp-resolate
+repo_url: https://github.com/erseco/wp-documentate
 edit_uri: edit/main/docs/
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/erseco/wp-resolate
+      link: https://github.com/erseco/wp-documentate
 
 theme:
   name: material
@@ -50,7 +50,7 @@ theme:
         icon: material/weather-night
         name: Switch to system preference
   footer:
-    text: "Resolate - A project by Área de Tecnología Educativa (ATE)"
+    text: "Documentate - A project by Área de Tecnología Educativa (ATE)"
 
 nav:
   - Home: index.md

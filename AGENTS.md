@@ -1,8 +1,8 @@
 <!-- AGENTS.md -->
 
-# Agents Coding Conventions for Plugin “Resolate”
+# Agents Coding Conventions for Plugin “Documentate”
 
-These are natural-language guidelines for agents to follow when developing the Resolate WordPress plugin.
+These are natural-language guidelines for agents to follow when developing the Documentate WordPress plugin.
 
 ## Project conventions
 
@@ -11,7 +11,7 @@ These are natural-language guidelines for agents to follow when developing the R
   - Use English for source code (identifiers, comments, docblocks).
   - Write all implementation notes, inline comments, and documentation in English.
   - Use Spanish for user‑facing translations/strings and test assertions to check no untranslated strings remain.
-  - Keep class file names aligned with their class names (e.g., `class-resolate-admin-helper.php` for `Resolate_Admin_Helper`).
+  - Keep class file names aligned with their class names (e.g., `class-documentate-admin-helper.php` for `Documentate_Admin_Helper`).
   - Add `/* translators: */` comments immediately before translations containing placeholders such as `%s` or `%d`.
   - Always unslash superglobals (e.g., `$_POST`) before sanitizing and storing their values.
   - When emitting standalone pages, enqueue styles/scripts with WordPress APIs (`wp_enqueue_style`, `wp_enqueue_script`) and print them via `wp_print_*` helpers instead of hard-coding `<link>` or `<script>` tags.
@@ -35,7 +35,7 @@ These are natural-language guidelines for agents to follow when developing the R
 - Use `./vendor/bin/phpcbf --standard=.phpcs.xml.dist` first to apply automatic fixes (including converting stray spaces back to tabs), then `./vendor/bin/phpcs --standard=.phpcs.xml.dist` to ensure the codebase is clean.
 - Composer scripts mirror these commands: `composer phpcbf` and `composer phpcs` respect the repository ignore list defined in `.phpcs.xml.dist`.
 - The `.phpcs.xml.dist` ruleset bundles the WordPress standard, limits scanning to PHP files, enables colorized output, suppresses warnings, and excludes vendor, assets, node_modules, tests/js, wp, tests, and `.composer` directories.
-- When working outside the `wp-env` Docker environment, call the binaries from `./vendor/bin/` directly. Inside wp-env, reuse the Make targets (`make fix` and `make lint`) which wrap `phpcbf`/`phpcs` with the same `.phpcs.xml.dist` ruleset path (`wp-content/plugins/resolate/.phpcs.xml.dist`).
+- When working outside the `wp-env` Docker environment, call the binaries from `./vendor/bin/` directly. Inside wp-env, reuse the Make targets (`make fix` and `make lint`) which wrap `phpcbf`/`phpcs` with the same `.phpcs.xml.dist` ruleset path (`wp-content/plugins/documentate/.phpcs.xml.dist`).
 - The repository `composer.json` already whitelists the `dealerdirect/phpcodesniffer-composer-installer` plugin and exposes the scripts `composer phpcbf` and `composer phpcs`; these call the local binaries under `./vendor/bin/` with the shared `.phpcs.xml.dist` ruleset, so prefer them to keep tooling consistent.
 - Run the beautifier before linting when fixing coding standards violations: `composer phpcbf` (or the equivalent binary invocation) followed by `composer phpcs`. `phpcbf` will repair mixed indentation before PHPCS evaluates the files.
 - After writing or updating code, always run `composer phpcbf` followed by `composer phpcs` (or their `./vendor/bin/` equivalents) to keep the codebase compliant with the configured standards.
@@ -81,7 +81,7 @@ These are natural-language guidelines for agents to follow when developing the R
 - All PHP functions and methods must have English docblock comments immediately before declaration.
 - Prefer simplicity and clarity: avoid overly complex abstractions.
 - Load translation strings properly (`__()`, `_e()`), text domain declared in main plugin file.
-- Keep plugin bootstrap file small (`resolate.php`), modularize into separate files/classes with specific responsibility.
+- Keep plugin bootstrap file small (`documentate.php`), modularize into separate files/classes with specific responsibility.
 
 ## Aider-specific usage
 

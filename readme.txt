@@ -1,4 +1,4 @@
-=== Resolate – Generador de resoluciones ===
+=== Documentate – Generador de resoluciones ===
 Contributors: erseco
 Tags: ate, tasks, board, kanban
 Requires at least: 6.1
@@ -12,7 +12,7 @@ Generador de resoluciones oficiales con secciones y exportación a DOCX.
 
 == Description ==
 
-Resolate es un plugin de WordPress desarrollado en el ATE para crear resoluciones digitales con estructura de secciones, taxonomías de ámbitos y leyes, y exportación a DOCX (y próximamente PDF).
+Documentate es un plugin de WordPress desarrollado en el ATE para crear resoluciones digitales con estructura de secciones, taxonomías de ámbitos y leyes, y exportación a DOCX (y próximamente PDF).
 
 ### Key Features
 

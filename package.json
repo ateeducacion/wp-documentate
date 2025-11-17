@@ -6,9 +6,9 @@
   },
   "scripts": {
     "wp-env": "wp-env",
-    "composer": "wp-env run cli --env-cwd=wp-content/plugins/resolate composer",
-    "composer:tests-cli": "wp-env run tests-cli --env-cwd=wp-content/plugins/resolate composer",
+    "composer": "wp-env run cli --env-cwd=wp-content/plugins/documentate composer",
+    "composer:tests-cli": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate composer",
     "test:e2e": "wp-scripts test-playwright --config tests/e2e/playwright.config.js",
-    "test:unit": "wp-env run tests-cli --env-cwd=wp-content/plugins/resolate ./vendor/bin/phpunit"
+    "test:unit": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit"
   }
 }

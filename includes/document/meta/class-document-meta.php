@@ -2,10 +2,10 @@
 /**
  * Document metadata accessor helper.
  *
- * @package Resolate
+ * @package Documentate
  */
 
-namespace Resolate\Document\Meta;
+namespace Documentate\Document\Meta;
 
 /**
  * Provides an accessor for document metadata stored in post meta.

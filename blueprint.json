@@ -5,7 +5,7 @@
     "wp": "latest"
   },
   "siteOptions": {
-    "blogname": "WordPress Playground Resolate Demo"
+    "blogname": "WordPress Playground Documentate Demo"
   },
   "steps": [
     {
@@ -28,7 +28,7 @@
       "step": "installPlugin",
       "pluginData": {
         "resource": "url",
-        "url": "https://github.com/erseco/wp-resolate/archive/refs/heads/main.zip"
+        "url": "https://github.com/erseco/wp-documentate/archive/refs/heads/main.zip"
       },
       "options": {
         "activate": true
@@ -39,5 +39,5 @@
     "networking": true
   },
   "login": true,
-  "landingPage": "/wp-admin/edit.php?post_type=resolate_document"
+  "landingPage": "/wp-admin/edit.php?post_type=documentate_document"
 }

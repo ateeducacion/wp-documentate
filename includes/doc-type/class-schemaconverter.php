@@ -2,10 +2,10 @@
 /**
  * Helpers to reshape schema definitions for UI consumption.
  *
- * @package Resolate
+ * @package Documentate
  */
 
-namespace Resolate\DocType;
+namespace Documentate\DocType;
 
 /**
  * Converts schema v2 structures into the flattened legacy layout expected by current UI code.

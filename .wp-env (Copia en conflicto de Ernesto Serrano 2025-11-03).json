@@ -6,13 +6,13 @@
         "WP_DEBUG_DISPLAY": true
     },
     "mappings": {
-        "wp-content/plugins/resolate": "./"
+        "wp-content/plugins/documentate": "./"
     },
     "plugins":  [ 
         "https://downloads.wordpress.org/plugin/tinymce-advanced.zip" 
     ],
     "lifecycleScripts": {
-        "afterStart": "wp plugin activate resolate tinymce-advanced || true",
-        "afterClean": "wp plugin activate resolate tinymce-advanced || true"
+        "afterStart": "wp plugin activate documentate tinymce-advanced || true",
+        "afterClean": "wp plugin activate documentate tinymce-advanced || true"
   }
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <ruleset name="WordPress Coding Standards">
-    <description>Custom rules for Resolate Plugin</description>
+    <description>Custom rules for Documentate Plugin</description>
 
     <!-- Define the standard -->
     <rule ref="WordPress"/>

@@ -20,7 +20,7 @@
  *
  * @link       https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/
  *
- * @package    resolate
+ * @package    documentate
  */
 
 // If uninstall not called from WordPress, then exit.

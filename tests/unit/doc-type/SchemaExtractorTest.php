@@ -3,8 +3,8 @@
  * Tests for the schema extractor working with bundled fixtures.
  */
 
-use Resolate\DocType\SchemaConverter;
-use Resolate\DocType\SchemaExtractor;
+use Documentate\DocType\SchemaConverter;
+use Documentate\DocType\SchemaExtractor;
 
 class SchemaExtractorTest extends WP_UnitTestCase {
 
@@ -13,7 +13,7 @@ class SchemaExtractorTest extends WP_UnitTestCase {
 	 */
 	public function test_demo_fixture_schema_parsed_correctly() {
 		$extractor = new SchemaExtractor();
-		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/demo-wp-resolate.odt' );
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/demo-wp-documentate.odt' );
 
 		$this->assertNotWPError( $schema, 'Se esperaba un esquema válido al analizar la plantilla demo ODT.' );
 		$this->assertIsArray( $schema );
@@ -82,7 +82,7 @@ class SchemaExtractorTest extends WP_UnitTestCase {
 	 */
 	public function test_demo_docx_fixture_schema_parsed_correctly() {
 		$extractor = new SchemaExtractor();
-		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/demo-wp-resolate.docx' );
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/demo-wp-documentate.docx' );
 
 		$this->assertNotWPError( $schema, 'Se esperaba un esquema válido al analizar la plantilla demo DOCX.' );
 		$this->assertIsArray( $schema );

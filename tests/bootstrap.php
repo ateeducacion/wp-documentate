@@ -24,7 +24,7 @@ require_once $_tests_dir . 'includes/functions.php';
  * Manually load the plugin being tested.
  */
 function _manually_load_plugin() {
-	require dirname( __DIR__ ) . '/resolate.php';
+	require dirname( __DIR__ ) . '/documentate.php';
 }
 
 tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
@@ -34,11 +34,11 @@ WPIntegration\bootstrap_it();
 
 
 // Include the custom factory classes.
-require_once __DIR__ . '/includes/class-wp-unittest-factory-for-resolate-doc-type.php';
-require_once __DIR__ . '/includes/class-wp-unittest-factory-for-resolate-document.php';
+require_once __DIR__ . '/includes/class-wp-unittest-factory-for-documentate-doc-type.php';
+require_once __DIR__ . '/includes/class-wp-unittest-factory-for-documentate-document.php';
 
 // Include the custom base test class.
-require_once __DIR__ . '/includes/class-wp-unittest-resolate-test-base.php';
+require_once __DIR__ . '/includes/class-wp-unittest-documentate-test-base.php';
 
 tests_add_filter( 'after_setup_theme', function() {
 
@@ -46,12 +46,12 @@ tests_add_filter( 'after_setup_theme', function() {
         $wp_factory = WP_UnitTestCase::factory();
 
 
-        $wp_factory->doctype = new WP_UnitTest_Factory_For_Resolate_Doc_Type( $wp_factory );
-        $wp_factory->document = new WP_UnitTest_Factory_For_Resolate_Document( $wp_factory );
+        $wp_factory->doctype = new WP_UnitTest_Factory_For_Documentate_Doc_Type( $wp_factory );
+        $wp_factory->document = new WP_UnitTest_Factory_For_Documentate_Document( $wp_factory );
 
         if ( isset( $wp_factory ) && $wp_factory instanceof WP_UnitTest_Factory ) {
-                $wp_factory->register( 'doctype', 'WP_UnitTest_Factory_For_Resolate_Doc_Type' );
-                $wp_factory->register( 'document', 'WP_UnitTest_Factory_For_Resolate_Document' );
+                $wp_factory->register( 'doctype', 'WP_UnitTest_Factory_For_Documentate_Doc_Type' );
+                $wp_factory->register( 'document', 'WP_UnitTest_Factory_For_Documentate_Document' );
         } else {
                 error_log( 'WP_UnitTest_Factory global is not available. Factories not registered.' );
                 exit(1);

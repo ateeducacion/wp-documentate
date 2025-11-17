@@ -18,10 +18,10 @@ stages:
 #   script:
 #     # Elimina la “v” inicial y pásala al Makefile
 #     - VERSION="${CI_COMMIT_TAG#v}" make package
-#     - ls -lh "resolate-${CI_COMMIT_TAG#v}.zip"
+#     - ls -lh "documentate-${CI_COMMIT_TAG#v}.zip"
 #   artifacts:
 #     paths:
-#       - "resolate-${CI_COMMIT_TAG#v}.zip"
+#       - "documentate-${CI_COMMIT_TAG#v}.zip"
 #     expire_in: 1 week
 
 # ------------------------------------------
@@ -35,8 +35,8 @@ stages:
 #   needs: [build]
 #   script:
 #     - PACKAGE_VERSION="${CI_COMMIT_TAG#v}"
-#     - PACKAGE_BINARY="resolate-${PACKAGE_VERSION}"
-#     - PACKAGE_REGISTRY_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/resolate/${PACKAGE_VERSION}"
+#     - PACKAGE_BINARY="documentate-${PACKAGE_VERSION}"
+#     - PACKAGE_REGISTRY_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/documentate/${PACKAGE_VERSION}"
 #     - |
 #       curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
 #            --upload-file "${PACKAGE_BINARY}.zip" \
@@ -53,7 +53,7 @@ release:
   script:
     # Calcula versión y binario en shell (sí admite “#v”)
     - PACKAGE_VERSION="${CI_COMMIT_TAG#v}"
-    - PACKAGE_BINARY="resolate-${PACKAGE_VERSION}"
+    - PACKAGE_BINARY="documentate-${PACKAGE_VERSION}"
     - echo "Creating release for ${PACKAGE_BINARY}.zip"
     # Crea la release y añade el asset link correcto
     - |
@@ -61,7 +61,7 @@ release:
         --name "Release ${PACKAGE_VERSION}" \
         --tag-name "${CI_COMMIT_TAG}" \
         --description "Release for ${PACKAGE_VERSION}" \
-        --assets-link "{\"name\":\"${PACKAGE_BINARY}.zip\",\"url\":\"https://github.com/ateeducacion/wp-resolate/releases/download/${CI_COMMIT_TAG}/${PACKAGE_BINARY}.zip\"}"
+        --assets-link "{\"name\":\"${PACKAGE_BINARY}.zip\",\"url\":\"https://github.com/ateeducacion/wp-documentate/releases/download/${CI_COMMIT_TAG}/${PACKAGE_BINARY}.zip\"}"
 
 # ------------------------------------------
 # sonarqube-check

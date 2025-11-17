@@ -2,20 +2,20 @@
 /**
  * Schema storage helpers for document types.
  *
- * @package Resolate
+ * @package Documentate
  */
 
-namespace Resolate\DocType;
+namespace Documentate\DocType;
 
 /**
  * Handles persistence of schema definitions in term meta.
  */
 class SchemaStorage {
 
-	const META_KEY          = '_resolate_schema_v2';
-	const META_SUMMARY_KEY  = '_resolate_schema_v2_summary';
-	const META_HASH_KEY     = '_resolate_schema_v2_hash';
-	const META_UPDATED_KEY  = '_resolate_schema_v2_updated';
+	const META_KEY          = '_documentate_schema_v2';
+	const META_SUMMARY_KEY  = '_documentate_schema_v2_summary';
+	const META_HASH_KEY     = '_documentate_schema_v2_hash';
+	const META_UPDATED_KEY  = '_documentate_schema_v2_updated';
 
 	/**
 	 * Retrieve stored schema array for a term.
