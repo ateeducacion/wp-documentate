@@ -58,32 +58,25 @@ check-plugin-old: check-docker start-if-not-running
 	npx wp-env run cli wp plugin install plugin-check --activate --color
 	npx wp-env run cli wp plugin check documentate --exclude-directories=tests --exclude-checks=file_type,image_functions --ignore-warnings --color
 
-# Human output + fail if there are errors (parsed from JSON)
+# Pass the wp plugin-check with proper error handling
 check-plugin: check-docker start-if-not-running
-	# Asegura plugin-check activo (no fallar si ya lo está)
-	npx wp-env run cli wp plugin install plugin-check --activate --color || true
+	# Install plugin-check if needed (don't fail if already active)
+	@npx wp-env run cli wp plugin install plugin-check --activate --color || true
 
-	# 1) Salida legible con colores (lo que quieres ver en pantalla)
-	npx wp-env run cli wp plugin check documentate \
+	# Run plugin check with colored output, capture exit code, and fail if needed
+	@echo "Running WordPress Plugin Check..."
+	@npx wp-env run cli wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
-		--color
-
-	# 2) Pasada en JSON para contar errores y devolver exit 1 si hay
-	@ERRS=$$(npx wp-env run cli wp plugin check documentate \
-		--exclude-directories=tests \
-		--exclude-checks=file_type,image_functions \
-		--ignore-warnings \
-		--format=json 2>/dev/null \
-		| grep -oi '"type":"error"' | wc -l | tr -d ' '); \
-	if [ "$$ERRS" -gt 0 ]; then \
-		echo ""; \
-		echo "Plugin Check: $$ERRS error(s) found."; \
-		exit 1; \
+		--color; \
+	EXIT_CODE=$$?; \
+	echo ""; \
+	if [ $$EXIT_CODE -eq 0 ]; then \
+		echo "Plugin Check: ✓ No errors found."; \
 	else \
-		echo ""; \
-		echo "Plugin Check: no errors found."; \
+		echo "Plugin Check: ✗ Errors found (exit code: $$EXIT_CODE)."; \
+		exit $$EXIT_CODE; \
 	fi
 
 
