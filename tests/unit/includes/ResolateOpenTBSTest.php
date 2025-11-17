@@ -74,6 +74,32 @@ class ResolateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * It should convert nested HTML lists into paragraphs preserving bullets and nested content.
+	 */
+	public function test_convert_docx_part_rich_text_converts_nested_lists() {
+		$html = '<ul><li>Uno</li><li>Dos<ol><li>2.1</li><li>2.2</li></ol></li></ul>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+			. '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+			. '<w:body><w:p><w:r><w:t>' . htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 ) . '</w:t></w:r></w:p></w:body></w:document>';
+
+		$result = Resolate_OpenTBS::convert_docx_part_rich_text( $xml, array( $html ) );
+
+		$doc        = $this->load_docx_dom( $result );
+		$xpath      = $this->create_word_xpath( $doc );
+		$paragraphs = $xpath->query( '//w:body/w:p' );
+
+		$this->assertGreaterThanOrEqual( 2, $paragraphs->length );
+		$this->assertSame( '• Uno', trim( $paragraphs->item( 0 )->textContent ) );
+
+		$second = trim( $paragraphs->item( 1 )->textContent );
+		$this->assertStringContainsString( '• Dos', $second );
+		$this->assertStringContainsString( '2.1', $second );
+		$this->assertStringContainsString( '2.2', $second );
+
+		$this->assertStringContainsString( 'xml:space="preserve">• </w:t>', $result );
+	}
+
+	/**
 	 * It should convert headings into paragraphs with surrounding blank spacing.
 	 */
 	public function test_convert_docx_part_rich_text_converts_headings() {
@@ -145,6 +171,35 @@ class ResolateOpenTBSTest extends PHPUnit\Framework\TestCase {
 		$this->assertStringContainsString( '<w:top', $result );
 		$this->assertStringContainsString( '<w:insideH', $result );
 		$this->assertStringContainsString( 'w:color="000000"', $result );
+	}
+
+	/**
+	 * It should convert nested HTML lists into ODT markup preserving bullet indentation.
+	 */
+	public function test_convert_odt_part_rich_text_converts_nested_lists() {
+		$html = '<ul><li>Uno</li><li>Dos<ol><li>2.1</li><li>2.2</li></ol></li></ul>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+			. ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"'
+			. ' xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0">'
+			. '<office:body><office:text><text:p>' . htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 ) . '</text:p></office:text></office:body>'
+			. '</office:document-content>';
+
+		$result = Resolate_OpenTBS::convert_odt_part_rich_text( $xml, array( $html ) );
+		$result = (string) $result;
+
+		$doc   = new DOMDocument();
+		$doc->loadXML( $result );
+		$xpath = new DOMXPath( $doc );
+		$xpath->registerNamespace( 'text', 'urn:oasis:names:tc:opendocument:xmlns:text:1.0' );
+
+		$breaks = $xpath->query( '//text:line-break' );
+		$this->assertGreaterThanOrEqual( 1, $breaks->length );
+
+		$this->assertStringContainsString( '• Uno', $result );
+		$this->assertStringContainsString( '• Dos', $result );
+		$this->assertStringContainsString( '2.1', $result );
+		$this->assertStringContainsString( '2.2', $result );
 	}
 
 	/**

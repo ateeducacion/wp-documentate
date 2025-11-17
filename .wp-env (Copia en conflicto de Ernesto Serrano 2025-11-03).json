@@ -9,10 +9,10 @@
         "wp-content/plugins/resolate": "./"
     },
     "plugins":  [ 
-        "https://downloads.wordpress.org/plugins/tinymce-advanced.zip" 
+        "https://downloads.wordpress.org/plugin/tinymce-advanced.zip" 
     ],
     "lifecycleScripts": {
-        "afterStart": "true || wp plugin activate resolate tinymce-advanced || true",
-        "afterClean": "true || wp plugin activate resolate tinymce-advanced || true"
+        "afterStart": "wp plugin activate resolate tinymce-advanced || true",
+        "afterClean": "wp plugin activate resolate tinymce-advanced || true"
   }
 }

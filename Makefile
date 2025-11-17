@@ -19,7 +19,7 @@ start-if-not-running:
 		echo "wp-env is NOT running. Starting (previous updating) containers..."; \
 		npx wp-env start --update; \
 		npx wp-env run cli wp plugin activate resolate; \
-		echo "Visit http://localhost:8888/?resolate_page=priority to access the Resolate dashboard."; \
+		echo "Visit http://localhost:8888/wp-admin/ to access the Resolate dashboard."; \
 	else \
 		echo "wp-env is already running, skipping start."; \
 	fi
@@ -47,7 +47,7 @@ down: check-docker
 clean:
 	npx wp-env clean development
 	npx wp-env clean tests
-	npx wp-env run cli wp plugin activate resolate 
+	npx wp-env run cli wp plugin activate resolate
 # 	npx wp-env run cli wp plugin install tinymce-advanced --activate
 
 destroy:

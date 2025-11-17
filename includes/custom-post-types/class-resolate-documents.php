@@ -1877,14 +1877,17 @@ class Resolate_Documents {
 			return array();
 		}
 
-		// Do not unslash JSON payloads from DB/meta; removing backslashes would corrupt
-		// escape sequences like \u00e1. Values coming from POST are already encoded upstream.
-
+		// WordPress may double-encode HTML entities when saving to meta.
+		// Decode them before attempting to parse as JSON.
 		if ( false !== strpos( $value, '&' ) ) {
 			$value = wp_specialchars_decode( $value, ENT_QUOTES );
 		}
 
+		// The value should be valid JSON encoded with JSON_HEX flags.
+		// JSON_HEX_QUOT/TAG/AMP/APOS encode special characters as \uXXXX sequences.
+		// These are standard JSON and will be decoded correctly by json_decode.
 		$decoded = json_decode( $value, true );
+
 		if ( ! is_array( $decoded ) ) {
 			return array();
 		}
@@ -1982,7 +1985,13 @@ class Resolate_Documents {
 					if ( empty( $items ) ) {
 						delete_post_meta( $post_id, $meta_key );
 					} else {
-						update_post_meta( $post_id, $meta_key, wp_json_encode( $items, JSON_UNESCAPED_UNICODE ) );
+						// Use JSON_HEX flags to encode quotes and other special chars as \uXXXX sequences.
+						// This avoids issues with WordPress's automatic slashing/unslashing of quotes.
+						// Do NOT use JSON_UNESCAPED_UNICODE so that accented characters are also encoded
+						// as \uXXXX, which allows fix_unescaped_unicode_sequences to handle them consistently.
+						$json_flags = JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS;
+						$json_value = wp_json_encode( $items, $json_flags );
+						update_post_meta( $post_id, $meta_key, $json_value );
 					}
 				}
 				continue;
