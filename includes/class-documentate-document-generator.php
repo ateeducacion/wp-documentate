@@ -675,7 +675,13 @@ class Documentate_Document_Generator {
 			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
 
 			$content = get_post_field( 'post_content', $post_id );
-			$content = apply_filters( 'the_content', $content );
+			// Process content manually instead of using the_content filter to avoid issues.
+			$content = wptexturize( $content );
+			$content = convert_smilies( $content );
+			$content = wpautop( $content );
+			$content = shortcode_unautofill( $content );
+			$content = wp_filter_content_tags( $content );
+			$content = do_shortcode( $content );
 			$fields = array(
 				'title'     => get_the_title( $post_id ),
 				'contenido' => self::prepare_field_value( (string) $content, 'rich', 'text' ),
@@ -722,10 +728,12 @@ class Documentate_Document_Generator {
 			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
 
 			$content = get_post_field( 'post_content', $post_id );
-			$content = apply_filters( 'the_content', $content );
+			// Process shortcodes and strip tags (no need for the_content filter).
+			$content = do_shortcode( $content );
+			$content = wp_strip_all_tags( $content );
 			$fields = array(
 				'title'     => get_the_title( $post_id ),
-				'contenido' => wp_strip_all_tags( (string) $content ),
+				'contenido' => $content,
 			);
 
 			$upload_dir = wp_upload_dir();

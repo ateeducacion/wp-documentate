@@ -43,7 +43,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-template-
 /**
  * The code that runs during plugin activation.
  */
-function activate_documentate() {
+function documentate_activate_plugin() {
 	// Set the permalink structure if necessary.
 	if ( '/%postname%/' !== get_option( 'permalink_structure' ) ) {
 		update_option( 'permalink_structure', '/%postname%/' );
@@ -62,7 +62,7 @@ function activate_documentate() {
 /**
  * The code that runs during plugin deactivation.
  */
-function deactivate_documentate() {
+function documentate_deactivate_plugin() {
 	flush_rewrite_rules();
 }
 
@@ -88,8 +88,8 @@ function documentate_update_handler( $upgrader_object, $options ) {
 	}
 }
 
-register_activation_hook( __FILE__, 'activate_documentate' );
-register_deactivation_hook( __FILE__, 'deactivate_documentate' );
+register_activation_hook( __FILE__, 'documentate_activate_plugin' );
+register_deactivation_hook( __FILE__, 'documentate_deactivate_plugin' );
 add_action( 'upgrader_process_complete', 'documentate_update_handler', 10, 2 );
 
 
@@ -820,9 +820,9 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
  * then kicking off the plugin from this point in the file does
  * not affect the page life cycle.
  */
-function run_documentate() {
+function documentate_run_plugin() {
 
 	$plugin = new Documentate();
 	$plugin->run();
 }
-run_documentate();
+documentate_run_plugin();
