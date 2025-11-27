@@ -187,7 +187,7 @@ class Documentate_Admin_Settings {
 	 */
 	public function collaborative_signaling_render() {
 		$options = get_option( 'documentate_settings', array() );
-		$value   = isset( $options['collaborative_signaling'] ) ? esc_url( $options['collaborative_signaling'] ) : '';
+		$value   = isset( $options['collaborative_signaling'] ) ? esc_url( $options['collaborative_signaling'], array( 'wss', 'ws' ) ) : '';
 		if ( '' === $value ) {
 			$value = 'wss://signaling.yjs.dev';
 		}
@@ -256,7 +256,7 @@ class Documentate_Admin_Settings {
 		if ( '' === $signaling_url ) {
 			$signaling_url = 'wss://signaling.yjs.dev';
 		}
-		$input['collaborative_signaling'] = esc_url_raw( $signaling_url );
+		$input['collaborative_signaling'] = esc_url_raw( $signaling_url, array( 'wss', 'ws' ) );
 
 		return $input;
 	}
