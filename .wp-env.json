@@ -9,12 +9,10 @@
         "wp-content/plugins/documentate": "./"
     },
     "plugins":  [ 
-        "https://downloads.wordpress.org/plugins/tinymce-advanced.zip",
-        "https://downloads.wordpress.org/plugins/debug-log-manager.zip",
-        "https://downloads.wordpress.org/plugins/sql-buddy.zip" 
+        "https://downloads.wordpress.org/plugins/tinymce-advanced.zip" 
     ],
     "lifecycleScripts": {
-        "afterStart": "true || wp plugin activate documentate tinymce-advanced debug-log-manager sql-buddy || true",
-        "afterClean": "true || wp plugin activate documentate tinymce-advanced debug-log-manager sql-buddy || true"
+        "afterStart": "true || wp plugin activate documentate tinymce-advanced || true",
+        "afterClean": "true || wp plugin activate documentate tinymce-advanced || true"
   }
 }
