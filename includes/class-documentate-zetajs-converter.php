@@ -172,38 +172,32 @@ class Documentate_Zetajs_Converter {
 	}
 
 	/**
-	 * Retrieve the configured CDN base URL for ZetaJS assets.
+	 * Whether the plugin is configured to use browser-based WASM conversion.
 	 *
-	 * @return string
-	 */
-	public static function get_cdn_base_url() {
-		$options = get_option( 'documentate_settings', array() );
-		$engine  = isset( $options['conversion_engine'] ) ? sanitize_key( $options['conversion_engine'] ) : 'collabora';
-		if ( 'wasm' !== $engine ) {
-			return '';
-		}
-
-		$base = defined( 'DOCUMENTATE_ZETAJS_CDN_BASE' ) ? (string) DOCUMENTATE_ZETAJS_CDN_BASE : '';
-		/**
-		 * Filter the CDN base URL for ZetaJS assets.
-		 *
-		 * @param string $base Current CDN base URL.
-		 */
-		$base = apply_filters( 'documentate_zetajs_cdn_base', $base );
-		$base = trim( (string) $base );
-		if ( '' === $base ) {
-			return '';
-		}
-		return trailingslashit( $base );
-	}
-
-	/**
-	 * Whether the plugin should rely on CDN-delivered assets for ZetaJS.
+	 * When enabled, document conversion is done client-side using LibreOffice WASM
+	 * loaded from the official ZetaOffice CDN.
 	 *
 	 * @return bool
 	 */
 	public static function is_cdn_mode() {
-		return '' !== self::get_cdn_base_url();
+		$options = get_option( 'documentate_settings', array() );
+		$engine  = isset( $options['conversion_engine'] ) ? sanitize_key( $options['conversion_engine'] ) : 'collabora';
+		return 'wasm' === $engine;
+	}
+
+	/**
+	 * Get the CDN base URL for ZetaJS WASM assets.
+	 *
+	 * This is used for display/logging only. The actual CDN URL is configured
+	 * in zetaHelper.js using wasmPkg: 'free'.
+	 *
+	 * @return string
+	 */
+	public static function get_cdn_base_url() {
+		if ( ! self::is_cdn_mode() ) {
+			return '';
+		}
+		return 'https://cdn.zetaoffice.net/zetaoffice_latest/';
 	}
 
 	/**

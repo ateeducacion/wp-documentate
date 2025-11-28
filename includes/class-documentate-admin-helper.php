@@ -52,6 +52,9 @@ class Documentate_Admin_Helper {
 		add_action( 'admin_post_documentate_preview', array( $this, 'handle_preview' ) );
 		add_action( 'admin_post_documentate_preview_stream', array( $this, 'handle_preview_stream' ) );
 
+		// Handler for the converter page with COOP/COEP headers (ZetaJS CDN mode).
+		add_action( 'admin_post_documentate_converter', array( $this, 'render_converter_page' ) );
+
 		// AJAX handler for document generation with progress modal.
 		add_action( 'wp_ajax_documentate_generate_document', array( $this, 'ajax_generate_document' ) );
 
@@ -265,22 +268,6 @@ class Documentate_Admin_Helper {
 
 		$result = Documentate_Document_Generator::generate_pdf( $post_id );
 		if ( is_wp_error( $result ) ) {
-			if ( 'documentate_conversion_not_available' === $result->get_error_code() ) {
-				require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-
-				$engine = Documentate_Conversion_Manager::get_engine();
-				if ( Documentate_Conversion_Manager::ENGINE_WASM === $engine ) {
-					if ( ! class_exists( 'Documentate_Zetajs_Converter' ) ) {
-						require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-zetajs-converter.php';
-					}
-
-					if ( class_exists( 'Documentate_Zetajs_Converter' ) && Documentate_Zetajs_Converter::is_cdn_mode() ) {
-						$this->render_browser_workspace( $post_id );
-						return;
-					}
-				}
-			}
-
 			wp_die( esc_html( $result->get_error_message() ), esc_html__( 'Error de previsualización', 'documentate' ), array( 'back_link' => true ) );
 		}
 
@@ -358,6 +345,55 @@ class Documentate_Admin_Helper {
 		}
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
+		exit;
+	}
+
+	/**
+	 * Render the converter page for ZetaJS CDN mode.
+	 *
+	 * This page runs in an iframe with COOP/COEP headers required for SharedArrayBuffer.
+	 * Uses admin-post.php as the entry point to ensure PHP executes properly.
+	 *
+	 * @return void
+	 */
+	public function render_converter_page() {
+		// Debug: Check if headers were already sent.
+		if ( headers_sent( $file, $line ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log( "Documentate: Headers already sent in $file on line $line" );
+		}
+
+		// Clear ALL output buffering levels from WordPress.
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+
+		// Start fresh buffer.
+		ob_start();
+
+		// Remove WordPress headers that may interfere with cross-origin isolation.
+		header_remove( 'X-Frame-Options' );
+		header_remove( 'Expires' );
+		header_remove( 'Cache-Control' );
+		header_remove( 'Pragma' );
+		header_remove( 'Referrer-Policy' );
+
+		// Send COOP/COEP headers required for SharedArrayBuffer (used by WASM).
+		// Using 'credentialless' instead of 'require-corp' - less restrictive, better iframe support.
+		header( 'Cross-Origin-Opener-Policy: same-origin' );
+		header( 'Cross-Origin-Embedder-Policy: credentialless' );
+		header( 'Content-Type: text/html; charset=utf-8' );
+
+		// Discard any buffered output.
+		ob_end_clean();
+
+		// Verify user has permission.
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_die( esc_html__( 'No tienes permiso para acceder a esta página.', 'documentate' ) );
+		}
+
+		// Include the converter template.
+		include plugin_dir_path( __FILE__ ) . '../admin/documentate-converter-template.php';
 		exit;
 	}
 
@@ -462,257 +498,6 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
-	 * Render the browser-based workspace when using ZetaJS CDN mode.
-	 *
-	 * @param int $post_id Document post ID.
-	 * @return void
-	 */
-	private function render_browser_workspace( $post_id ) {
-		if ( ! class_exists( 'Documentate_Zetajs_Converter' ) ) {
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-zetajs-converter.php';
-		}
-
-		if ( ! class_exists( 'Documentate_Zetajs_Converter' ) || ! Documentate_Zetajs_Converter::is_cdn_mode() ) {
-			wp_die( esc_html__( 'No hay motor de conversión disponible.', 'documentate' ), esc_html__( 'Error de previsualización', 'documentate' ), array( 'back_link' => true ) );
-		}
-
-		$title          = get_the_title( $post_id );
-		$base           = admin_url( 'admin-post.php' );
-		$export_nonce   = wp_create_nonce( 'documentate_export_' . $post_id );
-		$preview_nonce  = wp_create_nonce( 'documentate_preview_' . $post_id );
-		$edit_link      = get_edit_post_link( $post_id, 'url' );
-		$preview_url    = add_query_arg(
-			array(
-				'action'   => 'documentate_preview',
-				'post_id'  => $post_id,
-				'_wpnonce' => $preview_nonce,
-			),
-			$base
-		);
-		$docx_url       = add_query_arg(
-			array(
-				'action'   => 'documentate_export_docx',
-				'post_id'  => $post_id,
-				'_wpnonce' => $export_nonce,
-			),
-			$base
-		);
-		$odt_url        = add_query_arg(
-			array(
-				'action'   => 'documentate_export_odt',
-				'post_id'  => $post_id,
-				'_wpnonce' => $export_nonce,
-			),
-			$base
-		);
-		$pdf_url        = add_query_arg(
-			array(
-				'action'   => 'documentate_export_pdf',
-				'post_id'  => $post_id,
-				'_wpnonce' => $export_nonce,
-			),
-			$base
-		);
-
-		$this->ensure_document_generator();
-
-		$zetajs_ready = class_exists( 'Documentate_Zetajs_Converter' ) && Documentate_Zetajs_Converter::is_available();
-
-		$docx_available = ( '' !== $docx_template ) || ( '' !== $odt_template && $zetajs_ready );
-		$odt_available  = ( '' !== $odt_template ) || ( '' !== $docx_template && $zetajs_ready );
-		$pdf_available  = $zetajs_ready && ( '' !== $docx_template || '' !== $odt_template );
-
-		$docx_message = '' === $docx_template && '' !== $odt_template
-			? __( 'Configura ZetaJS para convertir tu plantilla ODT a DOCX.', 'documentate' )
-			: __( 'Configura una plantilla DOCX en el tipo de documento.', 'documentate' );
-		$odt_message = '' === $odt_template && '' !== $docx_template
-			? __( 'Configura ZetaJS para convertir tu plantilla DOCX a ODT.', 'documentate' )
-			: __( 'Configura una plantilla ODT en el tipo de documento.', 'documentate' );
-		$pdf_message = __( 'Instala ZetaJS y configura DOCUMENTATE_ZETAJS_BIN para habilitar la conversión a PDF.', 'documentate' );
-		if ( '' === $docx_template && '' === $odt_template ) {
-			$pdf_message = __( 'Configura una plantilla DOCX u ODT en el tipo de documento antes de generar el PDF.', 'documentate' );
-		}
-
-		$steps = array(
-			'docx' => array(
-				'label'     => __( 'Generar DOCX', 'documentate' ),
-				'available' => $docx_available,
-				'href'      => $docx_url,
-				'type'      => 'docx',
-				'message'   => $docx_message,
-			),
-			'odt'  => array(
-				'label'     => __( 'Generar ODT', 'documentate' ),
-				'available' => $odt_available,
-				'href'      => $odt_url,
-				'type'      => 'odt',
-				'message'   => $odt_message,
-			),
-			'pdf'  => array(
-				'label'     => __( 'Generar PDF', 'documentate' ),
-				'available' => $pdf_available,
-				'href'      => $pdf_url,
-				'type'      => 'pdf',
-				'message'   => $pdf_message,
-			),
-		);
-
-		$cdn_base = Documentate_Zetajs_Converter::get_cdn_base_url();
-
-		$loader_config = array(
-			'baseUrl'         => $cdn_base,
-			'loadingText'     => __( 'Cargando LibreOffice…', 'documentate' ),
-			'errorText'       => __( 'No se pudo cargar LibreOffice.', 'documentate' ),
-			'pendingSelector' => '[data-zetajs-disabled]',
-			'readyEvent'      => 'documentateZeta:ready',
-			'errorEvent'      => 'documentateZeta:error',
-			'assets'          => array(
-				array(
-					'href' => 'soffice.wasm',
-					'as'   => 'fetch',
-				),
-				array(
-					'href' => 'soffice.data',
-					'as'   => 'fetch',
-				),
-			),
-		);
-
-		$workspace_config = array(
-			'events'      => array(
-				'ready' => 'documentateZeta:ready',
-				'error' => 'documentateZeta:error',
-			),
-			'frameTarget' => 'documentateExportFrame',
-			'strings'     => array(
-				'loaderLoading' => __( 'Cargando LibreOffice…', 'documentate' ),
-				'loaderReady'   => __( 'LibreOffice cargado.', 'documentate' ),
-				'loaderError'   => __( 'No se pudo cargar LibreOffice.', 'documentate' ),
-				'stepPending'   => __( 'En espera…', 'documentate' ),
-				'stepReady'     => __( 'Listo para generar.', 'documentate' ),
-				'stepWorking'   => __( 'Generando…', 'documentate' ),
-				'stepDone'      => __( 'Descarga preparada.', 'documentate' ),
-			),
-		);
-
-		$workspace_class = 'documentate-export-workspace';
-
-		$style_handle  = 'documentate-export-workspace';
-		$loader_handle = 'documentate-zetajs-loader';
-		$app_handle    = 'documentate-export-workspace-app';
-
-		wp_enqueue_style( $style_handle, plugins_url( 'admin/css/documentate-export-workspace.css', DOCUMENTATE_PLUGIN_FILE ), array(), DOCUMENTATE_VERSION );
-		wp_enqueue_script( $loader_handle, plugins_url( 'admin/js/documentate-zetajs-loader.js', DOCUMENTATE_PLUGIN_FILE ), array(), DOCUMENTATE_VERSION, true );
-		if ( function_exists( 'wp_script_add_data' ) ) {
-			wp_script_add_data( $loader_handle, 'type', 'module' );
-		}
-		wp_enqueue_script( $app_handle, plugins_url( 'admin/js/documentate-export-workspace.js', DOCUMENTATE_PLUGIN_FILE ), array(), DOCUMENTATE_VERSION, true );
-		if ( function_exists( 'wp_script_add_data' ) ) {
-			wp_script_add_data( $app_handle, 'script_execution', 'defer' );
-		}
-
-		wp_add_inline_script( $loader_handle, 'window.documentateZetaLoaderConfig = ' . wp_json_encode( $loader_config ) . ';', 'before' );
-		wp_add_inline_script( $app_handle, 'window.documentateExportWorkspaceConfig = ' . wp_json_encode( $workspace_config ) . ';', 'before' );
-
-		$styles_html  = '';
-		$scripts_html = '';
-		if ( function_exists( 'wp_print_styles' ) ) {
-			ob_start();
-			wp_print_styles( array( $style_handle ) );
-			$styles_html = ob_get_clean();
-		}
-		if ( function_exists( 'wp_print_scripts' ) ) {
-			ob_start();
-			wp_print_scripts( array( $loader_handle, $app_handle ) );
-			$scripts_html = ob_get_clean();
-		}
-
-		echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
-		/* translators: %s: document title shown in the export workspace window. */
-		echo '<title>' . esc_html( sprintf( __( 'Previsualizar y exportar · %s', 'documentate' ), $title ) ) . '</title>';
-		if ( '' !== $styles_html ) {
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Core prints sanitized style tags.
-			echo $styles_html;
-		}
-		echo '</head><body class="' . esc_attr( $workspace_class ) . '">';
-
-		echo '<div class="documentate-export-workspace__layout">';
-		echo '<header class="documentate-export-workspace__header">';
-		echo '<div class="documentate-export-workspace__headline">';
-		echo '<h1>' . esc_html( $title ) . '</h1>';
-		echo '<p>' . esc_html__( 'Convierte el documento con LibreOffice cargado desde la CDN oficial.', 'documentate' ) . '</p>';
-		echo '</div>';
-		if ( $edit_link ) {
-			echo '<div class="documentate-export-workspace__header-actions">';
-			echo '<a class="button" href="' . esc_url( $edit_link ) . '">' . esc_html__( 'Volver al editor', 'documentate' ) . '</a>';
-			echo '</div>';
-		}
-		echo '</header>';
-
-		echo '<main class="documentate-export-workspace__content">';
-		echo '<section class="documentate-export-workspace__preview">';
-		echo '<iframe src="' . esc_url( $preview_url ) . '" title="' . esc_attr__( 'Vista previa del documento', 'documentate' ) . '" loading="lazy"></iframe>';
-		echo '</section>';
-
-		echo '<aside class="documentate-export-workspace__panel">';
-		echo '<div class="documentate-export-workspace__status" data-documentate-workspace-status>' . esc_html__( 'Cargando LibreOffice…', 'documentate' ) . '</div>';
-		echo '<p class="documentate-export-workspace__intro">' . esc_html__( 'Cuando LibreOffice esté listo podrás descargar el formato que necesites.', 'documentate' ) . '</p>';
-
-		echo '<ul class="documentate-export-workspace__steps">';
-		echo '<li class="documentate-export-workspace__step is-active" data-documentate-step="loader" data-documentate-step-available="1">';
-		echo '<span class="documentate-export-workspace__step-title">' . esc_html__( 'Cargando LibreOffice', 'documentate' ) . '</span>';
-		echo '<span class="documentate-export-workspace__step-status" data-documentate-step-status>' . esc_html__( 'En espera…', 'documentate' ) . '</span>';
-		echo '</li>';
-		foreach ( $steps as $key => $data ) {
-			$available_attr = $data['available'] ? '1' : '0';
-			$classes        = 'documentate-export-workspace__step';
-			$classes       .= $data['available'] ? ' is-pending' : ' is-disabled';
-			echo '<li class="' . esc_attr( $classes ) . '" data-documentate-step="' . esc_attr( $key ) . '" data-documentate-step-available="' . esc_attr( $available_attr ) . '">';
-			echo '<span class="documentate-export-workspace__step-title">' . esc_html( $data['label'] ) . '</span>';
-			if ( $data['available'] ) {
-				echo '<span class="documentate-export-workspace__step-status" data-documentate-step-status>' . esc_html__( 'En espera…', 'documentate' ) . '</span>';
-			} else {
-				echo '<span class="documentate-export-workspace__step-status">' . esc_html( $data['message'] ) . '</span>';
-			}
-			echo '</li>';
-		}
-		echo '</ul>';
-
-		echo '<div class="documentate-export-workspace__buttons">';
-		foreach ( $steps as $key => $data ) {
-			if ( $data['available'] ) {
-				$attrs = array(
-					'class'                => 'button button-secondary disabled',
-					'href'                 => $data['href'],
-					'aria-disabled'        => 'true',
-					'data-zetajs-disabled' => '1',
-					'data-zetajs-type'     => $data['type'],
-					'data-documentate-step-target' => $key,
-					'target'               => 'documentateExportFrame',
-				);
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-				echo '<a ' . $this->build_action_attributes( $attrs ) . '>' . esc_html( $data['label'] ) . '</a>';
-			} else {
-				echo '<button type="button" class="button" disabled>' . esc_html( $data['label'] ) . '</button>';
-			}
-		}
-		echo '</div>';
-
-		echo '<p class="documentate-export-workspace__note">' . esc_html__( 'Las descargas se abrirán en segundo plano o se guardarán según la configuración de tu navegador.', 'documentate' ) . '</p>';
-		echo '<iframe class="documentate-export-workspace__frame" name="documentateExportFrame" title="' . esc_attr__( 'Descargas de exportación', 'documentate' ) . '" hidden></iframe>';
-		echo '</aside>';
-		echo '</main>';
-		echo '</div>';
-
-		if ( '' !== $scripts_html ) {
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Core prints sanitized script tags.
-			echo $scripts_html;
-		}
-		echo '</body></html>';
-		exit;
-	}
-
-	/**
 	 * Add actions metabox to the edit screen.
 	 */
 	public function add_actions_metabox() {
@@ -788,28 +573,43 @@ class Documentate_Admin_Helper {
 		$docx_requires_conversion = ( '' === $docx_template && '' !== $odt_template );
 		$odt_requires_conversion  = ( '' === $odt_template && '' !== $docx_template );
 
-		$docx_available = ( '' !== $docx_template ) || ( $docx_requires_conversion && $conversion_ready );
-		$odt_available  = ( '' !== $odt_template ) || ( $odt_requires_conversion && $conversion_ready );
-		$pdf_available  = $conversion_ready && ( '' !== $docx_template || '' !== $odt_template );
+		// Check if ZetaJS CDN mode is available for browser-based preview.
+		$zetajs_cdn_available = false;
+		if ( ! $conversion_ready ) {
+			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-zetajs-converter.php';
+			$zetajs_cdn_available = Documentate_Zetajs_Converter::is_cdn_mode();
+		}
+
+		// In CDN mode, browser can do conversions too.
+		$can_convert    = $conversion_ready || $zetajs_cdn_available;
+		$docx_available = ( '' !== $docx_template ) || ( $docx_requires_conversion && $can_convert );
+		$odt_available  = ( '' !== $odt_template ) || ( $odt_requires_conversion && $can_convert );
+		$pdf_available  = $can_convert && ( '' !== $docx_template || '' !== $odt_template );
+
+		// Determine source format for CDN conversions.
+		$source_format = '' !== $odt_template ? 'odt' : ( '' !== $docx_template ? 'docx' : '' );
 
 		$docx_message = __( 'Configura una plantilla DOCX en el tipo de documento.', 'documentate' );
-		if ( $docx_requires_conversion && ! $conversion_ready ) {
+		if ( $docx_requires_conversion && ! $can_convert ) {
 			$docx_message = Documentate_Conversion_Manager::get_unavailable_message( 'odt', 'docx' );
 		}
 
 		$odt_message = __( 'Configura una plantilla ODT en el tipo de documento.', 'documentate' );
-		if ( $odt_requires_conversion && ! $conversion_ready ) {
+		if ( $odt_requires_conversion && ! $can_convert ) {
 			$odt_message = Documentate_Conversion_Manager::get_unavailable_message( 'docx', 'odt' );
 		}
 
 		if ( '' === $docx_template && '' === $odt_template ) {
 			$pdf_message = __( 'Configura una plantilla DOCX u ODT en el tipo de documento antes de generar el PDF.', 'documentate' );
-		} else {
+		} elseif ( ! $can_convert ) {
 			$source_for_pdf = '' !== $docx_template ? 'docx' : 'odt';
 			$pdf_message    = Documentate_Conversion_Manager::get_unavailable_message( $source_for_pdf, 'pdf' );
+		} else {
+			$pdf_message = '';
 		}
 
-		$preview_available = $pdf_available;
+		// Preview is available if server conversion is ready OR if ZetaJS CDN mode can do browser conversion.
+		$preview_available = $pdf_available || ( $zetajs_cdn_available && ( '' !== $docx_template || '' !== $odt_template ) );
 		$preview_message   = $pdf_message;
 
 		$preferred_format = '';
@@ -837,6 +637,11 @@ class Documentate_Admin_Helper {
 				'data-documentate-action' => 'preview',
 				'data-documentate-format' => 'pdf',
 			);
+			// In CDN mode, add attributes for browser-based conversion.
+			if ( $zetajs_cdn_available && ! $conversion_ready ) {
+				$preview_attrs['data-documentate-cdn-mode']      = '1';
+				$preview_attrs['data-documentate-source-format'] = $source_format;
+			}
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 			echo '<a ' . $this->build_action_attributes( $preview_attrs ) . '>' . esc_html__( 'Previsualizar', 'documentate' ) . '</a>';
 		} else {
@@ -879,6 +684,13 @@ class Documentate_Admin_Helper {
 					'data-documentate-action' => 'download',
 					'data-documentate-format' => $format,
 				);
+				// In CDN mode, add attributes for browser-based conversion.
+				// Conversion is needed if target format differs from source template.
+				$needs_cdn_conversion = $zetajs_cdn_available && ! $conversion_ready && $format !== $source_format;
+				if ( $needs_cdn_conversion ) {
+					$attrs['data-documentate-cdn-mode']      = '1';
+					$attrs['data-documentate-source-format'] = $source_format;
+				}
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 				echo '<a ' . $this->build_action_attributes( $attrs ) . '>' . esc_html( $data['label'] ) . '</a> ';
 			} else {
@@ -1032,25 +844,41 @@ class Documentate_Admin_Helper {
 			true
 		);
 
-		wp_localize_script(
-			'documentate-actions',
-			'documentateActionsConfig',
-			array(
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'postId'  => $post_id,
-				'nonce'   => wp_create_nonce( 'documentate_generate_' . $post_id ),
-				'strings' => array(
-					'generating'        => __( 'Generando documento...', 'documentate' ),
-					'generatingPreview' => __( 'Generando vista previa...', 'documentate' ),
-					/* translators: %s: document format (DOCX, ODT, PDF). */
-					'generatingFormat'  => __( 'Generando %s...', 'documentate' ),
-					'wait'              => __( 'Por favor, espera mientras se genera el documento.', 'documentate' ),
-					'close'             => __( 'Cerrar', 'documentate' ),
-					'errorGeneric'      => __( 'Error al generar el documento.', 'documentate' ),
-					'errorNetwork'      => __( 'Error de conexión. Por favor, inténtalo de nuevo.', 'documentate' ),
-				),
-			)
+		// Check if ZetaJS CDN mode is available.
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-zetajs-converter.php';
+
+		$conversion_ready     = Documentate_Conversion_Manager::is_available();
+		$zetajs_cdn_available = ! $conversion_ready && Documentate_Zetajs_Converter::is_cdn_mode();
+
+		$config = array(
+			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+			'postId'  => $post_id,
+			'nonce'   => wp_create_nonce( 'documentate_generate_' . $post_id ),
+			'strings' => array(
+				'generating'        => __( 'Generando documento...', 'documentate' ),
+				'generatingPreview' => __( 'Generando vista previa...', 'documentate' ),
+				/* translators: %s: document format (DOCX, ODT, PDF). */
+				'generatingFormat'  => __( 'Generando %s...', 'documentate' ),
+				'wait'              => __( 'Por favor, espera mientras se genera el documento.', 'documentate' ),
+				'close'             => __( 'Cerrar', 'documentate' ),
+				'errorGeneric'      => __( 'Error al generar el documento.', 'documentate' ),
+				'errorNetwork'      => __( 'Error de conexión. Por favor, inténtalo de nuevo.', 'documentate' ),
+				'loadingWasm'       => __( 'Cargando LibreOffice...', 'documentate' ),
+				'convertingBrowser' => __( 'Convirtiendo en el navegador...', 'documentate' ),
+				'wasmError'         => __( 'Error al cargar LibreOffice.', 'documentate' ),
+			),
 		);
+
+		// If CDN mode is available, add converter URL to config.
+		// The converter runs in an iframe with COOP/COEP headers for SharedArrayBuffer support.
+		// Uses admin-post.php as entry point to ensure PHP executes and headers are sent.
+		if ( $zetajs_cdn_available ) {
+			$config['cdnMode']      = true;
+			$config['converterUrl'] = admin_url( 'admin-post.php?action=documentate_converter' );
+		}
+
+		wp_localize_script( 'documentate-actions', 'documentateActionsConfig', $config );
 	}
 
 	/**
@@ -1091,7 +919,21 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+			// Include debug info for troubleshooting.
+			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
+
+			$debug = array(
+				'code'          => $result->get_error_code(),
+				'data'          => $result->get_error_data(),
+				'is_playground' => Documentate_Collabora_Converter::is_playground(),
+			);
+
+			wp_send_json_error(
+				array(
+					'message' => $result->get_error_message(),
+					'debug'   => $debug,
+				)
+			);
 		}
 
 		// Build the URL for download/preview.

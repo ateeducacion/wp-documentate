@@ -2,13 +2,17 @@
   "devDependencies": {
     "@wordpress/e2e-test-utils-playwright": "^1.36.0",
     "@wordpress/env": "^10.12.0",
-    "@wordpress/scripts": "^31.1.0"
+    "@wordpress/scripts": "^31.1.0",
+    "zetajs": "^1.0.0"
   },
   "scripts": {
     "wp-env": "wp-env",
     "composer": "wp-env run cli --env-cwd=wp-content/plugins/documentate composer",
     "composer:tests-cli": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate composer",
     "test:e2e": "wp-scripts test-playwright --config tests/e2e/playwright.config.js",
-    "test:unit": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit"
+    "test:unit": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit",
+    "copy:zetajs": "rm -rf admin/vendor/zetajs && mkdir -p admin/vendor/zetajs && cp node_modules/zetajs/source/zetaHelper.js admin/vendor/zetajs/ && cp node_modules/zetajs/source/zeta.js admin/vendor/zetajs/",
+    "postinstall": "npm run copy:zetajs",
+    "postupdate": "npm run copy:zetajs"
   }
 }

@@ -2178,11 +2178,13 @@ class Documentate_Documents {
 						$items = $this->get_array_field_items_from_structured( $existing_structured[ $slug ] );
 				}
 
-							$structured_fields[ $slug ] = array(
-								'type'  => 'array',
-								// Use the same JSON_HEX flags as in save_dynamic_fields_meta for consistency.
-								'value' => ! empty( $items ) ? wp_json_encode( $items, JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS ) : '[]',
-							);
+							// Use the same JSON_HEX flags as in save_dynamic_fields_meta for consistency.
+						// wp_slash() preserves backslashes (like \n and \uXXXX) through WordPress's wp_unslash() in wp_insert_post().
+						$json_value                 = ! empty( $items ) ? wp_json_encode( $items, JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS ) : '[]';
+						$structured_fields[ $slug ] = array(
+							'type'  => 'array',
+							'value' => wp_slash( $json_value ),
+						);
 							continue;
 			}
 
@@ -2195,6 +2197,12 @@ class Documentate_Documents {
 			if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 				$raw_input = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 				$raw_input = is_scalar( $raw_input ) ? (string) $raw_input : '';
+
+				// Force rich type if content contains block HTML (tables, lists, etc.)
+				// to preserve formatting from TinyMCE regardless of schema type.
+				if ( 'rich' !== $type && self::value_contains_block_html( $raw_input ) ) {
+					$type = 'rich';
+				}
 
 				if ( 'single' === $type ) {
 					$value = sanitize_text_field( $raw_input );
@@ -2615,6 +2623,41 @@ class Documentate_Documents {
 		};
 
 			return (string) preg_replace_callback( '/u([0-9a-fA-F]{4})/i', $callback, $text );
+	}
+
+	/**
+	 * Check if a value contains block-level HTML that requires rich text handling.
+	 *
+	 * This detects HTML content in fields that may not be explicitly typed as 'rich',
+	 * ensuring tables, lists, and other block elements from TinyMCE are preserved.
+	 *
+	 * @param string $value Field value to check.
+	 * @return bool True if value contains block HTML tags.
+	 */
+	private static function value_contains_block_html( $value ) {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return false;
+		}
+		// Quick check: must contain both < and > to be HTML.
+		if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
+			return false;
+		}
+		// Detect block-level HTML tags that require preservation.
+		$block_patterns = array(
+			'/<table[\s>]/i',
+			'/<ul[\s>]/i',
+			'/<ol[\s>]/i',
+			'/<p[\s>]/i',
+			'/<h[1-6][\s>]/i',
+			'/<blockquote[\s>]/i',
+			'/<div[\s>]/i',
+		);
+		foreach ( $block_patterns as $pattern ) {
+			if ( preg_match( $pattern, $value ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
 

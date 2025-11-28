@@ -176,6 +176,13 @@ class Documentate_OpenTBS {
 	 */
 	private static function apply_docx_rich_text( $doc_path, $rich_values ) {
 			$lookup = self::prepare_rich_lookup( $rich_values );
+		// Debug logging.
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( 'DOCUMENTATE apply_docx_rich_text: rich_values_count=' . count( $rich_values ) . ', lookup_count=' . count( $lookup ) );
+			foreach ( $lookup as $key => $val ) {
+				error_log( 'DOCUMENTATE lookup[' . strlen( $key ) . ' chars]: ' . substr( $key, 0, 100 ) . '...' );
+			}
+		}
 		if ( empty( $lookup ) ) {
 				return true;
 		}
@@ -228,6 +235,9 @@ class Documentate_OpenTBS {
 		if ( empty( $rich_lookup ) ) {
 				return $xml;
 		}
+			// Normalize line endings to match ODT processing (handles HTML with newlines between tags).
+			$rich_lookup = self::normalize_lookup_line_endings( $rich_lookup );
+
 			$dom = new DOMDocument();
 			$dom->preserveWhiteSpace = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			$dom->formatOutput       = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
@@ -239,56 +249,109 @@ class Documentate_OpenTBS {
 		}
 			$xpath = new DOMXPath( $dom );
 			$xpath->registerNamespace( 'w', self::WORD_NAMESPACE );
-			$nodes    = $xpath->query( '//w:t' );
-			$modified = false;
-		if ( $nodes instanceof DOMNodeList ) {
+
+			// Process paragraphs instead of individual w:t nodes to handle HTML split across runs.
+			$paragraphs = $xpath->query( '//w:p' );
+			$modified   = false;
+
+		if ( $paragraphs instanceof DOMNodeList ) {
 			// Convert to array to avoid issues with DOM modification during iteration.
-			$nodes_array = array();
-			foreach ( $nodes as $node ) {
-				$nodes_array[] = $node;
+			$para_array = array();
+			foreach ( $paragraphs as $para ) {
+				$para_array[] = $para;
 			}
-			foreach ( $nodes_array as $node ) {
-				if ( ! $node instanceof DOMElement ) {
-					continue;
-				}
-				$value = html_entity_decode( $node->textContent, ENT_QUOTES | ENT_XML1, 'UTF-8' ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-				if ( '' === $value ) {
-					continue;
-				}
 
-				// Find HTML fragments within the text (like ODT does).
-				$match = self::find_next_html_match( $value, $rich_lookup, 0 );
-				if ( false === $match ) {
-					continue;
-				}
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'DOCUMENTATE convert_docx_part: checking ' . count( $para_array ) . ' paragraphs' );
+			}
 
-				list( $match_pos, $match_key, $match_raw ) = $match;
-
-				$run = $node->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-				if ( ! $run instanceof DOMElement ) {
-						continue;
-				}
-				$base_rpr   = self::clone_run_properties( $run );
-
-				$paragraph = $run->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			foreach ( $para_array as $paragraph ) {
 				if ( ! $paragraph instanceof DOMElement ) {
 					continue;
 				}
 
-				// Build prefix text run if there's content before the HTML.
-				$prefix = substr( $value, 0, $match_pos );
-				if ( '' !== $prefix ) {
-					$prefix_run = self::build_docx_text_run( $dom, $prefix, $base_rpr );
-					$paragraph->insertBefore( $prefix_run, $run );
+				// Collect all w:t nodes and their text within this paragraph.
+				$t_nodes  = $xpath->query( './/w:t', $paragraph );
+				$para_map = self::build_paragraph_text_map( $t_nodes );
+
+				if ( empty( $para_map['text'] ) ) {
+					continue;
 				}
 
-				// Build suffix text run if there's content after the HTML (use key length for position).
-				$suffix = substr( $value, $match_pos + strlen( $match_key ) );
+				// Decode HTML entities to match raw HTML.
+				$coalesced = html_entity_decode( $para_map['text'], ENT_QUOTES | ENT_XML1, 'UTF-8' );
 
-				// Convert the matched HTML using raw value for parsing.
+				// Normalize for matching (removes orphaned indentation spaces left by TBS).
+				$coalesced = self::normalize_for_html_matching( $coalesced );
+
+				// Debug: log paragraph text if it contains HTML-like content.
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && false !== strpos( $coalesced, '<' ) ) {
+					$escaped = htmlspecialchars( substr( $coalesced, 0, 300 ), ENT_QUOTES, 'UTF-8' );
+					error_log( 'DOCUMENTATE paragraph text [' . strlen( $coalesced ) . ' chars, ' . count( $para_map['nodes'] ) . ' nodes]: ' . $escaped );
+				}
+
+				// Find HTML match in coalesced paragraph text.
+				$match = self::find_next_html_match( $coalesced, $rich_lookup, 0 );
+				if ( false === $match ) {
+					continue;
+				}
+
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( 'DOCUMENTATE convert_docx_part: MATCH FOUND at pos ' . $match[0] . ' in paragraph, converting HTML' );
+				}
+
+				list( $match_pos, $match_key, $match_raw ) = $match;
+				$match_end = $match_pos + strlen( $match_key );
+
+				// Find the base run properties from the first affected run.
+				$base_rpr = null;
+				foreach ( $para_map['nodes'] as $node_info ) {
+					if ( $node_info['end'] > $match_pos ) {
+						$run = $node_info['node']->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+						if ( $run instanceof DOMElement ) {
+							$base_rpr = self::clone_run_properties( $run );
+						}
+						break;
+					}
+				}
+
+				// Build prefix text (before the HTML match).
+				$prefix = substr( $coalesced, 0, $match_pos );
+
+				// Build suffix text (after the HTML match).
+				$suffix = substr( $coalesced, $match_end );
+
+				// Collect runs that need to be removed (those containing the matched HTML).
+				$runs_to_remove = array();
+				foreach ( $para_map['nodes'] as $node_info ) {
+					// Check if this node overlaps with the match range.
+					if ( $node_info['end'] > $match_pos && $node_info['start'] < $match_end ) {
+						$run = $node_info['node']->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+						if ( $run instanceof DOMElement && ! in_array( $run, $runs_to_remove, true ) ) {
+							$runs_to_remove[] = $run;
+						}
+					}
+				}
+
+				if ( empty( $runs_to_remove ) ) {
+					continue;
+				}
+
+				// Get insertion reference point (first run to remove).
+				$insert_before = $runs_to_remove[0];
+
+				// Build prefix run if needed.
+				if ( '' !== $prefix ) {
+					$prefix_run = self::build_docx_text_run( $dom, $prefix, $base_rpr );
+					$paragraph->insertBefore( $prefix_run, $insert_before );
+				}
+
+				// Convert the matched HTML.
 				$conversion = self::build_docx_nodes_from_html( $dom, $match_raw, $base_rpr, $relationships );
 
-				if ( ! empty( $conversion['block'] ) && '' === $prefix && '' === $suffix && ! self::paragraph_contains_other_content( $paragraph, $run ) ) {
+				// Check if we should replace the entire paragraph with block content.
+				$is_block_only = ! empty( $conversion['block'] ) && '' === trim( $prefix ) && '' === trim( $suffix );
+				if ( $is_block_only ) {
 					$container = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 					if ( $container && ! empty( $conversion['nodes'] ) ) {
 						foreach ( $conversion['nodes'] as $node_to_insert ) {
@@ -296,32 +359,37 @@ class Documentate_OpenTBS {
 								$container->insertBefore( $node_to_insert, $paragraph );
 							}
 						}
-						$paragraph->removeChild( $run );
-						if ( 0 === $paragraph->childNodes->length ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-							$container->removeChild( $paragraph );
-						}
+						// Remove the original paragraph.
+						$container->removeChild( $paragraph );
 						$modified = true;
 						continue;
 					}
 				}
 
+				// Insert converted inline runs.
 				$inline_runs = ! empty( $conversion['block'] )
 					? self::build_docx_inline_runs_from_html( $dom, $match_raw, $base_rpr, $relationships )
 					: ( ! empty( $conversion['nodes'] ) ? $conversion['nodes'] : array() );
 
 				foreach ( $inline_runs as $new_run ) {
 					if ( $new_run instanceof DOMElement ) {
-						$paragraph->insertBefore( $new_run, $run );
+						$paragraph->insertBefore( $new_run, $insert_before );
 					}
 				}
 
-				// Add suffix run if needed.
+				// Build suffix run if needed.
 				if ( '' !== $suffix ) {
 					$suffix_run = self::build_docx_text_run( $dom, $suffix, $base_rpr );
-					$paragraph->insertBefore( $suffix_run, $run );
+					$paragraph->insertBefore( $suffix_run, $insert_before );
 				}
 
-				$paragraph->removeChild( $run );
+				// Remove the original runs that contained the HTML.
+				foreach ( $runs_to_remove as $run ) {
+					if ( $run->parentNode === $paragraph ) {
+						$paragraph->removeChild( $run );
+					}
+				}
+
 				$modified = true;
 			}
 		}
@@ -346,6 +414,48 @@ class Documentate_OpenTBS {
 		$t->appendChild( $doc->createTextNode( $text ) );
 		$run->appendChild( $t );
 		return $run;
+	}
+
+	/**
+	 * Build a map of text content from w:t nodes within a paragraph.
+	 *
+	 * This coalesces text from multiple w:t nodes into a single string while
+	 * tracking the position of each node within that string.
+	 *
+	 * @param DOMNodeList|false $t_nodes List of w:t nodes.
+	 * @return array{text:string,nodes:array<int,array{node:DOMElement,start:int,end:int}>}
+	 */
+	private static function build_paragraph_text_map( $t_nodes ) {
+		$result = array(
+			'text'  => '',
+			'nodes' => array(),
+		);
+
+		if ( ! $t_nodes instanceof DOMNodeList ) {
+			return $result;
+		}
+
+		$position = 0;
+		foreach ( $t_nodes as $node ) {
+			if ( ! $node instanceof DOMElement ) {
+				continue;
+			}
+			$text  = $node->textContent; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			$len   = strlen( $text );
+			$start = $position;
+			$end   = $position + $len;
+
+			$result['text']   .= $text;
+			$result['nodes'][] = array(
+				'node'  => $node,
+				'start' => $start,
+				'end'   => $end,
+			);
+
+			$position = $end;
+		}
+
+		return $result;
 	}
 
 	/**
@@ -454,13 +564,57 @@ class Documentate_OpenTBS {
 
 		$modified      = false;
 		$style_require = array();
-		$nodes         = $xpath->query( '//text()' );
-		if ( $nodes instanceof DOMNodeList ) {
-			foreach ( $nodes as $node ) {
-				if ( ! $node instanceof DOMText ) {
+
+		// Process paragraph by paragraph to handle HTML split by text:line-break elements.
+		$paragraphs = $xpath->query( '//text:p' );
+		if ( $paragraphs instanceof DOMNodeList ) {
+			// Convert to array to avoid issues with DOM modification during iteration.
+			$para_array = array();
+			foreach ( $paragraphs as $para ) {
+				$para_array[] = $para;
+			}
+
+			foreach ( $para_array as $paragraph ) {
+				if ( ! $paragraph instanceof DOMElement ) {
 					continue;
 				}
-				$changed = self::replace_odt_text_node_html( $node, $lookup, $style_require );
+
+				// Collect all text nodes in the paragraph.
+				$text_nodes = array();
+				$coalesced  = '';
+				foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+					if ( $child instanceof DOMText ) {
+						$text_nodes[] = $child;
+						$coalesced   .= $child->wholeText; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+					}
+				}
+
+				if ( empty( $coalesced ) ) {
+					continue;
+				}
+
+				// Decode HTML entities and normalize newlines.
+				$coalesced = self::normalize_text_newlines( $coalesced );
+				$coalesced = html_entity_decode( $coalesced, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+
+				// Normalize for matching (removes orphaned indentation spaces left by TBS).
+				$coalesced = self::normalize_for_html_matching( $coalesced );
+
+				// Check if there's an HTML match in the coalesced text.
+				$match = self::find_next_html_match( $coalesced, $lookup, 0 );
+				if ( false === $match ) {
+					// No match found; try individual text nodes for backward compatibility.
+					foreach ( $text_nodes as $node ) {
+						$changed = self::replace_odt_text_node_html( $node, $lookup, $style_require );
+						if ( $changed ) {
+							$modified = true;
+						}
+					}
+					continue;
+				}
+
+				// Found a match; process the entire paragraph's text content.
+				$changed = self::replace_odt_paragraph_html( $paragraph, $coalesced, $text_nodes, $lookup, $style_require, $doc );
 				if ( $changed ) {
 					$modified = true;
 				}
@@ -478,6 +632,91 @@ class Documentate_OpenTBS {
 	}
 
 	/**
+	 * Replace HTML fragments in a paragraph by processing coalesced text from all text nodes.
+	 *
+	 * This handles HTML that was split across multiple DOMText nodes by text:line-break elements.
+	 *
+	 * @param DOMElement           $paragraph     The paragraph element.
+	 * @param string               $coalesced     Coalesced and decoded text content.
+	 * @param array<int,DOMText>   $text_nodes    Array of text nodes in the paragraph.
+	 * @param array<string,string> $lookup        Rich text lookup table.
+	 * @param array<string,bool>   $style_require Styles required so far.
+	 * @param DOMDocument          $doc           The document.
+	 * @return bool
+	 */
+	private static function replace_odt_paragraph_html( DOMElement $paragraph, $coalesced, array $text_nodes, array $lookup, array &$style_require, DOMDocument $doc ) {
+		$position = 0;
+		$modified = false;
+		$nodes_to_insert = array();
+
+		while ( true ) {
+			$match = self::find_next_html_match( $coalesced, $lookup, $position );
+			if ( false === $match ) {
+				break;
+			}
+
+			list( $match_pos, $match_key, $match_raw ) = $match;
+
+			// Add text before match.
+			if ( $match_pos > $position ) {
+				$segment = substr( $coalesced, $position, $match_pos - $position );
+				if ( '' !== $segment ) {
+					$nodes_to_insert[] = $doc->createTextNode( $segment );
+				}
+			}
+
+			// Convert HTML to ODT nodes.
+			$html_nodes = self::build_odt_inline_nodes( $doc, $match_raw, $style_require );
+			foreach ( $html_nodes as $node ) {
+				$nodes_to_insert[] = $node;
+			}
+
+			$position = $match_pos + strlen( $match_key );
+			$modified = true;
+		}
+
+		if ( ! $modified ) {
+			return false;
+		}
+
+		// Add remaining text after last match.
+		$tail = substr( $coalesced, $position );
+		if ( '' !== $tail ) {
+			$nodes_to_insert[] = $doc->createTextNode( $tail );
+		}
+
+		// Remove all existing text nodes and line-break elements.
+		$children_to_remove = array();
+		foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMText ) {
+				$children_to_remove[] = $child;
+			} elseif ( $child instanceof DOMElement && 'line-break' === $child->localName ) {
+				$children_to_remove[] = $child;
+			}
+		}
+		foreach ( $children_to_remove as $child ) {
+			$paragraph->removeChild( $child );
+		}
+
+		// Insert new nodes. Tables need to be inserted after the paragraph.
+		$parent = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		$next_sibling = $paragraph->nextSibling; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+
+		foreach ( $nodes_to_insert as $node ) {
+			if ( $node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName ) {
+				// Tables must be siblings of paragraphs, not children.
+				if ( $parent instanceof DOMNode ) {
+					$parent->insertBefore( $node, $next_sibling );
+				}
+			} else {
+				$paragraph->appendChild( $node );
+			}
+		}
+
+		return true;
+	}
+
+	/**
 	 * Replace HTML fragments inside a DOMText node with formatted ODT nodes.
 	 *
 	 * @param DOMText              $text_node     Text node to inspect.
@@ -489,6 +728,8 @@ class Documentate_OpenTBS {
 		$value  = self::normalize_text_newlines( $text_node->wholeText ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		// Decode HTML entities so we can match raw HTML fragments like <table> inside text nodes that contain &lt;table&gt;.
 		$value  = html_entity_decode( $value, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+		// Normalize for matching (removes orphaned indentation spaces left by TBS).
+		$value  = self::normalize_for_html_matching( $value );
 		$doc    = $text_node->ownerDocument;
 		$parent = $text_node->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		if ( ! $doc || ! $parent ) {
@@ -922,13 +1163,55 @@ class Documentate_OpenTBS {
 
 			$normalized[ $normalized_html ] = $normalized_value;
 
+			// Also add HTML-encoded version.
 			$encoded = htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 );
 			$encoded = self::normalize_text_newlines( $encoded );
 			if ( $encoded !== $normalized_html ) {
 				$normalized[ $encoded ] = $normalized_value;
 			}
+
+			// Also add version with whitespace between tags removed.
+			// TBS converts newlines to <w:br/> which get stripped when coalescing text.
+			$collapsed = self::collapse_html_whitespace( $normalized_html );
+			if ( $collapsed !== $normalized_html && ! isset( $normalized[ $collapsed ] ) ) {
+				$normalized[ $collapsed ] = $normalized_value;
+			}
 		}
 		return $normalized;
+	}
+
+	/**
+	 * Normalize text for HTML matching by removing newlines and excess whitespace.
+	 *
+	 * TBS converts newlines to <w:br/> elements which are excluded when coalescing text,
+	 * but leaves indentation spaces intact. This function ensures both lookup and document
+	 * text are normalized the same way for matching.
+	 *
+	 * @param string $text Text to normalize.
+	 * @return string Normalized text.
+	 */
+	private static function normalize_for_html_matching( $text ) {
+		// 1. Remove all newlines (TBS already removes them from document via <w:br/>).
+		$text = preg_replace( '/[\r\n]+/', '', $text );
+		// 2. Collapse multiple spaces to one.
+		$text = preg_replace( '/\s{2,}/', ' ', $text );
+		// 3. Remove spaces between tags.
+		$text = preg_replace( '/>\s+</', '><', $text );
+		return trim( $text );
+	}
+
+	/**
+	 * Collapse whitespace around HTML tags to enable matching when TBS strips newlines.
+	 *
+	 * When TBS places HTML with newlines into a document, it converts them to <w:br/>
+	 * elements which are not included in the text content. This function creates
+	 * a version of the HTML without whitespace around tags for matching purposes.
+	 *
+	 * @param string $html HTML string.
+	 * @return string HTML with whitespace around tags collapsed.
+	 */
+	private static function collapse_html_whitespace( $html ) {
+		return self::normalize_for_html_matching( $html );
 	}
 
 	/**
@@ -1681,10 +1964,19 @@ class Documentate_OpenTBS {
 					$cell_formatting['bold'] = true;
 				}
 
-				$runs = self::collect_runs_from_children( $doc, $cell->childNodes, $base_rpr, $cell_formatting, $relationships );
-				$paragraph = self::create_paragraph_from_runs( $doc, $runs, $base_rpr );
+				// Handle block elements (lists, nested tables) inside table cells.
+				$cell_content = self::convert_cell_content_to_docx( $doc, $cell->childNodes, $base_rpr, $cell_formatting, $relationships );
+				foreach ( $cell_content as $content_node ) {
+					if ( $content_node instanceof DOMElement ) {
+						$tc->appendChild( $content_node );
+					}
+				}
 
-				$tc->appendChild( $paragraph );
+				// Ensure cell has at least one paragraph (required by OOXML).
+				if ( 0 === $tc->childNodes->length ) {
+					$tc->appendChild( self::create_blank_paragraph( $doc, $base_rpr ) );
+				}
+
 				$tr->appendChild( $tc );
 			}
 
@@ -1698,6 +1990,90 @@ class Documentate_OpenTBS {
 		}
 
 		return $tbl;
+	}
+
+	/**
+	 * Convert table cell content to DOCX nodes, handling both inline and block elements.
+	 *
+	 * Unlike collect_runs_from_children which only handles inline content, this method
+	 * properly converts block elements like lists and nested tables inside table cells.
+	 *
+	 * @param DOMDocument              $doc           Target DOMDocument.
+	 * @param DOMNodeList              $children      Child nodes of the cell.
+	 * @param DOMElement|null          $base_rpr      Base run properties.
+	 * @param array<string,bool>       $formatting    Formatting flags.
+	 * @param array<string,mixed>|null $relationships Relationships context.
+	 * @return array<int,DOMElement>   Array of paragraph elements.
+	 */
+	private static function convert_cell_content_to_docx( DOMDocument $doc, $children, $base_rpr, array $formatting, &$relationships ) {
+		$result       = array();
+		$current_runs = array();
+
+		if ( ! $children instanceof DOMNodeList ) {
+			return $result;
+		}
+
+		foreach ( $children as $child ) {
+			if ( XML_TEXT_NODE === $child->nodeType ) {
+				$current_runs = array_merge( $current_runs, self::collect_runs_from_text( $doc, $child, $base_rpr, $formatting ) );
+				continue;
+			}
+
+			if ( ! $child instanceof DOMElement ) {
+				continue;
+			}
+
+			$tag = strtolower( $child->nodeName );
+
+			// Handle block elements.
+			if ( 'ul' === $tag || 'ol' === $tag ) {
+				// Flush any accumulated inline runs.
+				if ( ! empty( $current_runs ) ) {
+					$result[]     = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr );
+					$current_runs = array();
+				}
+				// Convert list to paragraphs.
+				$list_paragraphs = self::convert_list_to_paragraphs( $doc, $child, $base_rpr, $formatting, 'ol' === $tag, $relationships );
+				$result          = array_merge( $result, $list_paragraphs );
+				continue;
+			}
+
+			if ( 'table' === $tag ) {
+				// Flush any accumulated inline runs.
+				if ( ! empty( $current_runs ) ) {
+					$result[]     = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr );
+					$current_runs = array();
+				}
+				// Convert nested table.
+				$nested_table = self::convert_table_node_to_docx( $doc, $child, $base_rpr, $relationships );
+				if ( $nested_table ) {
+					$result[] = $nested_table;
+				}
+				continue;
+			}
+
+			if ( 'p' === $tag || 'div' === $tag ) {
+				// Flush any accumulated inline runs.
+				if ( ! empty( $current_runs ) ) {
+					$result[]     = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr );
+					$current_runs = array();
+				}
+				// Convert paragraph content.
+				$p_runs   = self::collect_runs_from_children( $doc, $child->childNodes, $base_rpr, $formatting, $relationships );
+				$result[] = self::create_paragraph_from_runs( $doc, $p_runs, $base_rpr );
+				continue;
+			}
+
+			// Handle inline elements.
+			$current_runs = array_merge( $current_runs, self::collect_runs_from_element( $doc, $child, $base_rpr, $formatting, $relationships ) );
+		}
+
+		// Flush remaining inline runs.
+		if ( ! empty( $current_runs ) ) {
+			$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr );
+		}
+
+		return $result;
 	}
 
 	/**

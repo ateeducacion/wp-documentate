@@ -53,7 +53,9 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 		$postarr = array( 'ID' => $post_id );
 		$result  = $doc->filter_post_data_compose_content( $data, $postarr );
 
-		$structured = Documentate_Documents::parse_structured_content( $result['post_content'] );
+		// Simulate WordPress's wp_unslash() that runs after the filter (before DB insert).
+		$post_content = wp_unslash( $result['post_content'] );
+		$structured   = Documentate_Documents::parse_structured_content( $post_content );
 		$this->assertArrayHasKey( 'annexes', $structured );
 		$this->assertSame( 'array', $structured['annexes']['type'] );
 		$decoded = json_decode( $structured['annexes']['value'], true );
@@ -107,8 +109,10 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 		$postarr = array( 'ID' => $post_id );
 		$result  = $doc->filter_post_data_compose_content( $data, $postarr );
 
-		$structured = Documentate_Documents::parse_structured_content( $result['post_content'] );
-		$decoded    = json_decode( $structured['annexes']['value'], true );
+		// Simulate WordPress's wp_unslash() that runs after the filter (before DB insert).
+		$post_content = wp_unslash( $result['post_content'] );
+		$structured   = Documentate_Documents::parse_structured_content( $post_content );
+		$decoded      = json_decode( $structured['annexes']['value'], true );
 		$this->assertCount( Documentate_Documents::ARRAY_FIELD_MAX_ITEMS, $decoded );
 		$last_index = Documentate_Documents::ARRAY_FIELD_MAX_ITEMS - 1;
 		$this->assertSame( 'N' . $last_index, $decoded[ $last_index ]['number'] );
@@ -160,7 +164,9 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 		$postarr = array( 'ID' => $post_id );
 		$result  = $doc->filter_post_data_compose_content( $data, $postarr );
 
-		$structured = Documentate_Documents::parse_structured_content( $result['post_content'] );
+		// Simulate WordPress's wp_unslash() that runs after the filter (before DB insert).
+		$post_content = wp_unslash( $result['post_content'] );
+		$structured   = Documentate_Documents::parse_structured_content( $post_content );
 		$this->assertArrayHasKey( 'annexes', $structured );
 		$decoded = json_decode( $structured['annexes']['value'], true );
 		$this->assertIsArray( $decoded );
@@ -228,13 +234,171 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 		$postarr = array( 'ID' => $post_id );
 		$result  = $doc->filter_post_data_compose_content( $data, $postarr );
 
-		$structured = Documentate_Documents::parse_structured_content( $result['post_content'] );
-		$decoded    = json_decode( $structured['annexes']['value'], true );
-		$stored     = $decoded[0]['content'];
+		// Simulate WordPress's wp_unslash() that runs after the filter (before DB insert).
+		$post_content = wp_unslash( $result['post_content'] );
+		$structured   = Documentate_Documents::parse_structured_content( $post_content );
+		$decoded      = json_decode( $structured['annexes']['value'], true );
+		$stored       = $decoded[0]['content'];
 
 		$this->assertStringNotContainsString( '<p>n</p>', $stored );
 		$this->assertStringNotContainsString( '>n<' , $stored );
 		$this->assertStringContainsString( '<table>', $stored );
+
+		$_POST = array();
+		remove_filter( 'wp_insert_post_data', array( $doc, 'filter_post_data_compose_content' ), 10 );
+	}
+
+	/**
+	 * It should preserve newlines between paragraphs in rich text array fields.
+	 *
+	 * Regression test for bug where \n was converted to literal 'n' character.
+	 */
+	public function test_repeater_rich_text_preserves_newlines_between_paragraphs() {
+		$term    = wp_insert_term( 'Tipo Newlines', 'documentate_doc_type' );
+		$term_id = intval( $term['term_id'] );
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema( $term_id, $this->get_annex_schema_v2() );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Documento',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
+
+		// HTML with actual newlines between paragraphs (TinyMCE format).
+		$html_with_newlines = "<p>Primer párrafo</p>\n<p>Segundo párrafo</p>";
+
+		$doc = new Documentate_Documents();
+
+		$_POST['documentate_doc_type'] = (string) $term_id;
+		$_POST['tpl_fields']        = wp_slash(
+			array(
+				'annexes' => array(
+					array(
+						'number'  => '1',
+						'title'   => 'Título',
+						'content' => $html_with_newlines,
+					),
+				),
+			)
+		);
+
+		$data    = array( 'post_type' => 'documentate_document' );
+		$postarr = array( 'ID' => $post_id );
+		$result  = $doc->filter_post_data_compose_content( $data, $postarr );
+
+		// Simulate WordPress's wp_unslash() that runs after the filter (before DB insert).
+		$post_content = wp_unslash( $result['post_content'] );
+		$structured   = Documentate_Documents::parse_structured_content( $post_content );
+		$decoded      = json_decode( $structured['annexes']['value'], true );
+		$stored       = $decoded[0]['content'];
+
+		// The newline should be preserved, not converted to literal 'n'.
+		$this->assertStringContainsString( "\n", $stored, 'Newline should be preserved in stored content' );
+		$this->assertStringNotContainsString( '<p>n</p>', $stored, 'Newline should NOT become <p>n</p>' );
+		$this->assertStringNotContainsString( '>n<', $stored, 'Newline should NOT become literal n between tags' );
+
+		$_POST = array();
+		remove_filter( 'wp_insert_post_data', array( $doc, 'filter_post_data_compose_content' ), 10 );
+	}
+
+	/**
+	 * It should NOT corrupt newlines on multiple consecutive saves.
+	 *
+	 * Regression test: each save was adding another 'n' character.
+	 */
+	public function test_repeater_rich_text_newlines_stable_on_multiple_saves() {
+		$term    = wp_insert_term( 'Tipo MultiSave', 'documentate_doc_type' );
+		$term_id = intval( $term['term_id'] );
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema( $term_id, $this->get_annex_schema_v2() );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Documento',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
+
+		$html_with_newlines = "<p>Texto uno</p>\n<p>Texto dos</p>";
+
+		$doc = new Documentate_Documents();
+
+		// First save.
+		$_POST['documentate_doc_type'] = (string) $term_id;
+		$_POST['tpl_fields']        = wp_slash(
+			array(
+				'annexes' => array(
+					array(
+						'number'  => '1',
+						'title'   => 'Título',
+						'content' => $html_with_newlines,
+					),
+				),
+			)
+		);
+
+		$data    = array( 'post_type' => 'documentate_document' );
+		$postarr = array( 'ID' => $post_id );
+		$result1 = $doc->filter_post_data_compose_content( $data, $postarr );
+
+		// Simulate WordPress's wp_unslash() that runs after the filter (before DB insert).
+		$post_content1 = wp_unslash( $result1['post_content'] );
+		$structured1   = Documentate_Documents::parse_structured_content( $post_content1 );
+		$decoded1      = json_decode( $structured1['annexes']['value'], true );
+		$content1      = $decoded1[0]['content'];
+
+		// Simulate second save: re-submit the stored content.
+		$_POST['tpl_fields'] = wp_slash(
+			array(
+				'annexes' => array(
+					array(
+						'number'  => '1',
+						'title'   => 'Título',
+						'content' => $content1,
+					),
+				),
+			)
+		);
+
+		$result2 = $doc->filter_post_data_compose_content( $data, $postarr );
+
+		$post_content2 = wp_unslash( $result2['post_content'] );
+		$structured2   = Documentate_Documents::parse_structured_content( $post_content2 );
+		$decoded2      = json_decode( $structured2['annexes']['value'], true );
+		$content2      = $decoded2[0]['content'];
+
+		// Third save.
+		$_POST['tpl_fields'] = wp_slash(
+			array(
+				'annexes' => array(
+					array(
+						'number'  => '1',
+						'title'   => 'Título',
+						'content' => $content2,
+					),
+				),
+			)
+		);
+
+		$result3 = $doc->filter_post_data_compose_content( $data, $postarr );
+
+		$post_content3 = wp_unslash( $result3['post_content'] );
+		$structured3   = Documentate_Documents::parse_structured_content( $post_content3 );
+		$decoded3      = json_decode( $structured3['annexes']['value'], true );
+		$content3      = $decoded3[0]['content'];
+
+		// Content should remain identical across all saves.
+		$this->assertSame( $content1, $content2, 'Content should be identical after second save' );
+		$this->assertSame( $content2, $content3, 'Content should be identical after third save' );
+		$this->assertStringNotContainsString( '<p>n</p>', $content3 );
+		$this->assertStringNotContainsString( '<p>nn</p>', $content3 );
+		$this->assertStringNotContainsString( '>n<', $content3 );
 
 		$_POST = array();
 		remove_filter( 'wp_insert_post_data', array( $doc, 'filter_post_data_compose_content' ), 10 );

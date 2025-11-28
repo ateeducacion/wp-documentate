@@ -2,7 +2,13 @@
  * Documentate Actions - Loading Modal for Document Generation
  *
  * Intercepts export/preview button clicks and shows a loading modal
- * while the document is being generated via AJAX.
+ * while the document is being generated via AJAX. In CDN mode, also
+ * handles browser-based conversion using ZetaJS WASM.
+ *
+ * For WASM mode, uses BroadcastChannel to receive results from a minimal
+ * popup window (which has COOP/COEP headers required for SharedArrayBuffer).
+ * The popup is positioned off-screen to minimize visibility while the loading
+ * modal in the main window shows progress to the user.
  */
 (function ($) {
 	'use strict';
@@ -11,6 +17,9 @@
 	const strings = config.strings || {};
 
 	let $modal = null;
+	let converterChannel = null;
+	let converterPopup = null;
+	let pendingConversion = null;
 
 	/**
 	 * Create and append the modal to the DOM.
@@ -69,6 +78,21 @@
 	}
 
 	/**
+	 * Update modal message.
+	 */
+	function updateModal(title, message) {
+		if (!$modal) {
+			return;
+		}
+		if (title) {
+			$modal.find('.documentate-loading-modal__title').text(title);
+		}
+		if (message) {
+			$modal.find('.documentate-loading-modal__message').text(message);
+		}
+	}
+
+	/**
 	 * Hide the modal.
 	 */
 	function hideModal() {
@@ -89,12 +113,177 @@
 	}
 
 	/**
+	 * Log debug info to the browser console for troubleshooting.
+	 *
+	 * @param {Object} response AJAX response object.
+	 */
+	function logDebugInfo(response) {
+		if (response.data && response.data.debug) {
+			console.group('Documentate Debug');
+			console.log('Error:', response.data.message);
+			console.log('Code:', response.data.debug.code);
+			console.log('Data:', response.data.debug.data);
+			console.log('Is Playground:', response.data.debug.is_playground);
+			console.groupEnd();
+		}
+	}
+
+	/**
+	 * Initialize BroadcastChannel for receiving converter results.
+	 * This allows the COOP-isolated iframe to send results back to us.
+	 */
+	function initConverterChannel() {
+		if (converterChannel) {
+			return;
+		}
+
+		converterChannel = new BroadcastChannel('documentate_converter');
+		converterChannel.onmessage = function (e) {
+			const { type, status, data, error } = e.data;
+
+			if (type !== 'conversion_result') {
+				return;
+			}
+
+			if (status === 'success' && pendingConversion) {
+				handleConversionSuccess(data, pendingConversion.action, pendingConversion.format);
+				pendingConversion = null;
+				cleanupConverterPopup();
+			} else if (status === 'preview_ready') {
+				// PDF is being shown in the popup window itself
+				// Just hide the loading modal, don't close the popup
+				hideModal();
+				pendingConversion = null;
+				// Don't cleanup popup - it's showing the PDF
+			} else if (status === 'error') {
+				showError(error || strings.errorGeneric || 'Error en la conversión.');
+				pendingConversion = null;
+				cleanupConverterPopup();
+			} else if (status === 'progress') {
+				// Update modal with progress message
+				if (data && data.message) {
+					updateModal(data.title || null, data.message);
+				}
+			}
+		};
+	}
+
+	/**
+	 * Cleanup the converter popup.
+	 */
+	function cleanupConverterPopup() {
+		if (converterPopup && !converterPopup.closed) {
+			converterPopup.close();
+		}
+		converterPopup = null;
+	}
+
+	/**
+	 * Handle successful conversion result from popup.
+	 *
+	 * @param {Object} data Result data with outputData (ArrayBuffer) and outputFormat.
+	 * @param {string} action Action type (preview, download).
+	 * @param {string} format Target format.
+	 */
+	function handleConversionSuccess(data, action, format) {
+		const mimeTypes = {
+			pdf: 'application/pdf',
+			docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			odt: 'application/vnd.oasis.opendocument.text'
+		};
+
+		const blob = new Blob([data.outputData], {
+			type: mimeTypes[data.outputFormat] || 'application/octet-stream'
+		});
+		const blobUrl = URL.createObjectURL(blob);
+
+		if (action === 'preview' && data.outputFormat === 'pdf') {
+			// Open PDF preview in new window/tab
+			window.open(blobUrl, '_blank');
+		} else {
+			// Trigger download (no new window)
+			const a = document.createElement('a');
+			a.href = blobUrl;
+			a.download = 'documento.' + (data.outputFormat || format || 'pdf');
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+
+			// Cleanup blob URL after a delay
+			setTimeout(function () {
+				URL.revokeObjectURL(blobUrl);
+			}, 1000);
+		}
+
+		hideModal();
+	}
+
+	/**
+	 * Handle WASM mode conversion via popup with BroadcastChannel.
+	 * The popup does the conversion and sends results back via BroadcastChannel.
+	 * The modal stays visible in this window showing progress.
+	 *
+	 * Note: We use a popup instead of iframe because SharedArrayBuffer requires
+	 * cross-origin isolation (COOP/COEP headers), which only works in top-level
+	 * browsing contexts (popups), not in iframes embedded in non-isolated pages.
+	 *
+	 * @param {jQuery} $btn The button element.
+	 * @param {string} action Action type (preview, download).
+	 * @param {string} targetFormat Target format.
+	 * @param {string} sourceFormat Source format.
+	 */
+	function handleCdnConversion($btn, action, targetFormat, sourceFormat) {
+		// Initialize channel if needed
+		initConverterChannel();
+
+		// Store pending conversion info
+		pendingConversion = {
+			action: action,
+			format: targetFormat
+		};
+
+		// Build URL with conversion parameters
+		const params = new URLSearchParams({
+			post_id: config.postId,
+			format: targetFormat,
+			source: sourceFormat,
+			output: action,
+			_wpnonce: config.nonce,
+			use_channel: '1' // Tell popup to use BroadcastChannel
+		});
+
+		// Open minimal popup for conversion
+		// Position at bottom-right corner with minimal size to reduce visibility
+		const width = 1;
+		const height = 1;
+		const left = window.screen.availWidth - 1;
+		const top = window.screen.availHeight - 1;
+
+		// converterUrl already has ?action=documentate_converter, so append with &
+		converterPopup = window.open(
+			config.converterUrl + '&' + params.toString(),
+			'documentate_converter',
+			`width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=no,scrollbars=no`
+		);
+
+		// Immediately refocus the main window to minimize popup disruption
+		if (converterPopup) {
+			window.focus();
+		}
+
+		// Keep modal visible - it shows progress
+		// The popup will send progress updates via BroadcastChannel
+	}
+
+	/**
 	 * Handle action button click.
 	 */
 	function handleActionClick(e) {
 		const $btn = $(this);
 		const action = $btn.data('documentate-action');
 		const format = $btn.data('documentate-format');
+		const cdnMode = $btn.data('documentate-cdn-mode') === '1' || $btn.data('documentate-cdn-mode') === 1;
+		const sourceFormat = $btn.data('documentate-source-format');
 
 		if (!action || !config.ajaxUrl || !config.postId) {
 			// Fallback to default behavior
@@ -113,7 +302,13 @@
 
 		showModal(title);
 
-		// Make AJAX request
+		// If CDN mode and conversion is needed, use browser-based conversion.
+		if (cdnMode && sourceFormat) {
+			handleCdnConversion($btn, action, format, sourceFormat);
+			return;
+		}
+
+		// Standard AJAX flow.
 		$.ajax({
 			url: config.ajaxUrl,
 			type: 'POST',
@@ -142,6 +337,7 @@
 						? response.data.message
 						: (strings.errorGeneric || 'Error al generar el documento.');
 					showError(errorMsg);
+					logDebugInfo(response);
 				}
 			},
 			error: function (xhr, status, error) {

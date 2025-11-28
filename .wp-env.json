@@ -9,7 +9,8 @@
         "wp-content/plugins/documentate": "./"
     },
     "plugins":  [ 
-        "https://downloads.wordpress.org/plugins/tinymce-advanced.zip" 
+        "https://downloads.wordpress.org/plugins/tinymce-advanced.zip",
+        "https://downloads.wordpress.org/plugins/sql-buddy.zip"
     ],
     "lifecycleScripts": {
         "afterStart": "true || wp plugin activate documentate tinymce-advanced || true",
