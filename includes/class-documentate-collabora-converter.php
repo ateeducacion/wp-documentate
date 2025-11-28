@@ -17,6 +17,59 @@ defined( 'ABSPATH' ) || exit;
 class Documentate_Collabora_Converter {
 
 	/**
+	 * Log debug information when WP_DEBUG is enabled.
+	 *
+	 * @param string $message Log message.
+	 * @param array  $context Additional context data.
+	 * @return void
+	 */
+	private static function log( $message, $context = array() ) {
+		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+			return;
+		}
+
+		$log_entry = sprintf(
+			'[Documentate Collabora] %s | Context: %s',
+			$message,
+			wp_json_encode( $context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES )
+		);
+
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional debug logging when WP_DEBUG is enabled.
+		error_log( $log_entry );
+	}
+
+	/**
+	 * Check if running inside WordPress Playground.
+	 *
+	 * @return bool
+	 */
+	public static function is_playground() {
+		// Playground sets specific constants.
+		if ( defined( 'WORDPRESS_PLAYGROUND' ) && WORDPRESS_PLAYGROUND ) {
+			return true;
+		}
+
+		// Check for Playground-specific URL patterns.
+		$site_url = get_site_url();
+		if ( strpos( $site_url, 'playground.wordpress.net' ) !== false ) {
+			return true;
+		}
+
+		// Check for Playground request header.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Header existence check only.
+		if ( isset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] ) ) {
+			return true;
+		}
+
+		// Check for common Playground indicators in the URL.
+		if ( strpos( $site_url, 'wasm' ) !== false || strpos( $site_url, 'playground' ) !== false ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Get an initialized WP_Filesystem instance.
 	 *
 	 * @return WP_Filesystem_Base|WP_Error Filesystem handler or error on failure.
@@ -71,12 +124,25 @@ class Documentate_Collabora_Converter {
 	 * @return string|WP_Error
 	 */
 	public static function convert( $input_path, $output_path, $output_format, $input_format = '' ) {
+		self::log(
+			'Starting conversion',
+			array(
+				'input_path'    => $input_path,
+				'output_path'   => $output_path,
+				'output_format' => $output_format,
+				'input_format'  => $input_format,
+				'is_playground' => self::is_playground(),
+			)
+		);
+
 		$fs = self::get_wp_filesystem();
 		if ( is_wp_error( $fs ) ) {
+			self::log( 'Filesystem error', array( 'error' => $fs->get_error_message() ) );
 			return $fs;
 		}
 
 		if ( ! $fs->exists( $input_path ) ) {
+			self::log( 'Input file missing', array( 'path' => $input_path ) );
 			return new WP_Error( 'documentate_collabora_input_missing', __( 'El fichero origen para la conversión no existe.', 'documentate' ) );
 		}
 
@@ -132,38 +198,92 @@ class Documentate_Collabora_Converter {
 			'body'      => $body,
 		);
 
+		self::log(
+			'Sending request to Collabora',
+			array(
+				'endpoint'    => $endpoint,
+				'body_size'   => strlen( $body ),
+				'file_size'   => strlen( $file_body ),
+				'timeout'     => $args['timeout'],
+				'ssl_verify'  => $args['sslverify'],
+				'boundary'    => $boundary,
+			)
+		);
+
 		$response = wp_remote_post( $endpoint, $args );
 		if ( is_wp_error( $response ) ) {
+			$error_message = self::maybe_add_playground_warning( $response->get_error_message() );
+			self::log(
+				'Request failed',
+				array(
+					'error_code'    => $response->get_error_code(),
+					'error_message' => $response->get_error_message(),
+					'is_playground' => self::is_playground(),
+				)
+			);
 			return new WP_Error(
 				'documentate_collabora_request_failed',
 				sprintf(
 					/* translators: %s: error message returned by wp_remote_post(). */
 					__( 'Error al conectar con Collabora Online: %s', 'documentate' ),
-					$response->get_error_message()
+					$error_message
 				),
-				array( 'code' => $response->get_error_code() )
+				array(
+					'code'          => $response->get_error_code(),
+					'endpoint'      => $endpoint,
+					'is_playground' => self::is_playground(),
+				)
 			);
 		}
 
 		$status = (int) wp_remote_retrieve_response_code( $response );
-		$body   = (string) wp_remote_retrieve_body( $response );
+		$resp_body = (string) wp_remote_retrieve_body( $response );
+
+		self::log(
+			'Response received',
+			array(
+				'status_code'   => $status,
+				'body_size'     => strlen( $resp_body ),
+				'body_preview'  => substr( $resp_body, 0, 200 ),
+				'headers'       => wp_remote_retrieve_headers( $response )->getAll(),
+			)
+		);
+
 		if ( $status < 200 || $status >= 300 ) {
-			return new WP_Error(
-				'documentate_collabora_http_error',
+			$error_message = self::maybe_add_playground_warning(
 				sprintf(
 					/* translators: %d: HTTP status code returned by Collabora. */
 					__( 'Collabora Online devolvió el código HTTP %d durante la conversión.', 'documentate' ),
 					$status
-				),
-				array( 'body' => $body )
+				)
+			);
+			self::log(
+				'HTTP error response',
+				array(
+					'status'        => $status,
+					'body'          => substr( $resp_body, 0, 500 ),
+					'is_playground' => self::is_playground(),
+				)
+			);
+			return new WP_Error(
+				'documentate_collabora_http_error',
+				$error_message,
+				array(
+					'status'        => $status,
+					'body'          => substr( $resp_body, 0, 500 ),
+					'endpoint'      => $endpoint,
+					'is_playground' => self::is_playground(),
+				)
 			);
 		}
 
-		$written = $fs->put_contents( $output_path, $body, FS_CHMOD_FILE );
+		$written = $fs->put_contents( $output_path, $resp_body, FS_CHMOD_FILE );
 		if ( false === $written ) {
+			self::log( 'Write failed', array( 'output_path' => $output_path ) );
 			return new WP_Error( 'documentate_collabora_write_failed', __( 'No se pudo guardar el fichero convertido en el disco.', 'documentate' ) );
 		}
 
+		self::log( 'Conversion successful', array( 'output_path' => $output_path ) );
 		return $output_path;
 	}
 
@@ -231,5 +351,20 @@ class Documentate_Collabora_Converter {
 
 		$mime = function_exists( 'mime_content_type' ) ? mime_content_type( $path ) : 'application/octet-stream';
 		return $mime ? $mime : 'application/octet-stream';
+	}
+
+	/**
+	 * Add a warning message if running in WordPress Playground.
+	 *
+	 * @param string $message Original error message.
+	 * @return string Modified message with Playground warning if applicable.
+	 */
+	private static function maybe_add_playground_warning( $message ) {
+		if ( ! self::is_playground() ) {
+			return $message;
+		}
+
+		$warning = __( 'WordPress Playground tiene limitaciones con peticiones HTTP externas. Considera usar ZetaJS (modo CDN) como motor de conversión.', 'documentate' );
+		return $message . ' ' . $warning;
 	}
 }

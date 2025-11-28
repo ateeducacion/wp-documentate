@@ -2203,6 +2203,12 @@ class Documentate_Documents {
 				$raw_input = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 				$raw_input = is_scalar( $raw_input ) ? (string) $raw_input : '';
 
+				// Force rich type if content contains block HTML (tables, lists, etc.)
+				// to preserve formatting from TinyMCE regardless of schema type.
+				if ( 'rich' !== $type && self::value_contains_block_html( $raw_input ) ) {
+					$type = 'rich';
+				}
+
 				if ( 'single' === $type ) {
 					$value = sanitize_text_field( $raw_input );
 				} elseif ( 'rich' === $type ) {
@@ -2622,6 +2628,41 @@ class Documentate_Documents {
 		};
 
 			return (string) preg_replace_callback( '/u([0-9a-fA-F]{4})/i', $callback, $text );
+	}
+
+	/**
+	 * Check if a value contains block-level HTML that requires rich text handling.
+	 *
+	 * This detects HTML content in fields that may not be explicitly typed as 'rich',
+	 * ensuring tables, lists, and other block elements from TinyMCE are preserved.
+	 *
+	 * @param string $value Field value to check.
+	 * @return bool True if value contains block HTML tags.
+	 */
+	private static function value_contains_block_html( $value ) {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return false;
+		}
+		// Quick check: must contain both < and > to be HTML.
+		if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
+			return false;
+		}
+		// Detect block-level HTML tags that require preservation.
+		$block_patterns = array(
+			'/<table[\s>]/i',
+			'/<ul[\s>]/i',
+			'/<ol[\s>]/i',
+			'/<p[\s>]/i',
+			'/<h[1-6][\s>]/i',
+			'/<blockquote[\s>]/i',
+			'/<div[\s>]/i',
+		);
+		foreach ( $block_patterns as $pattern ) {
+			if ( preg_match( $pattern, $value ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
 

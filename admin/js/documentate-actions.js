@@ -89,6 +89,22 @@
 	}
 
 	/**
+	 * Log debug info to the browser console for troubleshooting.
+	 *
+	 * @param {Object} response AJAX response object.
+	 */
+	function logDebugInfo(response) {
+		if (response.data && response.data.debug) {
+			console.group('Documentate Debug');
+			console.log('Error:', response.data.message);
+			console.log('Code:', response.data.debug.code);
+			console.log('Data:', response.data.debug.data);
+			console.log('Is Playground:', response.data.debug.is_playground);
+			console.groupEnd();
+		}
+	}
+
+	/**
 	 * Handle action button click.
 	 */
 	function handleActionClick(e) {
@@ -142,6 +158,7 @@
 						? response.data.message
 						: (strings.errorGeneric || 'Error al generar el documento.');
 					showError(errorMsg);
+					logDebugInfo(response);
 				}
 			},
 			error: function (xhr, status, error) {

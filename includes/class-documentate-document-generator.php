@@ -347,14 +347,38 @@ class Documentate_Document_Generator {
 						continue;
 				}
 
-					$value                  = self::get_structured_field_value( $structured, $slug, $post_id );
+					$value = self::get_structured_field_value( $structured, $slug, $post_id );
+				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
+				$original_type = $type;
+				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && self::value_contains_block_html( $value ) ) {
+					$type = 'rich';
+				}
 					$prepared               = self::prepare_field_value( $value, $type, $data_type );
 					$fields[ $tbs_name ]    = $prepared;
 				if ( $alias_key !== $tbs_name ) {
 					$fields[ $alias_key ] = $prepared;
 				}
-				if ( in_array( $type, array( 'rich', 'html' ), true ) ) {
+				// Register for rich text conversion if typed as rich/html.
+				// Also check if prepared value still contains HTML as a safety net.
+				$has_html_in_prepared = self::value_contains_block_html( $prepared );
+				if ( in_array( $type, array( 'rich', 'html' ), true ) || $has_html_in_prepared ) {
 						self::remember_rich_field_value( $prepared );
+				}
+				// Debug logging - enable with WP_DEBUG.
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( sprintf(
+						'DOCUMENTATE [%s]: schema_type=%s, effective_type=%s, raw_has_html=%s, prepared_has_html=%s, raw_len=%d, prep_len=%d',
+						$slug,
+						$original_type,
+						$type,
+						self::value_contains_block_html( $value ) ? 'YES' : 'NO',
+						$has_html_in_prepared ? 'YES' : 'NO',
+						strlen( $value ),
+						strlen( $prepared )
+					) );
+					if ( self::value_contains_block_html( $value ) && strlen( $value ) < 500 ) {
+						error_log( 'DOCUMENTATE [' . $slug . '] RAW: ' . substr( $value, 0, 300 ) );
+					}
 				}
 			}
 
@@ -397,9 +421,15 @@ class Documentate_Document_Generator {
 				if ( '' === $value ) {
 						$value = self::get_structured_field_value( $structured, $slug, $post_id );
 				}
-					$field_type               = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
+					$field_type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
+				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
+				if ( ! in_array( $field_type, array( 'rich', 'html' ), true ) && self::value_contains_block_html( $value ) ) {
+					$field_type = 'rich';
+				}
 					$fields[ $placeholder ]   = self::prepare_field_value( $value, $field_type, 'text' );
-				if ( in_array( $field_type, array( 'rich', 'html' ), true ) ) {
+				// Register for rich text conversion if typed as rich/html.
+				// Also check if prepared value still contains HTML as a safety net.
+				if ( in_array( $field_type, array( 'rich', 'html' ), true ) || self::value_contains_block_html( $fields[ $placeholder ] ) ) {
 						self::remember_rich_field_value( $fields[ $placeholder ] );
 				}
 			}
@@ -464,6 +494,41 @@ class Documentate_Document_Generator {
 		return array_values( self::$rich_field_values );
 	}
 
+	/**
+	 * Check if a value contains block-level HTML that requires rich text conversion.
+	 *
+	 * This is a safety net to detect HTML content in fields that weren't explicitly
+	 * typed as 'rich' or 'html' in the schema, ensuring tables, lists, and other
+	 * block elements from TinyMCE are properly converted to native document format.
+	 *
+	 * @param string $value Field value to check.
+	 * @return bool True if value contains block HTML tags.
+	 */
+	private static function value_contains_block_html( $value ) {
+		if ( ! is_string( $value ) || '' === $value ) {
+			return false;
+		}
+		// Quick check: must contain both < and > to be HTML.
+		if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
+			return false;
+		}
+		// Detect block-level HTML tags that require conversion.
+		$block_patterns = array(
+			'/<table[\s>]/i',
+			'/<ul[\s>]/i',
+			'/<ol[\s>]/i',
+			'/<p[\s>]/i',
+			'/<h[1-6][\s>]/i',
+			'/<blockquote[\s>]/i',
+			'/<div[\s>]/i',
+		);
+		foreach ( $block_patterns as $pattern ) {
+			if ( preg_match( $pattern, $value ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * Get a field value from structured content with dynamic meta fallback.

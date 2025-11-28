@@ -1091,7 +1091,21 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+			// Include debug info for troubleshooting.
+			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
+
+			$debug = array(
+				'code'          => $result->get_error_code(),
+				'data'          => $result->get_error_data(),
+				'is_playground' => Documentate_Collabora_Converter::is_playground(),
+			);
+
+			wp_send_json_error(
+				array(
+					'message' => $result->get_error_message(),
+					'debug'   => $debug,
+				)
+			);
 		}
 
 		// Build the URL for download/preview.

@@ -22,9 +22,18 @@ class Documentate_Conversion_Manager {
 	/**
 	 * Retrieve the engine configured in the plugin settings.
 	 *
+	 * In WordPress Playground, Collabora is forced to WASM because
+	 * HTTP requests to external services fail due to Service Worker
+	 * limitations with binary multipart data.
+	 *
 	 * @return string
 	 */
 	public static function get_engine() {
+		// Force WASM in WordPress Playground (Collabora HTTP requests fail there).
+		if ( self::is_playground() ) {
+			return self::ENGINE_WASM;
+		}
+
 		$options = get_option( 'documentate_settings', array() );
 		$engine  = isset( $options['conversion_engine'] ) ? sanitize_key( $options['conversion_engine'] ) : self::ENGINE_COLLABORA;
 		if ( ! in_array( $engine, array( self::ENGINE_WASM, self::ENGINE_COLLABORA ), true ) ) {
@@ -32,6 +41,16 @@ class Documentate_Conversion_Manager {
 		}
 
 		return $engine;
+	}
+
+	/**
+	 * Check if running inside WordPress Playground.
+	 *
+	 * @return bool
+	 */
+	public static function is_playground() {
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
+		return Documentate_Collabora_Converter::is_playground();
 	}
 
 	/**

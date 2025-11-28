@@ -595,7 +595,9 @@ class SchemaExtractor {
 			return $declared;
 		}
 
-		if ( preg_match( '/(html|rich|contenido|body|cuerpo)/u', $name ) ) {
+		// Detect HTML-likely fields by name patterns.
+		// Includes common Spanish legal/administrative terms that typically contain rich text.
+		if ( preg_match( '/(html|rich|contenido|body|cuerpo|antecedentes|hechos|fundamentos|observaciones|notas|descripcion|detalle|resolucion|resuelvo|texto)/u', $name ) ) {
 			return 'html';
 		}
 

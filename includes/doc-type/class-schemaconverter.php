@@ -191,7 +191,9 @@ class SchemaConverter {
 			return 'single';
 		}
 
-		if ( preg_match( '/(content|contenido|texto|text|body|descripcion|descripción|detalle|summary|resumen)/u', $haystack ) ) {
+		// Detect rich text fields by common patterns.
+		// Includes Spanish legal/administrative terms that typically contain formatted content.
+		if ( preg_match( '/(content|contenido|texto|text|body|descripcion|descripción|detalle|summary|resumen|antecedentes|hechos|fundamentos|observaciones|notas|resolucion|resolución|resuelvo)/u', $haystack ) ) {
 			return 'rich';
 		}
 
