@@ -1,6 +1,13 @@
 <?php
 /**
- * Tests for enforcing private visibility and publish date restrictions on documents.
+ * Tests for document visibility and status behavior.
+ *
+ * Note: The old behavior of forcing all documents to 'private' has been replaced
+ * with a proper workflow system. See DocumentateWorkflowTest.php for workflow tests.
+ *
+ * This file now tests basic document creation and status persistence.
+ *
+ * @package Documentate
  */
 
 class DocumentateDocumentVisibilityTest extends WP_UnitTestCase {
@@ -12,38 +19,79 @@ class DocumentateDocumentVisibilityTest extends WP_UnitTestCase {
 	 */
 	protected $documents;
 
-	public function set_up() : void {
+	/**
+	 * Admin user ID.
+	 *
+	 * @var int
+	 */
+	protected $admin_user_id;
+
+	public function set_up(): void {
 		parent::set_up();
 		register_post_type( 'documentate_document', array( 'public' => false ) );
+		register_taxonomy( 'documentate_doc_type', 'documentate_document', array( 'public' => false ) );
 		$this->documents = new Documentate_Documents();
+
+		$this->admin_user_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
 	}
 
-	public function test_new_documents_saved_as_private_without_password() {
+	public function tear_down(): void {
+		wp_set_current_user( 0 );
+		parent::tear_down();
+	}
+
+	/**
+	 * Test that new documents can be saved as draft.
+	 */
+	public function test_new_documents_can_be_saved_as_draft() {
+		wp_set_current_user( $this->admin_user_id );
+
 		$post_id = wp_insert_post(
 			array(
-				'post_type'      => 'documentate_document',
-				'post_title'     => 'Documento privado',
-				'post_status'    => 'publish',
-				'post_date'      => '2030-01-01 10:00:00',
-				'post_date_gmt'  => '2030-01-01 08:00:00',
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Documento borrador',
+				'post_status' => 'draft',
 			)
 		);
 
 		$this->assertNotWPError( $post_id );
 
 		$stored = get_post( $post_id );
-		$this->assertEquals( 'private', $stored->post_status, 'El documento debe guardarse como privado.' );
-		$this->assertSame( '', $stored->post_password, 'El documento no debe tener contraseña.' );
-		$this->assertNotEquals( '2030-01-01 10:00:00', $stored->post_date, 'La fecha personalizada no debe aplicarse.' );
-		$this->assertNotEquals( '2030-01-01 08:00:00', $stored->post_date_gmt, 'La fecha GMT personalizada no debe aplicarse.' );
+		$this->assertEquals( 'draft', $stored->post_status, 'Document should be saved as draft.' );
+		$this->assertSame( '', $stored->post_password, 'Document should not have a password.' );
 	}
 
-	public function test_existing_document_ignores_manual_date_changes() {
+	/**
+	 * Test that documents without doc_type cannot be published.
+	 */
+	public function test_documents_without_doc_type_forced_to_draft() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Documento sin tipo',
+				'post_status' => 'publish',
+			)
+		);
+
+		$this->assertNotWPError( $post_id );
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'draft', $stored->post_status, 'Document without doc_type should be forced to draft.' );
+	}
+
+	/**
+	 * Test that document dates are preserved on update.
+	 */
+	public function test_existing_document_preserves_dates() {
+		wp_set_current_user( $this->admin_user_id );
+
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => 'documentate_document',
 				'post_title'  => 'Documento inicial',
-				'post_status' => 'private',
+				'post_status' => 'draft',
 			)
 		);
 
@@ -51,22 +99,18 @@ class DocumentateDocumentVisibilityTest extends WP_UnitTestCase {
 
 		$original = get_post( $post_id );
 
+		// Update the document.
 		$updated_id = wp_update_post(
 			array(
-				'ID'            => $post_id,
-				'post_type'     => 'documentate_document',
-				'post_status'   => 'publish',
-				'post_date'     => '2040-02-02 12:00:00',
-				'post_date_gmt' => '2040-02-02 10:00:00',
+				'ID'         => $post_id,
+				'post_title' => 'Título actualizado',
 			)
 		);
 
-		$this->assertSame( $post_id, $updated_id, 'El ID actualizado debe coincidir.' );
+		$this->assertSame( $post_id, $updated_id, 'Updated ID should match.' );
 
 		$reloaded = get_post( $post_id );
-		$this->assertEquals( 'private', $reloaded->post_status, 'El documento debe mantenerse privado.' );
-		$this->assertSame( '', $reloaded->post_password, 'El documento no debe tener contraseña.' );
-		$this->assertEquals( $original->post_date, $reloaded->post_date, 'La fecha original debe mantenerse.' );
-		$this->assertEquals( $original->post_date_gmt, $reloaded->post_date_gmt, 'La fecha GMT original debe mantenerse.' );
+		$this->assertEquals( $original->post_date, $reloaded->post_date, 'Original date should be preserved.' );
+		$this->assertEquals( $original->post_date_gmt, $reloaded->post_date_gmt, 'Original GMT date should be preserved.' );
 	}
 }

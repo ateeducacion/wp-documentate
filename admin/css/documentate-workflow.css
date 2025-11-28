@@ -1,0 +1,441 @@
+/**
+ * Documentate Workflow Styles
+ *
+ * Styles for the document workflow management:
+ * - Read-only/locked state visual indicators
+ * - Status badges and workflow meta box
+ * - Editor restriction notices
+ * - Disabled field styling
+ *
+ * @package Documentate
+ */
+
+/* ==========================================================================
+   Locked Document State
+   ========================================================================== */
+
+/**
+ * Body class when document is locked (published).
+ */
+body.documentate-document-locked #poststuff {
+	position: relative;
+}
+
+/**
+ * Locked field styling.
+ */
+.documentate-locked {
+	opacity: 0.7;
+	cursor: not-allowed !important;
+	background-color: #f5f5f5 !important;
+}
+
+.documentate-locked:focus {
+	box-shadow: none !important;
+	border-color: #ddd !important;
+}
+
+/**
+ * Disabled inputs with better visual feedback.
+ */
+.documentate-document-locked input:disabled,
+.documentate-document-locked textarea:disabled,
+.documentate-document-locked select:disabled {
+	background-color: #f9f9f9 !important;
+	color: #666 !important;
+	border-color: #ddd !important;
+	cursor: not-allowed !important;
+}
+
+/**
+ * Title field when locked.
+ */
+.documentate-document-locked #titlewrap input:disabled {
+	font-size: 1.7em;
+	background-color: #f9f9f9 !important;
+}
+
+/**
+ * TipTap/ProseMirror editor locked state.
+ */
+.documentate-locked.ProseMirror,
+.documentate-document-locked .ProseMirror[contenteditable="false"] {
+	background-color: #f9f9f9 !important;
+	color: #666 !important;
+	cursor: not-allowed !important;
+	pointer-events: none;
+}
+
+/**
+ * Locked overlay for sections container.
+ */
+.locked-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(255, 255, 255, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+	pointer-events: none;
+}
+
+.locked-overlay .dashicons {
+	font-size: 48px;
+	width: 48px;
+	height: 48px;
+	color: rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   Workflow Notices
+   ========================================================================== */
+
+/**
+ * Workflow notice styling.
+ */
+.documentate-workflow-notice,
+.documentate-doctype-warning,
+.documentate-editor-restriction-notice {
+	margin: 20px 0 10px;
+}
+
+.documentate-workflow-notice .dashicons,
+.documentate-doctype-warning .dashicons,
+.documentate-editor-restriction-notice .dashicons {
+	margin-right: 8px;
+	vertical-align: middle;
+}
+
+.documentate-workflow-notice p,
+.documentate-doctype-warning p,
+.documentate-editor-restriction-notice p {
+	display: flex;
+	align-items: center;
+	margin: 0.5em 0;
+}
+
+/* ==========================================================================
+   Workflow Status Meta Box
+   ========================================================================== */
+
+/**
+ * Workflow status meta box container.
+ */
+.documentate-workflow-status {
+	padding: 10px 0;
+}
+
+/**
+ * Status display badge.
+ */
+.documentate-workflow-status .status-display {
+	display: flex;
+	align-items: center;
+	padding: 10px 12px;
+	margin: 0 0 15px;
+	border-radius: 4px;
+	background: #f0f0f0;
+	font-size: 14px;
+}
+
+.documentate-workflow-status .status-display .dashicons {
+	margin-right: 8px;
+	font-size: 20px;
+	width: 20px;
+	height: 20px;
+}
+
+/**
+ * Status-specific colors.
+ */
+.documentate-workflow-status .status-draft {
+	background-color: #f0f0f0;
+	border-left: 4px solid #72777c;
+}
+
+.documentate-workflow-status .status-pending {
+	background-color: #fff8e5;
+	border-left: 4px solid #dba617;
+}
+
+.documentate-workflow-status .status-publish {
+	background-color: #edfaef;
+	border-left: 4px solid #00a32a;
+}
+
+.documentate-workflow-status .status-auto-draft {
+	background-color: #f0f6fc;
+	border-left: 4px solid #2271b1;
+}
+
+/**
+ * Workflow warning message.
+ */
+.documentate-workflow-status .workflow-warning {
+	display: flex;
+	align-items: flex-start;
+	padding: 8px 10px;
+	margin: 10px 0;
+	background: #fff8e5;
+	border-left: 3px solid #dba617;
+	border-radius: 2px;
+	font-size: 12px;
+	color: #614200;
+}
+
+.documentate-workflow-status .workflow-warning .dashicons {
+	margin-right: 6px;
+	color: #dba617;
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+}
+
+/**
+ * Workflow info message.
+ */
+.documentate-workflow-status .workflow-info {
+	display: flex;
+	align-items: flex-start;
+	padding: 8px 10px;
+	margin: 10px 0;
+	background: #f0f6fc;
+	border-left: 3px solid #2271b1;
+	border-radius: 2px;
+	font-size: 12px;
+	color: #135e96;
+}
+
+.documentate-workflow-status .workflow-info .dashicons {
+	margin-right: 6px;
+	color: #2271b1;
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+}
+
+/**
+ * Workflow legend.
+ */
+.documentate-workflow-status .workflow-legend {
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 1px solid #ddd;
+}
+
+.documentate-workflow-status .workflow-legend p {
+	margin: 0 0 8px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.documentate-workflow-status .workflow-legend ol {
+	margin: 0;
+	padding-left: 20px;
+	font-size: 11px;
+	color: #646970;
+}
+
+.documentate-workflow-status .workflow-legend li {
+	margin-bottom: 4px;
+}
+
+/* ==========================================================================
+   Publish Box Modifications
+   ========================================================================== */
+
+/**
+ * Editor notice in publish box.
+ */
+.misc-pub-section.documentate-editor-notice,
+.misc-pub-section.documentate-published-notice {
+	padding: 8px 10px;
+	background: #f0f6fc;
+	border-bottom: 1px solid #c3c4c7;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.misc-pub-section.documentate-published-notice {
+	background: #edfaef;
+}
+
+.misc-pub-section.documentate-editor-notice .dashicons,
+.misc-pub-section.documentate-published-notice .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	margin-right: 4px;
+	vertical-align: text-bottom;
+}
+
+/* ==========================================================================
+   Hide Schedule Publication & Private Visibility
+   ========================================================================== */
+
+/**
+ * Hide timestamp/schedule UI elements.
+ */
+#timestampdiv,
+.misc-pub-curtime,
+.edit-timestamp,
+.timestamp-wrap {
+	display: none !important;
+}
+
+/**
+ * Hide the Private visibility option.
+ * Documents should follow: draft -> pending -> publish workflow.
+ */
+#visibility-radio-private,
+label[for="visibility-radio-private"] {
+	display: none !important;
+}
+
+/* ==========================================================================
+   Responsive Adjustments
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	.documentate-workflow-status .status-display {
+		flex-wrap: wrap;
+	}
+
+	.documentate-workflow-status .workflow-info,
+	.documentate-workflow-status .workflow-warning {
+		font-size: 13px;
+	}
+
+	.documentate-workflow-notice p,
+	.documentate-doctype-warning p,
+	.documentate-editor-restriction-notice p {
+		flex-wrap: wrap;
+	}
+}
+
+/* ==========================================================================
+   Disabled State for Action Buttons (when editing is locked)
+   ========================================================================== */
+
+/**
+ * Keep action buttons enabled even when document is locked.
+ * Downloads should always be available for published documents.
+ */
+.documentate-document-locked #documentate_document_actions .button,
+.documentate-document-locked .documentate-actions-metabox .button {
+	opacity: 1 !important;
+	cursor: pointer !important;
+	pointer-events: auto !important;
+}
+
+/* ==========================================================================
+   Array/Repeater Fields Locked State
+   ========================================================================== */
+
+/**
+ * Locked array field container.
+ */
+.documentate-document-locked .documentate-array-field {
+	position: relative;
+}
+
+/**
+ * Disabled "Add element" button.
+ */
+.documentate-document-locked .documentate-array-add.documentate-locked,
+.documentate-array-add.documentate-locked {
+	opacity: 0.5 !important;
+	cursor: not-allowed !important;
+	pointer-events: none !important;
+}
+
+/**
+ * Disabled "Remove" button.
+ */
+.documentate-document-locked .documentate-array-remove.documentate-locked,
+.documentate-array-remove.documentate-locked {
+	opacity: 0.5 !important;
+	cursor: not-allowed !important;
+	pointer-events: none !important;
+	color: #a7aaad !important;
+}
+
+/**
+ * Disabled drag handle.
+ */
+.documentate-document-locked .documentate-array-handle.documentate-locked,
+.documentate-array-handle.documentate-locked {
+	opacity: 0.5 !important;
+	cursor: not-allowed !important;
+	pointer-events: none !important;
+	color: #a7aaad !important;
+}
+
+/**
+ * Array items not draggable when locked.
+ */
+.documentate-document-locked .documentate-array-item {
+	cursor: default !important;
+}
+
+.documentate-document-locked .documentate-array-item[draggable="false"] {
+	opacity: 0.9;
+}
+
+/**
+ * TinyMCE editors inside array fields - locked state.
+ */
+.documentate-document-locked .documentate-array-field .mce-tinymce {
+	opacity: 0.8;
+}
+
+.documentate-document-locked .documentate-array-field .mce-toolbar-grp {
+	pointer-events: none;
+	opacity: 0.6;
+}
+
+.documentate-document-locked .documentate-array-field .mce-edit-area iframe {
+	pointer-events: none;
+}
+
+/**
+ * Hide editor tabs when locked.
+ */
+.documentate-document-locked .documentate-array-field .wp-editor-tabs {
+	display: none !important;
+}
+
+/**
+ * Quicktags toolbar disabled.
+ */
+.documentate-document-locked .documentate-array-field .quicktags-toolbar {
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+/**
+ * Sections container relative positioning for overlay.
+ */
+#documentate_document_sections .inside,
+.documentate-sections-container {
+	position: relative;
+}
+
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
+
+@media print {
+	.documentate-workflow-notice,
+	.documentate-doctype-warning,
+	.documentate-editor-restriction-notice,
+	.locked-overlay {
+		display: none !important;
+	}
+}

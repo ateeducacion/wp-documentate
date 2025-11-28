@@ -147,6 +147,10 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doc-types-admin.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doctype-help-notice.php';
 
+		// Workflow management (role-based restrictions, read-only published state).
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-workflow.php';
+		new Documentate_Workflow();
+
 		/**
 		 * The class responsible for defining all actions that occur in the public-facing
 		 * side of the site.
