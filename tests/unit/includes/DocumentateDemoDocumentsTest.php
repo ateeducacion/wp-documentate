@@ -5,10 +5,26 @@
 
 class DocumentateDemoDocumentsTest extends WP_UnitTestCase {
 
+	/**
+	 * Admin user ID for testing.
+	 *
+	 * @var int
+	 */
+	protected $admin_user_id;
+
 	public function set_up(): void {
 		parent::set_up();
 		register_post_type( 'documentate_document', array( 'public' => false ) );
 		register_taxonomy( 'documentate_doc_type', array( 'documentate_document' ) );
+
+		// Create and set admin user (required for document access).
+		$this->admin_user_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $this->admin_user_id );
+	}
+
+	public function tear_down(): void {
+		wp_set_current_user( 0 );
+		parent::tear_down();
 	}
 
 	/**

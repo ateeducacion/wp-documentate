@@ -131,6 +131,11 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-rest-comment-protection.php';
 
 		/**
+		 * The class responsible for protecting document access from unauthorized users.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-document-access-protection.php';
+
+		/**
 		 * The class responsible for defining the MVC.
 		 */
 		// Remove Task MVC models/managers; not needed for Documentate/KB.
