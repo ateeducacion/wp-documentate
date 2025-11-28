@@ -1,0 +1,118 @@
+/**
+ * Documentate Actions Modal Styles
+ *
+ * Styles for the loading modal shown during document generation.
+ */
+
+.documentate-loading-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.6);
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.documentate-loading-modal.is-visible {
+	opacity: 1;
+	visibility: visible;
+}
+
+.documentate-loading-modal__content {
+	background: #fff;
+	border-radius: 8px;
+	padding: 32px 40px;
+	text-align: center;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+	max-width: 320px;
+	width: 90%;
+}
+
+.documentate-loading-modal__spinner {
+	width: 48px;
+	height: 48px;
+	margin: 0 auto 16px;
+	border: 4px solid #dcdcde;
+	border-top-color: #2271b1;
+	border-radius: 50%;
+	animation: documentate-spin 0.8s linear infinite;
+}
+
+@keyframes documentate-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.documentate-loading-modal__title {
+	margin: 0 0 8px;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.documentate-loading-modal__message {
+	margin: 0;
+	font-size: 13px;
+	color: #646970;
+}
+
+.documentate-loading-modal__error {
+	display: none;
+	margin-top: 16px;
+	padding: 12px;
+	background: #fcf0f1;
+	border-left: 4px solid #d63638;
+	border-radius: 2px;
+	text-align: left;
+}
+
+.documentate-loading-modal.is-error .documentate-loading-modal__spinner {
+	display: none;
+}
+
+.documentate-loading-modal.is-error .documentate-loading-modal__error {
+	display: block;
+}
+
+.documentate-loading-modal__error-text {
+	margin: 0 0 12px;
+	font-size: 13px;
+	color: #d63638;
+}
+
+.documentate-loading-modal__close {
+	display: none;
+}
+
+.documentate-loading-modal.is-error .documentate-loading-modal__close {
+	display: inline-block;
+}
+
+/* Action buttons with loading state */
+#documentate_actions .documentate-action-btn {
+	position: relative;
+}
+
+#documentate_actions .documentate-action-btn.is-loading {
+	pointer-events: none;
+	opacity: 0.7;
+}
+
+#documentate_actions .documentate-action-btn.is-loading::after {
+	content: "";
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 12px;
+	height: 12px;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: documentate-spin 0.8s linear infinite;
+}

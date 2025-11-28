@@ -52,6 +52,9 @@ class Documentate_Admin_Helper {
 		add_action( 'admin_post_documentate_preview', array( $this, 'handle_preview' ) );
 		add_action( 'admin_post_documentate_preview_stream', array( $this, 'handle_preview_stream' ) );
 
+		// AJAX handler for document generation with progress modal.
+		add_action( 'wp_ajax_documentate_generate_document', array( $this, 'ajax_generate_document' ) );
+
 		// Metabox with action buttons in the edit screen.
 		add_action( 'add_meta_boxes', array( $this, 'add_actions_metabox' ) );
 
@@ -60,6 +63,9 @@ class Documentate_Admin_Helper {
 
 		// Enhance title field UX for documents CPT.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_title_textarea_assets' ) );
+
+		// Enqueue scripts for the actions metabox.
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_actions_metabox_assets' ) );
 	}
 
 	/**
@@ -275,43 +281,10 @@ class Documentate_Admin_Helper {
 				}
 			}
 
-			$this->render_legacy_preview( $post_id, $result );
-			return;
+			wp_die( esc_html( $result->get_error_message() ), esc_html__( 'Error de previsualización', 'documentate' ), array( 'back_link' => true ) );
 		}
 
-		$title      = get_the_title( $post_id );
-		$upload_dir = wp_upload_dir();
-		$baseurl    = trailingslashit( $upload_dir['baseurl'] ) . 'documentate/';
-		$pdf_url    = $baseurl . basename( $result );
-		$print      = isset( $_GET['print'] ) && '1' === sanitize_text_field( wp_unslash( $_GET['print'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$stream_url = $this->get_preview_stream_url( $post_id, basename( $result ) );
-		$iframe_src = $stream_url ? $stream_url : $pdf_url;
-
-		echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
-		/* translators: %s: document title shown in the PDF preview window. */
-		echo '<title>' . esc_html( sprintf( __( 'Vista previa PDF · %s', 'documentate' ), $title ) ) . '</title>';
-		echo '<style>
-            body{margin:0;font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f4f4f4;color:#111;min-height:100vh;display:flex;flex-direction:column}
-            header{background:#1d2327;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-            header h1{margin:0;font-size:18px;font-weight:600}
-            header a{color:#fff;text-decoration:none;font-weight:500;border:1px solid rgba(255,255,255,.4);padding:6px 12px;border-radius:4px}
-            header a:hover{background:rgba(255,255,255,.1)}
-            main{flex:1;display:flex;padding:12px}
-            .viewer{flex:1;box-shadow:0 0 0 1px #d0d0d0,0 16px 32px rgba(0,0,0,.12);background:#000;border-radius:6px;overflow:hidden}
-            iframe{border:0;width:100%;height:100%}
-            body.loading .viewer::after{content:"' . esc_js( __( 'Cargando PDF…', 'documentate' ) ) . '";color:#fff;font-size:16px;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
-        </style>';
-		echo '</head><body class="loading">';
-		echo '<header><h1>' . esc_html( $title ) . '</h1><div class="actions">';
-		echo '<a href="' . esc_url( $pdf_url ) . '" download>' . esc_html__( 'Descargar PDF', 'documentate' ) . '</a>';
-		echo '</div></header>';
-		echo '<main><div class="viewer"><iframe id="documentate-pdf-frame" src="' . esc_url( $iframe_src ) . '" title="' . esc_attr__( 'Documento en PDF', 'documentate' ) . '"></iframe></div></main>';
-		echo '<script>document.getElementById("documentate-pdf-frame").addEventListener("load",function(){document.body.classList.remove("loading");});</script>';
-		if ( $print ) {
-			echo '<script>(function(){const frame=document.getElementById("documentate-pdf-frame");frame.addEventListener("load",function(){try{frame.contentWindow.focus();frame.contentWindow.print();}catch(e){console.error(e);}});})();</script>';
-		}
-		echo '</body></html>';
-		exit;
+		$this->stream_pdf_inline( $result, get_the_title( $post_id ) );
 	}
 
 	/**
@@ -446,6 +419,49 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
+	 * Stream a PDF file inline to the browser.
+	 *
+	 * @param string $pdf_path Absolute path to the PDF file.
+	 * @param string $title    Optional document title for the filename.
+	 * @return void
+	 */
+	private function stream_pdf_inline( $pdf_path, $title = '' ) {
+		$fs = $this->get_wp_filesystem();
+		if ( is_wp_error( $fs ) ) {
+			wp_die( esc_html( $fs->get_error_message() ), '', array( 'back_link' => true ) );
+		}
+
+		if ( ! $fs->exists( $pdf_path ) || ! $fs->is_readable( $pdf_path ) ) {
+			wp_die( esc_html__( 'No se pudo acceder al archivo PDF generado.', 'documentate' ), '', array( 'back_link' => true ) );
+		}
+
+		$filename      = wp_basename( $pdf_path );
+		$encoded_name  = rawurlencode( $filename );
+		$filesize      = (int) $fs->size( $pdf_path );
+		$disposition   = 'inline; filename="' . $filename . '"; filename*=UTF-8\'\'' . $encoded_name;
+
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+
+		status_header( 200 );
+		nocache_headers();
+		header( 'Content-Type: application/pdf' );
+		header( 'Content-Disposition: ' . $disposition );
+		if ( $filesize > 0 ) {
+			header( 'Content-Length: ' . $filesize );
+		}
+
+		$content = $fs->get_contents( $pdf_path );
+		if ( false === $content ) {
+			wp_die( esc_html__( 'No se pudo leer el archivo PDF.', 'documentate' ), '', array( 'back_link' => true ) );
+		}
+
+		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
+		exit;
+	}
+
+	/**
 	 * Render the browser-based workspace when using ZetaJS CDN mode.
 	 *
 	 * @param int $post_id Document post ID.
@@ -457,8 +473,7 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( ! class_exists( 'Documentate_Zetajs_Converter' ) || ! Documentate_Zetajs_Converter::is_cdn_mode() ) {
-			$this->render_legacy_preview( $post_id );
-			return;
+			wp_die( esc_html__( 'No hay motor de conversión disponible.', 'documentate' ), esc_html__( 'Error de previsualización', 'documentate' ), array( 'back_link' => true ) );
 		}
 
 		$title          = get_the_title( $post_id );
@@ -698,242 +713,6 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
-	 * Legacy HTML preview used when PDF generation is not available.
-	 *
-	 * @param int           $post_id Post ID.
-	 * @param WP_Error|null $error   Optional error to show to the user.
-	 * @return void
-	 */
-	private function render_legacy_preview( $post_id, $error = null ) {
-		$title = get_the_title( $post_id );
-		$opts  = get_option( 'documentate_settings', array() );
-		$font  = isset( $opts['doc_font_family'] ) ? sanitize_text_field( $opts['doc_font_family'] ) : 'Times New Roman';
-		$size  = isset( $opts['doc_font_size'] ) ? intval( $opts['doc_font_size'] ) : 12;
-		$logo       = isset( $opts['doc_logo_id'] ) ? intval( $opts['doc_logo_id'] ) : 0;
-		$logo_r     = isset( $opts['doc_logo_right_id'] ) ? intval( $opts['doc_logo_right_id'] ) : 0;
-		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( ! is_wp_error( $types ) && ! empty( $types ) ) {
-			$tid = intval( $types[0] );
-			$t_font = sanitize_text_field( (string) get_term_meta( $tid, 'documentate_type_font_name', true ) );
-			$t_size = intval( get_term_meta( $tid, 'documentate_type_font_size', true ) );
-			if ( '' !== $t_font ) {
-				$font = $t_font; }
-			if ( $t_size > 0 ) {
-				$size = $t_size; }
-			$t_logos = get_term_meta( $tid, 'documentate_type_logos', true );
-			if ( is_array( $t_logos ) && ! empty( $t_logos ) ) {
-				$logo   = intval( $t_logos[0] );
-				$logo_r = isset( $t_logos[1] ) ? intval( $t_logos[1] ) : $logo_r;
-			}
-		}
-		$logo_url   = $logo ? wp_get_attachment_image_url( $logo, 'full' ) : '';
-		$logo_r_url = $logo_r ? wp_get_attachment_image_url( $logo_r, 'full' ) : '';
-		$lw = isset( $opts['doc_logo_left_width'] ) ? intval( $opts['doc_logo_left_width'] ) : 220;
-		$rw = isset( $opts['doc_logo_right_width'] ) ? intval( $opts['doc_logo_right_width'] ) : 160;
-		$margin_txt = isset( $opts['doc_margin_text'] ) ? wp_kses_post( $opts['doc_margin_text'] ) : '';
-		$structured_fields = array();
-		$schema_fields     = array();
-		if ( class_exists( 'Documentate_Documents' ) ) {
-			$post = get_post( $post_id );
-			if ( $post ) {
-				$structured_fields = Documentate_Documents::parse_structured_content( $post->post_content );
-			}
-		}
-
-		if ( ! is_wp_error( $types ) && ! empty( $types ) && class_exists( 'Documentate_Documents' ) ) {
-			$schema_fields = Documentate_Documents::get_term_schema( intval( $types[0] ) );
-		}
-
-		$humanize = static function ( $slug ) {
-			$label = str_replace( array( '-', '_' ), ' ', (string) $slug );
-			$label = preg_replace( '/\s+/', ' ', $label );
-			$label = trim( $label );
-			if ( '' === $label ) {
-				return '';
-			}
-			return ucwords( $label );
-		};
-
-		$fields_to_render = array();
-		if ( ! empty( $schema_fields ) ) {
-			foreach ( $schema_fields as $def ) {
-				if ( empty( $def['slug'] ) ) {
-					continue;
-				}
-								$slug  = sanitize_key( $def['slug'] );
-								$label = isset( $def['label'] ) ? sanitize_text_field( $def['label'] ) : '';
-				if ( '' === $slug ) {
-						continue;
-				}
-								$type = isset( $def['type'] ) ? sanitize_key( $def['type'] ) : 'textarea';
-				if ( 'array' === $type ) {
-						continue;
-				}
-				if ( '' === $label ) {
-						$label = $humanize( $slug );
-				}
-				if ( '' === $label ) {
-					continue;
-				}
-				$fields_to_render[] = array(
-					'slug'  => $slug,
-					'label' => $label,
-				);
-			}
-		} elseif ( ! empty( $structured_fields ) ) {
-			foreach ( $structured_fields as $slug => $info ) {
-								$slug  = sanitize_key( $slug );
-				if ( '' === $slug ) {
-						continue;
-				}
-								$type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
-				if ( 'array' === $type ) {
-						continue;
-				}
-								$label = $humanize( $slug );
-				if ( '' === $label ) {
-						continue;
-				}
-				$fields_to_render[] = array(
-					'slug'  => $slug,
-					'label' => $label,
-				);
-			}
-		}
-
-		foreach ( $fields_to_render as $field ) {
-			$slug  = $field['slug'];
-			$label = $field['label'];
-			$value = '';
-			if ( isset( $structured_fields[ $slug ]['value'] ) ) {
-				$value = (string) $structured_fields[ $slug ]['value'];
-			} else {
-				$meta_key = 'documentate_field_' . $slug;
-				$value    = (string) get_post_meta( $post_id, $meta_key, true );
-			}
-			$value = preg_replace( '/<\/?font[^>]*>/i', '', $value );
-			$value = preg_replace( '/font-family\s*:\s*[^;\"\']+;?/i', '', $value );
-			$value = preg_replace( '/font-size\s*:\s*[^;\"\']+;?/i', '', $value );
-			$value = str_replace( '&nbsp;', ' ', $value );
-			$value = trim( $value );
-			if ( '' !== $value ) {
-				echo '<section data-avoid-break="1"><h2>' . esc_html( $label ) . '</h2>';
-				echo '<div class="section-content">' . wp_kses_post( $value ) . '</div></section>';
-			}
-		}
-
-				$annexes = array();
-		if ( isset( $structured_fields['annexes'] ) && isset( $structured_fields['annexes']['type'] ) && 'array' === sanitize_key( $structured_fields['annexes']['type'] ) ) {
-				$annex_value = isset( $structured_fields['annexes']['value'] ) ? (string) $structured_fields['annexes']['value'] : '';
-				$annexes     = Documentate_Documents::decode_array_field_value( $annex_value );
-		} else {
-				$legacy_annexes = get_post_meta( $post_id, 'documentate_annexes', true );
-			if ( is_array( $legacy_annexes ) ) {
-						$annexes = $legacy_annexes;
-			}
-		}
-
-		if ( is_array( $annexes ) && ! empty( $annexes ) ) {
-				$roman = function ( $num ) {
-						$map = array(
-							'M'  => 1000,
-							'CM' => 900,
-							'D'  => 500,
-							'CD' => 400,
-							'C'  => 100,
-							'XC' => 90,
-							'L'  => 50,
-							'XL' => 40,
-							'X'  => 10,
-							'IX' => 9,
-							'V'  => 5,
-							'IV' => 4,
-							'I'  => 1,
-						);
-						$res = '';
-						foreach ( $map as $rom => $int ) {
-							while ( $num >= $int ) {
-								$res .= $rom;
-								$num -= $int; }
-						}
-						return $res;
-				};
-
-			foreach ( $annexes as $i => $anx ) {
-							$number = isset( $anx['number'] ) ? (string) $anx['number'] : '';
-							$t      = isset( $anx['title'] ) ? (string) $anx['title'] : '';
-							$c      = '';
-				if ( isset( $anx['content'] ) ) {
-						$c = (string) $anx['content'];
-				} elseif ( isset( $anx['text'] ) ) {
-						$c = (string) $anx['text'];
-				}
-							$c = preg_replace( '/<\\/?font[^>]*>/i', '', (string) $c );
-							$c = preg_replace( '/font-family\\s*:\\s*[^;"\']+;?/i', '', (string) $c );
-							$c = preg_replace( '/font-size\\s*:\\s*[^;"\']+;?/i', '', (string) $c );
-				if ( '' === trim( $t ) && '' === trim( wp_strip_all_tags( (string) $c ) ) ) {
-						continue;
-				}
-							$label_number = '' !== trim( $number ) ? $number : $roman( $i + 1 );
-							/* translators: %s: annex identifier. */
-							$label = sprintf( __( 'Anexo %s', 'documentate' ), $label_number );
-							echo '<section data-new-page="1" data-avoid-break="1">';
-							echo '<h1>' . esc_html( $label ) . '</h1>';
-				if ( '' !== trim( $t ) ) {
-					echo '<h1>' . esc_html( $t ) . '</h1>';
-				}
-					echo wp_kses_post( $c );
-					echo '</section>';
-			}
-		}
-		echo '</div>';
-		echo '<div class="pages" id="pages"></div>';
-		echo '<script>(function(){
-          const pageW = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--page-w"));
-          const pageH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--page-h"));
-          const padTop = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--page-pad-top"));
-          const pad = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--page-pad"));
-          const footerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--footer-h"));
-          const flow = document.getElementById("content-flow");
-          const pages = document.getElementById("pages");
-          function newPage(){
-            const p = document.createElement("div"); p.className="page";
-            const inner = document.createElement("div"); inner.className="page-inner";
-            const footer = document.createElement("div"); footer.className="page-footer";
-            p.appendChild(inner); p.appendChild(footer); pages.appendChild(p);
-            return {p, inner, footer};
-          }
-          let cur = newPage(); let num=1;
-          function setFooter(){ cur.footer.textContent = "Página " + num; }
-          setFooter();
-          const blocks = Array.from(flow.children);
-          for (const el of blocks){
-            if (el.hasAttribute("data-new-page") && (cur.inner.childElementCount > 0)) {
-              num++;
-              cur = newPage();
-              setFooter();
-            }
-            cur.inner.appendChild(el.cloneNode(true));
-            const maxH = cur.inner.clientHeight;
-            if (cur.inner.scrollHeight > maxH){
-              cur.inner.removeChild(cur.inner.lastChild);
-              num++;
-              cur = newPage();
-              setFooter();
-              cur.inner.appendChild(el.cloneNode(true));
-            }
-          }
-          flow.remove();
-          const params = new URLSearchParams(window.location.search);
-          if (params.get("print") === "1") {
-            setTimeout(function(){ window.print(); }, 300);
-          }
-        })();</script>';
-		echo '</body></html>';
-		exit;
-	}
-
-	/**
 	 * Add actions metabox to the edit screen.
 	 */
 	public function add_actions_metabox() {
@@ -1053,10 +832,10 @@ class Documentate_Admin_Helper {
 		echo '<p>';
 		if ( $preview_available ) {
 			$preview_attrs = array(
-				'class'  => 'button button-secondary',
-				'href'   => $preview,
-				'target' => '_blank',
-				'rel'    => 'noopener',
+				'class'                   => 'button button-secondary documentate-action-btn',
+				'href'                    => '#',
+				'data-documentate-action' => 'preview',
+				'data-documentate-format' => 'pdf',
 			);
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 			echo '<a ' . $this->build_action_attributes( $preview_attrs ) . '>' . esc_html__( 'Previsualizar', 'documentate' ) . '</a>';
@@ -1092,11 +871,13 @@ class Documentate_Admin_Helper {
 		echo '<p>';
 		foreach ( array( 'docx', 'odt', 'pdf' ) as $format ) {
 			$data  = $buttons[ $format ];
-			$class = $data['primary'] ? 'button button-primary' : 'button';
+			$class = $data['primary'] ? 'button button-primary documentate-action-btn' : 'button documentate-action-btn';
 			if ( $data['available'] ) {
 				$attrs = array(
-					'class' => $class,
-					'href'  => $data['href'],
+					'class'                   => $class,
+					'href'                    => '#',
+					'data-documentate-action' => 'download',
+					'data-documentate-format' => $format,
 				);
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 				echo '<a ' . $this->build_action_attributes( $attrs ) . '>' . esc_html( $data['label'] ) . '</a> ';
@@ -1209,6 +990,139 @@ class Documentate_Admin_Helper {
 		}
 		$msg = sanitize_text_field( wp_unslash( $_GET['documentate_notice'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $msg ) . '</p></div>';
+	}
+
+	/**
+	 * Enqueue scripts and styles for the actions metabox.
+	 *
+	 * @param string $hook_suffix The current admin page hook.
+	 * @return void
+	 */
+	public function enqueue_actions_metabox_assets( $hook_suffix ) {
+		if ( ! in_array( $hook_suffix, array( 'post.php', 'post-new.php' ), true ) ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'documentate_document' !== $screen->post_type ) {
+			return;
+		}
+
+		$post_id = isset( $_GET['post'] ) ? intval( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! $post_id && isset( $GLOBALS['post'] ) ) {
+			$post_id = $GLOBALS['post']->ID;
+		}
+
+		if ( ! $post_id ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'documentate-actions',
+			plugins_url( 'admin/css/documentate-actions.css', DOCUMENTATE_PLUGIN_FILE ),
+			array(),
+			DOCUMENTATE_VERSION
+		);
+
+		wp_enqueue_script(
+			'documentate-actions',
+			plugins_url( 'admin/js/documentate-actions.js', DOCUMENTATE_PLUGIN_FILE ),
+			array( 'jquery' ),
+			DOCUMENTATE_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'documentate-actions',
+			'documentateActionsConfig',
+			array(
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'postId'  => $post_id,
+				'nonce'   => wp_create_nonce( 'documentate_generate_' . $post_id ),
+				'strings' => array(
+					'generating'        => __( 'Generando documento...', 'documentate' ),
+					'generatingPreview' => __( 'Generando vista previa...', 'documentate' ),
+					/* translators: %s: document format (DOCX, ODT, PDF). */
+					'generatingFormat'  => __( 'Generando %s...', 'documentate' ),
+					'wait'              => __( 'Por favor, espera mientras se genera el documento.', 'documentate' ),
+					'close'             => __( 'Cerrar', 'documentate' ),
+					'errorGeneric'      => __( 'Error al generar el documento.', 'documentate' ),
+					'errorNetwork'      => __( 'Error de conexión. Por favor, inténtalo de nuevo.', 'documentate' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * AJAX handler for document generation.
+	 *
+	 * Generates the document and returns a URL for download/preview.
+	 *
+	 * @return void
+	 */
+	public function ajax_generate_document() {
+		$post_id = isset( $_POST['post_id'] ) ? intval( $_POST['post_id'] ) : 0;
+		$format  = isset( $_POST['format'] ) ? sanitize_key( $_POST['format'] ) : 'pdf';
+		$output  = isset( $_POST['output'] ) ? sanitize_key( $_POST['output'] ) : 'download';
+
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Permisos insuficientes.', 'documentate' ) ) );
+		}
+
+		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'documentate_generate_' . $post_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Nonce no válido.', 'documentate' ) ) );
+		}
+
+		$this->ensure_document_generator();
+
+		$result = null;
+
+		switch ( $format ) {
+			case 'docx':
+				$result = Documentate_Document_Generator::generate_docx( $post_id );
+				break;
+			case 'odt':
+				$result = Documentate_Document_Generator::generate_odt( $post_id );
+				break;
+			case 'pdf':
+			default:
+				$result = Documentate_Document_Generator::generate_pdf( $post_id );
+				break;
+		}
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		// Build the URL for download/preview.
+		$nonce_action = 'preview' === $output ? 'documentate_preview_' . $post_id : 'documentate_export_' . $post_id;
+		$nonce        = wp_create_nonce( $nonce_action );
+
+		if ( 'preview' === $output ) {
+			// For preview, use the preview stream URL.
+			$this->remember_preview_stream_file( $post_id, basename( $result ) );
+			$url = add_query_arg(
+				array(
+					'action'   => 'documentate_preview_stream',
+					'post_id'  => $post_id,
+					'_wpnonce' => wp_create_nonce( 'documentate_preview_stream_' . $post_id ),
+				),
+				admin_url( 'admin-post.php' )
+			);
+		} else {
+			// For download, use the export URL.
+			$action_name = 'documentate_export_' . $format;
+			$url         = add_query_arg(
+				array(
+					'action'   => $action_name,
+					'post_id'  => $post_id,
+					'_wpnonce' => $nonce,
+				),
+				admin_url( 'admin-post.php' )
+			);
+		}
+
+		wp_send_json_success( array( 'url' => $url ) );
 	}
 }
 
