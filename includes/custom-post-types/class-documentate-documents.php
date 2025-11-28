@@ -2104,27 +2104,20 @@ class Documentate_Documents {
 		}
 
 		$post_id = isset( $postarr['ID'] ) ? intval( $postarr['ID'] ) : 0;
-		$status_before_filter = isset( $data['post_status'] ) ? $data['post_status'] : '';
-		$should_force_private = ! in_array( $status_before_filter, array( 'auto-draft', 'trash' ), true );
 
-		if ( $should_force_private ) {
-			$data['post_status']   = 'private';
-			$data['post_password'] = '';
+		// Clear password - documents don't use password protection.
+		$data['post_password'] = '';
 
-			if ( $post_id > 0 ) {
-				$current_post = get_post( $post_id );
-				if ( $current_post && 'documentate_document' === $current_post->post_type ) {
+		// Preserve post dates for existing posts.
+		if ( $post_id > 0 ) {
+			$current_post = get_post( $post_id );
+			if ( $current_post && 'documentate_document' === $current_post->post_type ) {
+				// Only preserve dates if not explicitly changed.
+				if ( empty( $data['post_date'] ) || '0000-00-00 00:00:00' === $data['post_date'] ) {
 					$data['post_date']     = $current_post->post_date;
 					$data['post_date_gmt'] = $current_post->post_date_gmt;
 				}
-			} else {
-				$now     = current_time( 'mysql' );
-				$now_gmt = current_time( 'mysql', true );
-				$data['post_date']     = $now;
-				$data['post_date_gmt'] = $now_gmt;
 			}
-		} else {
-			$data['post_password'] = '';
 		}
 
 		$term_id = 0;
