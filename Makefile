@@ -193,6 +193,7 @@ lint-no-tty: cli-container start-if-not-running
 # Update Composer dependencies
 update: check-docker
 	composer update --no-cache --with-all-dependencies
+	npm update
 
 # Generate a .pot file for translations
 pot:
