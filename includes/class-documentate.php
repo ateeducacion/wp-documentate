@@ -173,6 +173,7 @@ class Documentate {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles', 10, 1 );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts', 10, 1 );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_collaborative_editor', 10, 1 );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_revisions_assets', 10, 1 );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'deregister_heartbeat_for_collaborative', 1, 1 );
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'remove_post_lock_for_collaborative', 1 );
 		$this->loader->add_action( 'add_meta_boxes_documentate_document', $plugin_admin, 'register_collaborative_status_metabox', 10, 1 );

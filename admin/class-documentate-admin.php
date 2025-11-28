@@ -390,4 +390,167 @@ class Documentate_Admin {
 		// Deregister heartbeat completely - our Yjs handles collaboration.
 		wp_deregister_script( 'heartbeat' );
 	}
+
+	/**
+	 * Enqueue assets for revision diff view enhancement.
+	 *
+	 * Replaces raw HTML comment markers with styled field badges
+	 * in the WordPress revisions comparison screen.
+	 *
+	 * @param string $hook_suffix The current admin page.
+	 */
+	public function enqueue_revisions_assets( $hook_suffix ) {
+		// Check if we're on the revision screen or document edit screen.
+		if ( 'revision.php' !== $hook_suffix && 'post.php' !== $hook_suffix ) {
+			return;
+		}
+
+		// On post.php, only load for our post type.
+		if ( 'post.php' === $hook_suffix ) {
+			$screen = get_current_screen();
+			if ( ! $screen || 'documentate_document' !== $screen->post_type ) {
+				return;
+			}
+		}
+
+		// For revision.php, check if it's a revision of our post type.
+		if ( 'revision.php' === $hook_suffix ) {
+			$revision_id = isset( $_GET['revision'] ) ? intval( $_GET['revision'] ) : 0;
+			if ( $revision_id > 0 ) {
+				$revision = wp_get_post_revision( $revision_id );
+				if ( $revision ) {
+					$parent = get_post( $revision->post_parent );
+					if ( ! $parent || 'documentate_document' !== $parent->post_type ) {
+						return;
+					}
+				}
+			}
+		}
+
+		// Enqueue CSS (dashicons dependency for icons).
+		wp_enqueue_style(
+			'documentate-revisions',
+			plugin_dir_url( __FILE__ ) . 'css/documentate-revisions.css',
+			array( 'dashicons' ),
+			$this->version
+		);
+
+		// Enqueue JavaScript.
+		wp_enqueue_script(
+			'documentate-revisions',
+			plugin_dir_url( __FILE__ ) . 'js/documentate-revisions.js',
+			array(),
+			$this->version,
+			true
+		);
+
+		// Get field labels for the current document type.
+		$field_labels = $this->get_revision_field_labels();
+
+		// Pass data to JavaScript.
+		wp_localize_script(
+			'documentate-revisions',
+			'documentateRevisions',
+			array(
+				'fieldLabels' => $field_labels,
+				'strings'     => array(
+					'fieldContent' => __( 'Contenido del campo ↓', 'documentate' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Get field labels for revision display.
+	 *
+	 * Builds a map of field slugs to human-readable labels
+	 * from the document type schema.
+	 *
+	 * @return array<string,string> Map of slug => label.
+	 */
+	private function get_revision_field_labels() {
+		$labels = array(
+			// Default labels for common fields.
+			'post_title'        => __( 'Título del documento', 'documentate' ),
+			'post_content'      => __( 'Contenido', 'documentate' ),
+			'resolution_number' => __( 'Número de resolución', 'documentate' ),
+			'date'              => __( 'Fecha', 'documentate' ),
+			'antecedentes'      => __( 'Antecedentes', 'documentate' ),
+			'fundamentos'       => __( 'Fundamentos', 'documentate' ),
+			'resuelve'          => __( 'Resuelve', 'documentate' ),
+			'anexos'            => __( 'Anexos', 'documentate' ),
+			'firma'             => __( 'Firma', 'documentate' ),
+			'cargo'             => __( 'Cargo', 'documentate' ),
+			'lugar'             => __( 'Lugar', 'documentate' ),
+			'destinatario'      => __( 'Destinatario', 'documentate' ),
+			'asunto'            => __( 'Asunto', 'documentate' ),
+			'cuerpo'            => __( 'Cuerpo', 'documentate' ),
+			'saludo'            => __( 'Saludo', 'documentate' ),
+			'despedida'         => __( 'Despedida', 'documentate' ),
+		);
+
+		// Try to get labels from the current revision's parent document type.
+		$revision_id = isset( $_GET['revision'] ) ? intval( $_GET['revision'] ) : 0;
+		$post_id     = isset( $_GET['post'] ) ? intval( $_GET['post'] ) : 0;
+
+		// Determine the parent post ID.
+		$parent_id = 0;
+		if ( $revision_id > 0 ) {
+			$revision = wp_get_post_revision( $revision_id );
+			if ( $revision ) {
+				$parent_id = $revision->post_parent;
+			}
+		} elseif ( $post_id > 0 ) {
+			$parent_id = $post_id;
+		}
+
+		if ( $parent_id > 0 ) {
+			$schema_labels = $this->get_schema_labels_for_post( $parent_id );
+			if ( ! empty( $schema_labels ) ) {
+				$labels = array_merge( $labels, $schema_labels );
+			}
+		}
+
+		/**
+		 * Filter the field labels used in revision diff display.
+		 *
+		 * @param array<string,string> $labels    Map of slug => label.
+		 * @param int                  $parent_id Parent document post ID.
+		 */
+		return apply_filters( 'documentate_revision_field_labels', $labels, $parent_id );
+	}
+
+	/**
+	 * Get schema field labels for a specific post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array<string,string> Map of slug => label.
+	 */
+	private function get_schema_labels_for_post( $post_id ) {
+		$labels = array();
+
+		// Get the document type term.
+		$terms = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return $labels;
+		}
+
+		$term_id = intval( $terms[0] );
+
+		// Get schema from the term.
+		if ( class_exists( 'Documentate\\DocType\\SchemaStorage' ) ) {
+			$storage = new \Documentate\DocType\SchemaStorage();
+			$schema  = $storage->get_schema( $term_id );
+
+			if ( is_array( $schema ) && ! empty( $schema ) ) {
+				foreach ( $schema as $field ) {
+					if ( ! empty( $field['slug'] ) && ! empty( $field['label'] ) ) {
+						$labels[ sanitize_key( $field['slug'] ) ] = $field['label'];
+					}
+				}
+			}
+		}
+
+		return $labels;
+	}
 }
