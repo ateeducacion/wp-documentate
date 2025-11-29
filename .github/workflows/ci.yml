@@ -25,13 +25,14 @@ permissions:
   checks: write
 
 jobs:
-  lint_and_test:
+  # JOB 1: BLUEPRINTS & SETUP (Fastest)
+  # Generates the Playground URL early so you can test while other jobs run
+  blueprint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      # Determine the branch name
-      - name: Set branch name for blueprint URL
+      - name: Set branch name
         shell: bash
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
@@ -40,53 +41,26 @@ jobs:
             echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
 
-      - name: Patch blueprint.json with branch ZIP
-        run: |
-          sed -i "s|refs/heads/main.zip|refs/heads/${BRANCH_NAME}.zip|g" blueprint.json
-
-      - name: Encode blueprint for Playground
+      - name: Patch and Encode blueprint
         id: blueprint
         run: |
+          sed -i "s|refs/heads/main.zip|refs/heads/${BRANCH_NAME}.zip|g" blueprint.json
           BASE64_BLUEPRINT=$(base64 -w 0 blueprint.json)
           echo "BASE64_BLUEPRINT=$BASE64_BLUEPRINT" >> $GITHUB_ENV
 
-      - name: Add Playground URL to summary
-        run: |
-          echo "[Test in WP Playground](https://playground.wordpress.net/#${BASE64_BLUEPRINT})" >> $GITHUB_STEP_SUMMARY
-
-      - name: Create a check with a test link
-        uses: actions/github-script@v8
+      - name: Create Deployment & Check
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const encodedBlueprint = process.env.BASE64_BLUEPRINT;
             const playgroundUrl = `https://playground.wordpress.net/#${encodedBlueprint}`;
-            github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: "Test on WP playground",
-              head_sha: context.payload.pull_request ? context.payload.pull_request.head.sha : context.sha,
-              status: "completed",
-              conclusion: "neutral",
-              output: {
-                title: "Test in WP playground",
-                summary: `[Test in WP Playground](${playgroundUrl})`
-              }
-            });
-
-      - name: Create a deployment
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const encodedBlueprint = process.env.BASE64_BLUEPRINT;
-            const playgroundUrl = `https://playground.wordpress.net/#${encodedBlueprint}`;
-
+            
+            // Create Deployment
             const deployment = await github.rest.repos.createDeployment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: context.payload.pull_request ? context.payload.pull_request.head.ref : context.ref,
-              required_contexts: [],
               environment: "playground",
               transient_environment: true,
               auto_merge: false,
@@ -100,19 +74,62 @@ jobs:
                 deployment_id: deployment.data.id,
                 state: "success",
                 environment_url: playgroundUrl,
-                description: "Playground environment ready"
+                description: "Ready"
               });
             }
 
-      # Setup Node with caching
+            // Add to Summary
+            core.summary.addLink('Test in WP Playground', playgroundUrl);
+            await core.summary.write();
+
+  # JOB 2: LINT & STATIC ANALYSIS (No Docker required - Fast)
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: json, xml
+          tools: composer:v2, cs2pr, phpcs
+          coverage: none
+
+      - name: Get Composer Cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Check Untranslated Strings
+        run: make check-untranslated
+
+      # Run PHPCS directly (skipping Docker overhead)
+      - name: Run PHPCS
+        run: phpcs --standard=.phpcs.xml.dist --report=checkstyle -q . | cs2pr
+
+  # JOB 3: UNIT TESTS (Requires Docker)
+  test-unit:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      # Setup PHP (cache handled separately below)
-      - name: PHP setup
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -120,61 +137,31 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      # Cache Composer dependencies
-      - name: Get Composer Cache Directory
+      - name: Get Composer Cache
         id: composer-cache
-        run: |
-          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
       
       - uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
 
-      # Cache Playwright binaries
-      - name: Cache Playwright binaries
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: |
-            ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+      - name: Install Dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          npm ci
+          npm -g --no-fund i @wordpress/env
 
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Install gettext
-        run: sudo apt-get install -y gettext
-
-      - name: Check untranslated strings
-        run: make check-untranslated
-
-      - name: Install NPM dependencies
-        run: npm ci
-
-      - name: Setup wp-env
-        run: npm -g --no-fund i @wordpress/env
-
-      # Install Playwright browsers only if cache miss
-      - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Start wp-env with Xdebug
+      - name: Start Environment (Xdebug)
         run: npx wp-env start --xdebug=coverage --update
 
-      - name: Run code linting
-        run: make lint
-
-      - name: Run plugin check
+      - name: Check Plugin (WP-CLI)
         run: make check-plugin
 
-      - name: Run unit tests with coverage
+      - name: Run Unit Tests (Coverage)
         run: make test-coverage
 
-      - name: Upload Coverage Report
+      - name: Upload Coverage
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -182,13 +169,62 @@ jobs:
           path: artifacts/coverage/html/
           retention-days: 7
 
-      - name: Run E2E tests
+  # JOB 4: E2E TESTS (Requires Docker + Playwright - Slowest)
+  test-e2e:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Get Composer Cache
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+      
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+
+      - name: Cache Playwright binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+          npm ci
+          npm -g --no-fund i @wordpress/env
+
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Environment
+        run: make up
+
+      - name: Run E2E Tests
         run: make test-e2e
         env:
           CI: true
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
-      - name: Upload E2E test artifacts
+      - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: failure()
         with:
