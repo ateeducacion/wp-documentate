@@ -106,10 +106,19 @@ test-verbose: start-if-not-running
 	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
 test-coverage: start-if-not-running
-	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --testdox --colors=always --coverage-text --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml --coverage-filter=admin --coverage-filter=includes --coverage-filter=public --coverage-filter=documentate.php --coverage-filter=uninstall.php"; \
+	@mkdir -p artifacts/coverage
+	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --testdox --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml --coverage-filter=admin --coverage-filter=includes --coverage-filter=public --coverage-filter=documentate.php --coverage-filter=uninstall.php"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD; \
+	echo ""; \
+	echo "════════════════════════════════════════════════════════════"; \
+	echo "                    COVERAGE SUMMARY                        "; \
+	echo "════════════════════════════════════════════════════════════"; \
+	grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
+	echo "════════════════════════════════════════════════════════════"; \
+	echo "Full report: artifacts/coverage/html/index.html"; \
+	echo ""
 
 # Ensure tests environment has admin user and plugin active
 setup-tests-env:
