@@ -3,11 +3,20 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - '**.md'
   push:
     tags:
       - '*'
     branches:
-      - '*' 
+      - '*'
+    paths-ignore:
+      - '**.md'
+
+# Cancel previous runs on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -19,7 +28,6 @@ jobs:
   lint_and_test:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the code
       - uses: actions/checkout@v6
 
       # Determine the branch name
@@ -32,25 +40,20 @@ jobs:
             echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
 
-      # Replace main.zip with <BRANCH_NAME>.zip in blueprint.json
       - name: Patch blueprint.json with branch ZIP
         run: |
           sed -i "s|refs/heads/main.zip|refs/heads/${BRANCH_NAME}.zip|g" blueprint.json
 
-      # Convert blueprint.json to Base64, because github not processes well json in urls
       - name: Encode blueprint for Playground
         id: blueprint
         run: |
-          # Base64-encode the blueprint (no line wraps)
           BASE64_BLUEPRINT=$(base64 -w 0 blueprint.json)
           echo "BASE64_BLUEPRINT=$BASE64_BLUEPRINT" >> $GITHUB_ENV
 
-      # Show final Playground URL in the Summary
       - name: Add Playground URL to summary
         run: |
           echo "[Test in WP Playground](https://playground.wordpress.net/#${BASE64_BLUEPRINT})" >> $GITHUB_STEP_SUMMARY
 
-      # Create a GitHub Check Run with the Playground URL
       - name: Create a check with a test link
         uses: actions/github-script@v8
         with:
@@ -71,7 +74,6 @@ jobs:
               }
             });
 
-      # Create a deployment with the Playground URL
       - name: Create a deployment
         uses: actions/github-script@v8
         with:
@@ -102,19 +104,31 @@ jobs:
               });
             }
 
+      # Setup Node with caching
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-
-      - name: Pre-pull Docker images
-        run: |
-          docker pull mariadb:lts
-          docker pull wordpress
-          docker pull wordpress:cli
-
+      # Setup PHP with caching
       - name: PHP setup
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'  # Adjust the version according to your needs
+          php-version: '8.3'
           extensions: mbstring, intl, curl, dom, json, pdo, mysql, xml, zip
+          tools: composer:v2
+          coverage: none
+          cache: composer
+
+      # Cache Playwright binaries
+      - name: Cache Playwright binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
@@ -125,11 +139,17 @@ jobs:
       - name: Check untranslated strings
         run: make check-untranslated
 
-      # Install wp-env globally
+      - name: Install NPM dependencies
+        run: npm ci
+
       - name: Setup wp-env
         run: npm -g --no-fund i @wordpress/env
 
-      # Start wp-env environment
+      # Install Playwright browsers only if cache miss
+      - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
       - name: Start wp-env
         run: make up
 
@@ -141,10 +161,6 @@ jobs:
 
       - name: Run unit tests
         run: make test
-
-      # E2E Tests with Playwright
-      - name: Install npm dependencies and Playwright
-        run: npm install && npx playwright install --with-deps chromium
 
       - name: Run E2E tests
         run: make test-e2e
