@@ -150,8 +150,8 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Start wp-env
-        run: make up
+      - name: Start wp-env with Xdebug
+        run: npx wp-env start --xdebug=coverage --update
 
       - name: Run code linting
         run: make lint
@@ -159,8 +159,16 @@ jobs:
       - name: Run plugin check
         run: make check-plugin
 
-      - name: Run unit tests
-        run: make test
+      - name: Run unit tests with coverage
+        run: make test-coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: artifacts/coverage/html/
+          retention-days: 7
 
       - name: Run E2E tests
         run: make test-e2e
