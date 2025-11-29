@@ -34,7 +34,7 @@ class Documentate_Zetajs_Converter {
 		}
 
 		if ( ! WP_Filesystem() ) {
-			return new WP_Error( 'documentate_fs_unavailable', __( 'No se pudo inicializar el sistema de archivos de WordPress.', 'documentate' ) );
+			return new WP_Error( 'documentate_fs_unavailable', __( 'Could not initialize the WordPress filesystem.', 'documentate' ) );
 		}
 
 		return $wp_filesystem;
@@ -94,11 +94,11 @@ class Documentate_Zetajs_Converter {
 		}
 
 		if ( ! $fs->exists( $input_path ) ) {
-			return new WP_Error( 'documentate_zetajs_input_missing', __( 'El fichero origen para la conversión no existe.', 'documentate' ) );
+			return new WP_Error( 'documentate_zetajs_input_missing', __( 'The source file for conversion does not exist.', 'documentate' ) );
 		}
 
 		if ( ! self::is_available() ) {
-			return new WP_Error( 'documentate_zetajs_not_available', __( 'Configura la ruta del ejecutable de ZetaJS en DOCUMENTATE_ZETAJS_BIN.', 'documentate' ) );
+			return new WP_Error( 'documentate_zetajs_not_available', __( 'Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN.', 'documentate' ) );
 		}
 
 		$cli = self::get_cli_path();
@@ -121,7 +121,7 @@ class Documentate_Zetajs_Converter {
 
 		$process = proc_open( $command, $descriptor, $pipes, null, null, array( 'bypass_shell' => true ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found
 		if ( ! is_resource( $process ) ) {
-			return new WP_Error( 'documentate_zetajs_proc', __( 'No se pudo iniciar el proceso de conversión con ZetaJS.', 'documentate' ) );
+			return new WP_Error( 'documentate_zetajs_proc', __( 'Could not start the ZetaJS conversion process.', 'documentate' ) );
 		}
 
 			// phpcs:disable WordPress.WP.AlternativeFunctions -- Managing process pipes, no WP alternative.
@@ -141,7 +141,7 @@ class Documentate_Zetajs_Converter {
 			}
 			if ( '' === $message ) {
 				/* translators: %d: exit status returned by the ZetaJS process. */
-				$message = sprintf( __( 'El proceso de ZetaJS finalizó con código %d.', 'documentate' ), $status );
+				$message = sprintf( __( 'The ZetaJS process exited with code %d.', 'documentate' ), $status );
 			}
 			return new WP_Error( 'documentate_zetajs_failed', $message );
 		}
@@ -149,7 +149,7 @@ class Documentate_Zetajs_Converter {
 		if ( ! $fs->exists( $output_path ) ) {
 			$context = $stderr ? $stderr : $stdout;
 			/* translators: %s: raw message captured from the ZetaJS converter output. */
-			return new WP_Error( 'documentate_zetajs_output_missing', sprintf( __( 'La conversión finalizó pero no se generó el archivo de salida. Detalles: %s', 'documentate' ), $context ) );
+			return new WP_Error( 'documentate_zetajs_output_missing', sprintf( __( 'Conversion finished but the output file was not generated. Details: %s', 'documentate' ), $context ) );
 		}
 
 		return $output_path;
@@ -206,6 +206,6 @@ class Documentate_Zetajs_Converter {
 	 * @return string
 	 */
 	public static function get_browser_conversion_message() {
-		return __( 'La conversión a PDF se realiza en el navegador usando ZetaJS cargado desde la CDN oficial.', 'documentate' );
+		return __( 'PDF conversion is performed in the browser using ZetaJS loaded from the official CDN.', 'documentate' );
 	}
 }

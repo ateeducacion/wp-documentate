@@ -1,15 +1,15 @@
 <?php
 /**
  *
- * Documentate – Generador de resoluciones.
+ * Documentate – Document Generator.
  *
  * @link              https://github.com/erseco/wp-documentate
  * @package           Documentate
  *
  * @wordpress-plugin
- * Plugin Name:       Documentate – Generador de resoluciones
+ * Plugin Name:       Documentate – Document Generator
  * Plugin URI:        https://github.com/erseco/wp-documentate
- * Description:       Generador de resoluciones digitales de la Consejería de Educación del Gobierno de Canarias. Define un tipo de contenido de "Resolución" con secciones estructuradas y permite exportar a Word (DOCX) y, próximamente, PDF.
+ * Description:       Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF.
  * Version:           0.0.0
  * Author:            Área de Tecnología Educativa
  * Author URI:        https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/
@@ -227,8 +227,8 @@ function documentate_maybe_seed_default_doc_types() {
 	if ( $odt_id > 0 ) {
 		$definitions[] = array(
 			'slug'        => 'documentate-demo-odt',
-			'name'        => __( 'Tipo de documento de prueba (ODT)', 'documentate' ),
-			'description' => __( 'Ejemplo creado automáticamente con la plantilla ODT incluida.', 'documentate' ),
+			'name'        => __( 'Test document type (ODT)', 'documentate' ),
+			'description' => __( 'Example automatically created with the included ODT template.', 'documentate' ),
 			'color'       => '#37517e',
 			'template_id' => $odt_id,
 			'fixture_key' => 'documentate-demo-odt',
@@ -239,8 +239,8 @@ function documentate_maybe_seed_default_doc_types() {
 	if ( $docx_id > 0 ) {
 		$definitions[] = array(
 			'slug'        => 'documentate-demo-docx',
-			'name'        => __( 'Tipo de documento de prueba (DOCX)', 'documentate' ),
-			'description' => __( 'Ejemplo creado automáticamente con la plantilla DOCX incluida.', 'documentate' ),
+			'name'        => __( 'Test document type (DOCX)', 'documentate' ),
+			'description' => __( 'Example automatically created with the included DOCX template.', 'documentate' ),
 			'color'       => '#2a7fb8',
 			'template_id' => $docx_id,
 			'fixture_key' => 'documentate-demo-docx',
@@ -251,8 +251,8 @@ function documentate_maybe_seed_default_doc_types() {
 	if ( $advanced_odt_id > 0 ) {
 		$definitions[] = array(
 			'slug'        => 'documentate-demo-wp-documentate-odt',
-			'name'        => __( 'Tipo de documento de prueba avanzado (ODT)', 'documentate' ),
-			'description' => __( 'Ejemplo creado automáticamente con la plantilla demo-wp-documentate.odt incluida.', 'documentate' ),
+			'name'        => __( 'Advanced test document type (ODT)', 'documentate' ),
+			'description' => __( 'Example automatically created with the included demo-wp-documentate.odt template.', 'documentate' ),
 			'color'       => '#6c5ce7',
 			'template_id' => $advanced_odt_id,
 			'fixture_key' => 'documentate-demo-wp-documentate-odt',
@@ -263,8 +263,8 @@ function documentate_maybe_seed_default_doc_types() {
 	if ( $advanced_docx_id > 0 ) {
 		$definitions[] = array(
 			'slug'        => 'documentate-demo-wp-documentate-docx',
-			'name'        => __( 'Tipo de documento de prueba avanzado (DOCX)', 'documentate' ),
-			'description' => __( 'Ejemplo creado automáticamente con la plantilla demo-wp-documentate.docx incluida.', 'documentate' ),
+			'name'        => __( 'Advanced test document type (DOCX)', 'documentate' ),
+			'description' => __( 'Example automatically created with the included demo-wp-documentate.docx template.', 'documentate' ),
 			'color'       => '#0f9d58',
 			'template_id' => $advanced_docx_id,
 			'fixture_key' => 'documentate-demo-wp-documentate-docx',
@@ -438,9 +438,9 @@ function documentate_create_demo_document_for_type( $term ) {
 	}
 
 	/* translators: %s: document type name. */
-	$title = sprintf( __( 'Documento de prueba – %s', 'documentate' ), $term->name );
-	$author = __( 'Equipo de demostración', 'documentate' );
-	$keywords = __( 'lorem, ipsum, demostración', 'documentate' );
+	$title = sprintf( __( 'Test document – %s', 'documentate' ), $term->name );
+	$author = __( 'Demo team', 'documentate' );
+	$keywords = __( 'lorem, ipsum, demo', 'documentate' );
 
 	$post_id = wp_insert_post(
 		array(
@@ -640,7 +640,7 @@ function documentate_generate_demo_scalar_value( $slug, $type, $data_type, $inde
 	$data_type = sanitize_key( $data_type );
 	$index     = max( 1, absint( $index ) );
 
-	$document_title = isset( $context['document_title'] ) ? (string) $context['document_title'] : __( 'Resolución demostrativa', 'documentate' );
+	$document_title = isset( $context['document_title'] ) ? (string) $context['document_title'] : __( 'Demo resolution', 'documentate' );
 	$number_value   = (string) ( 1 + $index );
 
 	if ( 'date' === $data_type ) {
@@ -674,7 +674,7 @@ function documentate_generate_demo_scalar_value( $slug, $type, $data_type, $inde
 	}
 
 	if ( false !== strpos( $slug, 'nombre' ) || false !== strpos( $slug, 'name' ) ) {
-		return ( 1 === $index ) ? 'María García Pérez' : 'Juan Carlos López';
+		return ( 1 === $index ) ? 'Jane Doe' : 'John Smith';
 	}
 
 	if ( false !== strpos( $slug, 'title' ) || false !== strpos( $slug, 'titulo' ) || 'post_title' === $slug ) {
@@ -683,41 +683,41 @@ function documentate_generate_demo_scalar_value( $slug, $type, $data_type, $inde
 		}
 
 		/* translators: %d: item sequence number. */
-		return sprintf( __( 'Elemento demostrativo %d', 'documentate' ), $index );
+		return sprintf( __( 'Demo item %d', 'documentate' ), $index );
 	}
 
 	if ( false !== strpos( $slug, 'summary' ) || false !== strpos( $slug, 'resumen' ) ) {
 		/* translators: %d: item sequence number. */
-		return sprintf( __( 'Resumen demostrativo %d con información breve.', 'documentate' ), $index );
+		return sprintf( __( 'Demo summary %d with brief information.', 'documentate' ), $index );
 	}
 
 	if ( false !== strpos( $slug, 'objeto' ) ) {
-		return __( 'Objeto de la resolución de ejemplo para ilustrar el flujo.', 'documentate' );
+		return __( 'Subject of the example resolution to illustrate the workflow.', 'documentate' );
 	}
 
 	if ( false !== strpos( $slug, 'antecedentes' ) ) {
-		return __( 'Antecedentes de hecho redactados con contenido de prueba.', 'documentate' );
+		return __( 'Background facts written with test content.', 'documentate' );
 	}
 
 	if ( false !== strpos( $slug, 'fundamentos' ) ) {
-		return __( 'Fundamentos jurídicos de prueba con referencias genéricas.', 'documentate' );
+		return __( 'Legal grounds for testing with generic references.', 'documentate' );
 	}
 
 	if ( false !== strpos( $slug, 'resuelv' ) ) {
-		return '<p>' . __( 'Primero. Aprobar la actuación demostrativa.', 'documentate' ) . '</p><p>' . __( 'Segundo. Notificar a las personas interesadas.', 'documentate' ) . '</p>';
+		return '<p>' . __( 'First. Approve the demo action.', 'documentate' ) . '</p><p>' . __( 'Second. Notify interested parties.', 'documentate' ) . '</p>';
 	}
 
 	if ( false !== strpos( $slug, 'observaciones' ) ) {
-		return __( 'Observaciones adicionales de ejemplo para completar la plantilla.', 'documentate' );
+		return __( 'Additional observations to complete the template.', 'documentate' );
 	}
 
 	if ( false !== strpos( $slug, 'body' ) || false !== strpos( $slug, 'cuerpo' ) ) {
-		$rich  = '<h3>' . __( 'Encabezado de prueba', 'documentate' ) . '</h3>';
-		$rich .= '<p>' . __( 'Primer párrafo con texto de ejemplo.', 'documentate' ) . '</p>';
+		$rich  = '<h3>' . __( 'Test heading', 'documentate' ) . '</h3>';
+		$rich .= '<p>' . __( 'First paragraph with example text.', 'documentate' ) . '</p>';
 		/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
-		$rich .= '<p>' . sprintf( __( 'Segundo párrafo con %1$s, %2$s y %3$s.', 'documentate' ), '<strong>' . __( 'negritas', 'documentate' ) . '</strong>', '<em>' . __( 'cursivas', 'documentate' ) . '</em>', '<u>' . __( 'subrayado', 'documentate' ) . '</u>' ) . '</p>';
-		$rich .= '<ul><li>' . __( 'Elemento uno', 'documentate' ) . '</li><li>' . __( 'Elemento dos', 'documentate' ) . '</li></ul>';
-		$rich .= '<table><tr><th>' . __( 'Col 1', 'documentate' ) . '</th><th>' . __( 'Col 2', 'documentate' ) . '</th></tr><tr><td>' . __( 'Dato A1', 'documentate' ) . '</td><td>' . __( 'Dato A2', 'documentate' ) . '</td></tr><tr><td>' . __( 'Dato B1', 'documentate' ) . '</td><td>' . __( 'Dato B2', 'documentate' ) . '</td></tr></table>';
+		$rich .= '<p>' . sprintf( __( 'Second paragraph with %1$s, %2$s and %3$s.', 'documentate' ), '<strong>' . __( 'bold', 'documentate' ) . '</strong>', '<em>' . __( 'italics', 'documentate' ) . '</em>', '<u>' . __( 'underline', 'documentate' ) . '</u>' ) . '</p>';
+		$rich .= '<ul><li>' . __( 'Item one', 'documentate' ) . '</li><li>' . __( 'Item two', 'documentate' ) . '</li></ul>';
+		$rich .= '<table><tr><th>' . __( 'Col 1', 'documentate' ) . '</th><th>' . __( 'Col 2', 'documentate' ) . '</th></tr><tr><td>' . __( 'Data A1', 'documentate' ) . '</td><td>' . __( 'Data A2', 'documentate' ) . '</td></tr><tr><td>' . __( 'Data B1', 'documentate' ) . '</td><td>' . __( 'Data B2', 'documentate' ) . '</td></tr></table>';
 		return $rich;
 	}
 
@@ -727,17 +727,17 @@ function documentate_generate_demo_scalar_value( $slug, $type, $data_type, $inde
 		false !== strpos( $slug, 'contenido' ) ||
 		false !== strpos( $slug, 'html' )
 	) {
-		$rich  = '<h3>' . __( 'Encabezado de prueba', 'documentate' ) . '</h3>';
-		$rich .= '<p>' . __( 'Primer párrafo con texto de ejemplo.', 'documentate' ) . '</p>';
+		$rich  = '<h3>' . __( 'Test heading', 'documentate' ) . '</h3>';
+		$rich .= '<p>' . __( 'First paragraph with example text.', 'documentate' ) . '</p>';
 		/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
-		$rich .= '<p>' . sprintf( __( 'Segundo párrafo con %1$s, %2$s y %3$s.', 'documentate' ), '<strong>' . __( 'negritas', 'documentate' ) . '</strong>', '<em>' . __( 'cursivas', 'documentate' ) . '</em>', '<u>' . __( 'subrayado', 'documentate' ) . '</u>' ) . '</p>';
-		$rich .= '<ul><li>' . __( 'Elemento uno', 'documentate' ) . '</li><li>' . __( 'Elemento dos', 'documentate' ) . '</li></ul>';
-		$rich .= '<table><tr><th>' . __( 'Col 1', 'documentate' ) . '</th><th>' . __( 'Col 2', 'documentate' ) . '</th></tr><tr><td>' . __( 'Dato A1', 'documentate' ) . '</td><td>' . __( 'Dato A2', 'documentate' ) . '</td></tr><tr><td>' . __( 'Dato B1', 'documentate' ) . '</td><td>' . __( 'Dato B2', 'documentate' ) . '</td></tr></table>';
+		$rich .= '<p>' . sprintf( __( 'Second paragraph with %1$s, %2$s and %3$s.', 'documentate' ), '<strong>' . __( 'bold', 'documentate' ) . '</strong>', '<em>' . __( 'italics', 'documentate' ) . '</em>', '<u>' . __( 'underline', 'documentate' ) . '</u>' ) . '</p>';
+		$rich .= '<ul><li>' . __( 'Item one', 'documentate' ) . '</li><li>' . __( 'Item two', 'documentate' ) . '</li></ul>';
+		$rich .= '<table><tr><th>' . __( 'Col 1', 'documentate' ) . '</th><th>' . __( 'Col 2', 'documentate' ) . '</th></tr><tr><td>' . __( 'Data A1', 'documentate' ) . '</td><td>' . __( 'Data A2', 'documentate' ) . '</td></tr><tr><td>' . __( 'Data B1', 'documentate' ) . '</td><td>' . __( 'Data B2', 'documentate' ) . '</td></tr></table>';
 		return $rich;
 	}
 
 	if ( false !== strpos( $slug, 'keywords' ) || false !== strpos( $slug, 'palabras' ) ) {
-		return __( 'palabras, clave, demostración', 'documentate' );
+		return __( 'keywords, tags, demo', 'documentate' );
 	}
 
 	return __( 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 'documentate' );

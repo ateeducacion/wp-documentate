@@ -83,8 +83,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 
 	<div class="status" id="status">
 		<div class="spinner" id="spinner"></div>
-		<h2 id="status-title"><?php esc_html_e( 'Iniciando...', 'documentate' ); ?></h2>
-		<p id="status-message"><?php esc_html_e( 'Preparando el conversor de documentos.', 'documentate' ); ?></p>
+		<h2 id="status-title"><?php esc_html_e( 'Starting...', 'documentate' ); ?></h2>
+		<p id="status-message"><?php esc_html_e( 'Preparing document converter.', 'documentate' ); ?></p>
 	</div>
 
 	<script type="module">
@@ -155,8 +155,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 			try {
 				// Step 1: Load ZetaJS from CDN
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Cargando LibreOffice...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Descargando componentes WASM (~50MB). Esto puede tardar la primera vez.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode( __( 'Loading LibreOffice...', 'documentate' ) ); ?>,
+					<?php echo wp_json_encode( __( 'Downloading WASM components (~50MB). This may take a while the first time.', 'documentate' ) ); ?>
 				);
 
 				const { ZetaHelperMain } = await import(conversionConfig.helperUrl);
@@ -217,8 +217,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 
 				// Step 2: Generate source document via AJAX
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Generando documento...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Procesando plantilla en el servidor.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode( __( 'Generating document...', 'documentate' ) ); ?>,
+					<?php echo wp_json_encode( __( 'Processing template on server.', 'documentate' ) ); ?>
 				);
 
 				const formData = new FormData();
@@ -241,8 +241,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 
 				// Step 3: Fetch the source document
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Descargando documento...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Obteniendo documento fuente.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode( __( 'Downloading document...', 'documentate' ) ); ?>,
+					<?php echo wp_json_encode( __( 'Fetching source document.', 'documentate' ) ); ?>
 				);
 
 				const sourceResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
@@ -253,8 +253,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 
 				// Step 4: Convert using WASM worker
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Convirtiendo a PDF...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Procesando con LibreOffice WASM.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode( __( 'Converting to PDF...', 'documentate' ) ); ?>,
+					<?php echo wp_json_encode( __( 'Processing with LibreOffice WASM.', 'documentate' ) ); ?>
 				);
 
 				const result = await convertDocument(sourceBuffer, conversionConfig.sourceFormat, conversionConfig.targetFormat);
@@ -294,8 +294,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 						});
 
 						updateStatus(
-							<?php echo wp_json_encode( __( '¡Completado!', 'documentate' ) ); ?>,
-							<?php echo wp_json_encode( __( 'Documento convertido.', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode( __( 'Document converted.', 'documentate' ) ); ?>,
 							false,
 							true
 						);
@@ -318,8 +318,8 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 						document.body.removeChild(a);
 
 						updateStatus(
-							<?php echo wp_json_encode( __( '¡Completado!', 'documentate' ) ); ?>,
-							<?php echo wp_json_encode( __( 'El documento se ha descargado.', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode( __( 'Document downloaded.', 'documentate' ) ); ?>,
 							false,
 							true
 						);
@@ -334,12 +334,12 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 
 				if (conversionConfig.useChannel) {
 					// Send error to opener via channel
-					sendToChannel('error', null, error.message || <?php echo wp_json_encode( __( 'Error en la conversión.', 'documentate' ) ); ?>);
+					sendToChannel('error', null, error.message || <?php echo wp_json_encode( __( 'Conversion error.', 'documentate' ) ); ?>);
 				}
 
 				updateStatus(
 					<?php echo wp_json_encode( __( 'Error', 'documentate' ) ); ?>,
-					error.message || <?php echo wp_json_encode( __( 'Error en la conversión.', 'documentate' ) ); ?>,
+					error.message || <?php echo wp_json_encode( __( 'Conversion error.', 'documentate' ) ); ?>,
 					true
 				);
 			}

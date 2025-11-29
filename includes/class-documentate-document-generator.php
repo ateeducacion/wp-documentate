@@ -30,7 +30,7 @@ class Documentate_Document_Generator {
 			if ( '' === $odt_template ) {
 				return new WP_Error(
 					'documentate_template_missing',
-					__( 'Configura una plantilla DOCX en el tipo de documento seleccionado.', 'documentate' )
+					__( 'Configure a DOCX template in the selected document type.', 'documentate' )
 				);
 			}
 
@@ -76,7 +76,7 @@ class Documentate_Document_Generator {
 			if ( '' === $docx_template ) {
 				return new WP_Error(
 					'documentate_template_missing',
-					__( 'Configura una plantilla ODT en el tipo de documento seleccionado.', 'documentate' )
+					__( 'Configure an ODT template in the selected document type.', 'documentate' )
 				);
 			}
 
@@ -156,7 +156,7 @@ class Documentate_Document_Generator {
 				if ( is_wp_error( $docx_result ) ) {
 					return new WP_Error(
 						'documentate_pdf_source_missing',
-						__( 'No se pudo generar el documento base porque el tipo de documento no tiene una plantilla DOCX u ODT configurada.', 'documentate' ),
+						__( 'Could not generate the base document because the document type does not have a DOCX or ODT template configured.', 'documentate' ),
 						array(
 							'odt'  => $odt_result,
 							'docx' => $docx_result,
@@ -732,11 +732,11 @@ class Documentate_Document_Generator {
 			$opts   = get_option( 'documentate_settings', array() );
 			$tpl_id = isset( $opts['docx_template_id'] ) ? intval( $opts['docx_template_id'] ) : 0;
 			if ( $tpl_id <= 0 ) {
-				return new WP_Error( 'documentate_template_missing', __( 'No hay plantilla DOCX configurada.', 'documentate' ) );
+				return new WP_Error( 'documentate_template_missing', __( 'No DOCX template configured.', 'documentate' ) );
 			}
 			$template_path = get_attached_file( $tpl_id );
 			if ( ! $template_path || ! file_exists( $template_path ) ) {
-				return new WP_Error( 'documentate_template_missing', __( 'Plantilla DOCX no encontrada.', 'documentate' ) );
+				return new WP_Error( 'documentate_template_missing', __( 'DOCX template not found.', 'documentate' ) );
 			}
 
 			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
@@ -785,11 +785,11 @@ class Documentate_Document_Generator {
 			$opts   = get_option( 'documentate_settings', array() );
 			$tpl_id = isset( $opts['odt_template_id'] ) ? intval( $opts['odt_template_id'] ) : 0;
 			if ( $tpl_id <= 0 ) {
-				return new WP_Error( 'documentate_template_missing', __( 'No hay plantilla ODT configurada.', 'documentate' ) );
+				return new WP_Error( 'documentate_template_missing', __( 'No ODT template configured.', 'documentate' ) );
 			}
 			$template_path = get_attached_file( $tpl_id );
 			if ( ! $template_path || ! file_exists( $template_path ) ) {
-				return new WP_Error( 'documentate_template_missing', __( 'Plantilla ODT no encontrada.', 'documentate' ) );
+				return new WP_Error( 'documentate_template_missing', __( 'ODT template not found.', 'documentate' ) );
 			}
 
 			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';

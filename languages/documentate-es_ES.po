@@ -1,0 +1,812 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Documentate – Document Generator 0.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wp-documentate\n"
+"Last-Translator: Área de Tecnología Educativa <ate@gobiernodecanarias.org>\n"
+"Language-Team: Spanish <ate@gobiernodecanarias.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
+"PO-Revision-Date: 2025-11-29 00:20+0000\n"
+"Language: es_ES\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: documentate\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Plugin Name of the plugin
+msgid "Documentate – Document Generator"
+msgstr "Documentate – Generador de Documentos"
+
+#. Plugin URI of the plugin
+msgid "https://github.com/erseco/wp-documentate"
+msgstr "https://github.com/erseco/wp-documentate"
+
+#. Description of the plugin
+msgid "Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF."
+msgstr "Generador de documentos digitales. Define un tipo de contenido personalizado para documentos estructurados con secciones configurables y permite exportar a Word (DOCX) y PDF."
+
+#. Author of the plugin
+msgid "Área de Tecnología Educativa"
+msgstr "Área de Tecnología Educativa"
+
+#. Author URI of the plugin
+msgid "https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/"
+msgstr "https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/"
+
+msgid "Documentate Settings"
+msgstr "Ajustes de Documentate"
+
+msgid "Documentate"
+msgstr "Documentate"
+
+msgid "Documentate Configuration"
+msgstr "Configuración de Documentate"
+
+msgid "Conversion Engine"
+msgstr "Motor de conversión"
+
+msgid "Collabora Online URL"
+msgstr "URL de Collabora Online"
+
+msgid "Collabora Language"
+msgstr "Idioma de Collabora"
+
+msgid "Skip SSL verification (Collabora)"
+msgstr "Omitir verificación SSL (Collabora)"
+
+msgid "Collaborative Mode"
+msgstr "Modo colaborativo"
+
+msgid "WebRTC Signaling Server"
+msgstr "Servidor de señalización WebRTC"
+
+msgid "Configure Documentate plugin options."
+msgstr "Configura las opciones del plugin Documentate."
+
+msgid "Collabora Online web service"
+msgstr "Servicio web Collabora Online"
+
+msgid "LibreOffice WASM in browser (experimental)"
+msgstr "LibreOffice WASM en navegador (experimental)"
+
+msgid "Choose whether conversions are performed via Collabora Online (default) or with LibreOffice WASM in the browser (experimental)."
+msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado) o con LibreOffice WASM en el navegador (experimental)."
+
+msgid "Example: https://demo.us.collaboraonline.com"
+msgstr "Ejemplo: https://demo.us.collaboraonline.com"
+
+msgid "Language code to send to Collabora Online (default en-US)."
+msgstr "Código de idioma a enviar a Collabora Online (predeterminado en-US)."
+
+msgid "Disable SSL certificate verification (use only in test environments)."
+msgstr "Desactivar verificación del certificado SSL (usar solo en entornos de prueba)."
+
+msgid "Enable real-time collaborative editing using TipTap and Yjs."
+msgstr "Habilitar edición colaborativa en tiempo real usando TipTap y Yjs."
+
+msgid "Replaces the classic TinyMCE editor with TipTap supporting collaborative editing via WebRTC."
+msgstr "Reemplaza el editor clásico TinyMCE con TipTap soportando edición colaborativa vía WebRTC."
+
+msgid "Signaling server for WebRTC. By default uses the public Yjs server."
+msgstr "Servidor de señalización para WebRTC. Por defecto usa el servidor público de Yjs."
+
+msgid "Available public servers:"
+msgstr "Servidores públicos disponibles:"
+
+msgid "(Yjs official)"
+msgstr "(Yjs oficial)"
+
+msgid "(Europe)"
+msgstr "(Europa)"
+
+msgid "(USA)"
+msgstr "(EE.UU.)"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "Connecting..."
+msgstr "Conectando..."
+
+msgid "retries"
+msgstr "reintentos"
+
+msgid "Field content ↓"
+msgstr "Contenido del campo ↓"
+
+msgid "Document Title"
+msgstr "Título del documento"
+
+msgid "Content"
+msgstr "Contenido"
+
+msgid "Resolution Number"
+msgstr "Número de resolución"
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "Background"
+msgstr "Antecedentes"
+
+msgid "Legal Grounds"
+msgstr "Fundamentos de derecho"
+
+msgid "Resolution"
+msgstr "Resolución"
+
+msgid "Annexes"
+msgstr "Anexos"
+
+msgid "Signature"
+msgstr "Firma"
+
+msgid "Position"
+msgstr "Cargo"
+
+msgid "Place"
+msgstr "Lugar"
+
+msgid "Recipient"
+msgstr "Destinatario"
+
+msgid "Subject"
+msgstr "Asunto"
+
+msgid "Body"
+msgstr "Cuerpo"
+
+msgid "Greeting"
+msgstr "Saludo"
+
+msgid "Closing"
+msgstr "Despedida"
+
+msgid "Select file"
+msgstr "Seleccionar archivo"
+
+msgid "Remove"
+msgstr "Eliminar"
+
+msgid "Detected fields"
+msgstr "Campos detectados"
+
+msgid "No fields found in template."
+msgstr "No se encontraron campos en la plantilla."
+
+msgid "DOCX Template"
+msgstr "Plantilla DOCX"
+
+msgid "ODT Template"
+msgstr "Plantilla ODT"
+
+msgid "Unknown format"
+msgstr "Formato desconocido"
+
+msgid "New fields"
+msgstr "Campos nuevos"
+
+msgid "Removed fields"
+msgstr "Campos eliminados"
+
+#. translators: %d is replaced with the total number of fields detected.
+#, php-format
+msgid "Total fields: %d"
+msgstr "Total de campos: %d"
+
+#. translators: %s is replaced with a comma separated list of repeater names.
+#, php-format
+msgid "Repeaters: %s"
+msgstr "Repetidores: %s"
+
+#. translators: %s is replaced with the datetime when the template was parsed.
+#, php-format
+msgid "Parsed: %s"
+msgstr "Analizado: %s"
+
+msgid "Text"
+msgstr "Texto"
+
+msgid "Number"
+msgstr "Número"
+
+msgid "Boolean"
+msgstr "Booleano"
+
+msgid "Color"
+msgstr "Color"
+
+msgid "Template"
+msgstr "Plantilla"
+
+msgid "Select an .odt or .docx file with OpenTBS markers."
+msgstr "Selecciona un archivo .odt o .docx con marcadores OpenTBS."
+
+msgid "Select template"
+msgstr "Seleccionar plantilla"
+
+msgid "No template selected"
+msgstr "Ninguna plantilla seleccionada"
+
+msgid "Re-parse template"
+msgstr "Reanalizar plantilla"
+
+msgid "The selected template file could not be located."
+msgstr "No se pudo localizar el archivo de plantilla seleccionado."
+
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
+
+msgid "Invalid template ID."
+msgstr "ID de plantilla no válido."
+
+msgid "Selected template not found."
+msgstr "Plantilla seleccionada no encontrada."
+
+msgid "Invalid document type ID."
+msgstr "ID de tipo de documento no válido."
+
+msgid "No template associated with this type."
+msgstr "No hay plantilla asociada a este tipo."
+
+msgid "Template file not found."
+msgstr "Archivo de plantilla no encontrado."
+
+msgid "Schema updated successfully."
+msgstr "Esquema actualizado correctamente."
+
+msgid "Templates for ODT/DOCX:"
+msgstr "Plantillas para ODT/DOCX:"
+
+msgid "wp-documentate can read the following fields defined in the template and generate the final document."
+msgstr "wp-documentate puede leer los siguientes campos definidos en la plantilla y generar el documento final."
+
+msgid "Fields:"
+msgstr "Campos:"
+
+msgid "write markers like this:"
+msgstr "escribe marcadores así:"
+
+msgid "Types"
+msgstr "Tipos"
+
+msgid "if you omit"
+msgstr "si no pones"
+
+msgid "textarea"
+msgstr "textarea"
+
+msgid "Supported:"
+msgstr "Soportados:"
+
+msgid "TinyMCE"
+msgstr "TinyMCE"
+
+msgid "Validation"
+msgstr "Validación"
+
+msgid "(regex) and"
+msgstr "(regex) y"
+
+msgid "Limits with"
+msgstr "Límites con"
+
+msgid "Length with"
+msgstr "Longitud con"
+
+msgid "UI Help"
+msgstr "Ayuda UI"
+
+msgid "label"
+msgstr "etiqueta"
+
+msgid "help text"
+msgstr "texto de ayuda"
+
+msgid "Repeater (lists):"
+msgstr "Repetidor (listas):"
+
+msgid "use blocks with"
+msgstr "usa bloques con"
+
+msgid "and define the fields for each item inside."
+msgstr "y define dentro los campos de cada elemento."
+
+msgid "Quick examples:"
+msgstr "Ejemplos rápidos:"
+
+msgid "Tip: in DOCX the text can be fragmented; make sure each marker"
+msgstr "Consejo: en DOCX el texto puede fragmentarse; asegúrate de que cada marcador"
+
+msgid "remains intact."
+msgstr "queda íntegro."
+
+msgid "Documentate Converter"
+msgstr "Conversor de Documentate"
+
+msgid "Starting..."
+msgstr "Iniciando..."
+
+msgid "Preparing document converter."
+msgstr "Preparando el conversor de documentos."
+
+msgid "Loading LibreOffice..."
+msgstr "Cargando LibreOffice..."
+
+msgid "Downloading WASM components (~50MB). This may take a while the first time."
+msgstr "Descargando componentes WASM (~50MB). Esto puede tardar la primera vez."
+
+msgid "Generating document..."
+msgstr "Generando documento..."
+
+msgid "Processing template on server."
+msgstr "Procesando plantilla en el servidor."
+
+msgid "Downloading document..."
+msgstr "Descargando documento..."
+
+msgid "Fetching source document."
+msgstr "Obteniendo documento fuente."
+
+msgid "Converting to PDF..."
+msgstr "Convirtiendo a PDF..."
+
+msgid "Processing with LibreOffice WASM."
+msgstr "Procesando con LibreOffice WASM."
+
+msgid "Completed!"
+msgstr "¡Completado!"
+
+msgid "Document converted."
+msgstr "Documento convertido."
+
+msgid "Document downloaded."
+msgstr "El documento se ha descargado."
+
+msgid "Conversion error."
+msgstr "Error en la conversión."
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Invalid security token."
+msgstr "Token de seguridad no válido."
+
+msgid "Invalid date format."
+msgstr "Formato de fecha no válido."
+
+msgid "Permission denied."
+msgstr "Permiso denegado."
+
+msgid "Invalid date."
+msgstr "Fecha no válida."
+
+msgid "No tasks found for this date."
+msgstr "No se encontraron tareas para esta fecha."
+
+msgid "Could not initialize the WordPress filesystem."
+msgstr "No se pudo inicializar el sistema de archivos de WordPress."
+
+msgid "Export DOCX"
+msgstr "Exportar DOCX"
+
+msgid "Invalid nonce."
+msgstr "Nonce no válido."
+
+msgid "Preview error"
+msgstr "Error de vista previa"
+
+msgid "User not authenticated."
+msgstr "Usuario no autenticado."
+
+msgid "Could not generate the PDF for preview."
+msgstr "No se pudo generar el PDF para la vista previa."
+
+msgid "Preview file not available."
+msgstr "Archivo de vista previa no disponible."
+
+msgid "Could not access the generated PDF file."
+msgstr "No se pudo acceder al archivo PDF generado."
+
+msgid "Could not read the PDF file."
+msgstr "No se pudo leer el archivo PDF."
+
+msgid "You do not have permission to access this page."
+msgstr "No tienes permiso para acceder a esta página."
+
+msgid "Document Actions"
+msgstr "Acciones del documento"
+
+msgid "Configure a DOCX template in the document type."
+msgstr "Configura una plantilla DOCX en el tipo de documento."
+
+msgid "Configure an ODT template in the document type."
+msgstr "Configura una plantilla ODT en el tipo de documento."
+
+msgid "Configure a DOCX or ODT template in the document type before generating PDF."
+msgstr "Configura una plantilla DOCX u ODT en el tipo de documento antes de generar PDF."
+
+msgid "Preview"
+msgstr "Vista previa"
+
+#. translators: %s: converter engine label.
+#, php-format
+msgid "Additional conversions are performed with %s."
+msgstr "Las conversiones adicionales se realizan con %s."
+
+msgid "Could not determine the generated file."
+msgstr "No se pudo determinar el archivo generado."
+
+msgid "Could not access the generated file."
+msgstr "No se pudo acceder al archivo generado."
+
+msgid "Could not read the generated file."
+msgstr "No se pudo leer el archivo generado."
+
+msgid "Generating preview..."
+msgstr "Generando vista previa..."
+
+#. translators: %s: document format (DOCX, ODT, PDF).
+#, php-format
+msgid "Generating %s..."
+msgstr "Generando %s..."
+
+msgid "Please wait while the document is being generated."
+msgstr "Por favor espera mientras se genera el documento."
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Error generating the document."
+msgstr "Error al generar el documento."
+
+msgid "Connection error. Please try again."
+msgstr "Error de conexión. Por favor, inténtalo de nuevo."
+
+msgid "Converting in browser..."
+msgstr "Convirtiendo en el navegador..."
+
+msgid "Error loading LibreOffice."
+msgstr "Error al cargar LibreOffice."
+
+msgid "Configure the Collabora Online service base URL in settings."
+msgstr "Configura la URL base del servicio Collabora Online en los ajustes."
+
+msgid "The source file for conversion does not exist."
+msgstr "El fichero origen para la conversión no existe."
+
+msgid "Configure the Collabora Online service URL to convert documents."
+msgstr "Configura la URL del servicio Collabora Online para convertir documentos."
+
+msgid "Output format not supported by Collabora."
+msgstr "Formato de salida no soportado por Collabora."
+
+msgid "Could not read the input file for conversion."
+msgstr "No se pudo leer el fichero de entrada para la conversión."
+
+#. translators: %s: error message returned by wp_remote_post().
+#, php-format
+msgid "Error connecting to Collabora Online: %s"
+msgstr "Error al conectar con Collabora Online: %s"
+
+#. translators: %d: HTTP status code returned by Collabora.
+#, php-format
+msgid "Collabora Online returned HTTP code %d during conversion."
+msgstr "Collabora Online devolvió el código HTTP %d durante la conversión."
+
+msgid "Could not save the converted file to disk."
+msgstr "No se pudo guardar el fichero convertido en el disco."
+
+msgid "WordPress Playground has limitations with external HTTP requests. Consider using ZetaJS (CDN mode) as conversion engine."
+msgstr "WordPress Playground tiene limitaciones con peticiones HTTP externas. Considera usar ZetaJS (modo CDN) como motor de conversión."
+
+msgid "Collabora Online"
+msgstr "Collabora Online"
+
+msgid "Could not complete the conversion."
+msgstr "No se pudo completar la conversión."
+
+msgid "Collabora Online is not available to convert documents."
+msgstr "Collabora Online no está disponible para convertir documentos."
+
+msgid "Disable ZetaJS CDN mode and configure the local executable for server-side conversions."
+msgstr "Desactiva el modo CDN de ZetaJS y configura el ejecutable local para conversiones del lado del servidor."
+
+msgid "Configure the ZetaJS (LibreOffice WASM) executable path on the server."
+msgstr "Configura la ruta del ejecutable de ZetaJS (LibreOffice WASM) en el servidor."
+
+#. translators: 1: source extension, 2: target extension.
+#, php-format
+msgid "Required to convert %1$s to %2$s."
+msgstr "Requerido para convertir %1$s a %2$s."
+
+#. translators: %s: target extension.
+#, php-format
+msgid "Required to generate %s."
+msgstr "Requerido para generar %s."
+
+msgid "Warning"
+msgstr "Advertencia"
+
+msgid "You are running this site with demo data."
+msgstr "Estás ejecutando este sitio con datos de demostración."
+
+msgid "You are not authorized to access this resource."
+msgstr "No estás autorizado para acceder a este recurso."
+
+msgid "Access Denied"
+msgstr "Acceso denegado"
+
+msgid "Configure a DOCX template in the selected document type."
+msgstr "Configura una plantilla DOCX en el tipo de documento seleccionado."
+
+msgid "Configure an ODT template in the selected document type."
+msgstr "Configura una plantilla ODT en el tipo de documento seleccionado."
+
+msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
+msgstr "No se pudo generar el documento base porque el tipo de documento no tiene configurada una plantilla DOCX u ODT."
+
+msgid "No DOCX template configured."
+msgstr "No hay plantilla DOCX configurada."
+
+msgid "DOCX template not found."
+msgstr "Plantilla DOCX no encontrada."
+
+msgid "No ODT template configured."
+msgstr "No hay plantilla ODT configurada."
+
+msgid "ODT template not found."
+msgstr "Plantilla ODT no encontrada."
+
+msgid "OpenTBS is not available."
+msgstr "OpenTBS no está disponible."
+
+msgid "Template not found."
+msgstr "Plantilla no encontrada."
+
+msgid "ZipArchive is not available for rich text formatting."
+msgstr "ZipArchive no está disponible para formato de texto enriquecido."
+
+msgid "Could not open the generated DOCX for formatting."
+msgstr "No se pudo abrir el DOCX generado para formatear."
+
+msgid "ZipArchive is not available for rich text formatting in ODT."
+msgstr "ZipArchive no está disponible para formato de texto enriquecido en ODT."
+
+msgid "Could not open the ODT file for rich text formatting."
+msgstr "No se pudo abrir el archivo ODT para formato de texto enriquecido."
+
+msgid "The selected template was not found."
+msgstr "La plantilla seleccionada no se encuentra."
+
+msgid "The file must be a DOCX or ODT."
+msgstr "El archivo debe ser un DOCX u ODT."
+
+msgid "ZipArchive is not available on the server."
+msgstr "ZipArchive no está disponible en el servidor."
+
+msgid "Could not open the template for analysis."
+msgstr "No se pudo abrir la plantilla para su análisis."
+
+msgid "Document saved as draft. You must select a document type before publishing."
+msgstr "Documento guardado como borrador. Debes seleccionar un tipo de documento antes de publicar."
+
+msgid "Document set to pending review. Only administrators can publish documents."
+msgstr "Documento establecido como pendiente de revisión. Solo los administradores pueden publicar documentos."
+
+msgid "Published documents can only be modified by administrators."
+msgstr "Los documentos publicados solo pueden ser modificados por administradores."
+
+msgid "Document Locked"
+msgstr "Documento bloqueado"
+
+msgid "This document is published and read-only. Only an administrator can unlock it by reverting to draft."
+msgstr "Este documento está publicado y es de solo lectura. Solo un administrador puede desbloquearlo revirtiendo a borrador."
+
+msgid "Change status to Draft to enable editing."
+msgstr "Cambia el estado a Borrador para habilitar la edición."
+
+msgid "Select a document type before publishing."
+msgstr "Selecciona un tipo de documento antes de publicar."
+
+msgid "Editors can only save as Draft or Pending Review."
+msgstr "Los editores solo pueden guardar como Borrador o Pendiente de revisión."
+
+msgid "Editors can save as Draft or submit for Pending Review."
+msgstr "Los editores pueden guardar como Borrador o enviar a Pendiente de revisión."
+
+msgid "Document is published. Change to Draft to enable editing."
+msgstr "El documento está publicado. Cambia a Borrador para habilitar la edición."
+
+msgid "Document is published and locked. Contact an administrator to edit."
+msgstr "El documento está publicado y bloqueado. Contacta a un administrador para editar."
+
+msgid "Workflow Status"
+msgstr "Estado del flujo"
+
+msgid "New"
+msgstr "Nuevo"
+
+msgid "Draft"
+msgstr "Borrador"
+
+msgid "Pending Review"
+msgstr "Pendiente de revisión"
+
+msgid "Published"
+msgstr "Publicado"
+
+msgid "No document type selected. Must assign a type before publishing."
+msgstr "No hay tipo de documento seleccionado. Debes asignar un tipo antes de publicar."
+
+msgid "Document is read-only. Change status to Draft to edit."
+msgstr "El documento es de solo lectura. Cambia el estado a Borrador para editar."
+
+msgid "Document is locked. Contact an administrator."
+msgstr "El documento está bloqueado. Contacta a un administrador."
+
+msgid "Submit for Pending Review when ready. An administrator will publish."
+msgstr "Envía a Pendiente de revisión cuando esté listo. Un administrador lo publicará."
+
+msgid "Workflow:"
+msgstr "Flujo de trabajo:"
+
+msgid "Draft - Work in progress"
+msgstr "Borrador - Trabajo en progreso"
+
+msgid "Pending - Ready for review"
+msgstr "Pendiente - Listo para revisión"
+
+msgid "Published - Final (locked)"
+msgstr "Publicado - Final (bloqueado)"
+
+msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
+msgstr "Configura la ruta del ejecutable de ZetaJS en DOCUMENTATE_ZETAJS_BIN."
+
+msgid "Could not start the ZetaJS conversion process."
+msgstr "No se pudo iniciar el proceso de conversión con ZetaJS."
+
+#. translators: %d: exit status returned by the ZetaJS process.
+#, php-format
+msgid "The ZetaJS process exited with code %d."
+msgstr "El proceso de ZetaJS finalizó con código %d."
+
+#. translators: %s: raw message captured from the ZetaJS converter output.
+#, php-format
+msgid "Conversion finished but the output file was not generated. Details: %s"
+msgstr "La conversión finalizó pero no se generó el archivo de salida. Detalles: %s"
+
+msgid "PDF conversion is performed in the browser using ZetaJS loaded from the official CDN."
+msgstr "La conversión a PDF se realiza en el navegador usando ZetaJS cargado desde la CDN oficial."
+
+msgid "Documents"
+msgstr "Documentos"
+
+msgid "Document"
+msgstr "Documento"
+
+msgid "Add New"
+msgstr "Añadir nuevo"
+
+msgid "Add New Document"
+msgstr "Añadir nuevo documento"
+
+msgid "New Document"
+msgstr "Nuevo documento"
+
+msgid "Edit Document"
+msgstr "Editar documento"
+
+msgid "View Document"
+msgstr "Ver documento"
+
+msgid "All Documents"
+msgstr "Todos los documentos"
+
+msgid "Search Documents"
+msgstr "Buscar documentos"
+
+msgid "No documents found."
+msgstr "No se encontraron documentos."
+
+msgid "No documents found in trash."
+msgstr "No se encontraron documentos en la papelera."
+
+msgid "Document Types"
+msgstr "Tipos de documento"
+
+msgid "Document Type"
+msgstr "Tipo de documento"
+
+msgid "Search Types"
+msgstr "Buscar tipos"
+
+msgid "All Types"
+msgstr "Todos los tipos"
+
+msgid "Edit Type"
+msgstr "Editar tipo"
+
+msgid "Update Type"
+msgstr "Actualizar tipo"
+
+msgid "Add New Type"
+msgstr "Añadir nuevo tipo"
+
+msgid "New Type"
+msgstr "Nuevo tipo"
+
+msgid "Document Sections"
+msgstr "Secciones del documento"
+
+msgid "No document types defined. Create one in Document Types."
+msgstr "No hay tipos de documento definidos. Crea uno en Tipos de documento."
+
+msgid "Choose the type when creating the document. It cannot be changed later."
+msgstr "Elige el tipo al crear el documento. No se puede cambiar después."
+
+msgid "Selected type:"
+msgstr "Tipo seleccionado:"
+
+msgid "Select a type…"
+msgstr "Selecciona un tipo…"
+
+msgid "Configure a document type with fields to edit its content."
+msgstr "Configura un tipo de documento con campos para editar su contenido."
+
+msgid "Select an option…"
+msgstr "Selecciona una opción…"
+
+msgid "Add item"
+msgstr "Añadir elemento"
+
+msgid "Move item"
+msgstr "Mover elemento"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "The document contains additional fields that do not belong to the selected type. Review their content before saving."
+msgstr "El documento contiene campos adicionales que no pertenecen al tipo seleccionado. Revisa su contenido antes de guardar."
+
+#. translators: %s: detected dynamic field key.
+#, php-format
+msgid "Additional field: %s"
+msgstr "Campo adicional: %s"
+
+msgid "This field is not defined in the current document type taxonomy."
+msgstr "Este campo no está definido en la taxonomía de tipo de documento actual."
+
+msgid "The selected template file is not accessible."
+msgstr "El archivo de plantilla seleccionado no es accesible."
+
+msgid "The template must be a DOCX or ODT file."
+msgstr "La plantilla debe ser un archivo DOCX u ODT."
+
+msgid "The template file could not be opened."
+msgstr "No se pudo abrir el archivo de plantilla."
+
+msgid "Enter a valid email (user@domain.tld)"
+msgstr "Introduce un email válido (usuario@dominio.tld)"
+
+msgid "Document Metadata"
+msgstr "Metadatos del documento"
+
+msgid "Title"
+msgstr "Título"
+
+msgid "The subject is derived from the post title."
+msgstr "El asunto se obtiene del título del artículo."
+
+msgid "Author"
+msgstr "Autor"
+
+msgid "Keywords"
+msgstr "Palabras clave"
+
+msgid "keyword1, keyword2"
+msgstr "palabra1, palabra2"
+
+msgid "Comma-separated list."
+msgstr "Lista separada por comas."

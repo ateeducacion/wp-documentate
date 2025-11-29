@@ -27,7 +27,14 @@
         "test:e2e": "wp-scripts test-playwright",
         "test:e2e:ui": "wp-scripts test-playwright --ui",
         "phpcs": "@php ./vendor/bin/phpcs --standard=.phpcs.xml.dist",
-        "phpcbf": "@php ./vendor/bin/phpcbf --standard=.phpcs.xml.dist"
+        "phpcbf": "@php ./vendor/bin/phpcbf --standard=.phpcs.xml.dist",
+        "make-pot": "wp i18n make-pot . languages/documentate.pot --domain=documentate --exclude=vendor,assets,node_modules,tests,wp,wp-content --include=**/*.php",
+        "pot-remove-refs": "sed -i.bak '/^#: /d' languages/documentate.pot && rm languages/documentate.pot.bak",
+        "update-po": "wp i18n update-po languages/documentate.pot languages/documentate-es_ES.po",
+        "make-mo": "wp i18n make-mo languages/ languages/",
+        "pot-remove-ctime": "sed -i.bak '/POT-Creation-Date:/d' languages/documentate.pot && rm languages/documentate.pot.bak",
+        "untranslated": "msgattrib --untranslated languages/documentate-es_ES.po && [ $(msgattrib --untranslated languages/documentate-es_ES.po | wc -l) -eq 0 ]",
+        "check-untranslated": "composer make-pot && composer pot-remove-ctime && composer pot-remove-refs && composer update-po && composer untranslated && composer make-mo"
     },
     "config": {
         "allow-plugins": {

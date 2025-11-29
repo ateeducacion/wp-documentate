@@ -231,7 +231,7 @@ class Documentate_Admin {
 
 		add_meta_box(
 			'documentate_collaborative_status',
-			__( 'Modo colaborativo', 'documentate' ),
+			__( 'Collaborative Mode', 'documentate' ),
 			array( $this, 'render_collaborative_status_metabox' ),
 			'documentate_document',
 			'side',
@@ -249,11 +249,11 @@ class Documentate_Admin {
 		<div id="documentate-collab-status-metabox" class="documentate-collab-metabox">
 			<div class="documentate-collab-metabox__status" data-status="connecting">
 				<span class="documentate-collab-metabox__indicator"></span>
-				<span class="documentate-collab-metabox__label"><?php esc_html_e( 'Conectando...', 'documentate' ); ?></span>
+				<span class="documentate-collab-metabox__label"><?php esc_html_e( 'Connecting...', 'documentate' ); ?></span>
 				<div class="documentate-collab-metabox__avatars"></div>
 			</div>
 			<div class="documentate-collab-metabox__retries" style="display: none;">
-				<span class="documentate-collab-metabox__retry-count">0</span>/5 <?php esc_html_e( 'intentos', 'documentate' ); ?>
+				<span class="documentate-collab-metabox__retry-count">0</span>/5 <?php esc_html_e( 'retries', 'documentate' ); ?>
 			</div>
 		</div>
 		<?php
@@ -454,7 +454,7 @@ class Documentate_Admin {
 			array(
 				'fieldLabels' => $field_labels,
 				'strings'     => array(
-					'fieldContent' => __( 'Contenido del campo ↓', 'documentate' ),
+					'fieldContent' => __( 'Field content ↓', 'documentate' ),
 				),
 			)
 		);
@@ -471,22 +471,22 @@ class Documentate_Admin {
 	private function get_revision_field_labels() {
 		$labels = array(
 			// Default labels for common fields.
-			'post_title'        => __( 'Título del documento', 'documentate' ),
-			'post_content'      => __( 'Contenido', 'documentate' ),
-			'resolution_number' => __( 'Número de resolución', 'documentate' ),
-			'date'              => __( 'Fecha', 'documentate' ),
-			'antecedentes'      => __( 'Antecedentes', 'documentate' ),
-			'fundamentos'       => __( 'Fundamentos', 'documentate' ),
-			'resuelve'          => __( 'Resuelve', 'documentate' ),
-			'anexos'            => __( 'Anexos', 'documentate' ),
-			'firma'             => __( 'Firma', 'documentate' ),
-			'cargo'             => __( 'Cargo', 'documentate' ),
-			'lugar'             => __( 'Lugar', 'documentate' ),
-			'destinatario'      => __( 'Destinatario', 'documentate' ),
-			'asunto'            => __( 'Asunto', 'documentate' ),
-			'cuerpo'            => __( 'Cuerpo', 'documentate' ),
-			'saludo'            => __( 'Saludo', 'documentate' ),
-			'despedida'         => __( 'Despedida', 'documentate' ),
+			'post_title'        => __( 'Document Title', 'documentate' ),
+			'post_content'      => __( 'Content', 'documentate' ),
+			'resolution_number' => __( 'Resolution Number', 'documentate' ),
+			'date'              => __( 'Date', 'documentate' ),
+			'antecedentes'      => __( 'Background', 'documentate' ),
+			'fundamentos'       => __( 'Legal Grounds', 'documentate' ),
+			'resuelve'          => __( 'Resolution', 'documentate' ),
+			'anexos'            => __( 'Annexes', 'documentate' ),
+			'firma'             => __( 'Signature', 'documentate' ),
+			'cargo'             => __( 'Position', 'documentate' ),
+			'lugar'             => __( 'Place', 'documentate' ),
+			'destinatario'      => __( 'Recipient', 'documentate' ),
+			'asunto'            => __( 'Subject', 'documentate' ),
+			'cuerpo'            => __( 'Body', 'documentate' ),
+			'saludo'            => __( 'Greeting', 'documentate' ),
+			'despedida'         => __( 'Closing', 'documentate' ),
 		);
 
 		// Try to get labels from the current revision's parent document type.

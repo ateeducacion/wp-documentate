@@ -18,21 +18,21 @@ class Documentate_Template_Parser {
 		 */
 	public static function extract_fields( $template_path ) {
 		if ( empty( $template_path ) || ! file_exists( $template_path ) ) {
-			return new WP_Error( 'documentate_template_missing', __( 'La plantilla seleccionada no se encuentra.', 'documentate' ) );
+			return new WP_Error( 'documentate_template_missing', __( 'The selected template was not found.', 'documentate' ) );
 		}
 
 		$extension = strtolower( pathinfo( $template_path, PATHINFO_EXTENSION ) );
 		if ( ! in_array( $extension, array( 'docx', 'odt' ), true ) ) {
-			return new WP_Error( 'documentate_template_invalid', __( 'El archivo debe ser un DOCX u ODT.', 'documentate' ) );
+			return new WP_Error( 'documentate_template_invalid', __( 'The file must be a DOCX or ODT.', 'documentate' ) );
 		}
 
 		if ( ! class_exists( 'ZipArchive' ) ) {
-			return new WP_Error( 'documentate_zip_missing', __( 'ZipArchive no está disponible en el servidor.', 'documentate' ) );
+			return new WP_Error( 'documentate_zip_missing', __( 'ZipArchive is not available on the server.', 'documentate' ) );
 		}
 
 		$zip = new ZipArchive();
 		if ( true !== $zip->open( $template_path ) ) {
-			return new WP_Error( 'documentate_template_unzip', __( 'No se pudo abrir la plantilla para su análisis.', 'documentate' ) );
+			return new WP_Error( 'documentate_template_unzip', __( 'Could not open the template for analysis.', 'documentate' ) );
 		}
 
 		$targets = array();

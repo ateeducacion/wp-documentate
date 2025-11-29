@@ -376,19 +376,19 @@ class Documentate_Documents {
 	 */
 	public function register_post_type() {
 		$labels = array(
-			'name'                  => __( 'Documentos', 'documentate' ),
-			'singular_name'         => __( 'Documento', 'documentate' ),
-			'menu_name'             => __( 'Documentos', 'documentate' ),
-			'name_admin_bar'        => __( 'Documento', 'documentate' ),
-			'add_new'               => __( 'Añadir nuevo', 'documentate' ),
-			'add_new_item'          => __( 'Añadir nuevo documento', 'documentate' ),
-			'new_item'              => __( 'Nuevo documento', 'documentate' ),
-			'edit_item'             => __( 'Editar documento', 'documentate' ),
-			'view_item'             => __( 'Ver documento', 'documentate' ),
-			'all_items'             => __( 'Todos los documentos', 'documentate' ),
-			'search_items'          => __( 'Buscar documentos', 'documentate' ),
-			'not_found'             => __( 'No se han encontrado documentos.', 'documentate' ),
-			'not_found_in_trash'    => __( 'No hay documentos en la papelera.', 'documentate' ),
+			'name'                  => __( 'Documents', 'documentate' ),
+			'singular_name'         => __( 'Document', 'documentate' ),
+			'menu_name'             => __( 'Documents', 'documentate' ),
+			'name_admin_bar'        => __( 'Document', 'documentate' ),
+			'add_new'               => __( 'Add New', 'documentate' ),
+			'add_new_item'          => __( 'Add New Document', 'documentate' ),
+			'new_item'              => __( 'New Document', 'documentate' ),
+			'edit_item'             => __( 'Edit Document', 'documentate' ),
+			'view_item'             => __( 'View Document', 'documentate' ),
+			'all_items'             => __( 'All Documents', 'documentate' ),
+			'search_items'          => __( 'Search Documents', 'documentate' ),
+			'not_found'             => __( 'No documents found.', 'documentate' ),
+			'not_found_in_trash'    => __( 'No documents found in trash.', 'documentate' ),
 		);
 
 		$args = array(
@@ -445,17 +445,17 @@ class Documentate_Documents {
 		 * Register taxonomies used by the documents CPT.
 		 */
 	public function register_taxonomies() {
-			// Tipos de documento (definen plantillas y campos personalizados para el documento).
+			// Document types (define templates and custom fields for the document).
 			$types_labels = array(
-				'name'              => __( 'Tipos de documento', 'documentate' ),
-				'singular_name'     => __( 'Tipo de documento', 'documentate' ),
-				'search_items'      => __( 'Buscar tipos', 'documentate' ),
-				'all_items'         => __( 'Todos los tipos', 'documentate' ),
-				'edit_item'         => __( 'Editar tipo', 'documentate' ),
-				'update_item'       => __( 'Actualizar tipo', 'documentate' ),
-				'add_new_item'      => __( 'Añadir nuevo tipo', 'documentate' ),
-				'new_item_name'     => __( 'Nuevo tipo', 'documentate' ),
-				'menu_name'         => __( 'Tipos de documento', 'documentate' ),
+				'name'              => __( 'Document Types', 'documentate' ),
+				'singular_name'     => __( 'Document Type', 'documentate' ),
+				'search_items'      => __( 'Search Types', 'documentate' ),
+				'all_items'         => __( 'All Types', 'documentate' ),
+				'edit_item'         => __( 'Edit Type', 'documentate' ),
+				'update_item'       => __( 'Update Type', 'documentate' ),
+				'add_new_item'      => __( 'Add New Type', 'documentate' ),
+				'new_item_name'     => __( 'New Type', 'documentate' ),
+				'menu_name'         => __( 'Document Types', 'documentate' ),
 			);
 			register_taxonomy(
 				'documentate_doc_type',
@@ -492,10 +492,10 @@ class Documentate_Documents {
 	 * Register admin meta boxes for document sections.
 	 */
 	public function register_meta_boxes() {
-		// Tipo de documento selector (bloqueado tras la creación inicial).
+		// Document type selector (locked after initial creation).
 		add_meta_box(
 			'documentate_doc_type',
-			__( 'Tipo de documento', 'documentate' ),
+			__( 'Document Type', 'documentate' ),
 			array( $this, 'render_type_metabox' ),
 			'documentate_document',
 			'side',
@@ -504,7 +504,7 @@ class Documentate_Documents {
 
 		add_meta_box(
 			'documentate_sections',
-			__( 'Secciones del documento', 'documentate' ),
+			__( 'Document Sections', 'documentate' ),
 			array( $this, 'render_sections_metabox' ),
 			'documentate_document',
 			'normal',
@@ -532,19 +532,19 @@ class Documentate_Documents {
 		);
 
 		if ( ! $terms || is_wp_error( $terms ) ) {
-			echo '<p>' . esc_html__( 'No hay tipos de documento definidos. Crea uno en Tipos de documento.', 'documentate' ) . '</p>';
+			echo '<p>' . esc_html__( 'No document types defined. Create one in Document Types.', 'documentate' ) . '</p>';
 			return;
 		}
 
 		$locked = ( $current > 0 && 'auto-draft' !== $post->post_status );
-		echo '<p class="description">' . esc_html__( 'Elige el tipo al crear el documento. No se podrá cambiar más tarde.', 'documentate' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Choose the type when creating the document. It cannot be changed later.', 'documentate' ) . '</p>';
 		if ( $locked ) {
 			$term = get_term( $current, 'documentate_doc_type' );
-			echo '<p><strong>' . esc_html__( 'Tipo seleccionado:', 'documentate' ) . '</strong> ' . esc_html( $term ? $term->name : '' ) . '</p>';
+			echo '<p><strong>' . esc_html__( 'Selected type:', 'documentate' ) . '</strong> ' . esc_html( $term ? $term->name : '' ) . '</p>';
 			echo '<input type="hidden" name="documentate_doc_type" value="' . esc_attr( (string) $current ) . '" />';
 		} else {
 			echo '<select name="documentate_doc_type" class="widefat">';
-			echo '<option value="">' . esc_html__( 'Selecciona un tipo…', 'documentate' ) . '</option>';
+			echo '<option value="">' . esc_html__( 'Select a type…', 'documentate' ) . '</option>';
 			foreach ( $terms as $t ) {
 				echo '<option value="' . esc_attr( (string) $t->term_id ) . '" ' . selected( $current, $t->term_id, false ) . '>' . esc_html( $t->name ) . '</option>';
 			}
@@ -567,7 +567,7 @@ class Documentate_Documents {
 
 		if ( empty( $schema ) ) {
 			echo '<div class="documentate-sections">';
-			echo '<p class="description">' . esc_html__( 'Configura un tipo de documento con campos para poder editar su contenido.', 'documentate' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Configure a document type with fields to edit its content.', 'documentate' ) . '</p>';
 			$unknown = $this->collect_unknown_dynamic_fields( $post->ID, array() );
 			$this->render_unknown_dynamic_fields_ui( $unknown );
 			echo '</div>';
@@ -715,7 +715,7 @@ class Documentate_Documents {
 					if ( '' !== $placeholder ) {
 						echo '<option value="">' . esc_html( $placeholder ) . '</option>';
 					} elseif ( empty( $attributes['required'] ) ) {
-						echo '<option value="">' . esc_html__( 'Selecciona una opción…', 'documentate' ) . '</option>';
+						echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
 					}
 					foreach ( $options as $option_value => $option_label ) {
 						echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $option_value, $normalized_value, false ) . '>' . esc_html( $option_label ) . '</option>';
@@ -1459,7 +1459,7 @@ class Documentate_Documents {
 
 		if ( empty( $schema ) ) {
 				$schema['content'] = array(
-					'label'     => __( 'Contenido', 'documentate' ),
+					'label'     => __( 'Content', 'documentate' ),
 					'type'      => 'textarea',
 					'data_type' => 'text',
 				);
@@ -1505,7 +1505,7 @@ class Documentate_Documents {
 			echo ' title="' . esc_attr( $repeater_title_attribute ) . '"';
 		}
 		echo '>' . esc_html( $label ) . '</span>';
-		echo '<button type="button" class="button button-secondary documentate-array-add" data-array-target="' . esc_attr( $slug ) . '">' . esc_html__( 'Añadir elemento', 'documentate' ) . '</button>';
+		echo '<button type="button" class="button button-secondary documentate-array-add" data-array-target="' . esc_attr( $slug ) . '">' . esc_html__( 'Add item', 'documentate' ) . '</button>';
 		echo '</div>';
 
 		echo '<div class="documentate-array-items" id="' . esc_attr( $field_id ) . '" data-field="' . esc_attr( $slug ) . '">';
@@ -1541,8 +1541,8 @@ class Documentate_Documents {
 
 		echo '<div class="documentate-array-item" data-index="' . esc_attr( $index_attr ) . '" draggable="true" style="border:1px solid #e5e5e5;padding:16px;margin-bottom:12px;background:#fff;">';
 		echo '<div class="documentate-array-item-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">';
-		echo '<span class="documentate-array-handle" role="button" tabindex="0" aria-label="' . esc_attr__( 'Mover elemento', 'documentate' ) . '" style="cursor:move;user-select:none;">≡</span>';
-		echo '<button type="button" class="button-link-delete documentate-array-remove">' . esc_html__( 'Eliminar', 'documentate' ) . '</button>';
+		echo '<span class="documentate-array-handle" role="button" tabindex="0" aria-label="' . esc_attr__( 'Move item', 'documentate' ) . '" style="cursor:move;user-select:none;">≡</span>';
+		echo '<button type="button" class="button-link-delete documentate-array-remove">' . esc_html__( 'Delete', 'documentate' ) . '</button>';
 		echo '</div>';
 
 		foreach ( $item_schema as $key => $definition ) {
@@ -1608,7 +1608,7 @@ class Documentate_Documents {
 					if ( '' !== $placeholder ) {
 						echo '<option value="">' . esc_html( $placeholder ) . '</option>';
 					} elseif ( empty( $attributes['required'] ) ) {
-						echo '<option value="">' . esc_html__( 'Selecciona una opción…', 'documentate' ) . '</option>';
+						echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
 					}
 					foreach ( $options as $option_value => $option_label ) {
 						echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $option_value, $normalized_value, false ) . '>' . esc_html( $option_label ) . '</option>';
@@ -2537,7 +2537,7 @@ class Documentate_Documents {
 		}
 
 		echo '<div class="documentate-unknown-dynamic" style="margin-top:24px;">';
-		echo '<div class="notice notice-warning inline" style="margin:0 0 12px;">' . esc_html__( 'El documento contiene campos adicionales que no pertenecen al tipo seleccionado. Revisa su contenido antes de guardar.', 'documentate' ) . '</div>';
+		echo '<div class="notice notice-warning inline" style="margin:0 0 12px;">' . esc_html__( 'The document contains additional fields that do not belong to the selected type. Review their content before saving.', 'documentate' ) . '</div>';
 
 		foreach ( $unknown_fields as $meta_key => $data ) {
 			$label = $this->humanize_unknown_field_label( $meta_key );
@@ -2547,8 +2547,8 @@ class Documentate_Documents {
 			}
 			echo '<div class="documentate-field documentate-field-warning" style="margin-bottom:16px;border:1px solid #dba617;padding:12px;background:#fffbea;">';
 			/* translators: %s: detected dynamic field key. */
-			echo '<label for="' . esc_attr( $meta_key ) . '" style="font-weight:600;display:block;margin-bottom:4px;">' . esc_html( sprintf( __( 'Campo adicional: %s', 'documentate' ), $label ) ) . '</label>';
-			echo '<p class="description" style="margin-top:0;margin-bottom:8px;">' . esc_html__( 'Este campo no está definido en la taxonomía de tipo de documento actual.', 'documentate' ) . '</p>';
+			echo '<label for="' . esc_attr( $meta_key ) . '" style="font-weight:600;display:block;margin-bottom:4px;">' . esc_html( sprintf( __( 'Additional field: %s', 'documentate' ), $label ) ) . '</label>';
+			echo '<p class="description" style="margin-top:0;margin-bottom:8px;">' . esc_html__( 'This field is not defined in the current document type taxonomy.', 'documentate' ) . '</p>';
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles escaping.
 			wp_editor(
 				$value,

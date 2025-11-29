@@ -35,7 +35,7 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( ! WP_Filesystem() ) {
-			return new WP_Error( 'documentate_fs_unavailable', __( 'No se pudo inicializar el sistema de archivos de WordPress.', 'documentate' ) );
+			return new WP_Error( 'documentate_fs_unavailable', __( 'Could not initialize the WordPress filesystem.', 'documentate' ) );
 		}
 
 		return $wp_filesystem;
@@ -147,7 +147,7 @@ class Documentate_Admin_Helper {
 					),
 					'documentate_export_' . $post->ID
 				);
-				$actions['documentate_export_docx'] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Exportar DOCX', 'documentate' ) . '</a>';
+				$actions['documentate_export_docx'] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Export DOCX', 'documentate' ) . '</a>';
 			}
 		}
 
@@ -161,11 +161,11 @@ class Documentate_Admin_Helper {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Permisos insuficientes.', 'documentate' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_export_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Nonce no válido.', 'documentate' ) );
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
 		}
 
 		$this->ensure_document_generator();
@@ -195,11 +195,11 @@ class Documentate_Admin_Helper {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Permisos insuficientes.', 'documentate' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_export_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Nonce no válido.', 'documentate' ) );
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
 		}
 
 		$this->ensure_document_generator();
@@ -226,11 +226,11 @@ class Documentate_Admin_Helper {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Permisos insuficientes.', 'documentate' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_export_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Nonce no válido.', 'documentate' ) );
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
 		}
 
 		$this->ensure_document_generator();
@@ -257,18 +257,18 @@ class Documentate_Admin_Helper {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Permisos insuficientes.', 'documentate' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_preview_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Nonce no válido.', 'documentate' ) );
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
 		}
 
 		$this->ensure_document_generator();
 
 		$result = Documentate_Document_Generator::generate_pdf( $post_id );
 		if ( is_wp_error( $result ) ) {
-			wp_die( esc_html( $result->get_error_message() ), esc_html__( 'Error de previsualización', 'documentate' ), array( 'back_link' => true ) );
+			wp_die( esc_html( $result->get_error_message() ), esc_html__( 'Preview error', 'documentate' ), array( 'back_link' => true ) );
 		}
 
 		$this->stream_pdf_inline( $result, get_the_title( $post_id ) );
@@ -283,16 +283,16 @@ class Documentate_Admin_Helper {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Permisos insuficientes.', 'documentate' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_preview_stream_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Nonce no válido.', 'documentate' ) );
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
 		}
 
 		$user_id = get_current_user_id();
 		if ( $user_id <= 0 ) {
-			wp_die( esc_html__( 'Usuario no autenticado.', 'documentate' ) );
+			wp_die( esc_html__( 'User not authenticated.', 'documentate' ) );
 		}
 
 		$key      = $this->get_preview_stream_transient_key( $post_id, $user_id );
@@ -302,7 +302,7 @@ class Documentate_Admin_Helper {
 			$this->ensure_document_generator();
 			$result = Documentate_Document_Generator::generate_pdf( $post_id );
 			if ( is_wp_error( $result ) ) {
-				wp_die( esc_html__( 'No se pudo generar el PDF para la vista previa.', 'documentate' ) );
+				wp_die( esc_html__( 'Could not generate the PDF for preview.', 'documentate' ) );
 			}
 
 			$filename = basename( $result );
@@ -311,7 +311,7 @@ class Documentate_Admin_Helper {
 
 		$filename = sanitize_file_name( (string) $filename );
 		if ( '' === $filename ) {
-			wp_die( esc_html__( 'Archivo de vista previa no disponible.', 'documentate' ) );
+			wp_die( esc_html__( 'Preview file not available.', 'documentate' ) );
 		}
 
 		$upload_dir = wp_upload_dir();
@@ -323,7 +323,7 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( ! $fs->exists( $path ) || ! $fs->is_readable( $path ) ) {
-			wp_die( esc_html__( 'No se pudo acceder al archivo PDF generado.', 'documentate' ) );
+			wp_die( esc_html__( 'Could not access the generated PDF file.', 'documentate' ) );
 		}
 
 		$filesize       = (int) $fs->size( $path );
@@ -341,7 +341,7 @@ class Documentate_Admin_Helper {
 
 		$content = $fs->get_contents( $path );
 		if ( false === $content ) {
-			wp_die( esc_html__( 'No se pudo leer el archivo PDF.', 'documentate' ) );
+			wp_die( esc_html__( 'Could not read the PDF file.', 'documentate' ) );
 		}
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
@@ -389,7 +389,7 @@ class Documentate_Admin_Helper {
 
 		// Verify user has permission.
 		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_die( esc_html__( 'No tienes permiso para acceder a esta página.', 'documentate' ) );
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'documentate' ) );
 		}
 
 		// Include the converter template.
@@ -468,7 +468,7 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( ! $fs->exists( $pdf_path ) || ! $fs->is_readable( $pdf_path ) ) {
-			wp_die( esc_html__( 'No se pudo acceder al archivo PDF generado.', 'documentate' ), '', array( 'back_link' => true ) );
+			wp_die( esc_html__( 'Could not access the generated PDF file.', 'documentate' ), '', array( 'back_link' => true ) );
 		}
 
 		$filename      = wp_basename( $pdf_path );
@@ -490,7 +490,7 @@ class Documentate_Admin_Helper {
 
 		$content = $fs->get_contents( $pdf_path );
 		if ( false === $content ) {
-			wp_die( esc_html__( 'No se pudo leer el archivo PDF.', 'documentate' ), '', array( 'back_link' => true ) );
+			wp_die( esc_html__( 'Could not read the PDF file.', 'documentate' ), '', array( 'back_link' => true ) );
 		}
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
@@ -503,7 +503,7 @@ class Documentate_Admin_Helper {
 	public function add_actions_metabox() {
 		add_meta_box(
 			'documentate_actions',
-			__( 'Acciones del documento', 'documentate' ),
+			__( 'Document Actions', 'documentate' ),
 			array( $this, 'render_actions_metabox' ),
 			'documentate_document',
 			'side',
@@ -519,7 +519,7 @@ class Documentate_Admin_Helper {
 	 */
 	public function render_actions_metabox( $post ) {
 		if ( ! current_user_can( 'edit_post', $post->ID ) ) {
-			echo '<p>' . esc_html__( 'Permisos insuficientes.', 'documentate' ) . '</p>';
+			echo '<p>' . esc_html__( 'Insufficient permissions.', 'documentate' ) . '</p>';
 			return;
 		}
 
@@ -589,18 +589,18 @@ class Documentate_Admin_Helper {
 		// Determine source format for CDN conversions.
 		$source_format = '' !== $odt_template ? 'odt' : ( '' !== $docx_template ? 'docx' : '' );
 
-		$docx_message = __( 'Configura una plantilla DOCX en el tipo de documento.', 'documentate' );
+		$docx_message = __( 'Configure a DOCX template in the document type.', 'documentate' );
 		if ( $docx_requires_conversion && ! $can_convert ) {
 			$docx_message = Documentate_Conversion_Manager::get_unavailable_message( 'odt', 'docx' );
 		}
 
-		$odt_message = __( 'Configura una plantilla ODT en el tipo de documento.', 'documentate' );
+		$odt_message = __( 'Configure an ODT template in the document type.', 'documentate' );
 		if ( $odt_requires_conversion && ! $can_convert ) {
 			$odt_message = Documentate_Conversion_Manager::get_unavailable_message( 'docx', 'odt' );
 		}
 
 		if ( '' === $docx_template && '' === $odt_template ) {
-			$pdf_message = __( 'Configura una plantilla DOCX u ODT en el tipo de documento antes de generar el PDF.', 'documentate' );
+			$pdf_message = __( 'Configure a DOCX or ODT template in the document type before generating PDF.', 'documentate' );
 		} elseif ( ! $can_convert ) {
 			$source_for_pdf = '' !== $docx_template ? 'docx' : 'odt';
 			$pdf_message    = Documentate_Conversion_Manager::get_unavailable_message( $source_for_pdf, 'pdf' );
@@ -643,9 +643,9 @@ class Documentate_Admin_Helper {
 				$preview_attrs['data-documentate-source-format'] = $source_format;
 			}
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-			echo '<a ' . $this->build_action_attributes( $preview_attrs ) . '>' . esc_html__( 'Previsualizar', 'documentate' ) . '</a>';
+			echo '<a ' . $this->build_action_attributes( $preview_attrs ) . '>' . esc_html__( 'Preview', 'documentate' ) . '</a>';
 		} else {
-			echo '<button type="button" class="button button-secondary" disabled title="' . esc_attr( $preview_message ) . '">' . esc_html__( 'Previsualizar', 'documentate' ) . '</button>';
+			echo '<button type="button" class="button button-secondary" disabled title="' . esc_attr( $preview_message ) . '">' . esc_html__( 'Preview', 'documentate' ) . '</button>';
 		}
 		echo '</p>';
 
@@ -714,7 +714,7 @@ class Documentate_Admin_Helper {
 		echo '</p>';
 
 		/* translators: %s: converter engine label. */
-		echo '<p class="description">' . sprintf( esc_html__( 'Las conversiones adicionales se realizan con %s.', 'documentate' ), esc_html( $engine_label ) ) . '</p>';
+		echo '<p class="description">' . sprintf( esc_html__( 'Additional conversions are performed with %s.', 'documentate' ), esc_html( $engine_label ) ) . '</p>';
 	}
 
 	/**
@@ -750,7 +750,7 @@ class Documentate_Admin_Helper {
 		$path = (string) $path;
 		$mime = (string) $mime;
 		if ( '' === $path ) {
-			return new WP_Error( 'documentate_download_missing', __( 'No se pudo determinar el archivo generado.', 'documentate' ) );
+			return new WP_Error( 'documentate_download_missing', __( 'Could not determine the generated file.', 'documentate' ) );
 		}
 
 		$fs = $this->get_wp_filesystem();
@@ -759,7 +759,7 @@ class Documentate_Admin_Helper {
 		}
 
 		if ( ! $fs->exists( $path ) || ! $fs->is_readable( $path ) ) {
-			return new WP_Error( 'documentate_download_unreadable', __( 'No se pudo acceder al archivo generado.', 'documentate' ) );
+			return new WP_Error( 'documentate_download_unreadable', __( 'Could not access the generated file.', 'documentate' ) );
 		}
 
 		$download_name = wp_basename( $path );
@@ -780,7 +780,7 @@ class Documentate_Admin_Helper {
 
 		$content = $fs->get_contents( $path );
 		if ( false === $content ) {
-			return new WP_Error( 'documentate_download_unreadable', __( 'No se pudo leer el archivo generado.', 'documentate' ) );
+			return new WP_Error( 'documentate_download_unreadable', __( 'Could not read the generated file.', 'documentate' ) );
 		}
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming binary data.
@@ -856,17 +856,17 @@ class Documentate_Admin_Helper {
 			'postId'  => $post_id,
 			'nonce'   => wp_create_nonce( 'documentate_generate_' . $post_id ),
 			'strings' => array(
-				'generating'        => __( 'Generando documento...', 'documentate' ),
-				'generatingPreview' => __( 'Generando vista previa...', 'documentate' ),
+				'generating'        => __( 'Generating document...', 'documentate' ),
+				'generatingPreview' => __( 'Generating preview...', 'documentate' ),
 				/* translators: %s: document format (DOCX, ODT, PDF). */
-				'generatingFormat'  => __( 'Generando %s...', 'documentate' ),
-				'wait'              => __( 'Por favor, espera mientras se genera el documento.', 'documentate' ),
-				'close'             => __( 'Cerrar', 'documentate' ),
-				'errorGeneric'      => __( 'Error al generar el documento.', 'documentate' ),
-				'errorNetwork'      => __( 'Error de conexión. Por favor, inténtalo de nuevo.', 'documentate' ),
-				'loadingWasm'       => __( 'Cargando LibreOffice...', 'documentate' ),
-				'convertingBrowser' => __( 'Convirtiendo en el navegador...', 'documentate' ),
-				'wasmError'         => __( 'Error al cargar LibreOffice.', 'documentate' ),
+				'generatingFormat'  => __( 'Generating %s...', 'documentate' ),
+				'wait'              => __( 'Please wait while the document is being generated.', 'documentate' ),
+				'close'             => __( 'Close', 'documentate' ),
+				'errorGeneric'      => __( 'Error generating the document.', 'documentate' ),
+				'errorNetwork'      => __( 'Connection error. Please try again.', 'documentate' ),
+				'loadingWasm'       => __( 'Loading LibreOffice...', 'documentate' ),
+				'convertingBrowser' => __( 'Converting in browser...', 'documentate' ),
+				'wasmError'         => __( 'Error loading LibreOffice.', 'documentate' ),
 			),
 		);
 
@@ -894,11 +894,11 @@ class Documentate_Admin_Helper {
 		$output  = isset( $_POST['output'] ) ? sanitize_key( $_POST['output'] ) : 'download';
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'Permisos insuficientes.', 'documentate' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'documentate' ) ) );
 		}
 
 		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'documentate_generate_' . $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'Nonce no válido.', 'documentate' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Invalid nonce.', 'documentate' ) ) );
 		}
 
 		$this->ensure_document_generator();

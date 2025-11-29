@@ -120,10 +120,10 @@ class Documentate_OpenTBS {
 	 */
 	private static function render_template_to_file( $template_path, $fields, $dest_path ) {
 		if ( ! self::load_libs() ) {
-			return new WP_Error( 'documentate_opentbs_missing', __( 'OpenTBS no está disponible.', 'documentate' ) );
+			return new WP_Error( 'documentate_opentbs_missing', __( 'OpenTBS is not available.', 'documentate' ) );
 		}
 		if ( ! file_exists( $template_path ) ) {
-			return new WP_Error( 'documentate_template_missing', __( 'Plantilla no encontrada.', 'documentate' ) );
+			return new WP_Error( 'documentate_template_missing', __( 'Template not found.', 'documentate' ) );
 		}
 		try {
 			$tbs_engine = new clsTinyButStrong();
@@ -187,11 +187,11 @@ class Documentate_OpenTBS {
 				return true;
 		}
 		if ( ! class_exists( 'ZipArchive' ) ) {
-			return new WP_Error( 'documentate_docx_zip_missing', __( 'ZipArchive no está disponible para aplicar formato enriquecido.', 'documentate' ) );
+			return new WP_Error( 'documentate_docx_zip_missing', __( 'ZipArchive is not available for rich text formatting.', 'documentate' ) );
 		}
 			$zip = new ZipArchive();
 		if ( true !== $zip->open( $doc_path ) ) {
-			return new WP_Error( 'documentate_docx_zip_open', __( 'No se pudo abrir el DOCX generado para aplicar formato.', 'documentate' ) );
+			return new WP_Error( 'documentate_docx_zip_open', __( 'Could not open the generated DOCX for formatting.', 'documentate' ) );
 		}
 			$targets     = array();
 			$total_files = $zip->numFiles; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
@@ -499,12 +499,12 @@ class Documentate_OpenTBS {
 		}
 
 		if ( ! class_exists( 'ZipArchive' ) ) {
-			return new WP_Error( 'documentate_odt_zip_missing', __( 'ZipArchive no está disponible para aplicar formato enriquecido en ODT.', 'documentate' ) );
+			return new WP_Error( 'documentate_odt_zip_missing', __( 'ZipArchive is not available for rich text formatting in ODT.', 'documentate' ) );
 		}
 
 		$zip = new ZipArchive();
 		if ( true !== $zip->open( $odt_path ) ) {
-			return new WP_Error( 'documentate_odt_open_failed', __( 'No se pudo abrir el archivo ODT para aplicar formato enriquecido.', 'documentate' ) );
+			return new WP_Error( 'documentate_odt_open_failed', __( 'Could not open the ODT file for rich text formatting.', 'documentate' ) );
 		}
 
 		$targets = array( 'content.xml', 'styles.xml' );

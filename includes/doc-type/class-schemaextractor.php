@@ -501,7 +501,7 @@ class SchemaExtractor {
 				case 'email':
 					$pattern = '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$';
 					if ( '' === $pattern_msg ) {
-						$pattern_msg = __( 'Introduce un email válido (usuario@dominio.tld)', 'documentate' );
+						$pattern_msg = __( 'Enter a valid email (user@domain.tld)', 'documentate' );
 					}
 					break;
 			}

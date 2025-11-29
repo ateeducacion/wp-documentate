@@ -46,7 +46,7 @@ class Documentate_Conversion_Manager {
 		}
 
 		$labels = array(
-			self::ENGINE_WASM      => __( 'LibreOffice WASM en el navegador (experimental)', 'documentate' ),
+			self::ENGINE_WASM      => __( 'LibreOffice WASM in browser (experimental)', 'documentate' ),
 			self::ENGINE_COLLABORA => __( 'Collabora Online', 'documentate' ),
 		);
 
@@ -108,7 +108,7 @@ class Documentate_Conversion_Manager {
 	public static function get_unavailable_message( $source_format = '', $target_format = '' ) {
 		$engine        = self::get_engine();
 		$context       = self::build_context_text( $source_format, $target_format );
-		$default_label = __( 'No se pudo completar la conversión.', 'documentate' );
+		$default_label = __( 'Could not complete the conversion.', 'documentate' );
 
 		if ( self::ENGINE_COLLABORA === $engine ) {
 			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
@@ -116,19 +116,19 @@ class Documentate_Conversion_Manager {
 			if ( '' !== $status ) {
 				return $status . $context;
 			}
-			return __( 'Collabora Online no está disponible para convertir documentos.', 'documentate' ) . $context;
+			return __( 'Collabora Online is not available to convert documents.', 'documentate' ) . $context;
 		}
 
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-zetajs-converter.php';
 		if ( Documentate_Zetajs_Converter::is_cdn_mode() ) {
-			return __( 'Desactiva el modo CDN de ZetaJS y configura el ejecutable local para realizar conversiones en el servidor.', 'documentate' ) . $context;
+			return __( 'Disable ZetaJS CDN mode and configure the local executable for server-side conversions.', 'documentate' ) . $context;
 		}
 
 		if ( Documentate_Zetajs_Converter::is_available() ) {
 			return $default_label . $context;
 		}
 
-		return __( 'Configura la ruta del ejecutable de ZetaJS (LibreOffice WASM) en el servidor.', 'documentate' ) . $context;
+		return __( 'Configure the ZetaJS (LibreOffice WASM) executable path on the server.', 'documentate' ) . $context;
 	}
 
 	/**
@@ -145,7 +145,7 @@ class Documentate_Conversion_Manager {
 		if ( '' !== $source_format && '' !== $target_format ) {
 			return ' ' . sprintf(
 				/* translators: 1: source extension, 2: target extension. */
-				__( 'Necesario para convertir %1$s a %2$s.', 'documentate' ),
+				__( 'Required to convert %1$s to %2$s.', 'documentate' ),
 				strtoupper( $source_format ),
 				strtoupper( $target_format )
 			);
@@ -154,7 +154,7 @@ class Documentate_Conversion_Manager {
 		if ( '' !== $target_format ) {
 			return ' ' . sprintf(
 				/* translators: %s: target extension. */
-				__( 'Necesario para generar %s.', 'documentate' ),
+				__( 'Required to generate %s.', 'documentate' ),
 				strtoupper( $target_format )
 			);
 		}

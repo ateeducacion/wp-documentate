@@ -79,12 +79,12 @@ class Documentate_Admin_Settings {
 		);
 
 		$fields = array(
-			'conversion_engine'       => __( 'Motor de conversión', 'documentate' ),
-			'collabora_base_url'      => __( 'URL de Collabora Online', 'documentate' ),
-			'collabora_lang'          => __( 'Idioma para Collabora', 'documentate' ),
-			'collabora_disable_ssl'   => __( 'Omitir verificación SSL (Collabora)', 'documentate' ),
-			'collaborative_enabled'   => __( 'Modo colaborativo', 'documentate' ),
-			'collaborative_signaling' => __( 'Servidor de signaling WebRTC', 'documentate' ),
+			'conversion_engine'       => __( 'Conversion Engine', 'documentate' ),
+			'collabora_base_url'      => __( 'Collabora Online URL', 'documentate' ),
+			'collabora_lang'          => __( 'Collabora Language', 'documentate' ),
+			'collabora_disable_ssl'   => __( 'Skip SSL verification (Collabora)', 'documentate' ),
+			'collaborative_enabled'   => __( 'Collaborative Mode', 'documentate' ),
+			'collaborative_signaling' => __( 'WebRTC Signaling Server', 'documentate' ),
 		);
 
 		foreach ( $fields as $field_id => $field_title ) {
@@ -104,7 +104,7 @@ class Documentate_Admin_Settings {
 	 * Outputs a description for the settings section.
 	 */
 	public function settings_section_callback() {
-		echo '<p>' . esc_html__( 'Configura las opciones del plugin Documentate.', 'documentate' ) . '</p>';
+		echo '<p>' . esc_html__( 'Configure Documentate plugin options.', 'documentate' ) . '</p>';
 	}
 
 	/**
@@ -115,8 +115,8 @@ class Documentate_Admin_Settings {
 		$current = isset( $options['conversion_engine'] ) ? sanitize_key( $options['conversion_engine'] ) : 'collabora';
 
 		$engines = array(
-			'collabora' => __( 'Servicio web Collabora Online', 'documentate' ),
-			'wasm'      => __( 'LibreOffice WASM en el navegador (experimental)', 'documentate' ),
+			'collabora' => __( 'Collabora Online web service', 'documentate' ),
+			'wasm'      => __( 'LibreOffice WASM in browser (experimental)', 'documentate' ),
 		);
 
 		echo '<fieldset>';
@@ -126,7 +126,7 @@ class Documentate_Admin_Settings {
 			echo esc_html( $label );
 			echo '</label>';
 		}
-		echo '<p class="description">' . esc_html__( 'Define si las conversiones se realizan a través de Collabora Online (predeterminado) o con LibreOffice WASM en el navegador (experimental).', 'documentate' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Choose whether conversions are performed via Collabora Online (default) or with LibreOffice WASM in the browser (experimental).', 'documentate' ) . '</p>';
 		echo '</fieldset>';
 	}
 
@@ -141,7 +141,7 @@ class Documentate_Admin_Settings {
 		}
 
 		echo '<input type="url" class="regular-text" name="documentate_settings[collabora_base_url]" value="' . esc_attr( $value ) . '" placeholder="https://example.com">';
-		echo '<p class="description">' . esc_html__( 'Ejemplo: https://demo.us.collaboraonline.com', 'documentate' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Example: https://demo.us.collaboraonline.com', 'documentate' ) . '</p>';
 	}
 
 	/**
@@ -149,10 +149,10 @@ class Documentate_Admin_Settings {
 	 */
 	public function collabora_lang_render() {
 		$options = get_option( 'documentate_settings', array() );
-		$value   = isset( $options['collabora_lang'] ) ? sanitize_text_field( $options['collabora_lang'] ) : 'es-ES';
+		$value   = isset( $options['collabora_lang'] ) ? sanitize_text_field( $options['collabora_lang'] ) : 'en-US';
 
-		echo '<input type="text" class="regular-text" name="documentate_settings[collabora_lang]" value="' . esc_attr( $value ) . '" placeholder="es-ES">';
-		echo '<p class="description">' . esc_html__( 'Código de idioma que se enviará a Collabora Online (por defecto es-ES).', 'documentate' ) . '</p>';
+		echo '<input type="text" class="regular-text" name="documentate_settings[collabora_lang]" value="' . esc_attr( $value ) . '" placeholder="en-US">';
+		echo '<p class="description">' . esc_html__( 'Language code to send to Collabora Online (default en-US).', 'documentate' ) . '</p>';
 	}
 
 	/**
@@ -164,7 +164,7 @@ class Documentate_Admin_Settings {
 
 		echo '<label>';
 		echo '<input type="checkbox" name="documentate_settings[collabora_disable_ssl]" value="1" ' . checked( $checked, true, false ) . '> ';
-		echo esc_html__( 'Desactivar la comprobación de certificados SSL (usar solo en entornos de pruebas).', 'documentate' );
+		echo esc_html__( 'Disable SSL certificate verification (use only in test environments).', 'documentate' );
 		echo '</label>';
 	}
 
@@ -177,9 +177,9 @@ class Documentate_Admin_Settings {
 
 		echo '<label>';
 		echo '<input type="checkbox" name="documentate_settings[collaborative_enabled]" value="1" ' . checked( $checked, true, false ) . '> ';
-		echo esc_html__( 'Activar edición colaborativa en tiempo real usando TipTap y Yjs.', 'documentate' );
+		echo esc_html__( 'Enable real-time collaborative editing using TipTap and Yjs.', 'documentate' );
 		echo '</label>';
-		echo '<p class="description">' . esc_html__( 'Reemplaza el editor clásico TinyMCE por TipTap con soporte para edición colaborativa via WebRTC.', 'documentate' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Replaces the classic TinyMCE editor with TipTap supporting collaborative editing via WebRTC.', 'documentate' ) . '</p>';
 	}
 
 	/**
@@ -193,11 +193,11 @@ class Documentate_Admin_Settings {
 		}
 
 		echo '<input type="url" class="regular-text" name="documentate_settings[collaborative_signaling]" value="' . esc_attr( $value ) . '" placeholder="wss://signaling.yjs.dev">';
-		echo '<p class="description">' . esc_html__( 'Servidor de signaling para WebRTC. Por defecto usa el servidor público de Yjs.', 'documentate' ) . '</p>';
-		echo '<p class="description"><strong>' . esc_html__( 'Servidores públicos disponibles:', 'documentate' ) . '</strong></p>';
+		echo '<p class="description">' . esc_html__( 'Signaling server for WebRTC. By default uses the public Yjs server.', 'documentate' ) . '</p>';
+		echo '<p class="description"><strong>' . esc_html__( 'Available public servers:', 'documentate' ) . '</strong></p>';
 		echo '<ul class="description" style="list-style:disc;margin-left:20px;">';
-		echo '<li><code>wss://signaling.yjs.dev</code> ' . esc_html__( '(Yjs oficial)', 'documentate' ) . '</li>';
-		echo '<li><code>wss://y-webrtc-signaling-eu.herokuapp.com</code> ' . esc_html__( '(Europa)', 'documentate' ) . '</li>';
+		echo '<li><code>wss://signaling.yjs.dev</code> ' . esc_html__( '(Yjs official)', 'documentate' ) . '</li>';
+		echo '<li><code>wss://y-webrtc-signaling-eu.herokuapp.com</code> ' . esc_html__( '(Europe)', 'documentate' ) . '</li>';
 		echo '<li><code>wss://y-webrtc-signaling-us.herokuapp.com</code> ' . esc_html__( '(USA)', 'documentate' ) . '</li>';
 		echo '</ul>';
 	}
@@ -241,9 +241,9 @@ class Documentate_Admin_Settings {
 		$base_url = isset( $input['collabora_base_url'] ) ? trim( (string) $input['collabora_base_url'] ) : '';
 		$input['collabora_base_url'] = '' === $base_url ? '' : untrailingslashit( esc_url_raw( $base_url ) );
 
-		$lang = isset( $input['collabora_lang'] ) ? sanitize_text_field( $input['collabora_lang'] ) : 'es-ES';
+		$lang = isset( $input['collabora_lang'] ) ? sanitize_text_field( $input['collabora_lang'] ) : 'en-US';
 		if ( '' === $lang ) {
-			$lang = 'es-ES';
+			$lang = 'en-US';
 		}
 		$input['collabora_lang'] = $lang;
 

@@ -143,27 +143,27 @@ class Documentate_Doc_Types_Admin {
 							'nonce' => wp_create_nonce( 'documentate_doc_type_template' ),
 						),
 						'i18n'        => array(
-							'select'         => __( 'Seleccionar archivo', 'documentate' ),
-							'remove'         => __( 'Eliminar', 'documentate' ),
-							'fieldsDetected' => __( 'Campos detectados', 'documentate' ),
-							'noFields'       => __( 'No se encontraron campos en la plantilla.', 'documentate' ),
-							'typeDocx'       => __( 'Plantilla DOCX', 'documentate' ),
-							'typeOdt'        => __( 'Plantilla ODT', 'documentate' ),
-							'typeUnknown'    => __( 'Formato desconocido', 'documentate' ),
-							'diffAdded'      => __( 'Campos nuevos', 'documentate' ),
-							'diffRemoved'    => __( 'Campos eliminados', 'documentate' ),
+							'select'         => __( 'Select file', 'documentate' ),
+							'remove'         => __( 'Remove', 'documentate' ),
+							'fieldsDetected' => __( 'Detected fields', 'documentate' ),
+							'noFields'       => __( 'No fields found in template.', 'documentate' ),
+							'typeDocx'       => __( 'DOCX Template', 'documentate' ),
+							'typeOdt'        => __( 'ODT Template', 'documentate' ),
+							'typeUnknown'    => __( 'Unknown format', 'documentate' ),
+							'diffAdded'      => __( 'New fields', 'documentate' ),
+							'diffRemoved'    => __( 'Removed fields', 'documentate' ),
 							/* translators: %d is replaced with the total number of fields detected. */
-							'fieldCount'     => __( 'Total de campos: %d', 'documentate' ),
+							'fieldCount'     => __( 'Total fields: %d', 'documentate' ),
 							/* translators: %s is replaced with a comma separated list of repeater names. */
-							'repeaterList'   => __( 'Repetidores: %s', 'documentate' ),
+							'repeaterList'   => __( 'Repeaters: %s', 'documentate' ),
 							/* translators: %s is replaced with the datetime when the template was parsed. */
-							'parsedAt'       => __( 'Analizado: %s', 'documentate' ),
+							'parsedAt'       => __( 'Parsed: %s', 'documentate' ),
 						),
 						'fieldTypes' => array(
-							'text'    => __( 'Texto', 'documentate' ),
-							'number'  => __( 'Número', 'documentate' ),
-							'boolean' => __( 'Booleano', 'documentate' ),
-							'date'    => __( 'Fecha', 'documentate' ),
+							'text'    => __( 'Text', 'documentate' ),
+							'number'  => __( 'Number', 'documentate' ),
+							'boolean' => __( 'Boolean', 'documentate' ),
+							'date'    => __( 'Date', 'documentate' ),
 						),
 						'schema'       => $schema_slugs,
 						'schemaV2'     => $schema_v2,
@@ -187,15 +187,15 @@ class Documentate_Doc_Types_Admin {
 			<input type="text" id="documentate_type_color" name="documentate_type_color" class="documentate-color-field" value="#37517e" />
 		</div>
 		<div class="form-field">
-			<label for="documentate_type_template_id"><?php esc_html_e( 'Plantilla', 'documentate' ); ?></label>
+			<label for="documentate_type_template_id"><?php esc_html_e( 'Template', 'documentate' ); ?></label>
 			<input type="hidden" id="documentate_type_template_id" name="documentate_type_template_id" value="" />
 			<div id="documentate_type_template_preview" class="documentate-template-preview"></div>
-			<p class="description"><?php esc_html_e( 'Selecciona un archivo .odt o .docx con marcadores OpenTBS.', 'documentate' ); ?></p>
-			<button type="button" class="button documentate-template-select" data-allowed="application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><?php esc_html_e( 'Seleccionar plantilla', 'documentate' ); ?></button>
-			<p class="documentate-template-type" data-default="<?php echo esc_attr__( 'Sin plantilla seleccionada', 'documentate' ); ?>"></p>
+			<p class="description"><?php esc_html_e( 'Select an .odt or .docx file with OpenTBS markers.', 'documentate' ); ?></p>
+			<button type="button" class="button documentate-template-select" data-allowed="application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><?php esc_html_e( 'Select template', 'documentate' ); ?></button>
+			<p class="documentate-template-type" data-default="<?php echo esc_attr__( 'No template selected', 'documentate' ); ?>"></p>
 		</div>
 		<div class="form-field">
-			<label><?php esc_html_e( 'Campos detectados', 'documentate' ); ?></label>
+			<label><?php esc_html_e( 'Detected fields', 'documentate' ); ?></label>
 			<?php
 			$storage = new SchemaStorage();
 			$schema  = $storage->get_schema( 0 ); // Default empty schema.
@@ -237,17 +237,17 @@ class Documentate_Doc_Types_Admin {
 			</td>
 		</tr>
 		<tr class="form-field">
-			<th scope="row"><label for="documentate_type_template_id"><?php esc_html_e( 'Plantilla', 'documentate' ); ?></label></th>
+			<th scope="row"><label for="documentate_type_template_id"><?php esc_html_e( 'Template', 'documentate' ); ?></label></th>
 			<td>
 				<input type="hidden" id="documentate_type_template_id" name="documentate_type_template_id" value="<?php echo esc_attr( (string) $template_id ); ?>" />
 				<div id="documentate_type_template_preview" class="documentate-template-preview"><?php echo $template_name ? esc_html( $template_name ) : ''; ?></div>
-				<p class="description"><?php esc_html_e( 'Selecciona un archivo .odt o .docx con marcadores OpenTBS.', 'documentate' ); ?></p>
-				<button type="button" class="button documentate-template-select" data-allowed="application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><?php esc_html_e( 'Seleccionar plantilla', 'documentate' ); ?></button>
-				<p class="documentate-template-type" data-default="<?php echo esc_attr__( 'Sin plantilla seleccionada', 'documentate' ); ?>" data-current="<?php echo esc_attr( $template_ext ); ?>"></p>
+				<p class="description"><?php esc_html_e( 'Select an .odt or .docx file with OpenTBS markers.', 'documentate' ); ?></p>
+				<button type="button" class="button documentate-template-select" data-allowed="application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><?php esc_html_e( 'Select template', 'documentate' ); ?></button>
+				<p class="documentate-template-type" data-default="<?php echo esc_attr__( 'No template selected', 'documentate' ); ?>" data-current="<?php echo esc_attr( $template_ext ); ?>"></p>
 			</td>
 		</tr>
 		<tr class="form-field">
-			<th scope="row"><label><?php esc_html_e( 'Campos detectados', 'documentate' ); ?></label></th>
+			<th scope="row"><label><?php esc_html_e( 'Detected fields', 'documentate' ); ?></label></th>
 			<td>
 				<div id="documentate_type_schema_preview" class="documentate-schema-preview" data-schema-v2="<?php echo esc_attr( (string) $schema_json ); ?>" data-schema-summary="<?php echo esc_attr( (string) $summary_json ); ?>">
 					<?php $this->render_schema_preview_fallback( $schema ); ?>
@@ -255,7 +255,7 @@ class Documentate_Doc_Types_Admin {
 				<?php if ( $template_id ) : ?>
 					<p style="margin-top:8px;">
 						<a class="button button-secondary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=documentate_reparse_schema&term_id=' . $term->term_id ), 'documentate_reparse_schema_' . $term->term_id ) ); ?>">
-							<?php esc_html_e( 'Volver a analizar plantilla', 'documentate' ); ?>
+							<?php esc_html_e( 'Re-parse template', 'documentate' ); ?>
 						</a>
 					</p>
 				<?php endif; ?>
@@ -344,13 +344,13 @@ class Documentate_Doc_Types_Admin {
 	 */
 	private function render_schema_preview_fallback( $schema ) {
 		if ( empty( $schema ) || ( empty( $schema['fields'] ) && empty( $schema['repeaters'] ) ) ) {
-			echo '<p class="description documentate-schema-empty">' . esc_html__( 'No se encontraron campos en la plantilla.', 'documentate' ) . '</p>';
+			echo '<p class="description documentate-schema-empty">' . esc_html__( 'No fields found in template.', 'documentate' ) . '</p>';
 			return;
 		}
 
 		$legacy = SchemaConverter::to_legacy( $schema );
 		if ( empty( $legacy ) ) {
-			echo '<p class="description documentate-schema-empty">' . esc_html__( 'No se encontraron campos en la plantilla.', 'documentate' ) . '</p>';
+			echo '<p class="description documentate-schema-empty">' . esc_html__( 'No fields found in template.', 'documentate' ) . '</p>';
 			return;
 		}
 
@@ -398,17 +398,17 @@ class Documentate_Doc_Types_Admin {
 		check_ajax_referer( 'documentate_doc_type_template', 'nonce' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => __( 'Permisos insuficientes.', 'documentate' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'documentate' ) ) );
 		}
 
 		$attachment_id = isset( $_POST['attachment_id'] ) ? intval( $_POST['attachment_id'] ) : 0;
 		if ( $attachment_id <= 0 ) {
-			wp_send_json_error( array( 'message' => __( 'Identificador de plantilla inválido.', 'documentate' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Invalid template ID.', 'documentate' ) ) );
 		}
 
 		$path = get_attached_file( $attachment_id );
 		if ( ! $path || ! file_exists( $path ) ) {
-			wp_send_json_error( array( 'message' => __( 'La plantilla seleccionada no se encuentra.', 'documentate' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Selected template not found.', 'documentate' ) ) );
 		}
 
 		$extractor = new SchemaExtractor();
@@ -439,12 +439,12 @@ class Documentate_Doc_Types_Admin {
 	 */
 	public function handle_reparse_schema() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Permisos insuficientes.', 'documentate' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		$term_id = isset( $_GET['term_id'] ) ? intval( $_GET['term_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( $term_id <= 0 ) {
-			wp_die( esc_html__( 'Identificador de tipo de documento inválido.', 'documentate' ) );
+			wp_die( esc_html__( 'Invalid document type ID.', 'documentate' ) );
 		}
 
 		check_admin_referer( 'documentate_reparse_schema_' . $term_id );
@@ -459,14 +459,14 @@ class Documentate_Doc_Types_Admin {
 		);
 
 		if ( $template_id <= 0 ) {
-			$this->store_flash_message( __( 'No hay ninguna plantilla asociada a este tipo.', 'documentate' ), 'error' );
+			$this->store_flash_message( __( 'No template associated with this type.', 'documentate' ), 'error' );
 			wp_safe_redirect( $redirect );
 			exit;
 		}
 
 		$path = get_attached_file( $template_id );
 		if ( ! $path || ! file_exists( $path ) ) {
-			$this->store_flash_message( __( 'El archivo de plantilla no se encuentra.', 'documentate' ), 'error' );
+			$this->store_flash_message( __( 'Template file not found.', 'documentate' ), 'error' );
 			wp_safe_redirect( $redirect );
 			exit;
 		}
@@ -489,7 +489,7 @@ class Documentate_Doc_Types_Admin {
 
 		update_term_meta( $term_id, 'documentate_type_template_type', $template_type );
 
-		$this->store_flash_message( __( 'Esquema actualizado correctamente.', 'documentate' ), 'updated' );
+		$this->store_flash_message( __( 'Schema updated successfully.', 'documentate' ), 'updated' );
 		wp_safe_redirect( $redirect );
 		exit;
 	}

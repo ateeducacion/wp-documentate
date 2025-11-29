@@ -86,7 +86,7 @@ class Documentate_Collabora_Converter {
 		}
 
 		if ( ! WP_Filesystem() ) {
-			return new WP_Error( 'documentate_fs_unavailable', __( 'No se pudo inicializar el sistema de archivos de WordPress.', 'documentate' ) );
+			return new WP_Error( 'documentate_fs_unavailable', __( 'Could not initialize the WordPress filesystem.', 'documentate' ) );
 		}
 
 		return $wp_filesystem;
@@ -108,7 +108,7 @@ class Documentate_Collabora_Converter {
 	 */
 	public static function get_status_message() {
 		if ( '' === self::get_base_url() ) {
-			return __( 'Configura la URL base del servicio Collabora Online en los ajustes.', 'documentate' );
+			return __( 'Configure the Collabora Online service base URL in settings.', 'documentate' );
 		}
 
 		return '';
@@ -143,18 +143,18 @@ class Documentate_Collabora_Converter {
 
 		if ( ! $fs->exists( $input_path ) ) {
 			self::log( 'Input file missing', array( 'path' => $input_path ) );
-			return new WP_Error( 'documentate_collabora_input_missing', __( 'El fichero origen para la conversión no existe.', 'documentate' ) );
+			return new WP_Error( 'documentate_collabora_input_missing', __( 'The source file for conversion does not exist.', 'documentate' ) );
 		}
 
 		$base_url = self::get_base_url();
 		if ( '' === $base_url ) {
-			return new WP_Error( 'documentate_collabora_not_configured', __( 'Configura la URL del servicio Collabora Online para convertir documentos.', 'documentate' ) );
+			return new WP_Error( 'documentate_collabora_not_configured', __( 'Configure the Collabora Online service URL to convert documents.', 'documentate' ) );
 		}
 
 			$supported_formats = array( 'pdf', 'docx', 'odt' );
 		$output_format     = sanitize_key( $output_format );
 		if ( ! in_array( $output_format, $supported_formats, true ) ) {
-			return new WP_Error( 'documentate_collabora_invalid_target', __( 'Formato de salida no soportado por Collabora.', 'documentate' ) );
+			return new WP_Error( 'documentate_collabora_invalid_target', __( 'Output format not supported by Collabora.', 'documentate' ) );
 		}
 
 		$endpoint = untrailingslashit( $base_url ) . '/cool/convert-to/' . rawurlencode( $output_format );
@@ -173,7 +173,7 @@ class Documentate_Collabora_Converter {
 		$filename  = basename( $input_path );
 		$file_body = $fs->get_contents( $input_path );
 		if ( false === $file_body ) {
-			return new WP_Error( 'documentate_collabora_read_failed', __( 'No se pudo leer el fichero de entrada para la conversión.', 'documentate' ) );
+			return new WP_Error( 'documentate_collabora_read_failed', __( 'Could not read the input file for conversion.', 'documentate' ) );
 		}
 
 		$boundary = wp_generate_password( 24, false );
@@ -225,7 +225,7 @@ class Documentate_Collabora_Converter {
 				'documentate_collabora_request_failed',
 				sprintf(
 					/* translators: %s: error message returned by wp_remote_post(). */
-					__( 'Error al conectar con Collabora Online: %s', 'documentate' ),
+					__( 'Error connecting to Collabora Online: %s', 'documentate' ),
 					$error_message
 				),
 				array(
@@ -253,7 +253,7 @@ class Documentate_Collabora_Converter {
 			$error_message = self::maybe_add_playground_warning(
 				sprintf(
 					/* translators: %d: HTTP status code returned by Collabora. */
-					__( 'Collabora Online devolvió el código HTTP %d durante la conversión.', 'documentate' ),
+					__( 'Collabora Online returned HTTP code %d during conversion.', 'documentate' ),
 					$status
 				)
 			);
@@ -280,7 +280,7 @@ class Documentate_Collabora_Converter {
 		$written = $fs->put_contents( $output_path, $resp_body, FS_CHMOD_FILE );
 		if ( false === $written ) {
 			self::log( 'Write failed', array( 'output_path' => $output_path ) );
-			return new WP_Error( 'documentate_collabora_write_failed', __( 'No se pudo guardar el fichero convertido en el disco.', 'documentate' ) );
+			return new WP_Error( 'documentate_collabora_write_failed', __( 'Could not save the converted file to disk.', 'documentate' ) );
 		}
 
 		self::log( 'Conversion successful', array( 'output_path' => $output_path ) );
@@ -364,7 +364,7 @@ class Documentate_Collabora_Converter {
 			return $message;
 		}
 
-		$warning = __( 'WordPress Playground tiene limitaciones con peticiones HTTP externas. Considera usar ZetaJS (modo CDN) como motor de conversión.', 'documentate' );
+		$warning = __( 'WordPress Playground has limitations with external HTTP requests. Consider using ZetaJS (CDN mode) as conversion engine.', 'documentate' );
 		return $message . ' ' . $warning;
 	}
 }
