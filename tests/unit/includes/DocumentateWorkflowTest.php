@@ -673,12 +673,28 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	public function test_modify_publish_box_published_admin() {
 		wp_set_current_user( $this->admin_user_id );
 
-		$post = $this->factory->post->create_and_get(
+		// Create draft first.
+		$post_id = $this->factory->post->create(
 			array(
 				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type so we can publish.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Now update to publish.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
 				'post_status' => 'publish',
 			)
 		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
 
 		ob_start();
 		$this->workflow->modify_publish_box( $post );
@@ -692,14 +708,33 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	 * Test modify_publish_box for published document as editor.
 	 */
 	public function test_modify_publish_box_published_editor() {
-		wp_set_current_user( $this->editor_user_id );
+		// Admin creates and publishes the post first.
+		wp_set_current_user( $this->admin_user_id );
 
-		$post = $this->factory->post->create_and_get(
+		$post_id = $this->factory->post->create(
 			array(
 				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type so we can publish.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Publish as admin.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
 				'post_status' => 'publish',
 			)
 		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
+
+		// Now switch to editor.
+		wp_set_current_user( $this->editor_user_id );
 
 		ob_start();
 		$this->workflow->modify_publish_box( $post );
@@ -750,12 +785,28 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	public function test_render_workflow_metabox_pending() {
 		wp_set_current_user( $this->admin_user_id );
 
-		$post = $this->factory->post->create_and_get(
+		// Create draft first.
+		$post_id = $this->factory->post->create(
 			array(
 				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type so we can change status.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Update to pending.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
 				'post_status' => 'pending',
 			)
 		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'pending', $post->post_status, 'Post should be pending' );
 
 		ob_start();
 		$this->workflow->render_workflow_metabox( $post );
@@ -770,12 +821,28 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	public function test_render_workflow_metabox_published_admin() {
 		wp_set_current_user( $this->admin_user_id );
 
-		$post = $this->factory->post->create_and_get(
+		// Create draft first.
+		$post_id = $this->factory->post->create(
 			array(
 				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type so we can publish.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Publish.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
 				'post_status' => 'publish',
 			)
 		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
 
 		ob_start();
 		$this->workflow->render_workflow_metabox( $post );
@@ -789,14 +856,33 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	 * Test render_workflow_metabox for published as editor.
 	 */
 	public function test_render_workflow_metabox_published_editor() {
-		wp_set_current_user( $this->editor_user_id );
+		// Admin creates and publishes the post first.
+		wp_set_current_user( $this->admin_user_id );
 
-		$post = $this->factory->post->create_and_get(
+		$post_id = $this->factory->post->create(
 			array(
 				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type so we can publish.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Publish as admin.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
 				'post_status' => 'publish',
 			)
 		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
+
+		// Now switch to editor.
+		wp_set_current_user( $this->editor_user_id );
 
 		ob_start();
 		$this->workflow->render_workflow_metabox( $post );
