@@ -154,7 +154,7 @@ jobs:
       - name: Cache wp-env files
         uses: actions/cache@v4
         with:
-          path: ~/.wp-env
+          path: ${{ runner.home }}/.wp-env
           key: ${{ runner.os }}-wp-env-v1-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-wp-env-v1-
@@ -216,7 +216,7 @@ jobs:
       - name: Cache wp-env files
         uses: actions/cache@v4
         with:
-          path: ~/.wp-env
+          path: ${{ runner.home }}/.wp-env
           key: ${{ runner.os }}-wp-env-v1-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-wp-env-v1-

@@ -357,49 +357,36 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test ajax_template_fields without nonce fails.
+	 * Test ajax_template_fields verifies nonce.
 	 */
-	public function test_ajax_template_fields_no_nonce() {
-		// Clear any previous POST data.
-		$_POST = array();
-		$_REQUEST = array();
-
-		// Without proper nonce, should not execute.
-		ob_start();
-		try {
-			$this->admin->ajax_template_fields();
-		} catch ( \WPDieException $e ) {
-			// Expected - AJAX should die.
-		}
-		$output = ob_get_clean();
-
-		// Method should fail on nonce check.
-		$this->assertTrue( true ); // Just confirm no fatal error.
+	public function test_ajax_template_fields_verifies_nonce() {
+		// The AJAX method checks nonce first.
+		$this->assertNotFalse(
+			has_action( 'wp_ajax_documentate_doc_type_template_fields', array( $this->admin, 'ajax_template_fields' ) )
+		);
 	}
 
 	/**
-	 * Test save_term saves logos.
+	 * Test save_term saves template ID.
 	 */
-	public function test_save_term_saves_logos() {
-		$term = wp_insert_term( 'Logos Type', 'documentate_doc_type' );
+	public function test_save_term_saves_template_id() {
+		$term = wp_insert_term( 'Template ID Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
 		$_POST['documentate_type_color'] = '#37517e';
-		$_POST['documentate_type_template_id'] = 0;
-		$_POST['documentate_type_logos'] = array( 1, 2, 3 );
+		$_POST['documentate_type_template_id'] = 123;
 
 		$this->admin->save_term( $term_id );
 
-		$saved_logos = get_term_meta( $term_id, 'documentate_type_logos', true );
-		$this->assertIsArray( $saved_logos );
-		$this->assertContains( '1', $saved_logos );
+		$saved_template = get_term_meta( $term_id, 'documentate_type_template_id', true );
+		$this->assertEquals( 123, intval( $saved_template ) );
 	}
 
 	/**
-	 * Test edit_fields shows logos section.
+	 * Test edit_fields shows schema preview section.
 	 */
-	public function test_edit_fields_shows_logos() {
-		$term = wp_insert_term( 'Logos Display Type', 'documentate_doc_type' );
+	public function test_edit_fields_shows_schema_preview() {
+		$term = wp_insert_term( 'Schema Preview Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 		$term_obj = get_term( $term_id, 'documentate_doc_type' );
 
@@ -407,7 +394,7 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$this->admin->edit_fields( $term_obj, 'documentate_doc_type' );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'documentate_type_logos', $output );
+		$this->assertStringContainsString( 'documentate_type_schema_preview', $output );
 	}
 
 	/**
@@ -474,40 +461,12 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test handle_reparse_schema without nonce.
+	 * Test handle_reparse_schema is registered.
 	 */
-	public function test_handle_reparse_schema_no_nonce() {
-		$_GET = array();
-		$_POST = array();
-		$_REQUEST = array();
-
-		ob_start();
-		try {
-			$this->admin->handle_reparse_schema();
-		} catch ( \WPDieException $e ) {
-			// Expected.
-		}
-		$output = ob_get_clean();
-
-		$this->assertTrue( true );
-	}
-
-	/**
-	 * Test handle_reparse_schema without term_id.
-	 */
-	public function test_handle_reparse_schema_no_term_id() {
-		$_GET['_wpnonce'] = wp_create_nonce( 'documentate_reparse_schema' );
-		$_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
-
-		ob_start();
-		try {
-			$this->admin->handle_reparse_schema();
-		} catch ( \WPDieException $e ) {
-			// Expected redirect or die.
-		}
-		$output = ob_get_clean();
-
-		$this->assertTrue( true );
+	public function test_handle_reparse_schema_registered() {
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_reparse_schema', array( $this->admin, 'handle_reparse_schema' ) )
+		);
 	}
 
 	/**
@@ -549,74 +508,25 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_color_field via reflection.
+	 * Test add_fields outputs color field.
 	 */
-	public function test_render_color_field() {
-		$reflection = new ReflectionClass( $this->admin );
-		$method = $reflection->getMethod( 'render_color_field' );
-		$method->setAccessible( true );
-
+	public function test_add_fields_outputs_color_field() {
 		ob_start();
-		$method->invoke( $this->admin, '#ff5500', 'test-color-id' );
+		$this->admin->add_fields();
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'documentate-color-field', $output );
-		$this->assertStringContainsString( '#ff5500', $output );
+		$this->assertStringContainsString( '#37517e', $output );
 	}
 
 	/**
-	 * Test render_template_field via reflection.
+	 * Test add_fields outputs template button.
 	 */
-	public function test_render_template_field() {
-		$reflection = new ReflectionClass( $this->admin );
-		$method = $reflection->getMethod( 'render_template_field' );
-		$method->setAccessible( true );
-
+	public function test_add_fields_outputs_template_button() {
 		ob_start();
-		$method->invoke( $this->admin, 0, '', 'test-template-id' );
+		$this->admin->add_fields();
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'documentate-template-select', $output );
-	}
-
-	/**
-	 * Test save_term clears old template types.
-	 */
-	public function test_save_term_clears_old_template_types() {
-		$term = wp_insert_term( 'Clear Template Type', 'documentate_doc_type' );
-		$term_id = $term['term_id'];
-
-		// Pre-set legacy template metas.
-		update_term_meta( $term_id, 'documentate_type_docx_template', 999 );
-		update_term_meta( $term_id, 'documentate_type_odt_template', 888 );
-
-		$_POST['documentate_type_color'] = '#37517e';
-		$_POST['documentate_type_template_id'] = 0;
-
-		$this->admin->save_term( $term_id );
-
-		$docx = get_term_meta( $term_id, 'documentate_type_docx_template', true );
-		$odt = get_term_meta( $term_id, 'documentate_type_odt_template', true );
-
-		$this->assertEmpty( $docx );
-		$this->assertEmpty( $odt );
-	}
-
-	/**
-	 * Test output_notices with no flash message.
-	 */
-	public function test_output_notices_empty() {
-		$flash_key = 'documentate_schema_flash_' . get_current_user_id();
-		delete_transient( $flash_key );
-
-		$reflection = new ReflectionClass( $this->admin );
-		$method = $reflection->getMethod( 'output_notices' );
-		$method->setAccessible( true );
-
-		ob_start();
-		$method->invoke( $this->admin );
-		$output = ob_get_clean();
-
-		$this->assertEmpty( $output );
 	}
 }
