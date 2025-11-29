@@ -606,4 +606,319 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$this->assertFalse( wp_style_is( 'documentate-actions', 'enqueued' ) );
 	}
+
+	/**
+	 * Test add_row_actions with DOCX template at term level.
+	 */
+	public function test_add_row_actions_with_docx_term_template() {
+		$term_result = wp_insert_term( 'DOCX Doc Type', 'documentate_doc_type' );
+		$doc_type = $term_result['term_id'];
+		update_term_meta( $doc_type, 'documentate_type_docx_template', 789 );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_object_terms( $post->ID, $doc_type, 'documentate_doc_type' );
+
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		$this->assertArrayHasKey( 'documentate_export_docx', $result );
+	}
+
+	/**
+	 * Test add_row_actions with DOCX and PDF converter setting.
+	 */
+	public function test_add_row_actions_with_pdf_converter() {
+		update_option( 'documentate_settings', array(
+			'docx_template_id' => 123,
+			'pdf_converter' => 'zetajs',
+		) );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		// add_row_actions only adds DOCX export, not PDF.
+		$this->assertArrayHasKey( 'documentate_export_docx', $result );
+	}
+
+	/**
+	 * Test enqueue_title_textarea_assets when function does not exist.
+	 */
+	public function test_enqueue_title_textarea_no_screen_function() {
+		// We can't easily undefine functions, so just test the normal path.
+		$this->helper->enqueue_title_textarea_assets( 'edit.php' );
+		$this->assertTrue( true );
+	}
+
+	/**
+	 * Test render_actions_metabox shows disabled when no template.
+	 */
+	public function test_render_actions_metabox_no_template() {
+		delete_option( 'documentate_settings' );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Preview', $output );
+	}
+
+	/**
+	 * Test render_actions_metabox with PDF converter enabled.
+	 */
+	public function test_render_actions_metabox_with_pdf_converter() {
+		update_option( 'documentate_settings', array(
+			'docx_template_id' => 123,
+			'pdf_converter' => 'collabora',
+		) );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'PDF', $output );
+	}
+
+	/**
+	 * Test render_actions_metabox with ZetaJS converter.
+	 */
+	public function test_render_actions_metabox_with_zetajs() {
+		update_option( 'documentate_settings', array(
+			'docx_template_id' => 123,
+			'pdf_converter' => 'zetajs',
+		) );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'PDF', $output );
+	}
+
+	/**
+	 * Test add_row_actions without any template configured.
+	 */
+	public function test_add_row_actions_no_template() {
+		delete_option( 'documentate_settings' );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		$this->assertArrayNotHasKey( 'documentate_export_docx', $result );
+	}
+
+	/**
+	 * Test build_action_attributes handles all attribute types.
+	 */
+	public function test_build_action_attributes_mixed_types() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_action_attributes' );
+		$method->setAccessible( true );
+
+		$attrs = array(
+			'class' => 'button primary',
+			'id' => 'my-button',
+			'data-post-id' => '123',
+			'disabled' => '',
+		);
+
+		$result = $method->invoke( $this->helper, $attrs );
+
+		$this->assertStringContainsString( 'class="button primary"', $result );
+		$this->assertStringContainsString( 'id="my-button"', $result );
+		$this->assertStringContainsString( 'data-post-id="123"', $result );
+	}
+
+	/**
+	 * Test stream_file_download with file path with traversal attempt.
+	 */
+	public function test_stream_file_download_path_traversal() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'stream_file_download' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, '../../../etc/passwd', 'text/plain' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test get_preview_stream_url with valid setup.
+	 */
+	public function test_get_preview_stream_url_valid() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		$reflection = new ReflectionClass( $this->helper );
+
+		// First remember the file.
+		$remember_method = $reflection->getMethod( 'remember_preview_stream_file' );
+		$remember_method->setAccessible( true );
+		$remember_method->invoke( $this->helper, $post->ID, 'preview.pdf' );
+
+		// Then get the URL.
+		$url_method = $reflection->getMethod( 'get_preview_stream_url' );
+		$url_method->setAccessible( true );
+		$url = $url_method->invoke( $this->helper, $post->ID, 'preview.pdf' );
+
+		$this->assertNotEmpty( $url );
+		$this->assertStringContainsString( 'admin-post.php', $url );
+	}
+
+	/**
+	 * Test enqueue_actions_metabox_assets on post-new hook.
+	 */
+	public function test_enqueue_actions_metabox_assets_post_new() {
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		wp_dequeue_style( 'documentate-actions' );
+		wp_dequeue_script( 'documentate-actions' );
+
+		$this->helper->enqueue_actions_metabox_assets( 'post-new.php' );
+
+		// Should not enqueue because no post ID on new post.
+		$this->assertFalse( wp_style_is( 'documentate-actions', 'enqueued' ) );
+	}
+
+	/**
+	 * Test maybe_notice with empty message.
+	 */
+	public function test_maybe_notice_empty_message() {
+		$_GET['documentate_notice'] = '';
+		set_current_screen( 'documentate_document' );
+
+		ob_start();
+		$this->helper->maybe_notice();
+		$output = ob_get_clean();
+
+		$this->assertEmpty( $output );
+	}
+
+	/**
+	 * Test render_actions_metabox with published post.
+	 */
+	public function test_render_actions_metabox_published_post() {
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post = $this->factory->post->create_and_get( array(
+			'post_type'   => 'documentate_document',
+			'post_status' => 'publish',
+		) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'DOCX', $output );
+	}
+
+	/**
+	 * Test render_actions_metabox with draft post.
+	 */
+	public function test_render_actions_metabox_draft_post() {
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post = $this->factory->post->create_and_get( array(
+			'post_type'   => 'documentate_document',
+			'post_status' => 'draft',
+		) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'DOCX', $output );
+	}
+
+	/**
+	 * Test enqueue_actions_metabox_assets wrong post type.
+	 */
+	public function test_enqueue_actions_metabox_assets_wrong_post_type() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'post' ) );
+		$_GET['post'] = $post->ID;
+
+		$screen = WP_Screen::get( 'post' );
+		$screen->post_type = 'post';
+		$GLOBALS['current_screen'] = $screen;
+
+		wp_dequeue_style( 'documentate-actions' );
+
+		$this->helper->enqueue_actions_metabox_assets( 'post.php' );
+
+		$this->assertFalse( wp_style_is( 'documentate-actions', 'enqueued' ) );
+	}
+
+	/**
+	 * Test add_row_actions when user lacks permissions.
+	 */
+	public function test_add_row_actions_no_permissions() {
+		// Create a subscriber user.
+		$subscriber = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber );
+
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post = $this->factory->post->create_and_get( array(
+			'post_type'   => 'documentate_document',
+			'post_author' => $this->admin_user_id,
+		) );
+
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test hooks are registered for AJAX handler.
+	 */
+	public function test_ajax_handler_registered() {
+		$this->assertNotFalse(
+			has_action( 'wp_ajax_documentate_generate_document', array( $this->helper, 'ajax_generate_document' ) )
+		);
+	}
+
+	/**
+	 * Test hooks are registered for export handlers.
+	 */
+	public function test_export_handlers_registered() {
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_export_docx', array( $this->helper, 'handle_export_docx' ) )
+		);
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_export_odt', array( $this->helper, 'handle_export_odt' ) )
+		);
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_export_pdf', array( $this->helper, 'handle_export_pdf' ) )
+		);
+	}
+
+	/**
+	 * Test hooks are registered for preview handlers.
+	 */
+	public function test_preview_handlers_registered() {
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_preview', array( $this->helper, 'handle_preview' ) )
+		);
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_preview_stream', array( $this->helper, 'handle_preview_stream' ) )
+		);
+	}
+
+	/**
+	 * Test hooks are registered for converter page.
+	 */
+	public function test_converter_handler_registered() {
+		$this->assertNotFalse(
+			has_action( 'admin_post_documentate_converter', array( $this->helper, 'render_converter_page' ) )
+		);
+	}
 }

@@ -122,7 +122,7 @@ jobs:
 
   # JOB 3: UNIT TESTS (Requires Docker)
   test-unit:
-    needs: lint
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -154,7 +154,7 @@ jobs:
       - name: Cache wp-env files
         uses: actions/cache@v4
         with:
-          path: ~/.wp-env
+          path: ~/wp-env
           key: ${{ runner.os }}-wp-env-v1-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-wp-env-v1-
@@ -177,9 +177,9 @@ jobs:
       - name: Debug wp-env cache
         if: always()
         run: |
-          echo "Checking .wp-env folder..."
-          ls -la ~ | grep .wp-env || echo ".wp-env not found in ~"
-          du -sh ~/.wp-env || echo "Cannot calculate size"
+          echo "Checking wp-env folder..."
+          ls -la ~ | grep wp-env || echo "wp-env not found in ~"
+          du -sh ~/wp-env || echo "Cannot calculate size"
 
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
@@ -191,7 +191,7 @@ jobs:
 
   # JOB 4: E2E TESTS (Requires Docker + Playwright)
   test-e2e:
-    needs: lint
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -223,7 +223,7 @@ jobs:
       - name: Cache wp-env files
         uses: actions/cache@v4
         with:
-          path: ~/.wp-env
+          path: ~/wp-env
           key: ${{ runner.os }}-wp-env-v1-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-wp-env-v1-
