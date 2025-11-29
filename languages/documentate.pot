@@ -9,1131 +9,820 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-11-29T00:26:25+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: documentate\n"
 
 #. Plugin Name of the plugin
-#: documentate.php
 msgid "Documentate – Document Generator"
 msgstr ""
 
 #. Plugin URI of the plugin
-#: documentate.php
 msgid "https://github.com/erseco/wp-documentate"
 msgstr ""
 
 #. Description of the plugin
-#: documentate.php
 msgid "Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF."
 msgstr ""
 
 #. Author of the plugin
-#: documentate.php
 msgid "Área de Tecnología Educativa"
 msgstr ""
 
 #. Author URI of the plugin
-#: documentate.php
 msgid "https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:58
 msgid "Documentate Settings"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:59
 msgid "Documentate"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:76
 msgid "Documentate Configuration"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:82
 msgid "Conversion Engine"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:83
 msgid "Collabora Online URL"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:84
 msgid "Collabora Language"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:85
 msgid "Skip SSL verification (Collabora)"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:86
-#: admin/class-documentate-admin.php:234
 msgid "Collaborative Mode"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:87
 msgid "WebRTC Signaling Server"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:107
 msgid "Configure Documentate plugin options."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:118
 msgid "Collabora Online web service"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:119
-#: includes/class-documentate-conversion-manager.php:49
 msgid "LibreOffice WASM in browser (experimental)"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:129
 msgid "Choose whether conversions are performed via Collabora Online (default) or with LibreOffice WASM in the browser (experimental)."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:144
 msgid "Example: https://demo.us.collaboraonline.com"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:155
 msgid "Language code to send to Collabora Online (default en-US)."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:167
 msgid "Disable SSL certificate verification (use only in test environments)."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:180
 msgid "Enable real-time collaborative editing using TipTap and Yjs."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:182
 msgid "Replaces the classic TinyMCE editor with TipTap supporting collaborative editing via WebRTC."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:196
 msgid "Signaling server for WebRTC. By default uses the public Yjs server."
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:197
 msgid "Available public servers:"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:199
 msgid "(Yjs official)"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:200
 msgid "(Europe)"
 msgstr ""
 
-#: admin/class-documentate-admin-settings.php:201
 msgid "(USA)"
 msgstr ""
 
-#: admin/class-documentate-admin.php:62
 msgid "Settings"
 msgstr ""
 
-#: admin/class-documentate-admin.php:252
 msgid "Connecting..."
 msgstr ""
 
-#: admin/class-documentate-admin.php:256
 msgid "retries"
 msgstr ""
 
-#: admin/class-documentate-admin.php:457
 msgid "Field content ↓"
 msgstr ""
 
-#: admin/class-documentate-admin.php:474
 msgid "Document Title"
 msgstr ""
 
-#: admin/class-documentate-admin.php:475
-#: includes/custom-post-types/class-documentate-documents.php:1462
 msgid "Content"
 msgstr ""
 
-#: admin/class-documentate-admin.php:476
 msgid "Resolution Number"
 msgstr ""
 
-#: admin/class-documentate-admin.php:477
-#: admin/class-documentate-doc-types-admin.php:166
 msgid "Date"
 msgstr ""
 
-#: admin/class-documentate-admin.php:478
 msgid "Background"
 msgstr ""
 
-#: admin/class-documentate-admin.php:479
 msgid "Legal Grounds"
 msgstr ""
 
-#: admin/class-documentate-admin.php:480
 msgid "Resolution"
 msgstr ""
 
-#: admin/class-documentate-admin.php:481
 msgid "Annexes"
 msgstr ""
 
-#: admin/class-documentate-admin.php:482
 msgid "Signature"
 msgstr ""
 
-#: admin/class-documentate-admin.php:483
 msgid "Position"
 msgstr ""
 
-#: admin/class-documentate-admin.php:484
 msgid "Place"
 msgstr ""
 
-#: admin/class-documentate-admin.php:485
 msgid "Recipient"
 msgstr ""
 
-#: admin/class-documentate-admin.php:486
-#: includes/document/meta/class-document-meta-box.php:71
 msgid "Subject"
 msgstr ""
 
-#: admin/class-documentate-admin.php:487
 msgid "Body"
 msgstr ""
 
-#: admin/class-documentate-admin.php:488
 msgid "Greeting"
 msgstr ""
 
-#: admin/class-documentate-admin.php:489
 msgid "Closing"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:146
 msgid "Select file"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:147
 msgid "Remove"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:148
-#: admin/class-documentate-doc-types-admin.php:198
-#: admin/class-documentate-doc-types-admin.php:250
 msgid "Detected fields"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:149
-#: admin/class-documentate-doc-types-admin.php:347
-#: admin/class-documentate-doc-types-admin.php:353
 msgid "No fields found in template."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:150
 msgid "DOCX Template"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:151
 msgid "ODT Template"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:152
 msgid "Unknown format"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:153
 msgid "New fields"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:154
 msgid "Removed fields"
 msgstr ""
 
 #. translators: %d is replaced with the total number of fields detected.
-#: admin/class-documentate-doc-types-admin.php:156
 #, php-format
 msgid "Total fields: %d"
 msgstr ""
 
 #. translators: %s is replaced with a comma separated list of repeater names.
-#: admin/class-documentate-doc-types-admin.php:158
 #, php-format
 msgid "Repeaters: %s"
 msgstr ""
 
 #. translators: %s is replaced with the datetime when the template was parsed.
-#: admin/class-documentate-doc-types-admin.php:160
 #, php-format
 msgid "Parsed: %s"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:163
 msgid "Text"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:164
 msgid "Number"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:165
 msgid "Boolean"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:186
-#: admin/class-documentate-doc-types-admin.php:234
 msgid "Color"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:190
-#: admin/class-documentate-doc-types-admin.php:240
 msgid "Template"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:193
-#: admin/class-documentate-doc-types-admin.php:244
 msgid "Select an .odt or .docx file with OpenTBS markers."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:194
-#: admin/class-documentate-doc-types-admin.php:245
 msgid "Select template"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:195
-#: admin/class-documentate-doc-types-admin.php:246
 msgid "No template selected"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:258
 msgid "Re-parse template"
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:311
 msgid "The selected template file could not be located."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:401
-#: admin/class-documentate-doc-types-admin.php:442
-#: includes/class-documentate-admin-helper.php:164
-#: includes/class-documentate-admin-helper.php:198
-#: includes/class-documentate-admin-helper.php:229
-#: includes/class-documentate-admin-helper.php:260
-#: includes/class-documentate-admin-helper.php:286
-#: includes/class-documentate-admin-helper.php:522
-#: includes/class-documentate-admin-helper.php:897
 msgid "Insufficient permissions."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:406
 msgid "Invalid template ID."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:411
 msgid "Selected template not found."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:447
 msgid "Invalid document type ID."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:462
 msgid "No template associated with this type."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:469
 msgid "Template file not found."
 msgstr ""
 
-#: admin/class-documentate-doc-types-admin.php:492
 msgid "Schema updated successfully."
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:64
 msgid "Templates for ODT/DOCX:"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:65
 msgid "wp-documentate can read the following fields defined in the template and generate the final document."
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:67
 msgid "Fields:"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:68
 msgid "write markers like this:"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:73
 msgid "Types"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:74
 msgid "if you omit"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:74
 msgid "textarea"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:75
 msgid "Supported:"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:76
 msgid "TinyMCE"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:78
 msgid "Validation"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:79
 msgid "(regex) and"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:80
 msgid "Limits with"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:81
 msgid "Length with"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:83
 msgid "UI Help"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:84
 msgid "label"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:85
 msgid "help text"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:88
 msgid "Repeater (lists):"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:89
 msgid "use blocks with"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:90
 msgid "and define the fields for each item inside."
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:92
 msgid "Quick examples:"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:99
 msgid "Tip: in DOCX the text can be fragmented; make sure each marker"
 msgstr ""
 
-#: admin/class-documentate-doctype-help-notice.php:100
 msgid "remains intact."
 msgstr ""
 
-#: admin/documentate-converter-template.php:32
 msgid "Documentate Converter"
 msgstr ""
 
-#: admin/documentate-converter-template.php:86
 msgid "Starting..."
 msgstr ""
 
-#: admin/documentate-converter-template.php:87
 msgid "Preparing document converter."
 msgstr ""
 
-#: admin/documentate-converter-template.php:158
-#: includes/class-documentate-admin-helper.php:867
 msgid "Loading LibreOffice..."
 msgstr ""
 
-#: admin/documentate-converter-template.php:159
 msgid "Downloading WASM components (~50MB). This may take a while the first time."
 msgstr ""
 
-#: admin/documentate-converter-template.php:220
-#: includes/class-documentate-admin-helper.php:859
 msgid "Generating document..."
 msgstr ""
 
-#: admin/documentate-converter-template.php:221
 msgid "Processing template on server."
 msgstr ""
 
-#: admin/documentate-converter-template.php:244
 msgid "Downloading document..."
 msgstr ""
 
-#: admin/documentate-converter-template.php:245
 msgid "Fetching source document."
 msgstr ""
 
-#: admin/documentate-converter-template.php:256
 msgid "Converting to PDF..."
 msgstr ""
 
-#: admin/documentate-converter-template.php:257
 msgid "Processing with LibreOffice WASM."
 msgstr ""
 
-#: admin/documentate-converter-template.php:297
-#: admin/documentate-converter-template.php:321
 msgid "Completed!"
 msgstr ""
 
-#: admin/documentate-converter-template.php:298
 msgid "Document converted."
 msgstr ""
 
-#: admin/documentate-converter-template.php:322
 msgid "Document downloaded."
 msgstr ""
 
-#: admin/documentate-converter-template.php:337
-#: admin/documentate-converter-template.php:342
 msgid "Conversion error."
 msgstr ""
 
-#: admin/documentate-converter-template.php:341
 msgid "Error"
 msgstr ""
 
-#: includes/ajax/class-documentate-ajax-handlers.php:81
 msgid "Invalid security token."
 msgstr ""
 
-#: includes/ajax/class-documentate-ajax-handlers.php:90
 msgid "Invalid date format."
 msgstr ""
 
-#: includes/ajax/class-documentate-ajax-handlers.php:95
 msgid "Permission denied."
 msgstr ""
 
-#: includes/ajax/class-documentate-ajax-handlers.php:101
 msgid "Invalid date."
 msgstr ""
 
-#: includes/ajax/class-documentate-ajax-handlers.php:200
 msgid "No tasks found for this date."
 msgstr ""
 
-#: includes/ajax/class-documentate-ajax-handlers.php:223
 msgid "Unassigned"
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:38
-#: includes/class-documentate-collabora-converter.php:89
-#: includes/class-documentate-zetajs-converter.php:37
 msgid "Could not initialize the WordPress filesystem."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:150
 msgid "Export DOCX"
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:168
-#: includes/class-documentate-admin-helper.php:202
-#: includes/class-documentate-admin-helper.php:233
-#: includes/class-documentate-admin-helper.php:264
-#: includes/class-documentate-admin-helper.php:290
-#: includes/class-documentate-admin-helper.php:901
 msgid "Invalid nonce."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:271
 msgid "Preview error"
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:295
 msgid "User not authenticated."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:305
 msgid "Could not generate the PDF for preview."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:314
 msgid "Preview file not available."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:326
-#: includes/class-documentate-admin-helper.php:471
 msgid "Could not access the generated PDF file."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:344
-#: includes/class-documentate-admin-helper.php:493
 msgid "Could not read the PDF file."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:392
 msgid "You do not have permission to access this page."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:506
 msgid "Document Actions"
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:592
 msgid "Configure a DOCX template in the document type."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:597
 msgid "Configure an ODT template in the document type."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:603
 msgid "Configure a DOCX or ODT template in the document type before generating PDF."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:646
-#: includes/class-documentate-admin-helper.php:648
 msgid "Preview"
 msgstr ""
 
 #. translators: %s: converter engine label.
-#: includes/class-documentate-admin-helper.php:717
 #, php-format
 msgid "Additional conversions are performed with %s."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:753
 msgid "Could not determine the generated file."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:762
 msgid "Could not access the generated file."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:783
 msgid "Could not read the generated file."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:860
 msgid "Generating preview..."
 msgstr ""
 
 #. translators: %s: document format (DOCX, ODT, PDF).
-#: includes/class-documentate-admin-helper.php:862
 #, php-format
 msgid "Generating %s..."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:863
 msgid "Please wait while the document is being generated."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:864
 msgid "Close"
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:865
 msgid "Error generating the document."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:866
 msgid "Connection error. Please try again."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:868
 msgid "Converting in browser..."
 msgstr ""
 
-#: includes/class-documentate-admin-helper.php:869
 msgid "Error loading LibreOffice."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:111
 msgid "Configure the Collabora Online service base URL in settings."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:146
-#: includes/class-documentate-zetajs-converter.php:97
 msgid "The source file for conversion does not exist."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:151
 msgid "Configure the Collabora Online service URL to convert documents."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:157
 msgid "Output format not supported by Collabora."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:176
 msgid "Could not read the input file for conversion."
 msgstr ""
 
 #. translators: %s: error message returned by wp_remote_post().
-#: includes/class-documentate-collabora-converter.php:228
 #, php-format
 msgid "Error connecting to Collabora Online: %s"
 msgstr ""
 
 #. translators: %d: HTTP status code returned by Collabora.
-#: includes/class-documentate-collabora-converter.php:256
 #, php-format
 msgid "Collabora Online returned HTTP code %d during conversion."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:283
 msgid "Could not save the converted file to disk."
 msgstr ""
 
-#: includes/class-documentate-collabora-converter.php:367
 msgid "WordPress Playground has limitations with external HTTP requests. Consider using ZetaJS (CDN mode) as conversion engine."
 msgstr ""
 
-#: includes/class-documentate-conversion-manager.php:50
 msgid "Collabora Online"
 msgstr ""
 
-#: includes/class-documentate-conversion-manager.php:111
 msgid "Could not complete the conversion."
 msgstr ""
 
-#: includes/class-documentate-conversion-manager.php:119
 msgid "Collabora Online is not available to convert documents."
 msgstr ""
 
-#: includes/class-documentate-conversion-manager.php:124
 msgid "Disable ZetaJS CDN mode and configure the local executable for server-side conversions."
 msgstr ""
 
-#: includes/class-documentate-conversion-manager.php:131
 msgid "Configure the ZetaJS (LibreOffice WASM) executable path on the server."
 msgstr ""
 
 #. translators: 1: source extension, 2: target extension.
-#: includes/class-documentate-conversion-manager.php:148
 #, php-format
 msgid "Required to convert %1$s to %2$s."
 msgstr ""
 
 #. translators: %s: target extension.
-#: includes/class-documentate-conversion-manager.php:157
 #, php-format
 msgid "Required to generate %s."
 msgstr ""
 
-#: includes/class-documentate-demo-data.php:28
 msgid "Warning"
 msgstr ""
 
-#: includes/class-documentate-demo-data.php:28
 msgid "You are running this site with demo data."
 msgstr ""
 
-#: includes/class-documentate-document-access-protection.php:101
-#: includes/class-documentate-document-access-protection.php:182
-#: includes/class-documentate-document-access-protection.php:193
-#: includes/class-documentate-rest-comment-protection.php:140
-#: includes/class-documentate-rest-comment-protection.php:164
-#: includes/class-documentate-rest-comment-protection.php:172
-#: includes/class-documentate-rest-comment-protection.php:197
-#: includes/class-documentate-rest-comment-protection.php:236
 msgid "You are not authorized to access this resource."
 msgstr ""
 
-#: includes/class-documentate-document-access-protection.php:102
 msgid "Access Denied"
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:33
 msgid "Configure a DOCX template in the selected document type."
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:79
 msgid "Configure an ODT template in the selected document type."
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:159
 msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:735
 msgid "No DOCX template configured."
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:739
 msgid "DOCX template not found."
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:788
 msgid "No ODT template configured."
 msgstr ""
 
-#: includes/class-documentate-document-generator.php:792
 msgid "ODT template not found."
 msgstr ""
 
-#: includes/class-documentate-opentbs.php:123
 msgid "OpenTBS is not available."
 msgstr ""
 
-#: includes/class-documentate-opentbs.php:126
 msgid "Template not found."
 msgstr ""
 
-#: includes/class-documentate-opentbs.php:190
 msgid "ZipArchive is not available for rich text formatting."
 msgstr ""
 
-#: includes/class-documentate-opentbs.php:194
 msgid "Could not open the generated DOCX for formatting."
 msgstr ""
 
-#: includes/class-documentate-opentbs.php:502
 msgid "ZipArchive is not available for rich text formatting in ODT."
 msgstr ""
 
-#: includes/class-documentate-opentbs.php:507
 msgid "Could not open the ODT file for rich text formatting."
 msgstr ""
 
-#: includes/class-documentate-template-parser.php:21
 msgid "The selected template was not found."
 msgstr ""
 
-#: includes/class-documentate-template-parser.php:26
 msgid "The file must be a DOCX or ODT."
 msgstr ""
 
-#: includes/class-documentate-template-parser.php:30
 msgid "ZipArchive is not available on the server."
 msgstr ""
 
-#: includes/class-documentate-template-parser.php:35
 msgid "Could not open the template for analysis."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:236
 msgid "Document saved as draft. You must select a document type before publishing."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:240
 msgid "Document set to pending review. Only administrators can publish documents."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:245
 msgid "Published documents can only be modified by administrators."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:310
 msgid "Document Locked"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:311
 msgid "This document is published and read-only. Only an administrator can unlock it by reverting to draft."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:312
 msgid "Change status to Draft to enable editing."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:313
 msgid "Select a document type before publishing."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:314
 msgid "Editors can only save as Draft or Pending Review."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:378
 msgid "Editors can save as Draft or submit for Pending Review."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:388
 msgid "Document is published. Change to Draft to enable editing."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:390
 msgid "Document is published and locked. Contact an administrator to edit."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:403
 msgid "Workflow Status"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:422
 msgid "New"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:423
 msgid "Draft"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:424
 msgid "Pending Review"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:425
 msgid "Published"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:447
 msgid "No document type selected. Must assign a type before publishing."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:455
 msgid "Document is read-only. Change status to Draft to edit."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:457
 msgid "Document is locked. Contact an administrator."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:465
 msgid "Submit for Pending Review when ready. An administrator will publish."
 msgstr ""
 
-#: includes/class-documentate-workflow.php:470
 msgid "Workflow:"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:472
 msgid "Draft - Work in progress"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:473
 msgid "Pending - Ready for review"
 msgstr ""
 
-#: includes/class-documentate-workflow.php:474
 msgid "Published - Final (locked)"
 msgstr ""
 
 #. translators: %s: plugin version number.
-#: includes/class-documentate-wpcli.php:49
 #, php-format
 msgid "You are adding sample data to a non-development version of Documentate (v%s)"
 msgstr ""
 
-#: includes/class-documentate-wpcli.php:50
 msgid "Do you want to continue?"
 msgstr ""
 
-#: includes/class-documentate-wpcli.php:53
 msgid "Starting sample data creation..."
 msgstr ""
 
-#: includes/class-documentate-wpcli.php:58
 msgid "Sample data created successfully!"
 msgstr ""
 
-#: includes/class-documentate-zetajs-converter.php:101
 msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
 msgstr ""
 
-#: includes/class-documentate-zetajs-converter.php:124
 msgid "Could not start the ZetaJS conversion process."
 msgstr ""
 
 #. translators: %d: exit status returned by the ZetaJS process.
-#: includes/class-documentate-zetajs-converter.php:144
 #, php-format
 msgid "The ZetaJS process exited with code %d."
 msgstr ""
 
 #. translators: %s: raw message captured from the ZetaJS converter output.
-#: includes/class-documentate-zetajs-converter.php:152
 #, php-format
 msgid "Conversion finished but the output file was not generated. Details: %s"
 msgstr ""
 
-#: includes/class-documentate-zetajs-converter.php:209
 msgid "PDF conversion is performed in the browser using ZetaJS loaded from the official CDN."
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:379
-#: includes/custom-post-types/class-documentate-documents.php:381
 msgid "Documents"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:380
-#: includes/custom-post-types/class-documentate-documents.php:382
 msgid "Document"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:383
 msgid "Add New"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:384
 msgid "Add New Document"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:385
 msgid "New Document"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:386
 msgid "Edit Document"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:387
 msgid "View Document"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:388
 msgid "All Documents"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:389
 msgid "Search Documents"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:390
 msgid "No documents found."
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:391
 msgid "No documents found in trash."
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:450
-#: includes/custom-post-types/class-documentate-documents.php:458
 msgid "Document Types"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:451
-#: includes/custom-post-types/class-documentate-documents.php:498
 msgid "Document Type"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:452
 msgid "Search Types"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:453
 msgid "All Types"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:454
 msgid "Edit Type"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:455
 msgid "Update Type"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:456
 msgid "Add New Type"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:457
 msgid "New Type"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:507
 msgid "Document Sections"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:535
 msgid "No document types defined. Create one in Document Types."
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:540
 msgid "Choose the type when creating the document. It cannot be changed later."
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:543
 msgid "Selected type:"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:547
 msgid "Select a type…"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:570
 msgid "Configure a document type with fields to edit its content."
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:718
-#: includes/custom-post-types/class-documentate-documents.php:1611
 msgid "Select an option…"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:1508
 msgid "Add item"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:1544
 msgid "Move item"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:1545
 msgid "Delete"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:2540
 msgid "The document contains additional fields that do not belong to the selected type. Review their content before saving."
 msgstr ""
 
 #. translators: %s: detected dynamic field key.
-#: includes/custom-post-types/class-documentate-documents.php:2550
 #, php-format
 msgid "Additional field: %s"
 msgstr ""
 
-#: includes/custom-post-types/class-documentate-documents.php:2551
 msgid "This field is not defined in the current document type taxonomy."
 msgstr ""
 
-#: includes/doc-type/class-schemaextractor.php:32
 msgid "The selected template file is not accessible."
 msgstr ""
 
-#: includes/doc-type/class-schemaextractor.php:40
 msgid "The template must be a DOCX or ODT file."
 msgstr ""
 
-#: includes/doc-type/class-schemaextractor.php:83
 msgid "The template file could not be opened."
 msgstr ""
 
-#: includes/doc-type/class-schemaextractor.php:504
 msgid "Enter a valid email (user@domain.tld)"
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:44
 msgid "Document Metadata"
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:69
 msgid "Title"
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:72
 msgid "The subject is derived from the post title."
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:74
 msgid "Author"
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:77
 msgid "Keywords"
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:78
 msgid "keyword1, keyword2"
 msgstr ""
 
-#: includes/document/meta/class-document-meta-box.php:79
 msgid "Comma-separated list."
 msgstr ""
