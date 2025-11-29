@@ -115,6 +115,7 @@ test-coverage: start-if-not-running
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
 	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD; \
+	EXIT_CODE=$$?; \
 	echo ""; \
 	echo "════════════════════════════════════════════════════════════"; \
 	echo "                    COVERAGE SUMMARY                        "; \
@@ -122,7 +123,8 @@ test-coverage: start-if-not-running
 	grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
 	echo "════════════════════════════════════════════════════════════"; \
 	echo "Full report: artifacts/coverage/html/index.html"; \
-	echo ""
+	echo ""; \
+	exit $$EXIT_CODE
 
 # Ensure tests environment has admin user and plugin active
 setup-tests-env:

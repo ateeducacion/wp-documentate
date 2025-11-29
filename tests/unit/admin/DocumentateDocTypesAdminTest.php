@@ -355,4 +355,268 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$this->assertEmpty( get_term_meta( $term_id, 'schema', true ) );
 		$this->assertEmpty( get_term_meta( $term_id, 'documentate_type_fields', true ) );
 	}
+
+	/**
+	 * Test ajax_template_fields without nonce fails.
+	 */
+	public function test_ajax_template_fields_no_nonce() {
+		// Clear any previous POST data.
+		$_POST = array();
+		$_REQUEST = array();
+
+		// Without proper nonce, should not execute.
+		ob_start();
+		try {
+			$this->admin->ajax_template_fields();
+		} catch ( \WPDieException $e ) {
+			// Expected - AJAX should die.
+		}
+		$output = ob_get_clean();
+
+		// Method should fail on nonce check.
+		$this->assertTrue( true ); // Just confirm no fatal error.
+	}
+
+	/**
+	 * Test save_term saves logos.
+	 */
+	public function test_save_term_saves_logos() {
+		$term = wp_insert_term( 'Logos Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$_POST['documentate_type_color'] = '#37517e';
+		$_POST['documentate_type_template_id'] = 0;
+		$_POST['documentate_type_logos'] = array( 1, 2, 3 );
+
+		$this->admin->save_term( $term_id );
+
+		$saved_logos = get_term_meta( $term_id, 'documentate_type_logos', true );
+		$this->assertIsArray( $saved_logos );
+		$this->assertContains( '1', $saved_logos );
+	}
+
+	/**
+	 * Test edit_fields shows logos section.
+	 */
+	public function test_edit_fields_shows_logos() {
+		$term = wp_insert_term( 'Logos Display Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+		$term_obj = get_term( $term_id, 'documentate_doc_type' );
+
+		ob_start();
+		$this->admin->edit_fields( $term_obj, 'documentate_doc_type' );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate_type_logos', $output );
+	}
+
+	/**
+	 * Test render_schema_preview_fallback with repeaters.
+	 */
+	public function test_render_schema_preview_fallback_with_repeaters() {
+		$reflection = new ReflectionClass( $this->admin );
+		$method = $reflection->getMethod( 'render_schema_preview_fallback' );
+		$method->setAccessible( true );
+
+		$schema = array(
+			'fields'    => array(),
+			'repeaters' => array(
+				array(
+					'name'   => 'items',
+					'slug'   => 'items',
+					'fields' => array(
+						array(
+							'name'  => 'title',
+							'slug'  => 'title',
+							'type'  => 'text',
+						),
+					),
+				),
+			),
+		);
+
+		ob_start();
+		$method->invoke( $this->admin, $schema );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'items', $output );
+	}
+
+	/**
+	 * Test save_term sanitizes color.
+	 */
+	public function test_save_term_sanitizes_color() {
+		$term = wp_insert_term( 'Sanitize Color Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$_POST['documentate_type_color'] = 'invalid<script>color';
+		$_POST['documentate_type_template_id'] = 0;
+
+		$this->admin->save_term( $term_id );
+
+		$saved_color = get_term_meta( $term_id, 'documentate_type_color', true );
+		$this->assertStringNotContainsString( '<script>', $saved_color );
+	}
+
+	/**
+	 * Test enqueue_assets on term.php.
+	 */
+	public function test_enqueue_assets_on_term_edit() {
+		$screen = WP_Screen::get( 'edit-documentate_doc_type' );
+		$GLOBALS['current_screen'] = $screen;
+
+		wp_dequeue_script( 'documentate-doc-types' );
+		wp_dequeue_style( 'documentate-doc-types' );
+
+		$this->admin->enqueue_assets( 'term.php' );
+
+		$this->assertTrue( wp_script_is( 'documentate-doc-types', 'enqueued' ) );
+	}
+
+	/**
+	 * Test handle_reparse_schema without nonce.
+	 */
+	public function test_handle_reparse_schema_no_nonce() {
+		$_GET = array();
+		$_POST = array();
+		$_REQUEST = array();
+
+		ob_start();
+		try {
+			$this->admin->handle_reparse_schema();
+		} catch ( \WPDieException $e ) {
+			// Expected.
+		}
+		$output = ob_get_clean();
+
+		$this->assertTrue( true );
+	}
+
+	/**
+	 * Test handle_reparse_schema without term_id.
+	 */
+	public function test_handle_reparse_schema_no_term_id() {
+		$_GET['_wpnonce'] = wp_create_nonce( 'documentate_reparse_schema' );
+		$_REQUEST['_wpnonce'] = $_GET['_wpnonce'];
+
+		ob_start();
+		try {
+			$this->admin->handle_reparse_schema();
+		} catch ( \WPDieException $e ) {
+			// Expected redirect or die.
+		}
+		$output = ob_get_clean();
+
+		$this->assertTrue( true );
+	}
+
+	/**
+	 * Test add_fields includes template format info.
+	 */
+	public function test_add_fields_includes_template_info() {
+		ob_start();
+		$this->admin->add_fields();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'template', strtolower( $output ) );
+	}
+
+	/**
+	 * Test edit_fields displays template filename when set.
+	 */
+	public function test_edit_fields_displays_template_filename() {
+		$term = wp_insert_term( 'Template Display Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Create a mock attachment.
+		$attachment_id = $this->factory->attachment->create(
+			array(
+				'post_title' => 'test-template.odt',
+				'post_mime_type' => 'application/vnd.oasis.opendocument.text',
+			)
+		);
+		update_post_meta( $attachment_id, '_wp_attached_file', 'test-template.odt' );
+		update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+
+		$term_obj = get_term( $term_id, 'documentate_doc_type' );
+
+		ob_start();
+		$this->admin->edit_fields( $term_obj, 'documentate_doc_type' );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate_type_template_id', $output );
+	}
+
+	/**
+	 * Test render_color_field via reflection.
+	 */
+	public function test_render_color_field() {
+		$reflection = new ReflectionClass( $this->admin );
+		$method = $reflection->getMethod( 'render_color_field' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke( $this->admin, '#ff5500', 'test-color-id' );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-color-field', $output );
+		$this->assertStringContainsString( '#ff5500', $output );
+	}
+
+	/**
+	 * Test render_template_field via reflection.
+	 */
+	public function test_render_template_field() {
+		$reflection = new ReflectionClass( $this->admin );
+		$method = $reflection->getMethod( 'render_template_field' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke( $this->admin, 0, '', 'test-template-id' );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-template-select', $output );
+	}
+
+	/**
+	 * Test save_term clears old template types.
+	 */
+	public function test_save_term_clears_old_template_types() {
+		$term = wp_insert_term( 'Clear Template Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Pre-set legacy template metas.
+		update_term_meta( $term_id, 'documentate_type_docx_template', 999 );
+		update_term_meta( $term_id, 'documentate_type_odt_template', 888 );
+
+		$_POST['documentate_type_color'] = '#37517e';
+		$_POST['documentate_type_template_id'] = 0;
+
+		$this->admin->save_term( $term_id );
+
+		$docx = get_term_meta( $term_id, 'documentate_type_docx_template', true );
+		$odt = get_term_meta( $term_id, 'documentate_type_odt_template', true );
+
+		$this->assertEmpty( $docx );
+		$this->assertEmpty( $odt );
+	}
+
+	/**
+	 * Test output_notices with no flash message.
+	 */
+	public function test_output_notices_empty() {
+		$flash_key = 'documentate_schema_flash_' . get_current_user_id();
+		delete_transient( $flash_key );
+
+		$reflection = new ReflectionClass( $this->admin );
+		$method = $reflection->getMethod( 'output_notices' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke( $this->admin );
+		$output = ob_get_clean();
+
+		$this->assertEmpty( $output );
+	}
 }

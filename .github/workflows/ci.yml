@@ -121,7 +121,6 @@ jobs:
         run: ./vendor/bin/phpcs --standard=.phpcs.xml.dist --report=checkstyle -q . | cs2pr
 
   # JOB 3: UNIT TESTS (Requires Docker)
-# JOB 3: UNIT TESTS (Requires Docker)
   test-unit:
     needs: lint
     runs-on: ubuntu-latest
@@ -142,7 +141,6 @@ jobs:
           tools: composer:v2
           coverage: none # Coverage is handled by xdebug in container
 
-      # 1. CACHÉ DE COMPOSER (Ya lo tenías, bien)
       - name: Get Composer Cache
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
@@ -152,8 +150,7 @@ jobs:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
 
-      # 2. (NUEVO) CACHÉ DE WP-ENV - ¡AQUÍ ESTÁ LA MAGIA!
-      # Esto guarda los zips de WordPress y la configuración local de Docker
+      # Cache wp-env (WordPress core + Docker config)
       - name: Cache wp-env files
         uses: actions/cache@v4
         with:
@@ -168,8 +165,6 @@ jobs:
           npm ci
           npm -g --no-fund i @wordpress/env
 
-      # He quitado el flag '--update'. 
-      # Si usas --update, fuerzas a wp-env a ignorar el caché y buscar actualizaciones, lo que añade tiempo.
       - name: Start Environment (Xdebug)
         run: npx wp-env start --xdebug=coverage
 

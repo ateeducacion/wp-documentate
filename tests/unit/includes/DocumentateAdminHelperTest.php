@@ -419,4 +419,191 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$this->assertStringContainsString( 'Insufficient permissions', $output );
 	}
+
+	/**
+	 * Test stream_file_download with empty path.
+	 */
+	public function test_stream_file_download_empty_path() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'stream_file_download' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, '', 'application/pdf' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'documentate_download_missing', $result->get_error_code() );
+	}
+
+	/**
+	 * Test stream_file_download with non-existent file.
+	 */
+	public function test_stream_file_download_nonexistent_file() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'stream_file_download' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, '/nonexistent/path/file.pdf', 'application/pdf' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test get_preview_stream_url method via reflection.
+	 */
+	public function test_get_preview_stream_url() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_preview_stream_url' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, $post->ID, 'test-doc.pdf' );
+
+		$this->assertStringContainsString( 'documentate_preview_stream', $result );
+		$this->assertStringContainsString( 'post_id=' . $post->ID, $result );
+	}
+
+	/**
+	 * Test get_preview_stream_url fails without user.
+	 */
+	public function test_get_preview_stream_url_no_user() {
+		wp_set_current_user( 0 );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_preview_stream_url' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, 123, 'test.pdf' );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test enqueue_actions_metabox_assets with GLOBALS post.
+	 */
+	public function test_enqueue_actions_metabox_assets_with_global_post() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$GLOBALS['post'] = $post;
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->helper->enqueue_actions_metabox_assets( 'post.php' );
+
+		$this->assertTrue( wp_style_is( 'documentate-actions', 'enqueued' ) );
+	}
+
+	/**
+	 * Test maybe_notice does not output on wrong screen.
+	 */
+	public function test_maybe_notice_wrong_screen() {
+		$_GET['documentate_notice'] = 'Test error';
+		set_current_screen( 'dashboard' );
+
+		ob_start();
+		$this->helper->maybe_notice();
+		$output = ob_get_clean();
+
+		$this->assertEmpty( $output );
+	}
+
+	/**
+	 * Test enqueue_title_textarea_assets on post-new screen.
+	 */
+	public function test_enqueue_title_textarea_assets_post_new() {
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->base = 'post-new';
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->helper->enqueue_title_textarea_assets( 'post-new.php' );
+
+		$this->assertTrue( wp_style_is( 'documentate-title-textarea', 'enqueued' ) );
+		$this->assertTrue( wp_script_is( 'documentate-title-textarea', 'enqueued' ) );
+	}
+
+	/**
+	 * Test render_actions_metabox with templates configured.
+	 */
+	public function test_render_actions_metabox_with_templates() {
+		// Create a document type with a template.
+		$term = wp_insert_term( 'Actions Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Create an attachment for the template using plugin_dir_path.
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( file_exists( $fixture_path ) ) {
+			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
+			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+			update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+		}
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'ODT', $output );
+	}
+
+	/**
+	 * Test build_action_attributes with empty value.
+	 */
+	public function test_build_action_attributes_empty_value() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_action_attributes' );
+		$method->setAccessible( true );
+
+		$attrs = array(
+			'class' => 'button',
+			'data-empty' => '',
+		);
+
+		$result = $method->invoke( $this->helper, $attrs );
+
+		$this->assertStringContainsString( 'class="button"', $result );
+		$this->assertStringNotContainsString( 'data-empty', $result );
+	}
+
+	/**
+	 * Test add_row_actions checks editor permissions.
+	 */
+	public function test_add_row_actions_editor_permissions() {
+		wp_set_current_user( $this->editor_user_id );
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_author' => $this->editor_user_id,
+			)
+		);
+
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		$this->assertArrayHasKey( 'documentate_export_docx', $result );
+	}
+
+	/**
+	 * Test enqueue_actions_metabox_assets with no post ID.
+	 */
+	public function test_enqueue_actions_metabox_assets_no_post_id() {
+		unset( $_GET['post'] );
+		unset( $GLOBALS['post'] );
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		wp_dequeue_style( 'documentate-actions' );
+		wp_dequeue_script( 'documentate-actions' );
+
+		$this->helper->enqueue_actions_metabox_assets( 'post.php' );
+
+		$this->assertFalse( wp_style_is( 'documentate-actions', 'enqueued' ) );
+	}
 }
