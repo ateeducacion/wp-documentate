@@ -12,7 +12,8 @@
         "wp-coding-standards/wpcs": "*",
         "yoast/phpunit-polyfills": "*",
         "yoast/wp-test-utils": "*",
-        "brianium/paratest": "^6.11"
+        "brianium/paratest": "^6.11",
+        "phpmd/phpmd": "^2.15"
     },
     "scripts": {
         "post-install-cmd": [
