@@ -385,8 +385,19 @@ class Documentate_Admin_Helper {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'documentate' ) );
 		}
 
-		// Include the converter template.
-		include plugin_dir_path( __FILE__ ) . '../admin/documentate-converter-template.php';
+		// Determine which template to use based on conversion engine and environment.
+		$options = get_option( 'documentate_settings', array() );
+		$engine  = isset( $options['conversion_engine'] ) ? $options['conversion_engine'] : 'collabora';
+
+		// Use Collabora Playground template when:
+		// - Engine is 'collabora' AND we're in Playground environment
+		// - This bypasses PHP's wp_remote_post which doesn't handle multipart well in Playground.
+		if ( 'collabora' === $engine && class_exists( 'Documentate_Collabora_Converter' ) && Documentate_Collabora_Converter::is_playground() ) {
+			include plugin_dir_path( __FILE__ ) . '../admin/documentate-collabora-playground-template.php';
+		} else {
+			// Use ZetaJS WASM template for 'wasm' engine or non-Playground environments.
+			include plugin_dir_path( __FILE__ ) . '../admin/documentate-converter-template.php';
+		}
 		exit;
 	}
 
@@ -521,8 +532,16 @@ class Documentate_Admin_Helper {
 			$zetajs_cdn_available = Documentate_Zetajs_Converter::is_cdn_mode();
 		}
 
-		// In CDN mode, browser can do conversions too.
-		$can_convert    = $conversion_ready || $zetajs_cdn_available;
+		// Check if we need popup-based conversion (bypasses PHP networking issues in Playground).
+		// This is needed for:
+		// 1. ZetaJS CDN mode (WASM conversion in browser)
+		// 2. Collabora in Playground (JavaScript fetch bypasses wp_remote_post multipart issues).
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
+		$collabora_in_playground  = Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
+		$use_popup_for_conversion = $zetajs_cdn_available || $collabora_in_playground;
+
+		// In CDN mode or Playground with Collabora, browser can do conversions too.
+		$can_convert = $conversion_ready || $use_popup_for_conversion;
 		$docx_available = ( '' !== $docx_template ) || ( $docx_requires_conversion && $can_convert );
 		$odt_available  = ( '' !== $odt_template ) || ( $odt_requires_conversion && $can_convert );
 		$pdf_available  = $can_convert && ( '' !== $docx_template || '' !== $odt_template );
@@ -549,8 +568,8 @@ class Documentate_Admin_Helper {
 			$pdf_message = '';
 		}
 
-		// Preview is available if server conversion is ready OR if ZetaJS CDN mode can do browser conversion.
-		$preview_available = $pdf_available || ( $zetajs_cdn_available && ( '' !== $docx_template || '' !== $odt_template ) );
+		// Preview is available if server conversion is ready OR if popup conversion is available.
+		$preview_available = $pdf_available || ( $use_popup_for_conversion && ( '' !== $docx_template || '' !== $odt_template ) );
 		$preview_message   = $pdf_message;
 
 		$preferred_format = '';
@@ -578,8 +597,11 @@ class Documentate_Admin_Helper {
 				'data-documentate-action' => 'preview',
 				'data-documentate-format' => 'pdf',
 			);
-			// In CDN mode, add attributes for browser-based conversion.
-			if ( $zetajs_cdn_available && ! $conversion_ready ) {
+			// Use popup for browser-based conversion:
+			// - ZetaJS CDN mode when no server conversion is available
+			// - Collabora in Playground (always, to bypass wp_remote_post multipart issues).
+			$needs_popup = ( $zetajs_cdn_available && ! $conversion_ready ) || $collabora_in_playground;
+			if ( $needs_popup ) {
 				$preview_attrs['data-documentate-cdn-mode']      = '1';
 				$preview_attrs['data-documentate-source-format'] = $source_format;
 			}
@@ -625,10 +647,12 @@ class Documentate_Admin_Helper {
 					'data-documentate-action' => 'download',
 					'data-documentate-format' => $format,
 				);
-				// In CDN mode, add attributes for browser-based conversion.
-				// Conversion is needed if target format differs from source template.
-				$needs_cdn_conversion = $zetajs_cdn_available && ! $conversion_ready && $format !== $source_format;
-				if ( $needs_cdn_conversion ) {
+				// Use popup for browser-based conversion when format differs from source:
+				// - ZetaJS CDN mode when no server conversion is available
+				// - Collabora in Playground (always, to bypass wp_remote_post multipart issues).
+				$needs_popup_base       = ( $zetajs_cdn_available && ! $conversion_ready ) || $collabora_in_playground;
+				$needs_popup_conversion = $needs_popup_base && $format !== $source_format;
+				if ( $needs_popup_conversion ) {
 					$attrs['data-documentate-cdn-mode']      = '1';
 					$attrs['data-documentate-source-format'] = $source_format;
 				}
@@ -761,11 +785,7 @@ class Documentate_Admin_Helper {
 			return;
 		}
 
-		$post_id = isset( $_GET['post'] ) ? intval( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! $post_id && isset( $GLOBALS['post'] ) ) {
-			$post_id = $GLOBALS['post']->ID;
-		}
-
+		$post_id = $this->get_current_post_id();
 		if ( ! $post_id ) {
 			return;
 		}
@@ -785,41 +805,89 @@ class Documentate_Admin_Helper {
 			true
 		);
 
-		// Check if ZetaJS CDN mode is available.
+		$config = $this->build_actions_script_config( $post_id );
+		wp_localize_script( 'documentate-actions', 'documentateActionsConfig', $config );
+	}
+
+	/**
+	 * Get the current post ID from request or global.
+	 *
+	 * @return int Post ID or 0 if not found.
+	 */
+	private function get_current_post_id() {
+		$post_id = isset( $_GET['post'] ) ? intval( $_GET['post'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! $post_id && isset( $GLOBALS['post'] ) ) {
+			$post_id = $GLOBALS['post']->ID;
+		}
+		return $post_id;
+	}
+
+	/**
+	 * Build the configuration array for the actions script.
+	 *
+	 * @param int $post_id The post ID.
+	 * @return array Configuration array for JavaScript.
+	 */
+	private function build_actions_script_config( $post_id ) {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-zetajs-converter.php';
-
-		$conversion_ready     = Documentate_Conversion_Manager::is_available();
-		$zetajs_cdn_available = ! $conversion_ready && Documentate_Zetajs_Converter::is_cdn_mode();
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
 
 		$config = array(
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'postId'  => $post_id,
 			'nonce'   => wp_create_nonce( 'documentate_generate_' . $post_id ),
-			'strings' => array(
-				'generating'        => __( 'Generating document...', 'documentate' ),
-				'generatingPreview' => __( 'Generating preview...', 'documentate' ),
-				/* translators: %s: document format (DOCX, ODT, PDF). */
-				'generatingFormat'  => __( 'Generating %s...', 'documentate' ),
-				'wait'              => __( 'Please wait while the document is being generated.', 'documentate' ),
-				'close'             => __( 'Close', 'documentate' ),
-				'errorGeneric'      => __( 'Error generating the document.', 'documentate' ),
-				'errorNetwork'      => __( 'Connection error. Please try again.', 'documentate' ),
-				'loadingWasm'       => __( 'Loading LibreOffice...', 'documentate' ),
-				'convertingBrowser' => __( 'Converting in browser...', 'documentate' ),
-				'wasmError'         => __( 'Error loading LibreOffice.', 'documentate' ),
-			),
+			'strings' => $this->get_actions_script_strings(),
 		);
 
-		// If CDN mode is available, add converter URL to config.
-		// The converter runs in an iframe with COOP/COEP headers for SharedArrayBuffer support.
-		// Uses admin-post.php as entry point to ensure PHP executes and headers are sent.
+		return $this->add_conversion_mode_config( $config );
+	}
+
+	/**
+	 * Get translatable strings for the actions script.
+	 *
+	 * @return array Translatable strings.
+	 */
+	private function get_actions_script_strings() {
+		return array(
+			'generating'        => __( 'Generating document...', 'documentate' ),
+			'generatingPreview' => __( 'Generating preview...', 'documentate' ),
+			/* translators: %s: document format (DOCX, ODT, PDF). */
+			'generatingFormat'  => __( 'Generating %s...', 'documentate' ),
+			'wait'              => __( 'Please wait while the document is being generated.', 'documentate' ),
+			'close'             => __( 'Close', 'documentate' ),
+			'errorGeneric'      => __( 'Error generating the document.', 'documentate' ),
+			'errorNetwork'      => __( 'Connection error. Please try again.', 'documentate' ),
+			'loadingWasm'       => __( 'Loading LibreOffice...', 'documentate' ),
+			'convertingBrowser' => __( 'Converting in browser...', 'documentate' ),
+			'wasmError'         => __( 'Error loading LibreOffice.', 'documentate' ),
+		);
+	}
+
+	/**
+	 * Add conversion mode configuration based on available converters.
+	 *
+	 * @param array $config Base configuration array.
+	 * @return array Configuration with conversion mode settings.
+	 */
+	private function add_conversion_mode_config( $config ) {
+		$conversion_ready        = Documentate_Conversion_Manager::is_available();
+		$collabora_in_playground = Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
+
+		if ( $collabora_in_playground ) {
+			$options                       = get_option( 'documentate_settings', array() );
+			$config['collaboraPlayground'] = true;
+			$config['collaboraUrl']        = isset( $options['collabora_base_url'] ) ? esc_url( $options['collabora_base_url'] ) : '';
+			return $config;
+		}
+
+		$zetajs_cdn_available = ! $conversion_ready && Documentate_Zetajs_Converter::is_cdn_mode();
 		if ( $zetajs_cdn_available ) {
 			$config['cdnMode']      = true;
 			$config['converterUrl'] = admin_url( 'admin-post.php?action=documentate_converter' );
 		}
 
-		wp_localize_script( 'documentate-actions', 'documentateActionsConfig', $config );
+		return $config;
 	}
 
 	/**

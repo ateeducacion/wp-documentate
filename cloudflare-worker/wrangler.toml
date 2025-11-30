@@ -1,0 +1,11 @@
+name = "documentate-collabora-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# The actual Collabora URL is configured as a secret (not stored in code):
+#   wrangler secret put COLLABORA_BASE_URL
+#
+# Example value: https://collabora.example.com
+#
+# This keeps your Collabora server URL private and allows you to change it
+# without redeploying the worker.

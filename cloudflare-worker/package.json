@@ -1,0 +1,22 @@
+{
+  "name": "documentate-collabora-proxy",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker CORS proxy for Collabora Online - enables WordPress Playground to use Collabora for document conversion",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "collabora",
+    "cors-proxy",
+    "wordpress-playground",
+    "document-conversion"
+  ],
+  "license": "GPL-2.0-or-later",
+  "devDependencies": {
+    "wrangler": "^4.51.0"
+  }
+}

@@ -330,10 +330,7 @@ msgstr ""
 msgid "Preparing document converter."
 msgstr ""
 
-msgid "Loading LibreOffice..."
-msgstr ""
-
-msgid "Downloading WASM components (~50MB). This may take a while the first time."
+msgid "Collabora URL not configured."
 msgstr ""
 
 msgid "Generating document..."
@@ -342,16 +339,25 @@ msgstr ""
 msgid "Processing template on server."
 msgstr ""
 
+msgid "Failed to generate source document."
+msgstr ""
+
 msgid "Downloading document..."
 msgstr ""
 
 msgid "Fetching source document."
 msgstr ""
 
+msgid "Failed to fetch source document:"
+msgstr ""
+
 msgid "Converting to PDF..."
 msgstr ""
 
-msgid "Processing with LibreOffice WASM."
+msgid "Sending to Collabora server."
+msgstr ""
+
+msgid "Collabora returned an empty response."
 msgstr ""
 
 msgid "Completed!"
@@ -367,6 +373,15 @@ msgid "Conversion error."
 msgstr ""
 
 msgid "Error"
+msgstr ""
+
+msgid "Loading LibreOffice..."
+msgstr ""
+
+msgid "Downloading WASM components (~50MB). This may take a while the first time."
+msgstr ""
+
+msgid "Processing with LibreOffice WASM."
 msgstr ""
 
 msgid "Could not initialize the WordPress filesystem."
@@ -480,9 +495,6 @@ msgid "Collabora Online returned HTTP code %d during conversion."
 msgstr ""
 
 msgid "Could not save the converted file to disk."
-msgstr ""
-
-msgid "WordPress Playground has limitations with external HTTP requests. Consider using ZetaJS (CDN mode) as conversion engine."
 msgstr ""
 
 msgid "Collabora Online"

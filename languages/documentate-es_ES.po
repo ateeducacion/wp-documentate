@@ -483,9 +483,6 @@ msgstr "Collabora Online devolvió el código HTTP %d durante la conversión."
 msgid "Could not save the converted file to disk."
 msgstr "No se pudo guardar el fichero convertido en el disco."
 
-msgid "WordPress Playground has limitations with external HTTP requests. Consider using ZetaJS (CDN mode) as conversion engine."
-msgstr "WordPress Playground tiene limitaciones con peticiones HTTP externas. Considera usar ZetaJS (modo CDN) como motor de conversión."
-
 msgid "Collabora Online"
 msgstr "Collabora Online"
 
@@ -800,3 +797,18 @@ msgstr "¡Datos de ejemplo creados correctamente!"
 
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
+
+msgid "Collabora URL not configured."
+msgstr "La URL de Collabora no está configurada."
+
+msgid "Failed to generate source document."
+msgstr "Error al generar el documento de origen."
+
+msgid "Failed to fetch source document:"
+msgstr "Error al obtener el documento de origen:"
+
+msgid "Sending to Collabora server."
+msgstr "Enviando al servidor de Collabora."
+
+msgid "Collabora returned an empty response."
+msgstr "Collabora devolvió una respuesta vacía."

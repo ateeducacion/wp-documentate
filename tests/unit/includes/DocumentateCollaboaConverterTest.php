@@ -304,20 +304,6 @@ class DocumentateCollaboaConverterTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test maybe_add_playground_warning via reflection.
-	 */
-	public function test_maybe_add_playground_warning_without_playground() {
-		$reflection = new ReflectionClass( 'Documentate_Collabora_Converter' );
-		$method = $reflection->getMethod( 'maybe_add_playground_warning' );
-		$method->setAccessible( true );
-
-		$message = 'Test error';
-		$result = $method->invoke( null, $message );
-
-		$this->assertSame( $message, $result );
-	}
-
-	/**
 	 * Test log method via reflection (should not throw).
 	 */
 	public function test_log_method_does_not_throw() {

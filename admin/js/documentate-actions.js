@@ -9,6 +9,9 @@
  * popup window (which has COOP/COEP headers required for SharedArrayBuffer).
  * The popup is positioned off-screen to minimize visibility while the loading
  * modal in the main window shows progress to the user.
+ *
+ * For Collabora in Playground mode, conversion is done directly via fetch()
+ * without popups (since Playground doesn't support opening new windows).
  */
 (function ($) {
 	'use strict';
@@ -110,6 +113,178 @@
 		}
 		$modal.addClass('is-error');
 		$modal.find('.documentate-loading-modal__error-text').text(message);
+	}
+
+	/**
+	 * Load PDF.js library from CDN.
+	 * Only loads once, subsequent calls return the cached promise.
+	 */
+	let pdfJsLoadPromise = null;
+	function loadPdfJs() {
+		if (pdfJsLoadPromise) {
+			return pdfJsLoadPromise;
+		}
+
+		pdfJsLoadPromise = new Promise((resolve, reject) => {
+			// Check if already loaded
+			if (window.pdfjsLib) {
+				resolve(window.pdfjsLib);
+				return;
+			}
+
+			const script = document.createElement('script');
+			script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+			script.onload = () => {
+				// Set worker source
+				window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+					'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+				resolve(window.pdfjsLib);
+			};
+			script.onerror = () => reject(new Error('Failed to load PDF.js'));
+			document.head.appendChild(script);
+		});
+
+		return pdfJsLoadPromise;
+	}
+
+	/**
+	 * Show PDF in an embedded viewer modal using PDF.js.
+	 * Used in Playground where window.open() doesn't work with blob URLs.
+	 *
+	 * @param {Blob} pdfBlob The PDF blob to display.
+	 */
+	async function showPdfViewer(pdfBlob) {
+		// Remove existing viewer if any
+		$('#documentate-pdf-viewer').remove();
+
+		// Create blob URL for download button
+		const blobUrl = URL.createObjectURL(pdfBlob);
+
+		const html = `
+			<div class="documentate-pdf-viewer" id="documentate-pdf-viewer">
+				<div class="documentate-pdf-viewer__header">
+					<span class="documentate-pdf-viewer__title">${escapeHtml(strings.preview || 'Vista previa')}</span>
+					<div class="documentate-pdf-viewer__actions">
+						<button type="button" class="button documentate-pdf-viewer__nav" id="pdf-prev" title="Anterior">‹</button>
+						<span class="documentate-pdf-viewer__page-info">
+							<span id="pdf-page-num">1</span> / <span id="pdf-page-count">-</span>
+						</span>
+						<button type="button" class="button documentate-pdf-viewer__nav" id="pdf-next" title="Siguiente">›</button>
+						<button type="button" class="button documentate-pdf-viewer__zoom" id="pdf-zoom-out" title="Reducir">−</button>
+						<button type="button" class="button documentate-pdf-viewer__zoom" id="pdf-zoom-in" title="Ampliar">+</button>
+						<a href="${blobUrl}" download="documento.pdf" class="button documentate-pdf-viewer__download">${escapeHtml(strings.download || 'Descargar')}</a>
+						<button type="button" class="documentate-pdf-viewer__close" aria-label="${escapeHtml(strings.close || 'Cerrar')}">&times;</button>
+					</div>
+				</div>
+				<div class="documentate-pdf-viewer__content">
+					<div class="documentate-pdf-viewer__canvas-container" id="pdf-canvas-container">
+						<canvas id="pdf-canvas"></canvas>
+					</div>
+				</div>
+			</div>
+		`;
+		$('body').append(html);
+
+		const $viewer = $('#documentate-pdf-viewer');
+
+		// Close function
+		const closeViewer = () => {
+			$viewer.remove();
+			URL.revokeObjectURL(blobUrl);
+			$(document).off('keydown.documentatePdfViewer');
+		};
+
+		// Close button event
+		$viewer.on('click', '.documentate-pdf-viewer__close', closeViewer);
+
+		// ESC key to close
+		$(document).on('keydown.documentatePdfViewer', function (e) {
+			if (e.key === 'Escape') {
+				closeViewer();
+			}
+		});
+
+		// Load and render PDF with PDF.js
+		try {
+			const pdfjsLib = await loadPdfJs();
+			const arrayBuffer = await pdfBlob.arrayBuffer();
+			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+			let currentPage = 1;
+			let currentScale = 1.5;
+			const totalPages = pdf.numPages;
+
+			$('#pdf-page-count').text(totalPages);
+
+			const canvas = document.getElementById('pdf-canvas');
+			const ctx = canvas.getContext('2d');
+
+			async function renderPage(pageNum) {
+				const page = await pdf.getPage(pageNum);
+				const viewport = page.getViewport({ scale: currentScale });
+
+				canvas.height = viewport.height;
+				canvas.width = viewport.width;
+
+				await page.render({
+					canvasContext: ctx,
+					viewport: viewport
+				}).promise;
+
+				$('#pdf-page-num').text(pageNum);
+			}
+
+			// Initial render
+			await renderPage(currentPage);
+
+			// Navigation events
+			$('#pdf-prev').on('click', async () => {
+				if (currentPage > 1) {
+					currentPage--;
+					await renderPage(currentPage);
+				}
+			});
+
+			$('#pdf-next').on('click', async () => {
+				if (currentPage < totalPages) {
+					currentPage++;
+					await renderPage(currentPage);
+				}
+			});
+
+			// Zoom events
+			$('#pdf-zoom-in').on('click', async () => {
+				currentScale = Math.min(currentScale + 0.25, 3);
+				await renderPage(currentPage);
+			});
+
+			$('#pdf-zoom-out').on('click', async () => {
+				currentScale = Math.max(currentScale - 0.25, 0.5);
+				await renderPage(currentPage);
+			});
+
+			// Keyboard navigation
+			$(document).on('keydown.documentatePdfViewer', async function (e) {
+				if (e.key === 'ArrowLeft' && currentPage > 1) {
+					currentPage--;
+					await renderPage(currentPage);
+				} else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+					currentPage++;
+					await renderPage(currentPage);
+				}
+			});
+
+		} catch (error) {
+			console.error('PDF.js render error:', error);
+			// Show fallback message
+			$('#pdf-canvas-container').html(`
+				<p style="padding: 20px; text-align: center; color: #fff;">
+					${escapeHtml(strings.pdfNotSupported || 'Error al cargar el PDF.')}
+					<br><br>
+					<a href="${blobUrl}" download="documento.pdf" class="button button-primary">${escapeHtml(strings.download || 'Descargar')}</a>
+				</p>
+			`);
+		}
 	}
 
 	/**
@@ -276,6 +451,121 @@
 	}
 
 	/**
+	 * Handle Collabora conversion in Playground mode.
+	 * Does conversion directly via fetch() without popups.
+	 * Playground doesn't support opening new windows since everything runs in WASM.
+	 *
+	 * @param {jQuery} $btn The button element.
+	 * @param {string} action Action type (preview, download).
+	 * @param {string} targetFormat Target format.
+	 * @param {string} sourceFormat Source format.
+	 */
+	async function handleCollaboraPlaygroundConversion($btn, action, targetFormat, sourceFormat) {
+		try {
+			// Step 1: Generate source document via AJAX.
+			updateModal(
+				strings.generating || 'Generando documento...',
+				strings.wait || 'Procesando plantilla...'
+			);
+
+			const formData = new FormData();
+			formData.append('action', 'documentate_generate_document');
+			formData.append('post_id', config.postId);
+			formData.append('format', sourceFormat);
+			formData.append('output', 'download');
+			formData.append('_wpnonce', config.nonce);
+
+			const ajaxResponse = await fetch(config.ajaxUrl, {
+				method: 'POST',
+				body: formData,
+				credentials: 'same-origin'
+			});
+			const ajaxData = await ajaxResponse.json();
+
+			if (!ajaxData.success || !ajaxData.data?.url) {
+				throw new Error(ajaxData.data?.message || strings.errorGeneric || 'Error al generar el documento.');
+			}
+
+			// Step 2: Fetch the source document.
+			updateModal(
+				strings.generating || 'Generando documento...',
+				'Descargando documento fuente...'
+			);
+
+			const sourceResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
+			if (!sourceResponse.ok) {
+				throw new Error('Error al descargar documento fuente: ' + sourceResponse.status);
+			}
+			const sourceBlob = await sourceResponse.blob();
+
+			// Step 3: Send to Collabora proxy via fetch().
+			updateModal(
+				strings.convertingBrowser || 'Convirtiendo...',
+				'Enviando a Collabora...'
+			);
+
+			const collaboraFormData = new FormData();
+			const filename = 'document.' + sourceFormat;
+			collaboraFormData.append('data', sourceBlob, filename);
+
+			const collaboraEndpoint = config.collaboraUrl.replace(/\/$/, '') + '/cool/convert-to/' + targetFormat;
+
+			console.log('Documentate: Sending to Collabora:', collaboraEndpoint);
+
+			const collaboraResponse = await fetch(collaboraEndpoint, {
+				method: 'POST',
+				body: collaboraFormData
+			});
+
+			if (!collaboraResponse.ok) {
+				const errorText = await collaboraResponse.text();
+				throw new Error('Collabora error ' + collaboraResponse.status + ': ' + (errorText || 'Unknown error'));
+			}
+
+			const resultBlob = await collaboraResponse.blob();
+
+			if (resultBlob.size === 0) {
+				throw new Error('Collabora devolvió una respuesta vacía.');
+			}
+
+			console.log('Documentate: Conversion successful, size:', resultBlob.size);
+
+			// Step 4: Handle result.
+			const mimeTypes = {
+				pdf: 'application/pdf',
+				docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				odt: 'application/vnd.oasis.opendocument.text'
+			};
+			const finalBlob = new Blob([resultBlob], { type: mimeTypes[targetFormat] || 'application/octet-stream' });
+
+			hideModal();
+
+			if (action === 'preview' && targetFormat === 'pdf') {
+				// In Playground, show PDF in an embedded viewer (new tabs don't work well with blob URLs)
+				showPdfViewer(finalBlob);
+			} else {
+				// Trigger download
+				const blobUrl = URL.createObjectURL(finalBlob);
+				const a = document.createElement('a');
+				a.href = blobUrl;
+				a.download = 'documento.' + targetFormat;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+
+				// Cleanup blob URL after a delay
+				setTimeout(function () {
+					URL.revokeObjectURL(blobUrl);
+				}, 1000);
+			}
+
+		} catch (error) {
+			console.error('Documentate Collabora Playground error:', error);
+			showError(error.message || strings.errorGeneric || 'Error en la conversión.');
+		}
+	}
+
+	/**
 	 * Handle action button click.
 	 */
 	function handleActionClick(e) {
@@ -302,7 +592,13 @@
 
 		showModal(title);
 
-		// If CDN mode and conversion is needed, use browser-based conversion.
+		// If Collabora Playground mode, use direct fetch conversion (no popup).
+		if (config.collaboraPlayground && config.collaboraUrl && sourceFormat) {
+			handleCollaboraPlaygroundConversion($btn, action, format, sourceFormat);
+			return;
+		}
+
+		// If CDN mode (ZetaJS WASM), use popup-based conversion.
 		if (cdnMode && sourceFormat) {
 			handleCdnConversion($btn, action, format, sourceFormat);
 			return;

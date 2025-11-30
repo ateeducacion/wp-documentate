@@ -223,13 +223,11 @@ class Documentate_Collabora_Converter {
 
 		$response = wp_remote_post( $endpoint, $args );
 		if ( is_wp_error( $response ) ) {
-			$error_message = self::maybe_add_playground_warning( $response->get_error_message() );
 			self::log(
 				'Request failed',
 				array(
 					'error_code'    => $response->get_error_code(),
 					'error_message' => $response->get_error_message(),
-					'is_playground' => self::is_playground(),
 				)
 			);
 			return new WP_Error(
@@ -237,12 +235,11 @@ class Documentate_Collabora_Converter {
 				sprintf(
 					/* translators: %s: error message returned by wp_remote_post(). */
 					__( 'Error connecting to Collabora Online: %s', 'documentate' ),
-					$error_message
+					$response->get_error_message()
 				),
 				array(
-					'code'          => $response->get_error_code(),
-					'endpoint'      => $endpoint,
-					'is_playground' => self::is_playground(),
+					'code'     => $response->get_error_code(),
+					'endpoint' => $endpoint,
 				)
 			);
 		}
@@ -261,29 +258,24 @@ class Documentate_Collabora_Converter {
 		);
 
 		if ( $status < 200 || $status >= 300 ) {
-			$error_message = self::maybe_add_playground_warning(
-				sprintf(
-					/* translators: %d: HTTP status code returned by Collabora. */
-					__( 'Collabora Online returned HTTP code %d during conversion.', 'documentate' ),
-					$status
-				)
-			);
 			self::log(
 				'HTTP error response',
 				array(
-					'status'        => $status,
-					'body'          => substr( $resp_body, 0, 500 ),
-					'is_playground' => self::is_playground(),
+					'status' => $status,
+					'body'   => substr( $resp_body, 0, 500 ),
 				)
 			);
 			return new WP_Error(
 				'documentate_collabora_http_error',
-				$error_message,
+				sprintf(
+					/* translators: %d: HTTP status code returned by Collabora. */
+					__( 'Collabora Online returned HTTP code %d during conversion.', 'documentate' ),
+					$status
+				),
 				array(
-					'status'        => $status,
-					'body'          => substr( $resp_body, 0, 500 ),
-					'endpoint'      => $endpoint,
-					'is_playground' => self::is_playground(),
+					'status'   => $status,
+					'body'     => substr( $resp_body, 0, 500 ),
+					'endpoint' => $endpoint,
 				)
 			);
 		}
@@ -358,20 +350,5 @@ class Documentate_Collabora_Converter {
 
 		$mime = function_exists( 'mime_content_type' ) ? mime_content_type( $path ) : 'application/octet-stream';
 		return $mime ? $mime : 'application/octet-stream';
-	}
-
-	/**
-	 * Add a warning message if running in WordPress Playground.
-	 *
-	 * @param string $message Original error message.
-	 * @return string Modified message with Playground warning if applicable.
-	 */
-	private static function maybe_add_playground_warning( $message ) {
-		if ( ! self::is_playground() ) {
-			return $message;
-		}
-
-		$warning = __( 'WordPress Playground has limitations with external HTTP requests. Consider using ZetaJS (CDN mode) as conversion engine.', 'documentate' );
-		return $message . ' ' . $warning;
 	}
 }
