@@ -5,10 +5,37 @@
  * @package Documentate
  */
 
+use Documentate\Export\Export_DOCX_Handler;
+use Documentate\Export\Export_ODT_Handler;
+use Documentate\Export\Export_PDF_Handler;
+
 /**
  * Admin helpers for Documentate (export actions, UI additions).
+ *
+ * Uses specialized Export handlers for document export functionality.
  */
 class Documentate_Admin_Helper {
+
+	/**
+	 * DOCX export handler.
+	 *
+	 * @var Export_DOCX_Handler|null
+	 */
+	private $docx_handler;
+
+	/**
+	 * ODT export handler.
+	 *
+	 * @var Export_ODT_Handler|null
+	 */
+	private $odt_handler;
+
+	/**
+	 * PDF export handler.
+	 *
+	 * @var Export_PDF_Handler|null
+	 */
+	private $pdf_handler;
 
 	/**
 	 * Track whether the document generator class has been loaded.
@@ -16,6 +43,17 @@ class Documentate_Admin_Helper {
 	 * @var bool
 	 */
 	private $document_generator_loaded = false;
+
+	/**
+	 * Format to generator method mapping.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $format_generator_map = array(
+		'docx' => 'generate_docx',
+		'odt'  => 'generate_odt',
+		'pdf'  => 'generate_pdf',
+	);
 
 	/**
 	 * Get an initialized WP_Filesystem instance.
@@ -42,9 +80,33 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
+	 * Build an export/preview URL for a document.
+	 *
+	 * @param string $action  Action name (e.g., 'documentate_preview', 'documentate_export_docx').
+	 * @param int    $post_id Post ID.
+	 * @param string $nonce   Security nonce.
+	 * @return string Full URL with query args.
+	 */
+	private function build_action_url( $action, $post_id, $nonce ) {
+		return add_query_arg(
+			array(
+				'action'   => $action,
+				'post_id'  => $post_id,
+				'_wpnonce' => $nonce,
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+
+	/**
 	 * Boot hooks.
 	 */
 	public function __construct() {
+		// Initialize export handlers.
+		$this->docx_handler = new Export_DOCX_Handler();
+		$this->odt_handler  = new Export_ODT_Handler();
+		$this->pdf_handler  = new Export_PDF_Handler();
+
 		add_filter( 'post_row_actions', array( $this, 'add_row_actions' ), 10, 2 );
 		add_action( 'admin_post_documentate_export_docx', array( $this, 'handle_export_docx' ) );
 		add_action( 'admin_post_documentate_export_odt', array( $this, 'handle_export_odt' ) );
@@ -156,98 +218,29 @@ class Documentate_Admin_Helper {
 
 	/**
 	 * Handle DOCX export action.
+	 *
+	 * Delegates to Export_DOCX_Handler.
 	 */
 	public function handle_export_docx() {
-		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
-		}
-
-		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_export_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
-		}
-
-		$this->ensure_document_generator();
-
-		$result = Documentate_Document_Generator::generate_docx( $post_id );
-		if ( is_wp_error( $result ) ) {
-			$msg = $result->get_error_message();
-			wp_safe_redirect( add_query_arg( 'documentate_notice', rawurlencode( $msg ), get_edit_post_link( $post_id, 'url' ) ) );
-			exit;
-		}
-
-		$stream = $this->stream_file_download(
-			$result,
-			'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-		);
-		if ( is_wp_error( $stream ) ) {
-			wp_die( esc_html( $stream->get_error_message() ), '', array( 'back_link' => true ) );
-		}
-
-		exit;
+		$this->docx_handler->handle();
 	}
 
 	/**
 	 * Handle ODT export action.
+	 *
+	 * Delegates to Export_ODT_Handler.
 	 */
 	public function handle_export_odt() {
-		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
-		}
-
-		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_export_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
-		}
-
-		$this->ensure_document_generator();
-
-		$result = Documentate_Document_Generator::generate_odt( $post_id );
-		if ( is_wp_error( $result ) ) {
-			$msg = $result->get_error_message();
-			wp_safe_redirect( add_query_arg( 'documentate_notice', rawurlencode( $msg ), get_edit_post_link( $post_id, 'url' ) ) );
-			exit;
-		}
-
-		$stream = $this->stream_file_download( $result, 'application/vnd.oasis.opendocument.text' );
-		if ( is_wp_error( $stream ) ) {
-			wp_die( esc_html( $stream->get_error_message() ), '', array( 'back_link' => true ) );
-		}
-
-		exit;
+		$this->odt_handler->handle();
 	}
 
 	/**
 	 * Handle PDF export action.
+	 *
+	 * Delegates to Export_PDF_Handler.
 	 */
 	public function handle_export_pdf() {
-		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
-		}
-
-		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_export_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
-		}
-
-		$this->ensure_document_generator();
-
-		$result = Documentate_Document_Generator::generate_pdf( $post_id );
-		if ( is_wp_error( $result ) ) {
-			$msg = $result->get_error_message();
-			wp_safe_redirect( add_query_arg( 'documentate_notice', rawurlencode( $msg ), get_edit_post_link( $post_id, 'url' ) ) );
-			exit;
-		}
-
-		$stream = $this->stream_file_download( $result, 'application/pdf' );
-		if ( is_wp_error( $stream ) ) {
-			wp_die( esc_html( $stream->get_error_message() ), '', array( 'back_link' => true ) );
-		}
-
-		exit;
+		$this->pdf_handler->handle();
 	}
 
 	/**
@@ -422,28 +415,6 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
-	 * Build the streaming URL for the preview iframe.
-	 *
-	 * @param int    $post_id  Document post ID.
-	 * @param string $filename Generated filename.
-	 * @return string
-	 */
-	private function get_preview_stream_url( $post_id, $filename ) {
-		if ( ! $this->remember_preview_stream_file( $post_id, $filename ) ) {
-			return '';
-		}
-
-		return add_query_arg(
-			array(
-				'action'   => 'documentate_preview_stream',
-				'post_id'  => $post_id,
-				'_wpnonce' => wp_create_nonce( 'documentate_preview_stream_' . $post_id ),
-			),
-			admin_url( 'admin-post.php' )
-		);
-	}
-
-	/**
 	 * Generate the transient key used to remember the preview filename.
 	 *
 	 * @param int $post_id Document post ID.
@@ -526,40 +497,10 @@ class Documentate_Admin_Helper {
 		$nonce_export = wp_create_nonce( 'documentate_export_' . $post->ID );
 		$nonce_prev   = wp_create_nonce( 'documentate_preview_' . $post->ID );
 
-		$base = admin_url( 'admin-post.php' );
-
-		$preview = add_query_arg(
-			array(
-				'action'  => 'documentate_preview',
-				'post_id' => $post->ID,
-				'_wpnonce' => $nonce_prev,
-			),
-			$base
-		);
-		$docx    = add_query_arg(
-			array(
-				'action' => 'documentate_export_docx',
-				'post_id' => $post->ID,
-				'_wpnonce' => $nonce_export,
-			),
-			$base
-		);
-		$pdf     = add_query_arg(
-			array(
-				'action' => 'documentate_export_pdf',
-				'post_id' => $post->ID,
-				'_wpnonce' => $nonce_export,
-			),
-			$base
-		);
-		$odt     = add_query_arg(
-			array(
-				'action' => 'documentate_export_odt',
-				'post_id' => $post->ID,
-				'_wpnonce' => $nonce_export,
-			),
-			$base
-		);
+		$preview = $this->build_action_url( 'documentate_preview', $post->ID, $nonce_prev );
+		$docx    = $this->build_action_url( 'documentate_export_docx', $post->ID, $nonce_export );
+		$pdf     = $this->build_action_url( 'documentate_export_pdf', $post->ID, $nonce_export );
+		$odt     = $this->build_action_url( 'documentate_export_odt', $post->ID, $nonce_export );
 
 		$this->ensure_document_generator();
 
@@ -903,20 +844,10 @@ class Documentate_Admin_Helper {
 
 		$this->ensure_document_generator();
 
-		$result = null;
-
-		switch ( $format ) {
-			case 'docx':
-				$result = Documentate_Document_Generator::generate_docx( $post_id );
-				break;
-			case 'odt':
-				$result = Documentate_Document_Generator::generate_odt( $post_id );
-				break;
-			case 'pdf':
-			default:
-				$result = Documentate_Document_Generator::generate_pdf( $post_id );
-				break;
-		}
+		$method = isset( self::$format_generator_map[ $format ] )
+			? self::$format_generator_map[ $format ]
+			: 'generate_pdf';
+		$result = call_user_func( array( 'Documentate_Document_Generator', $method ), $post_id );
 
 		if ( is_wp_error( $result ) ) {
 			// Include debug info for troubleshooting.

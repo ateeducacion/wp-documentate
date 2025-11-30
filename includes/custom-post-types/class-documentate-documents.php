@@ -15,11 +15,35 @@
 
 use Documentate\DocType\SchemaConverter;
 use Documentate\DocType\SchemaStorage;
+use Documentate\Documents\Documents_Meta_Handler;
+use Documentate\Documents\Documents_CPT_Registration;
+use Documentate\Documents\Documents_Revision_Handler;
+use Documentate\Documents\Documents_Field_Validator;
+use Documentate\Documents\Documents_Field_Renderer;
 
 /**
- * Class to handle the Documentate Documents custom post type
+ * Class to handle the Documentate Documents custom post type.
+ *
+ * This class now delegates to specialized classes for better separation of concerns:
+ * - Documents_CPT_Registration: CPT and taxonomy registration
+ * - Documents_Revision_Handler: Revision management
+ * - Documents_Meta_Handler: Meta field utilities
  */
 class Documentate_Documents {
+
+	/**
+	 * CPT registration handler.
+	 *
+	 * @var Documents_CPT_Registration
+	 */
+	private $cpt_registration;
+
+	/**
+	 * Revision handler.
+	 *
+	 * @var Documents_Revision_Handler
+	 */
+	private $revision_handler;
 
 		/**
 		 * Maximum number of items allowed per array field.
@@ -40,13 +64,19 @@ class Documentate_Documents {
 	 * Constructor.
 	 */
 	public function __construct() {
+		$this->cpt_registration = new Documents_CPT_Registration();
+		$this->revision_handler = new Documents_Revision_Handler();
 		$this->define_hooks();
 	}
 
 	/**
 	 * Define hooks.
+	 *
+	 * Note: Hooks are registered with $this for backwards compatibility,
+	 * but delegate to specialized handler classes internally.
 	 */
 	private function define_hooks() {
+		// CPT/taxonomy registration - keep hooks on $this for backwards compatibility.
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'init', array( $this, 'register_taxonomies' ) );
 		add_filter( 'use_block_editor_for_post_type', array( $this, 'disable_gutenberg' ), 10, 2 );
@@ -55,25 +85,14 @@ class Documentate_Documents {
 		add_action( 'add_meta_boxes', array( $this, 'register_meta_boxes' ) );
 		add_action( 'save_post_documentate_document', array( $this, 'save_meta_boxes' ) );
 
-		/**
-		 * Revisions: copy meta to the single revision WordPress creates.
-		 * Do NOT call wp_save_post_revision() manually.
-		 */
+		// Revision handling - keep hooks on $this for backwards compatibility.
 		add_action( 'wp_save_post_revision', array( $this, 'copy_meta_to_revision' ), 10, 2 );
-
-		/**
-		 * Revisions: restore meta from a selected revision.
-		 */
 		add_action( 'wp_restore_post_revision', array( $this, 'restore_meta_from_revision' ), 10, 2 );
-
-		/**
-		 * Optional: limit number of revisions for this CPT only.
-		 */
 		add_filter( 'wp_revisions_to_keep', array( $this, 'limit_revisions_for_cpt' ), 10, 2 );
+		add_filter( 'wp_save_post_revision_post_has_changed', array( $this, 'force_revision_on_meta' ), 10, 3 );
+
 		// Compose Gutenberg-friendly content before saving to ensure revision UI diffs.
 		add_filter( 'wp_insert_post_data', array( $this, 'filter_post_data_compose_content' ), 10, 2 );
-		// Ensure a revision is created even if only meta fields change.
-		add_filter( 'wp_save_post_revision_post_has_changed', array( $this, 'force_revision_on_meta' ), 10, 3 );
 
 		/**
 		 * Lock document type after the first assignment.
@@ -692,90 +711,11 @@ class Documentate_Documents {
 			echo '<td>';
 
 			if ( 'single' === $type ) {
-				// Map schema hints into the appropriate HTML control and attributes.
-				$input_type       = $this->map_single_input_type( $field_type, $data_type );
-				$normalized_value = $this->normalize_scalar_value( $value, $input_type );
-				$attributes       = $this->build_scalar_input_attributes( $raw_field, $input_type );
-
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
-				}
-				if ( '' !== $validation ) {
-					$attributes['data-validation-message'] = $validation;
-				}
-
-				$attributes['class'] = $this->build_input_class( $input_type );
-				$attribute_string    = $this->format_field_attributes( $attributes );
-
-				if ( 'select' === $input_type ) {
-					$options     = $this->parse_select_options( $raw_field );
-					$placeholder = $this->get_select_placeholder( $raw_field );
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<select id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>';
-					if ( '' !== $placeholder ) {
-						echo '<option value="">' . esc_html( $placeholder ) . '</option>';
-					} elseif ( empty( $attributes['required'] ) ) {
-						echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
-					}
-					foreach ( $options as $option_value => $option_label ) {
-						echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $option_value, $normalized_value, false ) . '>' . esc_html( $option_label ) . '</option>';
-					}
-					echo '</select>';
-				} elseif ( 'checkbox' === $input_type ) {
-					// Hidden field guarantees we persist an explicit "0" when unchecked.
-					echo '<input type="hidden" name="' . esc_attr( $meta_key ) . '" value="0" />';
-					echo '<label class="documentate-checkbox-wrapper">';
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<input type="checkbox" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="1" ' . checked( '1', $normalized_value, false ) . ' ' . $attribute_string . ' />';
-					echo '<span class="screen-reader-text">' . esc_html( $label ) . '</span>';
-					echo '</label>';
-				} else {
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="' . esc_attr( $normalized_value ) . '" ' . $attribute_string . ' />';
-				}
+				$this->render_single_input_control( $meta_key, $label, $value, $field_type, $data_type, $raw_field, $describedby, $validation );
 			} elseif ( 'rich' === $type ) {
-				// Check if collaborative editing is enabled.
-				$is_collaborative = $this->is_collaborative_editing_enabled();
-
-				if ( $is_collaborative ) {
-					// Render TipTap collaborative editor container.
-					echo '<div class="documentate-collab-container">';
-					echo '<textarea id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" class="documentate-collab-textarea" rows="8">' . esc_textarea( $value ) . '</textarea>';
-					echo '</div>';
-				} else {
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles output escaping.
-					wp_editor(
-						$value,
-						$meta_key,
-						array(
-							'textarea_name' => $meta_key,
-							'textarea_rows' => 8,
-							'media_buttons' => false,
-							'teeny'         => false,
-							'tinymce'       => array(
-								'toolbar1'      => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,undo,redo,removeformat',
-								'content_style' => 'table,th,td{border:1px solid #000;border-collapse:collapse}table{border-collapse:collapse}',
-							),
-							'quicktags'     => true,
-							'editor_height' => 220,
-						)
-					);
-				}
+				$this->render_rich_editor_control( $meta_key, $value );
 			} else {
-				$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
-				}
-				if ( '' !== $validation ) {
-					$attributes['data-validation-message'] = $validation;
-				}
-				if ( ! isset( $attributes['rows'] ) ) {
-					$attributes['rows'] = 6;
-				}
-				$attributes['class'] = $this->build_input_class( 'textarea' );
-				$attribute_string    = $this->format_field_attributes( $attributes );
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-				echo '<textarea id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>' . esc_textarea( $value ) . '</textarea>';
+				$this->render_textarea_control( $meta_key, $value, $raw_field, $describedby, $validation );
 			}
 
 			if ( '' !== $description ) {
@@ -793,6 +733,146 @@ class Documentate_Documents {
 		$unknown = $this->collect_unknown_dynamic_fields( $post->ID, $known_meta_keys );
 		$this->render_unknown_dynamic_fields_ui( $unknown );
 		echo '</div>';
+	}
+
+	/**
+	 * Render a single-line input control (text, number, date, select, checkbox).
+	 *
+	 * @param string              $meta_key   The meta key for the field.
+	 * @param string              $label      The field label.
+	 * @param string              $value      The current field value.
+	 * @param string              $field_type Field type from schema.
+	 * @param string              $data_type  Data type from schema.
+	 * @param array<string,mixed> $raw_field  Raw field definition.
+	 * @param array<string>       $describedby Aria describedby IDs.
+	 * @param string              $validation Validation message.
+	 */
+	private function render_single_input_control( $meta_key, $label, $value, $field_type, $data_type, $raw_field, $describedby, $validation ) {
+		$input_type       = $this->map_single_input_type( $field_type, $data_type );
+		$normalized_value = $this->normalize_scalar_value( $value, $input_type );
+		$attributes       = $this->build_scalar_input_attributes( $raw_field, $input_type );
+
+		if ( ! empty( $describedby ) ) {
+			$attributes['aria-describedby'] = implode( ' ', $describedby );
+		}
+		if ( '' !== $validation ) {
+			$attributes['data-validation-message'] = $validation;
+		}
+
+		$attributes['class'] = $this->build_input_class( $input_type );
+		$attribute_string    = $this->format_field_attributes( $attributes );
+
+		if ( 'select' === $input_type ) {
+			$this->render_select_control( $meta_key, $normalized_value, $raw_field, $attributes, $attribute_string );
+		} elseif ( 'checkbox' === $input_type ) {
+			$this->render_checkbox_control( $meta_key, $label, $normalized_value, $attribute_string );
+		} else {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+			echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="' . esc_attr( $normalized_value ) . '" ' . $attribute_string . ' />';
+		}
+	}
+
+	/**
+	 * Render a select dropdown control.
+	 *
+	 * @param string              $meta_key         The meta key for the field.
+	 * @param string              $value            The current field value.
+	 * @param array<string,mixed> $raw_field        Raw field definition.
+	 * @param array<string,mixed> $attributes       Field attributes.
+	 * @param string              $attribute_string Formatted attribute string.
+	 */
+	private function render_select_control( $meta_key, $value, $raw_field, $attributes, $attribute_string ) {
+		$options     = $this->parse_select_options( $raw_field );
+		$placeholder = $this->get_select_placeholder( $raw_field );
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+		echo '<select id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>';
+		if ( '' !== $placeholder ) {
+			echo '<option value="">' . esc_html( $placeholder ) . '</option>';
+		} elseif ( empty( $attributes['required'] ) ) {
+			echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
+		}
+		foreach ( $options as $option_value => $option_label ) {
+			echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $option_value, $value, false ) . '>' . esc_html( $option_label ) . '</option>';
+		}
+		echo '</select>';
+	}
+
+	/**
+	 * Render a checkbox control.
+	 *
+	 * @param string $meta_key         The meta key for the field.
+	 * @param string $label            The field label.
+	 * @param string $value            The current field value.
+	 * @param string $attribute_string Formatted attribute string.
+	 */
+	private function render_checkbox_control( $meta_key, $label, $value, $attribute_string ) {
+		// Hidden field guarantees we persist an explicit "0" when unchecked.
+		echo '<input type="hidden" name="' . esc_attr( $meta_key ) . '" value="0" />';
+		echo '<label class="documentate-checkbox-wrapper">';
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+		echo '<input type="checkbox" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="1" ' . checked( '1', $value, false ) . ' ' . $attribute_string . ' />';
+		echo '<span class="screen-reader-text">' . esc_html( $label ) . '</span>';
+		echo '</label>';
+	}
+
+	/**
+	 * Render a rich text editor control.
+	 *
+	 * @param string $meta_key The meta key for the field.
+	 * @param string $value    The current field value.
+	 */
+	private function render_rich_editor_control( $meta_key, $value ) {
+		$is_collaborative = $this->is_collaborative_editing_enabled();
+
+		if ( $is_collaborative ) {
+			echo '<div class="documentate-collab-container">';
+			echo '<textarea id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" class="documentate-collab-textarea" rows="8">' . esc_textarea( $value ) . '</textarea>';
+			echo '</div>';
+		} else {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles output escaping.
+			wp_editor(
+				$value,
+				$meta_key,
+				array(
+					'textarea_name' => $meta_key,
+					'textarea_rows' => 8,
+					'media_buttons' => false,
+					'teeny'         => false,
+					'tinymce'       => array(
+						'toolbar1'      => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,undo,redo,removeformat',
+						'content_style' => 'table,th,td{border:1px solid #000;border-collapse:collapse}table{border-collapse:collapse}',
+					),
+					'quicktags'     => true,
+					'editor_height' => 220,
+				)
+			);
+		}
+	}
+
+	/**
+	 * Render a textarea control.
+	 *
+	 * @param string              $meta_key   The meta key for the field.
+	 * @param string              $value      The current field value.
+	 * @param array<string,mixed> $raw_field  Raw field definition.
+	 * @param array<string>       $describedby Aria describedby IDs.
+	 * @param string              $validation Validation message.
+	 */
+	private function render_textarea_control( $meta_key, $value, $raw_field, $describedby, $validation ) {
+		$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
+		if ( ! empty( $describedby ) ) {
+			$attributes['aria-describedby'] = implode( ' ', $describedby );
+		}
+		if ( '' !== $validation ) {
+			$attributes['data-validation-message'] = $validation;
+		}
+		if ( ! isset( $attributes['rows'] ) ) {
+			$attributes['rows'] = 6;
+		}
+		$attributes['class'] = $this->build_input_class( 'textarea' );
+		$attribute_string    = $this->format_field_attributes( $attributes );
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+		echo '<textarea id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>' . esc_textarea( $value ) . '</textarea>';
 	}
 
 	/**
@@ -896,126 +976,31 @@ class Documentate_Documents {
 	 * @return string Control identifier: single|textarea|rich|array.
 	 */
 	private function resolve_field_control_type( $legacy_type, $raw_field ) {
-		$legacy_type = sanitize_key( $legacy_type );
-		if ( '' === $legacy_type ) {
-			$legacy_type = 'textarea';
-		}
-		if ( 'array' === $legacy_type ) {
-			return 'array';
-		}
-
-		if ( ! in_array( $legacy_type, array( 'single', 'textarea', 'rich' ), true ) ) {
-			$legacy_type = 'textarea';
-		}
-
-		$raw_type = '';
-		if ( is_array( $raw_field ) ) {
-			if ( isset( $raw_field['type'] ) ) {
-				$raw_type = sanitize_key( $raw_field['type'] );
-			} elseif ( isset( $raw_field['parameters']['type'] ) ) {
-				$raw_type = sanitize_key( $raw_field['parameters']['type'] );
-			}
-		}
-
-		if ( '' === $raw_type ) {
-			return ( 'rich' === $legacy_type ) ? 'rich' : 'textarea';
-		}
-
-		if ( in_array( $raw_type, array( 'html', 'rich', 'tinymce', 'editor' ), true ) ) {
-			return 'rich';
-		}
-
-		if ( in_array( $raw_type, array( 'textarea', 'text-area', 'text_area' ), true ) ) {
-			return 'textarea';
-		}
-
-		if ( in_array(
-			$raw_type,
-			array(
-				'text',
-				'string',
-				'varchar',
-				'email',
-				'url',
-				'link',
-				'number',
-				'numeric',
-				'int',
-				'integer',
-				'float',
-				'decimal',
-				'date',
-				'datetime',
-				'datetime-local',
-				'time',
-				'tel',
-				'phone',
-				'boolean',
-				'bool',
-				'checkbox',
-				'select',
-				'dropdown',
-				'choice',
-			),
-			true
-		) ) {
-			return 'single';
-		}
-
-		// Fall back to the legacy control type (usually textarea) for plain text fields.
-		return $legacy_type;
+		return Documents_Field_Validator::resolve_field_control_type( $legacy_type, $raw_field );
 	}
 
 	/**
 	 * Retrieve the field description from the raw schema record.
 	 *
+	 * Delegates to Documents_Field_Validator.
+	 *
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
 	private function get_field_description( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
-			return '';
-		}
-
-		if ( isset( $raw_field['description'] ) && is_string( $raw_field['description'] ) && '' !== $raw_field['description'] ) {
-			return sanitize_text_field( $raw_field['description'] );
-		}
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			foreach ( array( 'description', 'help', 'hint' ) as $key ) {
-				if ( isset( $raw_field['parameters'][ $key ] ) && '' !== $raw_field['parameters'][ $key ] ) {
-					return sanitize_text_field( (string) $raw_field['parameters'][ $key ] );
-				}
-			}
-		}
-
-		return '';
+		return Documents_Field_Validator::get_field_description( $raw_field );
 	}
 
 	/**
 	 * Retrieve the validation message associated with the field.
 	 *
+	 * Delegates to Documents_Field_Validator.
+	 *
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
 	private function get_field_validation_message( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
-			return '';
-		}
-
-		if ( isset( $raw_field['patternmsg'] ) && is_string( $raw_field['patternmsg'] ) && '' !== $raw_field['patternmsg'] ) {
-			return sanitize_text_field( $raw_field['patternmsg'] );
-		}
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			foreach ( array( 'validation_message', 'validation-message', 'invalid', 'error' ) as $key ) {
-				if ( isset( $raw_field['parameters'][ $key ] ) && '' !== $raw_field['parameters'][ $key ] ) {
-					return sanitize_text_field( (string) $raw_field['parameters'][ $key ] );
-				}
-			}
-		}
-
-		return '';
+		return Documents_Field_Validator::get_field_validation_message( $raw_field );
 	}
 
 	/**
@@ -1025,21 +1010,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function get_field_title( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
-			return '';
-		}
-
-		if ( isset( $raw_field['title'] ) && is_string( $raw_field['title'] ) && '' !== $raw_field['title'] ) {
-			return sanitize_text_field( $raw_field['title'] );
-		}
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			if ( isset( $raw_field['parameters']['title'] ) && '' !== $raw_field['parameters']['title'] ) {
-				return sanitize_text_field( (string) $raw_field['parameters']['title'] );
-			}
-		}
-
-		return '';
+		return Documents_Field_Validator::get_field_title( $raw_field );
 	}
 
 	/**
@@ -1049,23 +1020,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function get_field_pattern_message( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
-			return '';
-		}
-
-		if ( isset( $raw_field['patternmsg'] ) && is_string( $raw_field['patternmsg'] ) && '' !== $raw_field['patternmsg'] ) {
-			return sanitize_text_field( $raw_field['patternmsg'] );
-		}
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			foreach ( array( 'patternmsg', 'pattern_message', 'pattern-message' ) as $key ) {
-				if ( isset( $raw_field['parameters'][ $key ] ) && '' !== $raw_field['parameters'][ $key ] ) {
-					return sanitize_text_field( (string) $raw_field['parameters'][ $key ] );
-				}
-			}
-		}
-
-		return '';
+		return Documents_Field_Validator::get_field_pattern_message( $raw_field );
 	}
 
 	/**
@@ -1076,59 +1031,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function map_single_input_type( $field_type, $data_type ) {
-		$field_type = strtolower( (string) $field_type );
-		$data_type  = strtolower( (string) $data_type );
-
-		switch ( $field_type ) {
-			case 'text':
-			case 'string':
-			case 'varchar':
-				return 'text';
-			case 'number':
-			case 'numeric':
-			case 'int':
-			case 'integer':
-			case 'float':
-			case 'decimal':
-				return 'number';
-			case 'email':
-				return 'email';
-			case 'url':
-			case 'link':
-				return 'url';
-			case 'tel':
-			case 'phone':
-				return 'tel';
-			case 'date':
-				return 'date';
-			case 'datetime':
-			case 'datetime-local':
-			case 'datetime_local':
-				return 'datetime-local';
-			case 'time':
-				return 'time';
-			case 'boolean':
-			case 'bool':
-			case 'checkbox':
-				return 'checkbox';
-			case 'select':
-			case 'dropdown':
-			case 'choice':
-				return 'select';
-			default:
-				break;
-		}
-
-		switch ( $data_type ) {
-			case 'number':
-				return 'number';
-			case 'date':
-				return 'date';
-			case 'boolean':
-				return 'checkbox';
-		}
-
-		return 'text';
+		return Documents_Field_Validator::map_single_input_type( $field_type, $data_type );
 	}
 
 	/**
@@ -1139,30 +1042,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function normalize_scalar_value( $value, $input_type ) {
-		$value      = is_scalar( $value ) ? (string) $value : '';
-		$input_type = sanitize_key( $input_type );
-
-		if ( 'checkbox' === $input_type ) {
-			return $this->is_truthy( $value ) ? '1' : '0';
-		}
-
-		if ( 'datetime-local' === $input_type ) {
-			$timestamp = strtotime( $value );
-			if ( false !== $timestamp ) {
-				return gmdate( 'Y-m-d\TH:i', $timestamp );
-			}
-			return $value;
-		}
-
-		if ( 'date' === $input_type ) {
-			$timestamp = strtotime( $value );
-			if ( false !== $timestamp ) {
-				return gmdate( 'Y-m-d', $timestamp );
-			}
-			return $value;
-		}
-
-		return $value;
+		return Documents_Field_Validator::normalize_scalar_value( $value, $input_type );
 	}
 
 	/**
@@ -1173,81 +1053,7 @@ class Documentate_Documents {
 	 * @return array<string,string>
 	 */
 	private function build_scalar_input_attributes( $raw_field, $input_type ) {
-		$attributes        = array();
-		$input_type        = sanitize_key( $input_type );
-		$allows_placeholder = ! in_array( $input_type, array( 'checkbox', 'select' ), true );
-
-		if ( ! is_array( $raw_field ) ) {
-			return $attributes;
-		}
-
-		if ( $allows_placeholder && ! empty( $raw_field['placeholder'] ) ) {
-			$attributes['placeholder'] = sanitize_text_field( $raw_field['placeholder'] );
-		}
-
-		if ( $allows_placeholder && ! empty( $raw_field['pattern'] ) ) {
-			$attributes['pattern'] = (string) $raw_field['pattern'];
-		}
-
-		if ( $allows_placeholder && isset( $raw_field['length'] ) ) {
-			$length = intval( $raw_field['length'] );
-			if ( $length > 0 ) {
-				$attributes['maxlength'] = (string) $length;
-			}
-		}
-
-		if ( isset( $raw_field['minvalue'] ) && in_array( $input_type, array( 'number', 'range', 'date', 'datetime-local', 'time' ), true ) ) {
-			$attributes['min'] = (string) $raw_field['minvalue'];
-		}
-
-		if ( isset( $raw_field['maxvalue'] ) && in_array( $input_type, array( 'number', 'range', 'date', 'datetime-local', 'time' ), true ) ) {
-			$attributes['max'] = (string) $raw_field['maxvalue'];
-		}
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			$params = $raw_field['parameters'];
-
-			if ( isset( $params['required'] ) && $this->is_truthy( $params['required'] ) ) {
-				$attributes['required'] = 'required';
-			} elseif ( isset( $params['is_required'] ) && $this->is_truthy( $params['is_required'] ) ) {
-				$attributes['required'] = 'required';
-			}
-
-			if ( $allows_placeholder && empty( $attributes['placeholder'] ) && isset( $params['placeholder'] ) ) {
-				$attributes['placeholder'] = sanitize_text_field( (string) $params['placeholder'] );
-			}
-
-			if ( isset( $params['step'] ) && in_array( $input_type, array( 'number', 'range' ), true ) ) {
-				$attributes['step'] = (string) $params['step'];
-			}
-
-			if ( isset( $params['min'] ) && ! isset( $attributes['min'] ) && in_array( $input_type, array( 'number', 'range', 'date', 'datetime-local', 'time' ), true ) ) {
-				$attributes['min'] = (string) $params['min'];
-			}
-
-			if ( isset( $params['max'] ) && ! isset( $attributes['max'] ) && in_array( $input_type, array( 'number', 'range', 'date', 'datetime-local', 'time' ), true ) ) {
-				$attributes['max'] = (string) $params['max'];
-			}
-
-			if ( 'textarea' === $input_type && isset( $params['rows'] ) ) {
-				$rows = intval( $params['rows'] );
-				if ( $rows > 0 ) {
-					$attributes['rows'] = (string) $rows;
-				}
-			}
-		}
-
-		if ( ! isset( $attributes['title'] ) ) {
-			$title_attribute = $this->get_field_pattern_message( $raw_field );
-			if ( '' === $title_attribute ) {
-				$title_attribute = $this->get_field_title( $raw_field );
-			}
-			if ( '' !== $title_attribute ) {
-				$attributes['title'] = $title_attribute;
-			}
-		}
-
-		return $attributes;
+		return Documents_Field_Validator::build_scalar_input_attributes( $raw_field, $input_type );
 	}
 
 	/**
@@ -1257,37 +1063,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function build_input_class( $input_type ) {
-		$input_type = sanitize_key( $input_type );
-		$classes    = array(
-			'documentate-field-input',
-			'documentate-field-input-' . $input_type,
-		);
-
-		switch ( $input_type ) {
-			case 'textarea':
-				$classes[] = 'large-text';
-				break;
-			case 'checkbox':
-				$classes[] = 'documentate-field-checkbox';
-				break;
-			case 'select':
-				$classes[] = 'regular-text';
-				break;
-			default:
-				$classes[] = 'regular-text';
-				break;
-		}
-
-		$classes = array_filter(
-			array_map(
-				static function ( $class ) {
-					return preg_replace( '/[^a-z0-9_\-]/', '', (string) $class );
-				},
-				array_unique( $classes )
-			)
-		);
-
-		return implode( ' ', $classes );
+		return Documents_Field_Renderer::build_input_class( $input_type );
 	}
 
 	/**
@@ -1297,33 +1073,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function format_field_attributes( $attributes ) {
-		if ( empty( $attributes ) || ! is_array( $attributes ) ) {
-			return '';
-		}
-
-		$parts = array();
-		foreach ( $attributes as $name => $value ) {
-			$name = strtolower( (string) $name );
-			$name = preg_replace( '/[^a-z0-9_\-:]/', '', $name );
-			if ( '' === $name ) {
-				continue;
-			}
-
-			if ( is_bool( $value ) ) {
-				if ( $value ) {
-					$parts[] = esc_attr( $name );
-				}
-				continue;
-			}
-
-			if ( null === $value ) {
-				continue;
-			}
-
-			$parts[] = esc_attr( $name ) . '="' . esc_attr( (string) $value ) . '"';
-		}
-
-		return implode( ' ', $parts );
+		return Documents_Field_Renderer::format_field_attributes( $attributes );
 	}
 
 	/**
@@ -1333,53 +1083,7 @@ class Documentate_Documents {
 	 * @return array<string,string>
 	 */
 	private function parse_select_options( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
-			return array();
-		}
-
-		$options = array();
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			$params    = $raw_field['parameters'];
-			$source    = '';
-			$candidate = null;
-
-			foreach ( array( 'options', 'choices', 'values' ) as $key ) {
-				if ( isset( $params[ $key ] ) && '' !== $params[ $key ] ) {
-					$candidate = $params[ $key ];
-					break;
-				}
-			}
-
-			if ( is_array( $candidate ) ) {
-				foreach ( $candidate as $value => $label ) {
-					$option_value = is_int( $value ) ? (string) $label : (string) $value;
-					$option_label = is_int( $value ) ? (string) $label : (string) $label;
-					$options[ sanitize_text_field( $option_value ) ] = sanitize_text_field( $option_label );
-				}
-			} elseif ( is_string( $candidate ) && '' !== $candidate ) {
-				$source = $candidate;
-			}
-
-			if ( '' !== $source ) {
-				$delimiter = ( false !== strpos( $source, '|' ) ) ? '|' : ',';
-				$pieces    = array_map( 'trim', explode( $delimiter, $source ) );
-				foreach ( $pieces as $piece ) {
-					if ( '' === $piece ) {
-						continue;
-					}
-					if ( false !== strpos( $piece, ':' ) ) {
-						list( $value, $label ) = array_map( 'trim', explode( ':', $piece, 2 ) );
-					} else {
-						$value = $piece;
-						$label = $piece;
-					}
-					$options[ sanitize_text_field( $value ) ] = sanitize_text_field( $label );
-				}
-			}
-		}
-
-		return $options;
+		return Documents_Field_Renderer::parse_select_options( $raw_field );
 	}
 
 	/**
@@ -1389,23 +1093,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	private function get_select_placeholder( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
-			return '';
-		}
-
-		if ( isset( $raw_field['placeholder'] ) && '' !== $raw_field['placeholder'] ) {
-			return sanitize_text_field( $raw_field['placeholder'] );
-		}
-
-		if ( isset( $raw_field['parameters'] ) && is_array( $raw_field['parameters'] ) ) {
-			foreach ( array( 'placeholder', 'prompt', 'empty', 'empty_label' ) as $key ) {
-				if ( isset( $raw_field['parameters'][ $key ] ) && '' !== $raw_field['parameters'][ $key ] ) {
-					return sanitize_text_field( (string) $raw_field['parameters'][ $key ] );
-				}
-			}
-		}
-
-		return '';
+		return Documents_Field_Renderer::get_select_placeholder( $raw_field );
 	}
 
 	/**
@@ -1415,11 +1103,7 @@ class Documentate_Documents {
 	 * @return bool
 	 */
 	private function is_truthy( $value ) {
-		if ( is_bool( $value ) ) {
-			return $value;
-		}
-		$value = strtolower( trim( (string) $value ) );
-		return in_array( $value, array( '1', 'true', 'yes', 'on' ), true );
+		return Documents_Field_Validator::is_truthy( $value );
 	}
 
 		/**
@@ -1727,6 +1411,38 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Map of field types to sanitization methods.
+	 *
+	 * @var array<string,string>
+	 */
+	private static $sanitizer_map = array(
+		'single' => 'sanitize_text_field',
+	);
+
+	/**
+	 * Sanitize a field value based on its type.
+	 *
+	 * Uses lookup array instead of switch for reduced complexity.
+	 *
+	 * @param string $raw_value Raw value to sanitize.
+	 * @param string $type      Field type (single, rich, or default to textarea).
+	 * @return string Sanitized value.
+	 */
+	private function sanitize_field_by_type( $raw_value, $type ) {
+		$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
+
+		if ( isset( self::$sanitizer_map[ $type ] ) ) {
+			return call_user_func( self::$sanitizer_map[ $type ], $raw_value );
+		}
+
+		if ( 'rich' === $type ) {
+			return $this->sanitize_rich_text_value( $raw_value );
+		}
+
+		return sanitize_textarea_field( $raw_value );
+	}
+
+	/**
 	 * Sanitize rich text content by stripping disallowed blocks completely.
 	 *
 	 * @param string $value Raw submitted value.
@@ -1845,21 +1561,8 @@ class Documentate_Documents {
 					$raw   = isset( $item[ $key ] ) ? $item[ $key ] : '';
 					$raw   = is_scalar( $raw ) ? (string) $raw : '';
 					$type  = isset( $settings['type'] ) ? $settings['type'] : 'textarea';
-					$value = '';
 
-				switch ( $type ) {
-					case 'single':
-						$value = sanitize_text_field( $raw );
-						break;
-					case 'rich':
-							$value = $this->sanitize_rich_text_value( $raw );
-						break;
-					default:
-							$value = sanitize_textarea_field( $raw );
-						break;
-				}
-
-					$filtered[ $key ] = $value;
+					$filtered[ $key ] = $this->sanitize_field_by_type( $raw, $type );
 			}
 
 				$has_content = false;
@@ -2045,19 +1748,7 @@ class Documentate_Documents {
 			}
 
 			$raw_value = $post_values[ $meta_key ];
-			$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
-
-			switch ( $type ) {
-				case 'single':
-					$value = sanitize_text_field( $raw_value );
-					break;
-				case 'rich':
-					$value = $this->sanitize_rich_text_value( $raw_value );
-					break;
-				default:
-					$value = sanitize_textarea_field( $raw_value );
-					break;
-			}
+			$value     = $this->sanitize_field_by_type( $raw_value, $type );
 
 			if ( '' === $value ) {
 				delete_post_meta( $post_id, $meta_key );
@@ -2109,27 +1800,9 @@ class Documentate_Documents {
 		$data['post_password'] = '';
 
 		// Preserve post dates for existing posts.
-		if ( $post_id > 0 ) {
-			$current_post = get_post( $post_id );
-			if ( $current_post && 'documentate_document' === $current_post->post_type ) {
-				// Only preserve dates if not explicitly changed.
-				if ( empty( $data['post_date'] ) || '0000-00-00 00:00:00' === $data['post_date'] ) {
-					$data['post_date']     = $current_post->post_date;
-					$data['post_date_gmt'] = $current_post->post_date_gmt;
-				}
-			}
-		}
+		$data = $this->preserve_document_dates( $data, $post_id );
 
-		$term_id = 0;
-		if ( isset( $_POST['documentate_doc_type'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			$term_id = max( 0, intval( wp_unslash( $_POST['documentate_doc_type'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		}
-		if ( $term_id <= 0 && $post_id > 0 ) {
-			$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-			if ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) {
-				$term_id = intval( $assigned[0] );
-			}
-		}
+		$term_id = $this->get_term_id_from_request_or_post( $post_id );
 
 		$schema         = array();
 		$dynamic_schema = array();
@@ -2138,19 +1811,7 @@ class Documentate_Documents {
 			$schema         = $dynamic_schema;
 		}
 
-		$existing_structured = array();
-		if ( isset( $postarr['post_content'] ) && '' !== $postarr['post_content'] ) {
-			$existing_structured = self::parse_structured_content( (string) $postarr['post_content'] );
-		}
-		if ( empty( $existing_structured ) && $post_id > 0 ) {
-			$current_content = get_post_field( 'post_content', $post_id, 'edit' );
-			if ( is_string( $current_content ) && '' !== $current_content ) {
-				$existing_structured = self::parse_structured_content( $current_content );
-			}
-			if ( empty( $existing_structured ) ) {
-				$existing_structured = $this->get_structured_field_values( $post_id );
-			}
-		}
+		$existing_structured = $this->collect_existing_structured_content( $postarr, $post_id );
 
 		$structured_fields   = array();
 		$known_slugs         = array();
@@ -2191,34 +1852,9 @@ class Documentate_Documents {
 			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
 				$type = 'textarea';
 			}
-							$meta_key             = 'documentate_field_' . $slug;
-							$value                = '';
+			$meta_key = 'documentate_field_' . $slug;
 
-			if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-				$raw_input = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-				$raw_input = is_scalar( $raw_input ) ? (string) $raw_input : '';
-
-				// Force rich type if content contains block HTML (tables, lists, etc.)
-				// to preserve formatting from TinyMCE regardless of schema type.
-				if ( 'rich' !== $type && self::value_contains_block_html( $raw_input ) ) {
-					$type = 'rich';
-				}
-
-				if ( 'single' === $type ) {
-					$value = sanitize_text_field( $raw_input );
-				} elseif ( 'rich' === $type ) {
-							$value = $this->sanitize_rich_text_value( $raw_input );
-				} else {
-						$value = sanitize_textarea_field( $raw_input );
-				}
-			} elseif ( isset( $existing_structured[ $slug ] ) ) {
-				$value = (string) $existing_structured[ $slug ]['value'];
-			}
-
-							$structured_fields[ $slug ] = array(
-								'type'  => $type,
-								'value' => (string) $value,
-							);
+			$structured_fields[ $slug ] = $this->process_posted_field_value( $slug, $type, $meta_key, $existing_structured );
 		}
 
 		$unknown_fields = array();
@@ -2286,6 +1922,110 @@ class Documentate_Documents {
 
 		$data['post_content'] = implode( "\n\n", $fragments );
 		return $data;
+	}
+
+	/**
+	 * Preserve post dates for existing documents.
+	 *
+	 * @param array<string,mixed> $data      Post data array.
+	 * @param int                 $post_id   Post ID.
+	 * @return array<string,mixed>
+	 */
+	private function preserve_document_dates( $data, $post_id ) {
+		if ( $post_id <= 0 ) {
+			return $data;
+		}
+
+		$current_post = get_post( $post_id );
+		if ( $current_post && 'documentate_document' === $current_post->post_type ) {
+			if ( empty( $data['post_date'] ) || '0000-00-00 00:00:00' === $data['post_date'] ) {
+				$data['post_date']     = $current_post->post_date;
+				$data['post_date_gmt'] = $current_post->post_date_gmt;
+			}
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Get term ID from request or existing post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int
+	 */
+	private function get_term_id_from_request_or_post( $post_id ) {
+		$term_id = 0;
+		if ( isset( $_POST['documentate_doc_type'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$term_id = max( 0, intval( wp_unslash( $_POST['documentate_doc_type'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		}
+		if ( $term_id <= 0 && $post_id > 0 ) {
+			$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+			if ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) {
+				$term_id = intval( $assigned[0] );
+			}
+		}
+		return $term_id;
+	}
+
+	/**
+	 * Collect existing structured content from post.
+	 *
+	 * @param array<string,mixed> $postarr  Post array.
+	 * @param int                 $post_id  Post ID.
+	 * @return array<string,array{value:string,type:string}>
+	 */
+	private function collect_existing_structured_content( $postarr, $post_id ) {
+		$existing_structured = array();
+		if ( isset( $postarr['post_content'] ) && '' !== $postarr['post_content'] ) {
+			$existing_structured = self::parse_structured_content( (string) $postarr['post_content'] );
+		}
+		if ( empty( $existing_structured ) && $post_id > 0 ) {
+			$current_content = get_post_field( 'post_content', $post_id, 'edit' );
+			if ( is_string( $current_content ) && '' !== $current_content ) {
+				$existing_structured = self::parse_structured_content( $current_content );
+			}
+			if ( empty( $existing_structured ) ) {
+				$existing_structured = $this->get_structured_field_values( $post_id );
+			}
+		}
+		return $existing_structured;
+	}
+
+	/**
+	 * Process a single field value from POST data.
+	 *
+	 * @param string              $slug     Field slug.
+	 * @param string              $type     Field type.
+	 * @param string              $meta_key Meta key.
+	 * @param array<string,array> $existing Existing structured fields.
+	 * @return array{type:string,value:string}
+	 */
+	private function process_posted_field_value( $slug, $type, $meta_key, $existing ) {
+		$value = '';
+
+		if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$raw_input = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$raw_input = is_scalar( $raw_input ) ? (string) $raw_input : '';
+
+			if ( 'rich' !== $type && Documents_Meta_Handler::value_contains_block_html( $raw_input ) ) {
+				$type = 'rich';
+			}
+
+			if ( 'single' === $type ) {
+				$value = sanitize_text_field( $raw_input );
+			} elseif ( 'rich' === $type ) {
+				$value = $this->sanitize_rich_text_value( $raw_input );
+			} else {
+				$value = sanitize_textarea_field( $raw_input );
+			}
+		} elseif ( isset( $existing[ $slug ] ) ) {
+			$value = (string) $existing[ $slug ]['value'];
+		}
+
+		return array(
+			'type'  => $type,
+			'value' => (string) $value,
+		);
 	}
 
 	/**
@@ -2363,35 +2103,13 @@ class Documentate_Documents {
 	/**
 	 * Parse the structured post_content string into slug/value pairs.
 	 *
+	 * Delegates to Documents_Meta_Handler for implementation.
+	 *
 	 * @param string $content Raw post content.
 	 * @return array<string, array{value:string,type:string}>
 	 */
 	public static function parse_structured_content( $content ) {
-		$content = (string) $content;
-		if ( '' === trim( $content ) ) {
-			return array();
-		}
-
-		$pattern = '/<!--\s*documentate-field\s+([^>]*)-->(.*?)<!--\s*\/documentate-field\s*-->/si';
-		if ( ! preg_match_all( $pattern, $content, $matches, PREG_SET_ORDER ) ) {
-			return array();
-		}
-
-		$fields = array();
-		foreach ( $matches as $match ) {
-			$attrs = self::parse_structured_field_attributes( $match[1] );
-			$slug  = isset( $attrs['slug'] ) ? sanitize_key( $attrs['slug'] ) : '';
-			if ( '' === $slug ) {
-				continue;
-			}
-			$type = isset( $attrs['type'] ) ? sanitize_key( $attrs['type'] ) : '';
-			$fields[ $slug ] = array(
-				'value' => trim( (string) $match[2] ),
-				'type'  => $type,
-			);
-		}
-
-		return $fields;
+		return Documents_Meta_Handler::parse_structured_content( $content );
 	}
 
 	/**
@@ -2415,60 +2133,39 @@ class Documentate_Documents {
 	/**
 	 * Compose the HTML comment fragment that stores a field value.
 	 *
+	 * Delegates to Documents_Meta_Handler for implementation.
+	 *
 	 * @param string $slug  Field slug.
 	 * @param string $type  Field type.
 	 * @param string $value Field value.
 	 * @return string
 	 */
 	private function build_structured_field_fragment( $slug, $type, $value ) {
-		$slug = sanitize_key( $slug );
-		if ( '' === $slug ) {
-			return '';
-		}
-				$type = sanitize_key( $type );
-		if ( ! in_array( $type, array( 'single', 'textarea', 'rich', 'array' ), true ) ) {
-				$type = '';
-		}
-
-				$attributes = 'slug="' . esc_attr( $slug ) . '"';
-		if ( '' !== $type ) {
-			$attributes .= ' type="' . esc_attr( $type ) . '"';
-		}
-
-		$value = (string) $value;
-		return '<!-- documentate-field ' . $attributes . " -->\n" . $value . "\n<!-- /documentate-field -->";
+		return Documents_Meta_Handler::build_structured_field_fragment( $slug, $type, $value );
 	}
 
 	/**
 	 * Get dynamic fields schema for the selected document type of a post.
 	 *
+	 * Delegates to Documents_Meta_Handler for implementation.
+	 *
 	 * @param int $post_id Post ID.
 	 * @return array[] Array of field definitions with keys: slug, label, type.
 	 */
 	private function get_dynamic_fields_schema_for_post( $post_id ) {
-		$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		$term_id  = ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) ? intval( $assigned[0] ) : 0;
-		if ( $term_id <= 0 ) {
-			return array();
-		}
-		return self::get_term_schema( $term_id );
+		return Documents_Meta_Handler::get_dynamic_fields_schema_for_post( $post_id );
 	}
 
 	/**
 	 * Get sanitized schema array for a document type term.
 	 *
+	 * Delegates to Documents_Meta_Handler for implementation.
+	 *
 	 * @param int $term_id Term ID.
 	 * @return array[]
 	 */
 	public static function get_term_schema( $term_id ) {
-		$storage   = new SchemaStorage();
-		$schema_v2 = $storage->get_schema( $term_id );
-
-		if ( is_array( $schema_v2 ) && ! empty( $schema_v2 ) ) {
-			return SchemaConverter::to_legacy( $schema_v2 );
-		}
-
-		return array();
+		return Documents_Meta_Handler::get_term_schema( $term_id );
 	}
 
 	/**
@@ -2623,41 +2320,6 @@ class Documentate_Documents {
 		};
 
 			return (string) preg_replace_callback( '/u([0-9a-fA-F]{4})/i', $callback, $text );
-	}
-
-	/**
-	 * Check if a value contains block-level HTML that requires rich text handling.
-	 *
-	 * This detects HTML content in fields that may not be explicitly typed as 'rich',
-	 * ensuring tables, lists, and other block elements from TinyMCE are preserved.
-	 *
-	 * @param string $value Field value to check.
-	 * @return bool True if value contains block HTML tags.
-	 */
-	private static function value_contains_block_html( $value ) {
-		if ( ! is_string( $value ) || '' === $value ) {
-			return false;
-		}
-		// Quick check: must contain both < and > to be HTML.
-		if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
-			return false;
-		}
-		// Detect block-level HTML tags that require preservation.
-		$block_patterns = array(
-			'/<table[\s>]/i',
-			'/<ul[\s>]/i',
-			'/<ol[\s>]/i',
-			'/<p[\s>]/i',
-			'/<h[1-6][\s>]/i',
-			'/<blockquote[\s>]/i',
-			'/<div[\s>]/i',
-		);
-		foreach ( $block_patterns as $pattern ) {
-			if ( preg_match( $pattern, $value ) ) {
-				return true;
-			}
-		}
-		return false;
 	}
 }
 

@@ -7,8 +7,12 @@
 
 // phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 
+use Documentate\OpenTBS\OpenTBS_HTML_Parser;
+
 /**
  * Lightweight OpenTBS wrapper for Documentate.
+ *
+ * Uses OpenTBS_HTML_Parser for shared HTML parsing utilities.
  */
 class Documentate_OpenTBS {
 
@@ -48,6 +52,43 @@ class Documentate_OpenTBS {
 	 * XLink namespace used for hyperlinks in ODT documents.
 	 */
 	private const ODF_XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+	/**
+	 * Create a DOMDocument configured for XML parsing.
+	 *
+	 * @param string $xml XML content to load.
+	 * @return DOMDocument|false DOMDocument on success, false on failure.
+	 */
+	private static function create_xml_document( $xml ) {
+		$dom = new DOMDocument();
+		$dom->preserveWhiteSpace = false;
+		$dom->formatOutput       = false;
+
+		libxml_use_internal_errors( true );
+		$loaded = $dom->loadXML( $xml );
+		libxml_clear_errors();
+
+		return $loaded ? $dom : false;
+	}
+
+	/**
+	 * Create a DOMDocument from HTML content with UTF-8 encoding.
+	 *
+	 * @param string $html HTML content to load.
+	 * @return DOMDocument|false DOMDocument on success, false on failure.
+	 */
+	private static function create_html_document( $html ) {
+		$tmp = new DOMDocument();
+
+		libxml_use_internal_errors( true );
+		// Convert to HTML entities to preserve UTF-8 encoding, then wrap for parsing.
+		$encoded = @mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
+		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
+		$loaded  = $tmp->loadHTML( $wrapped );
+		libxml_clear_errors();
+
+		return $loaded ? $tmp : false;
+	}
 
 	/**
 	 * Ensure libraries are loaded.
@@ -238,13 +279,8 @@ class Documentate_OpenTBS {
 			// Normalize line endings to match ODT processing (handles HTML with newlines between tags).
 			$rich_lookup = self::normalize_lookup_line_endings( $rich_lookup );
 
-			$dom = new DOMDocument();
-			$dom->preserveWhiteSpace = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			$dom->formatOutput       = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			libxml_use_internal_errors( true );
-			$loaded = $dom->loadXML( $xml );
-			libxml_clear_errors();
-		if ( ! $loaded ) {
+			$dom = self::create_xml_document( $xml );
+		if ( ! $dom ) {
 			return $xml;
 		}
 			$xpath = new DOMXPath( $dom );
@@ -461,28 +497,13 @@ class Documentate_OpenTBS {
 	/**
 	 * Prepare rich text values as a lookup table keyed by raw HTML.
 	 *
+	 * Delegates to OpenTBS_HTML_Parser for implementation.
+	 *
 	 * @param array<mixed> $values Potential rich text values.
 	 * @return array<string,string>
 	 */
 	private static function prepare_rich_lookup( $values ) {
-		$lookup = array();
-		if ( ! is_array( $values ) ) {
-			return $lookup;
-		}
-		foreach ( $values as $value ) {
-			if ( ! is_string( $value ) ) {
-				continue;
-			}
-			$value = trim( $value );
-			if ( '' === $value ) {
-				continue;
-			}
-			if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
-				continue;
-			}
-			$lookup[ $value ] = $value;
-		}
-		return $lookup;
+		return OpenTBS_HTML_Parser::prepare_rich_lookup( $values );
 	}
 
 	/**
@@ -546,14 +567,8 @@ class Documentate_OpenTBS {
 
 		$lookup = self::normalize_lookup_line_endings( $lookup );
 
-		$doc = new DOMDocument();
-		$doc->preserveWhiteSpace = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-		$doc->formatOutput       = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-
-		libxml_use_internal_errors( true );
-		$loaded = $doc->loadXML( $xml );
-		libxml_clear_errors();
-		if ( ! $loaded ) {
+		$doc = self::create_xml_document( $xml );
+		if ( ! $doc ) {
 			return $xml;
 		}
 
@@ -848,14 +863,8 @@ class Documentate_OpenTBS {
 			return array();
 		}
 
-		$tmp = new DOMDocument();
-		libxml_use_internal_errors( true );
-		// Convert to HTML entities to preserve encoding, then wrap for parsing.
-		$encoded = @mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
-		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
-		$loaded  = $tmp->loadHTML( $wrapped );
-		libxml_clear_errors();
-		if ( ! $loaded ) {
+		$tmp = self::create_html_document( $html );
+		if ( ! $tmp ) {
 			return array( $doc->createTextNode( $html ) );
 		}
 
@@ -969,85 +978,7 @@ class Documentate_OpenTBS {
 				$result[] = $doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' );
 				return $result;
 			case 'table':
-				$row_nodes = self::extract_table_row_nodes( $node );
-				if ( empty( $row_nodes ) ) {
-					return array();
-				}
-
-				$table_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table' );
-				// Apply default Documentate table style with 1px black borders.
-				$table_element->setAttributeNS( self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTable' );
-				$style_require['table'] = true;
-				$row_elements  = array();
-				$max_columns   = 0;
-
-				foreach ( $row_nodes as $row ) {
-					$row_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-row' );
-					$column_count = 0;
-
-					foreach ( $row->childNodes as $cell ) {
-						if ( ! $cell instanceof DOMElement ) {
-							continue;
-						}
-
-						$cell_tag = strtolower( $cell->nodeName );
-						if ( 'td' !== $cell_tag && 'th' !== $cell_tag ) {
-							continue;
-						}
-
-						$cell_formatting = $formatting;
-						if ( 'th' === $cell_tag ) {
-							$cell_formatting['bold'] = true;
-						}
-
-						$cell_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-cell' );
-						$cell_element->setAttributeNS( self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTableCell' );
-						$style_require['table_cell'] = true;
-						$paragraph    = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
-						$cell_list_state = array(
-							'unordered' => 0,
-							'ordered'   => array(),
-						);
-						$cell_nodes = self::collect_html_children_as_odt( $doc, $cell, $cell_formatting, $style_require, $cell_list_state );
-						if ( ! empty( $cell_nodes ) ) {
-							self::trim_odt_inline_nodes( $cell_nodes );
-							foreach ( $cell_nodes as $cell_node ) {
-								$paragraph->appendChild( $cell_node );
-							}
-						} else {
-							$paragraph->appendChild( $doc->createTextNode( '' ) );
-						}
-
-						$cell_element->appendChild( $paragraph );
-						$row_element->appendChild( $cell_element );
-						$column_count++;
-					}
-
-					if ( $column_count > 0 ) {
-						$row_elements[] = $row_element;
-						if ( $column_count > $max_columns ) {
-							$max_columns = $column_count;
-						}
-					}
-				}
-
-				if ( empty( $row_elements ) ) {
-					return array();
-				}
-
-				for ( $i = 0; $i < $max_columns; $i++ ) {
-					$table_element->appendChild( $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-column' ) );
-				}
-
-				foreach ( $row_elements as $row_element ) {
-					$table_element->appendChild( $row_element );
-				}
-
-				return array(
-					$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
-					$table_element,
-					$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
-				);
+				return self::convert_table_node_to_odt( $doc, $node, $formatting, $style_require );
 			case 'ul':
 				$list_state['unordered']++;
 				$prev_type                   = $list_state['current_type'] ?? null;
@@ -1126,6 +1057,129 @@ class Documentate_OpenTBS {
 	}
 
 	/**
+	 * Convert an HTML table node to ODT table elements.
+	 *
+	 * @param DOMDocument         $doc           Target document.
+	 * @param DOMNode             $node          Table HTML node.
+	 * @param array<string,mixed> $formatting    Active formatting flags.
+	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @return array<int,DOMNode>
+	 */
+	private static function convert_table_node_to_odt( DOMDocument $doc, $node, $formatting, array &$style_require ) {
+		$row_nodes = self::extract_table_row_nodes( $node );
+		if ( empty( $row_nodes ) ) {
+			return array();
+		}
+
+		$table_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table' );
+		$table_element->setAttributeNS( self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTable' );
+		$style_require['table'] = true;
+		$row_elements  = array();
+		$max_columns   = 0;
+
+		foreach ( $row_nodes as $row ) {
+			$row_data = self::convert_table_row_to_odt( $doc, $row, $formatting, $style_require );
+			if ( $row_data['element'] ) {
+				$row_elements[] = $row_data['element'];
+				if ( $row_data['columns'] > $max_columns ) {
+					$max_columns = $row_data['columns'];
+				}
+			}
+		}
+
+		if ( empty( $row_elements ) ) {
+			return array();
+		}
+
+		for ( $i = 0; $i < $max_columns; $i++ ) {
+			$table_element->appendChild( $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-column' ) );
+		}
+
+		foreach ( $row_elements as $row_element ) {
+			$table_element->appendChild( $row_element );
+		}
+
+		return array(
+			$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
+			$table_element,
+			$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
+		);
+	}
+
+	/**
+	 * Convert a single table row to ODT.
+	 *
+	 * @param DOMDocument         $doc           Target document.
+	 * @param DOMElement          $row           Row element.
+	 * @param array<string,mixed> $formatting    Active formatting flags.
+	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @return array{element: DOMElement|null, columns: int}
+	 */
+	private static function convert_table_row_to_odt( DOMDocument $doc, DOMElement $row, $formatting, array &$style_require ) {
+		$row_element  = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-row' );
+		$column_count = 0;
+
+		foreach ( $row->childNodes as $cell ) {
+			if ( ! $cell instanceof DOMElement ) {
+				continue;
+			}
+
+			$cell_tag = strtolower( $cell->nodeName );
+			if ( 'td' !== $cell_tag && 'th' !== $cell_tag ) {
+				continue;
+			}
+
+			$cell_element = self::convert_table_cell_to_odt( $doc, $cell, $formatting, $style_require );
+			$row_element->appendChild( $cell_element );
+			$column_count++;
+		}
+
+		return array(
+			'element' => $column_count > 0 ? $row_element : null,
+			'columns' => $column_count,
+		);
+	}
+
+	/**
+	 * Convert a single table cell to ODT.
+	 *
+	 * @param DOMDocument         $doc           Target document.
+	 * @param DOMElement          $cell          Cell element (td or th).
+	 * @param array<string,mixed> $formatting    Active formatting flags.
+	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @return DOMElement
+	 */
+	private static function convert_table_cell_to_odt( DOMDocument $doc, DOMElement $cell, $formatting, array &$style_require ) {
+		$cell_formatting = $formatting;
+		if ( 'th' === strtolower( $cell->nodeName ) ) {
+			$cell_formatting['bold'] = true;
+		}
+
+		$cell_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-cell' );
+		$cell_element->setAttributeNS( self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTableCell' );
+		$style_require['table_cell'] = true;
+
+		$paragraph       = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
+		$cell_list_state = array(
+			'unordered' => 0,
+			'ordered'   => array(),
+		);
+
+		$cell_nodes = self::collect_html_children_as_odt( $doc, $cell, $cell_formatting, $style_require, $cell_list_state );
+		if ( ! empty( $cell_nodes ) ) {
+			self::trim_odt_inline_nodes( $cell_nodes );
+			foreach ( $cell_nodes as $cell_node ) {
+				$paragraph->appendChild( $cell_node );
+			}
+		} else {
+			$paragraph->appendChild( $doc->createTextNode( '' ) );
+		}
+
+		$cell_element->appendChild( $paragraph );
+		return $cell_element;
+	}
+
+	/**
 	 * Extract <tr> nodes from table-related containers preserving order.
 	 *
 	 * @param DOMNode $node Table DOM node.
@@ -1152,81 +1206,37 @@ class Documentate_OpenTBS {
 	/**
 	 * Normalize line endings for lookup keys to improve HTML fragment matching.
 	 *
+	 * Delegates to OpenTBS_HTML_Parser for implementation.
+	 *
 	 * @param array<string,string> $lookup Original lookup table.
 	 * @return array<string,string>
 	 */
 	private static function normalize_lookup_line_endings( array $lookup ) {
-		$normalized = array();
-		foreach ( $lookup as $html => $raw ) {
-			$normalized_html  = self::normalize_text_newlines( $html );
-			$normalized_value = self::normalize_text_newlines( $raw );
-
-			$normalized[ $normalized_html ] = $normalized_value;
-
-			// Also add HTML-encoded version.
-			$encoded = htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 );
-			$encoded = self::normalize_text_newlines( $encoded );
-			if ( $encoded !== $normalized_html ) {
-				$normalized[ $encoded ] = $normalized_value;
-			}
-
-			// Also add version with whitespace between tags removed.
-			// TBS converts newlines to <w:br/> which get stripped when coalescing text.
-			$collapsed = self::collapse_html_whitespace( $normalized_html );
-			if ( $collapsed !== $normalized_html && ! isset( $normalized[ $collapsed ] ) ) {
-				$normalized[ $collapsed ] = $normalized_value;
-			}
-		}
-		return $normalized;
+		return OpenTBS_HTML_Parser::normalize_lookup_line_endings( $lookup );
 	}
 
 	/**
 	 * Normalize text for HTML matching by removing newlines and excess whitespace.
 	 *
-	 * TBS converts newlines to <w:br/> elements which are excluded when coalescing text,
-	 * but leaves indentation spaces intact. This function ensures both lookup and document
-	 * text are normalized the same way for matching.
+	 * Delegates to OpenTBS_HTML_Parser for implementation.
 	 *
 	 * @param string $text Text to normalize.
 	 * @return string Normalized text.
 	 */
 	private static function normalize_for_html_matching( $text ) {
-		// 1. Remove all newlines (TBS already removes them from document via <w:br/>).
-		$text = preg_replace( '/[\r\n]+/', '', $text );
-		// 2. Collapse multiple spaces to one.
-		$text = preg_replace( '/\s{2,}/', ' ', $text );
-		// 3. Remove spaces between tags.
-		$text = preg_replace( '/>\s+</', '><', $text );
-		return trim( $text );
-	}
-
-	/**
-	 * Collapse whitespace around HTML tags to enable matching when TBS strips newlines.
-	 *
-	 * When TBS places HTML with newlines into a document, it converts them to <w:br/>
-	 * elements which are not included in the text content. This function creates
-	 * a version of the HTML without whitespace around tags for matching purposes.
-	 *
-	 * @param string $html HTML string.
-	 * @return string HTML with whitespace around tags collapsed.
-	 */
-	private static function collapse_html_whitespace( $html ) {
-		return self::normalize_for_html_matching( $html );
+		return OpenTBS_HTML_Parser::normalize_for_html_matching( $text );
 	}
 
 	/**
 	 * Normalize literal newline escape sequences and CR characters to LF.
 	 *
+	 * Delegates to OpenTBS_HTML_Parser for implementation.
+	 *
 	 * @param string $value Source value.
 	 * @return string
 	 */
 	private static function normalize_text_newlines( $value ) {
-		$value = (string) $value;
-		$value = preg_replace( '/\\\\r\\\\n|\\\\n|\\\\r/', "\n", $value );
-		if ( ! is_string( $value ) ) {
-			$value = '';
-		}
-		return str_replace( array( "\r\n", "\r" ), "\n", $value );
+		return OpenTBS_HTML_Parser::normalize_text_newlines( $value );
 	}
 
 	/**
@@ -1515,14 +1525,8 @@ class Documentate_OpenTBS {
 			);
 		}
 
-		$tmp = new DOMDocument();
-		libxml_use_internal_errors( true );
-		// Convert to HTML entities to preserve UTF-8 encoding, then wrap for parsing.
-		$encoded = @mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
-		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
-		$loaded  = $tmp->loadHTML( $wrapped );
-		libxml_clear_errors();
-		if ( ! $loaded ) {
+		$tmp = self::create_html_document( $html );
+		if ( ! $tmp ) {
 			return array(
 				'block' => false,
 				'nodes' => array(),
@@ -1563,14 +1567,8 @@ class Documentate_OpenTBS {
 			return array();
 		}
 
-		$tmp = new DOMDocument();
-		libxml_use_internal_errors( true );
-		// Convert to HTML entities to preserve UTF-8 encoding, then wrap for parsing.
-		$encoded = mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
-		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
-		$loaded  = $tmp->loadHTML( $wrapped );
-		libxml_clear_errors();
-		if ( ! $loaded ) {
+		$tmp = self::create_html_document( $html );
+		if ( ! $tmp ) {
 			return array();
 		}
 
@@ -2137,35 +2135,6 @@ class Documentate_OpenTBS {
 		$paragraph = $doc->createElementNS( self::WORD_NAMESPACE, 'w:p' );
 		$paragraph->appendChild( self::create_blank_run( $doc, $base_rpr ) );
 		return $paragraph;
-	}
-
-	/**
-	 * Check whether a paragraph contains meaningful content other than a specific run.
-	 *
-	 * @param DOMElement $paragraph Paragraph element to inspect.
-	 * @param DOMElement $target_run Run node slated for replacement.
-	 * @return bool
-	 */
-	private static function paragraph_contains_other_content( DOMElement $paragraph, DOMElement $target_run ) {
-		foreach ( $paragraph->childNodes as $child ) {
-			if ( $child === $target_run ) {
-				continue;
-			}
-
-			if ( $child instanceof DOMElement ) {
-				if ( self::WORD_NAMESPACE === $child->namespaceURI && ( 'r' === $child->localName || 'hyperlink' === $child->localName ) ) {
-					return true;
-				}
-
-				if ( self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName ) {
-					continue;
-				}
-
-				return true;
-			}
-		}
-
-		return false;
 	}
 
 	/**

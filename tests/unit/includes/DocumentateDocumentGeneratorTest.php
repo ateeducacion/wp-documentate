@@ -323,21 +323,6 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test value_contains_block_html via reflection.
-	 */
-	public function test_value_contains_block_html() {
-		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'value_contains_block_html' );
-		$method->setAccessible( true );
-
-		$this->assertTrue( $method->invoke( null, '<p>Block content</p>' ) );
-		$this->assertTrue( $method->invoke( null, '<h1>Heading</h1>' ) );
-		$this->assertTrue( $method->invoke( null, '<ul><li>Item</li></ul>' ) );
-		$this->assertFalse( $method->invoke( null, 'Plain text' ) );
-		$this->assertFalse( $method->invoke( null, '<span>Inline</span>' ) );
-	}
-
-	/**
 	 * Test get_rich_field_values via reflection.
 	 */
 	public function test_get_rich_field_values() {
@@ -634,28 +619,6 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 
 		// Should return empty because file doesn't exist.
 		$this->assertEmpty( $result );
-	}
-
-	/**
-	 * Test value_contains_block_html with empty value.
-	 */
-	public function test_value_contains_block_html_empty() {
-		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'value_contains_block_html' );
-		$method->setAccessible( true );
-
-		$this->assertFalse( $method->invoke( null, '' ) );
-	}
-
-	/**
-	 * Test value_contains_block_html with table.
-	 */
-	public function test_value_contains_block_html_table() {
-		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'value_contains_block_html' );
-		$method->setAccessible( true );
-
-		$this->assertTrue( $method->invoke( null, '<table><tr><td>Cell</td></tr></table>' ) );
 	}
 
 	/**

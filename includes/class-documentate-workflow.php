@@ -46,6 +46,28 @@ class Documentate_Workflow {
 	private $original_status = null;
 
 	/**
+	 * Get workflow notice configuration.
+	 *
+	 * @return array<string, array{message: string, type: string}>
+	 */
+	private static function get_notice_config() {
+		return array(
+			'no_classification' => array(
+				'message' => __( 'Document saved as draft. You must select a document type before publishing.', 'documentate' ),
+				'type'    => 'warning',
+			),
+			'editor_no_publish' => array(
+				'message' => __( 'Document set to pending review. Only administrators can publish documents.', 'documentate' ),
+				'type'    => 'info',
+			),
+			'published_locked'  => array(
+				'message' => __( 'Published documents can only be modified by administrators.', 'documentate' ),
+				'type'    => 'error',
+			),
+		);
+	}
+
+	/**
 	 * Store status change reason for admin notices.
 	 *
 	 * @var string|null
@@ -228,23 +250,14 @@ class Documentate_Workflow {
 
 		delete_transient( 'documentate_workflow_notice_' . get_current_user_id() );
 
+		$config  = self::get_notice_config();
+		$reason  = $notice['reason'];
 		$message = '';
 		$type    = 'warning';
 
-		switch ( $notice['reason'] ) {
-			case 'no_classification':
-				$message = __( 'Document saved as draft. You must select a document type before publishing.', 'documentate' );
-				break;
-
-			case 'editor_no_publish':
-				$message = __( 'Document set to pending review. Only administrators can publish documents.', 'documentate' );
-				$type    = 'info';
-				break;
-
-			case 'published_locked':
-				$message = __( 'Published documents can only be modified by administrators.', 'documentate' );
-				$type    = 'error';
-				break;
+		if ( isset( $config[ $reason ] ) ) {
+			$message = $config[ $reason ]['message'];
+			$type    = $config[ $reason ]['type'];
 		}
 
 		if ( $message ) {

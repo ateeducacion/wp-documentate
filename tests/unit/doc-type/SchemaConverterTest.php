@@ -1,0 +1,252 @@
+<?php
+/**
+ * Tests for SchemaConverter class.
+ *
+ * @package Documentate
+ */
+
+use Documentate\DocType\SchemaConverter;
+
+/**
+ * Test class for SchemaConverter.
+ */
+class SchemaConverterTest extends WP_UnitTestCase {
+
+	/**
+	 * Helper to find field by slug in legacy array.
+	 *
+	 * @param array  $legacy Legacy schema array.
+	 * @param string $slug   Field slug to find.
+	 * @return array|null
+	 */
+	private function find_field_by_slug( $legacy, $slug ) {
+		foreach ( $legacy as $field ) {
+			if ( isset( $field['slug'] ) && $field['slug'] === $slug ) {
+				return $field;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Test to_legacy converts v2 schema to legacy format.
+	 */
+	public function test_to_legacy_basic() {
+		$v2_schema = array(
+			'version' => 2,
+			'fields'  => array(
+				array(
+					'slug'        => 'title',
+					'type'        => 'text',
+					'title'       => 'Title Field',
+					'placeholder' => 'Enter title',
+				),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 1, $result );
+		$field = $this->find_field_by_slug( $result, 'title' );
+		$this->assertNotNull( $field );
+		$this->assertSame( 'Title Field', $field['label'] );
+	}
+
+	/**
+	 * Test to_legacy handles empty schema.
+	 */
+	public function test_to_legacy_empty() {
+		$result = SchemaConverter::to_legacy( array() );
+		$this->assertSame( array(), $result );
+
+		$result = SchemaConverter::to_legacy( array( 'version' => 2 ) );
+		$this->assertSame( array(), $result );
+	}
+
+	/**
+	 * Test to_legacy works without version (processes fields anyway).
+	 */
+	public function test_to_legacy_without_version() {
+		$v2_schema = array(
+			'fields' => array(
+				array( 'slug' => 'test', 'type' => 'text' ),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+		$this->assertCount( 1, $result );
+	}
+
+	/**
+	 * Test data type mapping via reflection.
+	 *
+	 * @dataProvider data_type_provider
+	 *
+	 * @param string $input    Input type.
+	 * @param string $expected Expected mapped type.
+	 */
+	public function test_map_data_type( $input, $expected ) {
+		$method = new ReflectionMethod( SchemaConverter::class, 'map_data_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, $input );
+		$this->assertSame( $expected, $result );
+	}
+
+	/**
+	 * Data provider for data type mapping.
+	 *
+	 * @return array Test cases.
+	 */
+	public function data_type_provider() {
+		return array(
+			'number'          => array( 'number', 'number' ),
+			'date'            => array( 'date', 'date' ),
+			'boolean'         => array( 'boolean', 'boolean' ),
+			'email'           => array( 'email', 'text' ),
+			'url'             => array( 'url', 'text' ),
+			'text'            => array( 'text', 'text' ),
+			'html'            => array( 'html', 'text' ),
+			'textarea'        => array( 'textarea', 'text' ),
+			'unknown'         => array( 'unknown', 'text' ),
+			'empty'           => array( '', 'text' ),
+			'case_insensitive' => array( 'NUMBER', 'number' ),
+		);
+	}
+
+	/**
+	 * Test to_legacy with number field.
+	 */
+	public function test_to_legacy_number_field() {
+		$v2_schema = array(
+			'version' => 2,
+			'fields'  => array(
+				array(
+					'slug' => 'quantity',
+					'type' => 'number',
+				),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+		$field  = $this->find_field_by_slug( $result, 'quantity' );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'number', $field['data_type'] );
+	}
+
+	/**
+	 * Test to_legacy with date field.
+	 */
+	public function test_to_legacy_date_field() {
+		$v2_schema = array(
+			'version' => 2,
+			'fields'  => array(
+				array(
+					'slug' => 'birthdate',
+					'type' => 'date',
+				),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+		$field  = $this->find_field_by_slug( $result, 'birthdate' );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'date', $field['data_type'] );
+	}
+
+	/**
+	 * Test to_legacy with boolean field.
+	 */
+	public function test_to_legacy_boolean_field() {
+		$v2_schema = array(
+			'version' => 2,
+			'fields'  => array(
+				array(
+					'slug' => 'active',
+					'type' => 'boolean',
+				),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+		$field  = $this->find_field_by_slug( $result, 'active' );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'boolean', $field['data_type'] );
+	}
+
+	/**
+	 * Test to_legacy with array field uses repeaters section.
+	 */
+	public function test_to_legacy_array_field() {
+		$v2_schema = array(
+			'version'   => 2,
+			'fields'    => array(),
+			'repeaters' => array(
+				array(
+					'slug'        => 'items',
+					'item_schema' => array(
+						array(
+							'slug' => 'name',
+							'type' => 'text',
+						),
+						array(
+							'slug' => 'price',
+							'type' => 'number',
+						),
+					),
+				),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+		$field  = $this->find_field_by_slug( $result, 'items' );
+
+		$this->assertNotNull( $field );
+		$this->assertSame( 'array', $field['type'] );
+		$this->assertArrayHasKey( 'item_schema', $field );
+	}
+
+	/**
+	 * Test to_legacy with multiple fields.
+	 */
+	public function test_to_legacy_multiple_fields() {
+		$v2_schema = array(
+			'version' => 2,
+			'fields'  => array(
+				array( 'slug' => 'field1', 'type' => 'text' ),
+				array( 'slug' => 'field2', 'type' => 'number' ),
+				array( 'slug' => 'field3', 'type' => 'date' ),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+
+		$this->assertCount( 3, $result );
+		$this->assertNotNull( $this->find_field_by_slug( $result, 'field1' ) );
+		$this->assertNotNull( $this->find_field_by_slug( $result, 'field2' ) );
+		$this->assertNotNull( $this->find_field_by_slug( $result, 'field3' ) );
+	}
+
+	/**
+	 * Test to_legacy skips fields without slug.
+	 */
+	public function test_to_legacy_skips_without_slug() {
+		$v2_schema = array(
+			'version' => 2,
+			'fields'  => array(
+				array( 'type' => 'text' ), // No slug.
+				array( 'slug' => '', 'type' => 'text' ), // Empty slug.
+				array( 'slug' => 'valid', 'type' => 'text' ),
+			),
+		);
+
+		$result = SchemaConverter::to_legacy( $v2_schema );
+
+		$this->assertCount( 1, $result );
+		$this->assertNotNull( $this->find_field_by_slug( $result, 'valid' ) );
+	}
+}

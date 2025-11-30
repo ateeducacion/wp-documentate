@@ -448,37 +448,6 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_preview_stream_url method via reflection.
-	 */
-	public function test_get_preview_stream_url() {
-		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
-
-		$reflection = new ReflectionClass( $this->helper );
-		$method = $reflection->getMethod( 'get_preview_stream_url' );
-		$method->setAccessible( true );
-
-		$result = $method->invoke( $this->helper, $post->ID, 'test-doc.pdf' );
-
-		$this->assertStringContainsString( 'documentate_preview_stream', $result );
-		$this->assertStringContainsString( 'post_id=' . $post->ID, $result );
-	}
-
-	/**
-	 * Test get_preview_stream_url fails without user.
-	 */
-	public function test_get_preview_stream_url_no_user() {
-		wp_set_current_user( 0 );
-
-		$reflection = new ReflectionClass( $this->helper );
-		$method = $reflection->getMethod( 'get_preview_stream_url' );
-		$method->setAccessible( true );
-
-		$result = $method->invoke( $this->helper, 123, 'test.pdf' );
-
-		$this->assertEmpty( $result );
-	}
-
-	/**
 	 * Test enqueue_actions_metabox_assets with GLOBALS post.
 	 */
 	public function test_enqueue_actions_metabox_assets_with_global_post() {
@@ -747,28 +716,6 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$result = $method->invoke( $this->helper, '../../../etc/passwd', 'text/plain' );
 
 		$this->assertInstanceOf( WP_Error::class, $result );
-	}
-
-	/**
-	 * Test get_preview_stream_url with valid setup.
-	 */
-	public function test_get_preview_stream_url_valid() {
-		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
-
-		$reflection = new ReflectionClass( $this->helper );
-
-		// First remember the file.
-		$remember_method = $reflection->getMethod( 'remember_preview_stream_file' );
-		$remember_method->setAccessible( true );
-		$remember_method->invoke( $this->helper, $post->ID, 'preview.pdf' );
-
-		// Then get the URL.
-		$url_method = $reflection->getMethod( 'get_preview_stream_url' );
-		$url_method->setAccessible( true );
-		$url = $url_method->invoke( $this->helper, $post->ID, 'preview.pdf' );
-
-		$this->assertNotEmpty( $url );
-		$this->assertStringContainsString( 'admin-post.php', $url );
 	}
 
 	/**
