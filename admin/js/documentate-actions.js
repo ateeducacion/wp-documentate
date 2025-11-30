@@ -452,8 +452,18 @@
 	}
 
 	/**
-	 * Handle conversion using external converter service.
-	 * Used in WordPress Playground where we can't register Service Workers.
+	 * External converter popup reference (for Playground mode).
+	 * We use a popup instead of iframe because iframes inside Playground
+	 * cannot have Cross-Origin Isolation enabled.
+	 */
+	let externalConverterPopup = null;
+
+	/**
+	 * Handle conversion using external converter service via popup window.
+	 * Used in WordPress Playground where:
+	 * - Internal popups are blocked
+	 * - Iframes cannot have Cross-Origin Isolation
+	 * - But external popups (to different domains) may work
 	 *
 	 * @param {jQuery} $btn         The button element.
 	 * @param {string} action       Action type (preview, download).
@@ -462,9 +472,6 @@
 	 */
 	async function handleExternalConverterConversion($btn, action, targetFormat, sourceFormat) {
 		try {
-			// Initialize external converter if needed
-			initExternalConverter();
-
 			// Step 1: Generate source document via AJAX
 			updateModal(
 				strings.generating || 'Generating document...',
@@ -501,55 +508,149 @@
 			}
 			const docBuffer = await docResponse.arrayBuffer();
 
-			// Step 3: Wait for external converter to be ready
+			// Step 3: Open external converter in a popup window
+			// This is different from internal popups - external domains may work in Playground
 			updateModal(
-				strings.loadingWasm || 'Loading LibreOffice...',
-				'Waiting for converter to initialize...'
+				strings.loadingWasm || 'Opening converter...',
+				'A popup window will open. Please allow popups if blocked.'
 			);
 
-			// Poll for ready status if not ready yet
-			if (!externalConverterReady && externalConverterIframe) {
-				const expectedOrigin = new URL(config.externalConverterUrl).origin;
+			// Open the external converter
+			const popupWidth = 600;
+			const popupHeight = 400;
+			const left = (window.screen.width - popupWidth) / 2;
+			const top = (window.screen.height - popupHeight) / 2;
 
-				// Send ping and wait
-				for (let i = 0; i < 60; i++) { // Wait up to 60 seconds
-					externalConverterIframe.contentWindow.postMessage({
-						type: 'ping',
-						requestId: 'poll_' + Date.now()
-					}, expectedOrigin);
+			externalConverterPopup = window.open(
+				config.externalConverterUrl,
+				'documentate_external_converter',
+				`width=${popupWidth},height=${popupHeight},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=yes,resizable=yes`
+			);
 
-					await new Promise(resolve => setTimeout(resolve, 1000));
-
-					if (externalConverterReady) {
-						break;
-					}
-				}
-
-				if (!externalConverterReady) {
-					throw new Error('External converter timeout');
-				}
+			if (!externalConverterPopup) {
+				throw new Error('Popup blocked. Please allow popups for this site and try again.');
 			}
 
-			// Step 4: Send document to external converter
+			// Step 4: Wait for converter to be ready
+			updateModal(
+				strings.loadingWasm || 'Loading LibreOffice...',
+				'Downloading WASM (~50MB). This may take a while the first time.'
+			);
+
+			const expectedOrigin = new URL(config.externalConverterUrl).origin;
+
+			// Wait for ready message from popup
+			const waitForReady = new Promise((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					reject(new Error('Converter initialization timeout (120s)'));
+				}, 120000);
+
+				const readyHandler = (event) => {
+					if (event.origin !== expectedOrigin) return;
+
+					if (event.data.type === 'ready') {
+						clearTimeout(timeout);
+						window.removeEventListener('message', readyHandler);
+						resolve();
+					} else if (event.data.type === 'pong' && event.data.ready) {
+						clearTimeout(timeout);
+						window.removeEventListener('message', readyHandler);
+						resolve();
+					}
+				};
+
+				window.addEventListener('message', readyHandler);
+
+				// Poll for ready status
+				const pollInterval = setInterval(() => {
+					if (externalConverterPopup && !externalConverterPopup.closed) {
+						try {
+							externalConverterPopup.postMessage({
+								type: 'ping',
+								requestId: 'poll_' + Date.now()
+							}, expectedOrigin);
+						} catch (e) {
+							// Popup might not be ready yet
+						}
+					} else {
+						clearInterval(pollInterval);
+						clearTimeout(timeout);
+						window.removeEventListener('message', readyHandler);
+						reject(new Error('Converter window was closed'));
+					}
+				}, 1000);
+
+				// Clear interval when done
+				const origResolve = resolve;
+				resolve = () => {
+					clearInterval(pollInterval);
+					origResolve();
+				};
+			});
+
+			await waitForReady;
+
+			// Step 5: Send document to converter
 			updateModal(
 				strings.convertingBrowser || 'Converting...',
 				'Processing with LibreOffice WASM...'
 			);
 
-			const expectedOrigin = new URL(config.externalConverterUrl).origin;
-			externalConverterIframe.contentWindow.postMessage({
+			// Set up result handler
+			const waitForResult = new Promise((resolve, reject) => {
+				const timeout = setTimeout(() => {
+					reject(new Error('Conversion timeout (120s)'));
+				}, 120000);
+
+				const resultHandler = (event) => {
+					if (event.origin !== expectedOrigin) return;
+
+					if (event.data.type === 'result') {
+						clearTimeout(timeout);
+						window.removeEventListener('message', resultHandler);
+						resolve(event.data);
+					} else if (event.data.type === 'error') {
+						clearTimeout(timeout);
+						window.removeEventListener('message', resultHandler);
+						reject(new Error(event.data.error || 'Conversion failed'));
+					}
+				};
+
+				window.addEventListener('message', resultHandler);
+			});
+
+			// Send the document
+			externalConverterPopup.postMessage({
 				type: 'convert',
 				buffer: docBuffer,
 				format: targetFormat,
 				requestId: Date.now().toString()
 			}, expectedOrigin);
 
-			// Result will be handled by the message listener
+			// Wait for result
+			const result = await waitForResult;
+
+			// Step 6: Handle result
+			if (result.blob) {
+				handleExternalConversionResult(result.blob, action, targetFormat);
+			} else {
+				throw new Error('No result blob received');
+			}
+
+			// Close popup after success
+			if (externalConverterPopup && !externalConverterPopup.closed) {
+				externalConverterPopup.close();
+			}
 
 		} catch (error) {
 			console.error('Documentate external conversion error:', error);
 			showError(error.message || strings.errorGeneric || 'Conversion error.');
 			pendingConversion = null;
+
+			// Close popup on error
+			if (externalConverterPopup && !externalConverterPopup.closed) {
+				externalConverterPopup.close();
+			}
 		}
 	}
 
