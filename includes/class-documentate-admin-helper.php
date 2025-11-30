@@ -838,11 +838,13 @@ class Documentate_Admin_Helper {
 			),
 		);
 
-		// Use popup when:
-		// - ZetaJS CDN mode and no server conversion available
-		// - Collabora in Playground (always, to bypass wp_remote_post multipart issues).
-		$needs_popup = ( $zetajs_cdn_available && ! $conversion_ready ) || $collabora_in_playground;
-		if ( $needs_popup ) {
+		// Collabora in Playground: Use direct fetch (no popup, since Playground doesn't support new windows).
+		if ( $collabora_in_playground ) {
+			$options                       = get_option( 'documentate_settings', array() );
+			$config['collaboraPlayground'] = true;
+			$config['collaboraUrl']        = isset( $options['collabora_base_url'] ) ? esc_url( $options['collabora_base_url'] ) : '';
+		} elseif ( $zetajs_cdn_available && ! $conversion_ready ) {
+			// ZetaJS CDN mode: Use popup-based conversion (needs COOP/COEP headers for SharedArrayBuffer).
 			$config['cdnMode']      = true;
 			$config['converterUrl'] = admin_url( 'admin-post.php?action=documentate_converter' );
 		}

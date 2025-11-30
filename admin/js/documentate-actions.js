@@ -9,6 +9,9 @@
  * popup window (which has COOP/COEP headers required for SharedArrayBuffer).
  * The popup is positioned off-screen to minimize visibility while the loading
  * modal in the main window shows progress to the user.
+ *
+ * For Collabora in Playground mode, conversion is done directly via fetch()
+ * without popups (since Playground doesn't support opening new windows).
  */
 (function ($) {
 	'use strict';
@@ -276,6 +279,121 @@
 	}
 
 	/**
+	 * Handle Collabora conversion in Playground mode.
+	 * Does conversion directly via fetch() without popups.
+	 * Playground doesn't support opening new windows since everything runs in WASM.
+	 *
+	 * @param {jQuery} $btn The button element.
+	 * @param {string} action Action type (preview, download).
+	 * @param {string} targetFormat Target format.
+	 * @param {string} sourceFormat Source format.
+	 */
+	async function handleCollaboraPlaygroundConversion($btn, action, targetFormat, sourceFormat) {
+		try {
+			// Step 1: Generate source document via AJAX.
+			updateModal(
+				strings.generating || 'Generando documento...',
+				strings.wait || 'Procesando plantilla...'
+			);
+
+			const formData = new FormData();
+			formData.append('action', 'documentate_generate_document');
+			formData.append('post_id', config.postId);
+			formData.append('format', sourceFormat);
+			formData.append('output', 'download');
+			formData.append('_wpnonce', config.nonce);
+
+			const ajaxResponse = await fetch(config.ajaxUrl, {
+				method: 'POST',
+				body: formData,
+				credentials: 'same-origin'
+			});
+			const ajaxData = await ajaxResponse.json();
+
+			if (!ajaxData.success || !ajaxData.data?.url) {
+				throw new Error(ajaxData.data?.message || strings.errorGeneric || 'Error al generar el documento.');
+			}
+
+			// Step 2: Fetch the source document.
+			updateModal(
+				strings.generating || 'Generando documento...',
+				'Descargando documento fuente...'
+			);
+
+			const sourceResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
+			if (!sourceResponse.ok) {
+				throw new Error('Error al descargar documento fuente: ' + sourceResponse.status);
+			}
+			const sourceBlob = await sourceResponse.blob();
+
+			// Step 3: Send to Collabora proxy via fetch().
+			updateModal(
+				strings.convertingBrowser || 'Convirtiendo...',
+				'Enviando a Collabora...'
+			);
+
+			const collaboraFormData = new FormData();
+			const filename = 'document.' + sourceFormat;
+			collaboraFormData.append('data', sourceBlob, filename);
+
+			const collaboraEndpoint = config.collaboraUrl.replace(/\/$/, '') + '/cool/convert-to/' + targetFormat;
+
+			console.log('Documentate: Sending to Collabora:', collaboraEndpoint);
+
+			const collaboraResponse = await fetch(collaboraEndpoint, {
+				method: 'POST',
+				body: collaboraFormData
+			});
+
+			if (!collaboraResponse.ok) {
+				const errorText = await collaboraResponse.text();
+				throw new Error('Collabora error ' + collaboraResponse.status + ': ' + (errorText || 'Unknown error'));
+			}
+
+			const resultBlob = await collaboraResponse.blob();
+
+			if (resultBlob.size === 0) {
+				throw new Error('Collabora devolvió una respuesta vacía.');
+			}
+
+			console.log('Documentate: Conversion successful, size:', resultBlob.size);
+
+			// Step 4: Handle result.
+			const mimeTypes = {
+				pdf: 'application/pdf',
+				docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				odt: 'application/vnd.oasis.opendocument.text'
+			};
+			const finalBlob = new Blob([resultBlob], { type: mimeTypes[targetFormat] || 'application/octet-stream' });
+			const blobUrl = URL.createObjectURL(finalBlob);
+
+			hideModal();
+
+			if (action === 'preview' && targetFormat === 'pdf') {
+				// Open PDF in new tab (this works in Playground for viewing)
+				window.open(blobUrl, '_blank');
+			} else {
+				// Trigger download
+				const a = document.createElement('a');
+				a.href = blobUrl;
+				a.download = 'documento.' + targetFormat;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+
+				// Cleanup blob URL after a delay
+				setTimeout(function () {
+					URL.revokeObjectURL(blobUrl);
+				}, 1000);
+			}
+
+		} catch (error) {
+			console.error('Documentate Collabora Playground error:', error);
+			showError(error.message || strings.errorGeneric || 'Error en la conversión.');
+		}
+	}
+
+	/**
 	 * Handle action button click.
 	 */
 	function handleActionClick(e) {
@@ -302,7 +420,13 @@
 
 		showModal(title);
 
-		// If CDN mode and conversion is needed, use browser-based conversion.
+		// If Collabora Playground mode, use direct fetch conversion (no popup).
+		if (config.collaboraPlayground && config.collaboraUrl && sourceFormat) {
+			handleCollaboraPlaygroundConversion($btn, action, format, sourceFormat);
+			return;
+		}
+
+		// If CDN mode (ZetaJS WASM), use popup-based conversion.
 		if (cdnMode && sourceFormat) {
 			handleCdnConversion($btn, action, format, sourceFormat);
 			return;
