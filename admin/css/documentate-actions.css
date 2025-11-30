@@ -200,17 +200,19 @@
 .documentate-pdf-viewer__canvas-container {
 	flex: 1;
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
 	overflow: auto;
 	background: #525659;
 	border-radius: 4px;
+	padding: 20px;
 }
 
 .documentate-pdf-viewer__canvas-container canvas {
 	max-width: 100%;
 	height: auto;
 	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+	flex-shrink: 0;
 }
 
 /* PDF Navigation and Zoom Controls */
