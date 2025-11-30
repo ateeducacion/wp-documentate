@@ -1,5 +1,7 @@
 # Documentate
 
+![CI](https://img.shields.io/github/actions/workflow/status/erseco/wp-documentate/ci.yml?label=CI)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/erseco/COVERAGE_GIST_ID/raw/coverage.json)
 ![WordPress Version](https://img.shields.io/badge/WordPress-6.1-blue)
 ![Language](https://img.shields.io/badge/Language-PHP-orange)
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)

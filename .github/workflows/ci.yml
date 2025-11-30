@@ -158,16 +158,51 @@ jobs:
       - name: Run code linting (PHPCS)
         run: ./vendor/bin/phpcs --standard=.phpcs.xml.dist -q .
 
-      # === START ENVIRONMENT ===
-      - name: Start wp-env
-        run: npx wp-env start
+      # === START ENVIRONMENT (with Xdebug for coverage) ===
+      - name: Start wp-env with coverage
+        run: npx wp-env start --xdebug=coverage
 
       - name: Run plugin check
         run: make check-plugin
 
-      # === TESTS ===
-      - name: Run unit tests
-        run: make test
+      # === TESTS WITH COVERAGE ===
+      - name: Run unit tests with coverage
+        run: make test-coverage
+
+      - name: Extract coverage percentage
+        id: coverage
+        if: always()
+        run: |
+          if [ -f artifacts/coverage/coverage.txt ]; then
+            COVERAGE=$(grep -oP 'Lines:\s+\K[\d.]+(?=%)' artifacts/coverage/coverage.txt | head -1 || echo "0")
+            echo "percentage=${COVERAGE}" >> $GITHUB_OUTPUT
+            # Determine badge color based on coverage
+            if (( $(echo "$COVERAGE >= 80" | bc -l) )); then
+              echo "color=brightgreen" >> $GITHUB_OUTPUT
+            elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
+              echo "color=yellow" >> $GITHUB_OUTPUT
+            elif (( $(echo "$COVERAGE >= 40" | bc -l) )); then
+              echo "color=orange" >> $GITHUB_OUTPUT
+            else
+              echo "color=red" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "percentage=0" >> $GITHUB_OUTPUT
+            echo "color=red" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Add coverage to job summary
+        if: always()
+        run: |
+          echo "## 📊 Code Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f artifacts/coverage/coverage.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt >> $GITHUB_STEP_SUMMARY || echo "No coverage data"
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Coverage report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Run E2E tests
         run: make test-e2e
@@ -176,6 +211,14 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
       # === ARTIFACTS ===
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: artifacts/coverage/html/
+          retention-days: 30
+
       - name: Upload E2E artifacts on failure
         uses: actions/upload-artifact@v4
         if: failure()
@@ -183,3 +226,15 @@ jobs:
           name: playwright-report
           path: artifacts/
           retention-days: 7
+
+      # === UPDATE COVERAGE BADGE (only on main) ===
+      - name: Update coverage badge
+        if: github.ref == 'refs/heads/main' && always()
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.COVERAGE_GIST_ID }}
+          filename: coverage.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.percentage }}%
+          color: ${{ steps.coverage.outputs.color }}
