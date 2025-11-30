@@ -17,6 +17,17 @@ defined( 'ABSPATH' ) || exit;
 class Documentate_Collabora_Converter {
 
 	/**
+	 * MIME type mapping for document formats.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $mime_type_map = array(
+		'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		'odt'  => 'application/vnd.oasis.opendocument.text',
+		'pdf'  => 'application/pdf',
+	);
+
+	/**
 	 * Log debug information when WP_DEBUG is enabled.
 	 *
 	 * @param string $message Log message.
@@ -340,13 +351,9 @@ class Documentate_Collabora_Converter {
 	 */
 	private static function guess_mime_type( $input_format, $path ) {
 		$input_format = sanitize_key( $input_format );
-		switch ( $input_format ) {
-			case 'docx':
-				return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-			case 'odt':
-				return 'application/vnd.oasis.opendocument.text';
-			case 'pdf':
-				return 'application/pdf';
+
+		if ( isset( self::$mime_type_map[ $input_format ] ) ) {
+			return self::$mime_type_map[ $input_format ];
 		}
 
 		$mime = function_exists( 'mime_content_type' ) ? mime_content_type( $path ) : 'application/octet-stream';

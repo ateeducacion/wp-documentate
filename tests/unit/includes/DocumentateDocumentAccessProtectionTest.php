@@ -585,4 +585,191 @@ class DocumentateDocumentAccessProtectionTest extends WP_UnitTestCase {
 		$this->assertEquals( 'documentate_document', $filtered_args['post_type'] );
 		$this->assertArrayNotHasKey( 'post__in', $filtered_args );
 	}
+
+	// =========================================================================
+	// ADDITIONAL COVERAGE TESTS
+	// =========================================================================
+
+	/**
+	 * Test constructor registers all hooks.
+	 */
+	public function test_constructor_registers_hooks() {
+		$protection = new Documentate_Document_Access_Protection();
+
+		$this->assertNotFalse( has_action( 'template_redirect', array( $protection, 'block_frontend_access' ) ) );
+		$this->assertNotFalse( has_action( 'pre_get_posts', array( $protection, 'filter_queries' ) ) );
+		$this->assertNotFalse( has_action( 'rest_api_init', array( $protection, 'register_rest_protection' ) ) );
+		$this->assertNotFalse( has_filter( 'documentate/protected_comment_post_types', array( $protection, 'add_document_to_protected_types' ) ) );
+		$this->assertNotFalse( has_filter( 'comments_open', array( $protection, 'filter_comments_open' ) ) );
+		$this->assertNotFalse( has_filter( 'comments_pre_query', array( $protection, 'filter_comment_queries' ) ) );
+	}
+
+	/**
+	 * Test filter_queries with array of post types removes documents.
+	 */
+	public function test_filter_queries_array_post_type() {
+		wp_set_current_user( 0 );
+
+		$query = new WP_Query();
+		$query->set( 'post_type', array( 'post', 'documentate_document', 'page' ) );
+
+		$this->protection->filter_queries( $query );
+
+		$post_types = $query->get( 'post_type' );
+		$this->assertNotContains( 'documentate_document', $post_types );
+		$this->assertContains( 'post', $post_types );
+	}
+
+	/**
+	 * Test filter_queries does nothing in admin context.
+	 */
+	public function test_filter_queries_admin_context() {
+		wp_set_current_user( 0 );
+		set_current_screen( 'edit-post' );
+
+		$query = new WP_Query();
+		$query->set( 'post_type', 'documentate_document' );
+
+		$this->protection->filter_queries( $query );
+
+		// In admin context, query should not be modified even for anonymous.
+		$this->assertSame( 'documentate_document', $query->get( 'post_type' ) );
+
+		set_current_screen( 'front' );
+	}
+
+	/**
+	 * Test filter_queries does nothing for authorized users.
+	 */
+	public function test_filter_queries_authorized_user() {
+		wp_set_current_user( $this->editor_user_id );
+
+		$query = new WP_Query();
+		$query->set( 'post_type', 'documentate_document' );
+
+		$this->protection->filter_queries( $query );
+
+		$this->assertSame( 'documentate_document', $query->get( 'post_type' ) );
+	}
+
+	/**
+	 * Test get_public_post_types via reflection.
+	 */
+	public function test_get_public_post_types() {
+		$ref = new ReflectionClass( $this->protection );
+		$method = $ref->getMethod( 'get_public_post_types' );
+		$method->setAccessible( true );
+
+		$types = $method->invoke( $this->protection );
+
+		$this->assertIsArray( $types );
+		$this->assertNotContains( 'documentate_document', $types );
+		$this->assertContains( 'post', $types );
+	}
+
+	/**
+	 * Test register_rest_protection adds filters.
+	 */
+	public function test_register_rest_protection() {
+		$this->protection->register_rest_protection();
+
+		$this->assertNotFalse( has_filter( 'rest_pre_dispatch', array( $this->protection, 'block_rest_access' ) ) );
+		$this->assertNotFalse( has_filter( 'rest_post_query', array( $this->protection, 'filter_rest_post_query' ) ) );
+	}
+
+	/**
+	 * Test filter_comment_queries with general query adds clause filter.
+	 */
+	public function test_filter_comment_queries_general() {
+		wp_set_current_user( 0 );
+
+		$query = new WP_Comment_Query();
+		$query->query_vars = array();
+
+		$result = $this->protection->filter_comment_queries( null, $query );
+
+		// Should return null (continue with query) but add the clause filter.
+		$this->assertNull( $result );
+		$this->assertNotFalse( has_filter( 'comments_clauses', array( $this->protection, 'exclude_document_comments_clause' ) ) );
+	}
+
+	/**
+	 * Test filter_comment_queries for authorized user.
+	 */
+	public function test_filter_comment_queries_authorized() {
+		wp_set_current_user( $this->editor_user_id );
+
+		$query = new WP_Comment_Query();
+		$query->query_vars = array( 'post_id' => $this->document_id );
+
+		$result = $this->protection->filter_comment_queries( null, $query );
+
+		// Should return null unchanged for authorized users.
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * Test exclude_document_comments_clause adds proper SQL.
+	 */
+	public function test_exclude_document_comments_clause() {
+		$clauses = array(
+			'join' => '',
+			'where' => ' AND 1=1',
+		);
+
+		$result = $this->protection->exclude_document_comments_clause( $clauses );
+
+		$this->assertStringContainsString( 'dap_posts', $result['join'] );
+		$this->assertStringContainsString( 'documentate_document', $result['where'] );
+	}
+
+	/**
+	 * Test exclude_document_comments_clause with existing join.
+	 */
+	public function test_exclude_document_comments_clause_existing_join() {
+		global $wpdb;
+
+		$clauses = array(
+			'join' => " LEFT JOIN {$wpdb->posts} ON something",
+			'where' => ' AND 1=1',
+		);
+
+		$result = $this->protection->exclude_document_comments_clause( $clauses );
+
+		// Should not add duplicate posts join.
+		$this->assertStringNotContainsString( 'dap_posts', $result['join'] );
+	}
+
+	/**
+	 * Test REST API blocks with document ID in route.
+	 */
+	public function test_rest_api_blocks_document_with_subpath() {
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'GET', '/wp/v2/documentate_document/123' );
+		$result  = $this->protection->block_rest_access( null, new WP_REST_Server(), $request );
+
+		$this->assertInstanceOf( 'WP_Error', $result );
+	}
+
+	/**
+	 * Test filter_rest_post_query with empty post_type.
+	 */
+	public function test_filter_rest_post_query_empty_type() {
+		wp_set_current_user( 0 );
+
+		$args = array();
+		$filtered_args = $this->protection->filter_rest_post_query( $args, new WP_REST_Request() );
+
+		// Should pass through unchanged.
+		$this->assertEmpty( $filtered_args );
+	}
+
+	/**
+	 * Test constants are defined.
+	 */
+	public function test_class_constants() {
+		$this->assertSame( 'documentate_document', Documentate_Document_Access_Protection::POST_TYPE );
+		$this->assertSame( 'edit_posts', Documentate_Document_Access_Protection::REQUIRED_CAPABILITY );
+	}
 }

@@ -120,4 +120,598 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 		$this->assertSame( 'Título base', $fields['resolution_title'] );
 		$this->assertSame( '<h3>Encabezado de prueba</h3><p>Primer párrafo con texto de ejemplo.</p><p>Segundo párrafo con <strong>negritas</strong>, <em>cursivas</em> y <u>subrayado</u>.</p><ul><li>Elemento uno</li><li>Elemento dos</li></ul><table><tr><th>Col 1</th><th>Col 2</th></tr><tr><td>Dato A1</td><td>Dato A2</td></tr><tr><td>Dato B1</td><td>Dato B2</td></tr></table>', $fields['resolution_body'] );
 	}
+
+	/**
+	 * Test get_template_path returns empty for invalid format.
+	 */
+	public function test_get_template_path_invalid_format() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Template Path Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = Documentate_Document_Generator::get_template_path( $post_id, 'pdf' );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test get_template_path with no document type.
+	 */
+	public function test_get_template_path_no_doc_type() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'No Type Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = Documentate_Document_Generator::get_template_path( $post_id, 'docx' );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test generate_docx returns error without template.
+	 */
+	public function test_generate_docx_no_template() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'No Template Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = Documentate_Document_Generator::generate_docx( $post_id );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test generate_odt returns error without template.
+	 */
+	public function test_generate_odt_no_template() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'No ODT Template Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = Documentate_Document_Generator::generate_odt( $post_id );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test generate_pdf returns error without template.
+	 */
+	public function test_generate_pdf_no_template() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'No PDF Source Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = Documentate_Document_Generator::generate_pdf( $post_id );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'documentate_pdf_source_missing', $result->get_error_code() );
+	}
+
+	/**
+	 * Test get_type_schema via reflection.
+	 */
+	public function test_get_type_schema() {
+		$term = wp_insert_term( 'Gen Schema Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'  => 'gen_field',
+						'slug'  => 'gen_field',
+						'type'  => 'text',
+						'title' => 'Gen Field',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_type_schema' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, $term_id );
+
+		$this->assertNotEmpty( $result );
+		$this->assertSame( 'gen_field', $result[0]['slug'] );
+	}
+
+	/**
+	 * Test get_type_schema with empty schema.
+	 */
+	public function test_get_type_schema_empty() {
+		$term = wp_insert_term( 'Empty Schema Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_type_schema' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, $term_id );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test build_output_path via reflection.
+	 */
+	public function test_build_output_path() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Output Path Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_output_path' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, $post_id, 'docx' );
+
+		$this->assertStringContainsString( 'documentate', $result );
+		$this->assertStringContainsString( '.docx', $result );
+	}
+
+	/**
+	 * Test prepare_field_value strips tags for non-rich.
+	 */
+	public function test_prepare_field_value_strips_tags() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		$html  = '<p>Test <strong>content</strong></p>';
+		$result = $method->invoke( null, $html, 'single', 'text' );
+
+		$this->assertStringNotContainsString( '<p>', $result );
+		$this->assertStringContainsString( 'Test', $result );
+	}
+
+	/**
+	 * Test prepare_field_value preserves HTML for rich.
+	 */
+	public function test_prepare_field_value_preserves_rich() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		$html  = '<p>Test <strong>content</strong></p>';
+		$result = $method->invoke( null, $html, 'rich', 'text' );
+
+		$this->assertStringContainsString( '<p>', $result );
+		$this->assertStringContainsString( '<strong>', $result );
+	}
+
+	/**
+	 * Test sanitize_placeholder_name via reflection.
+	 */
+	public function test_sanitize_placeholder_name() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'sanitize_placeholder_name' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'field_name[*].subfield' );
+
+		$this->assertIsString( $result );
+	}
+
+	/**
+	 * Test get_rich_field_values via reflection.
+	 */
+	public function test_get_rich_field_values() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+
+		// Reset first
+		$reset = $ref->getMethod( 'reset_rich_field_values' );
+		$reset->setAccessible( true );
+		$reset->invoke( null );
+
+		// Remember some values.
+		$remember = $ref->getMethod( 'remember_rich_field_value' );
+		$remember->setAccessible( true );
+		$remember->invoke( null, '<p>Rich value</p>' );
+
+		// Get values.
+		$get = $ref->getMethod( 'get_rich_field_values' );
+		$get->setAccessible( true );
+		$result = $get->invoke( null );
+
+		$this->assertContains( '<p>Rich value</p>', $result );
+	}
+
+	/**
+	 * Test get_structured_field_value via reflection.
+	 */
+	public function test_get_structured_field_value() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Structured Value Test',
+				'post_status' => 'draft',
+			)
+		);
+		update_post_meta( $post_id, 'documentate_field_test_value', 'Meta Value' );
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_structured_field_value' );
+		$method->setAccessible( true );
+
+		// Test from structured content.
+		$structured = array(
+			'test_value' => array(
+				'type'  => 'text',
+				'value' => 'Structured Value',
+			),
+		);
+
+		$result = $method->invoke( null, $structured, 'test_value', $post_id );
+
+		$this->assertSame( 'Structured Value', $result );
+	}
+
+	/**
+	 * Test get_structured_field_value falls back to meta.
+	 */
+	public function test_get_structured_field_value_meta_fallback() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Meta Fallback Test',
+				'post_status' => 'draft',
+			)
+		);
+		update_post_meta( $post_id, 'documentate_field_fallback', 'Meta Fallback Value' );
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_structured_field_value' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, array(), 'fallback', $post_id );
+
+		$this->assertSame( 'Meta Fallback Value', $result );
+	}
+
+	/**
+	 * Test normalize_field_value for number data type.
+	 */
+	public function test_normalize_field_value_number() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_field_value' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, '  123.45  ', 'number' );
+
+		// normalize_field_value returns float for numbers.
+		$this->assertEquals( 123.45, $result );
+	}
+
+	/**
+	 * Test normalize_field_value for date data type.
+	 */
+	public function test_normalize_field_value_date() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_field_value' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, '2024-01-15', 'date' );
+
+		$this->assertIsString( $result );
+	}
+
+	/**
+	 * Test normalize_field_value for boolean.
+	 */
+	public function test_normalize_field_value_boolean() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_field_value' );
+		$method->setAccessible( true );
+
+		$result_true = $method->invoke( null, '1', 'boolean' );
+		$result_false = $method->invoke( null, '0', 'boolean' );
+
+		// normalize_field_value returns int for booleans.
+		$this->assertIsInt( $result_true );
+		$this->assertIsInt( $result_false );
+	}
+
+	/**
+	 * Test normalize_field_value for text (default).
+	 */
+	public function test_normalize_field_value_text() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_field_value' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, '  Trimmed text  ', 'text' );
+
+		$this->assertSame( 'Trimmed text', $result );
+	}
+
+	/**
+	 * Test ensure_output_dir creates directory.
+	 */
+	public function test_ensure_output_dir() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'ensure_output_dir' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null );
+
+		$this->assertTrue( is_dir( $result ) );
+	}
+
+	/**
+	 * Test reset_rich_field_values clears values.
+	 */
+	public function test_reset_rich_field_values() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+
+		// First remember a value.
+		$remember = $ref->getMethod( 'remember_rich_field_value' );
+		$remember->setAccessible( true );
+		$remember->invoke( null, '<p>To be cleared</p>' );
+
+		// Then reset.
+		$reset = $ref->getMethod( 'reset_rich_field_values' );
+		$reset->setAccessible( true );
+		$reset->invoke( null );
+
+		// Get values should be empty.
+		$get = $ref->getMethod( 'get_rich_field_values' );
+		$get->setAccessible( true );
+		$result = $get->invoke( null );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test remember_rich_values_from_array_items.
+	 */
+	public function test_remember_rich_values_from_array_items() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+
+		// Reset first.
+		$reset = $ref->getMethod( 'reset_rich_field_values' );
+		$reset->setAccessible( true );
+		$reset->invoke( null );
+
+		// Remember from array items.
+		$remember = $ref->getMethod( 'remember_rich_values_from_array_items' );
+		$remember->setAccessible( true );
+
+		$items = array(
+			array(
+				'title' => 'Plain',
+				'content' => '<p>Rich content</p>',
+			),
+			array(
+				'title' => 'Another',
+				'content' => '<ul><li>List</li></ul>',
+			),
+		);
+
+		$remember->invoke( null, $items );
+
+		$get = $ref->getMethod( 'get_rich_field_values' );
+		$get->setAccessible( true );
+		$result = $get->invoke( null );
+
+		$this->assertContains( '<p>Rich content</p>', $result );
+	}
+
+	/**
+	 * Test get_array_field_items_for_merge via reflection.
+	 */
+	public function test_get_array_field_items_for_merge() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Array Merge Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$items = array(
+			array( 'number' => '1', 'content' => 'First' ),
+			array( 'number' => '2', 'content' => 'Second' ),
+		);
+		update_post_meta( $post_id, 'documentate_field_items', wp_json_encode( $items ) );
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_array_field_items_for_merge' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, array(), 'items', $post_id );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 2, $result );
+	}
+
+	/**
+	 * Test get_array_field_items_for_merge from structured.
+	 */
+	public function test_get_array_field_items_for_merge_structured() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Array Structured Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$items = array(
+			array( 'number' => 'A', 'content' => 'First' ),
+		);
+		$structured = array(
+			'repeater' => array(
+				'type'  => 'array',
+				'value' => wp_json_encode( $items ),
+			),
+		);
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_array_field_items_for_merge' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, $structured, 'repeater', $post_id );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 1, $result );
+		$this->assertSame( 'A', $result[0]['number'] );
+	}
+
+	/**
+	 * Test get_template_path with document type but no template file.
+	 */
+	public function test_get_template_path_missing_file() {
+		// Create a document type with an attachment that points to non-existent file.
+		$term = wp_insert_term( 'Template Path Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Create a mock attachment.
+		$attachment_id = wp_insert_attachment(
+			array(
+				'post_mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				'post_title'     => 'test-template.docx',
+				'post_status'    => 'inherit',
+			)
+		);
+		update_attached_file( $attachment_id, '/nonexistent/test-template.docx' );
+		update_term_meta( $term_id, 'documentate_type_docx_template', $attachment_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Template Path Test',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		$result = Documentate_Document_Generator::get_template_path( $post_id, 'docx' );
+
+		// Should return empty because file doesn't exist.
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test sanitize_placeholder_name removes special chars.
+	 */
+	public function test_sanitize_placeholder_name_special_chars() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'sanitize_placeholder_name' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'field<script>bad</script>' );
+
+		$this->assertStringNotContainsString( '<', $result );
+	}
+
+	/**
+	 * Test prepare_field_value with array type.
+	 */
+	public function test_prepare_field_value_array() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		$json = '[{"title":"Test"}]';
+		$result = $method->invoke( null, $json, 'array', 'text' );
+
+		$this->assertSame( $json, $result );
+	}
+
+	/**
+	 * Test generate_docx with invalid post ID.
+	 */
+	public function test_generate_docx_invalid_post() {
+		$result = Documentate_Document_Generator::generate_docx( 999999 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test generate_odt with invalid post ID.
+	 */
+	public function test_generate_odt_invalid_post() {
+		$result = Documentate_Document_Generator::generate_odt( 999999 );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test generate_pdf without converter configured.
+	 */
+	public function test_generate_pdf_no_converter() {
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'PDF No Converter',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = Documentate_Document_Generator::generate_pdf( $post_id );
+
+		// Should fail because no ODF template is available.
+		$this->assertInstanceOf( WP_Error::class, $result );
+	}
+
+	/**
+	 * Test build_output_path generates unique filename.
+	 */
+	public function test_build_output_path_unique() {
+		$post1 = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Path Test 1',
+				'post_status' => 'draft',
+			)
+		);
+		$post2 = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Path Test 2',
+				'post_status' => 'draft',
+			)
+		);
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_output_path' );
+		$method->setAccessible( true );
+
+		$path1 = $method->invoke( null, $post1, 'docx' );
+		$path2 = $method->invoke( null, $post2, 'docx' );
+
+		$this->assertNotSame( $path1, $path2 );
+	}
 }

@@ -8,6 +8,8 @@
  * @package Documentate
  */
 
+use Documentate\Documents\Documents_Meta_Handler;
+
 /**
  * Documentate document generator service.
  */
@@ -350,7 +352,7 @@ class Documentate_Document_Generator {
 					$value = self::get_structured_field_value( $structured, $slug, $post_id );
 				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
 				$original_type = $type;
-				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && self::value_contains_block_html( $value ) ) {
+				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
 					$type = 'rich';
 				}
 					$prepared               = self::prepare_field_value( $value, $type, $data_type );
@@ -360,7 +362,7 @@ class Documentate_Document_Generator {
 				}
 				// Register for rich text conversion if typed as rich/html.
 				// Also check if prepared value still contains HTML as a safety net.
-				$has_html_in_prepared = self::value_contains_block_html( $prepared );
+				$has_html_in_prepared = Documents_Meta_Handler::value_contains_block_html( $prepared );
 				if ( in_array( $type, array( 'rich', 'html' ), true ) || $has_html_in_prepared ) {
 						self::remember_rich_field_value( $prepared );
 				}
@@ -372,13 +374,13 @@ class Documentate_Document_Generator {
 							$slug,
 							$original_type,
 							$type,
-							self::value_contains_block_html( $value ) ? 'YES' : 'NO',
+							Documents_Meta_Handler::value_contains_block_html( $value ) ? 'YES' : 'NO',
 							$has_html_in_prepared ? 'YES' : 'NO',
 							strlen( $value ),
 							strlen( $prepared )
 						)
 					);
-					if ( self::value_contains_block_html( $value ) && strlen( $value ) < 500 ) {
+					if ( Documents_Meta_Handler::value_contains_block_html( $value ) && strlen( $value ) < 500 ) {
 						error_log( 'DOCUMENTATE [' . $slug . '] RAW: ' . substr( $value, 0, 300 ) );
 					}
 				}
@@ -425,13 +427,13 @@ class Documentate_Document_Generator {
 				}
 					$field_type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
 				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
-				if ( ! in_array( $field_type, array( 'rich', 'html' ), true ) && self::value_contains_block_html( $value ) ) {
+				if ( ! in_array( $field_type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
 					$field_type = 'rich';
 				}
 					$fields[ $placeholder ]   = self::prepare_field_value( $value, $field_type, 'text' );
 				// Register for rich text conversion if typed as rich/html.
 				// Also check if prepared value still contains HTML as a safety net.
-				if ( in_array( $field_type, array( 'rich', 'html' ), true ) || self::value_contains_block_html( $fields[ $placeholder ] ) ) {
+				if ( in_array( $field_type, array( 'rich', 'html' ), true ) || Documents_Meta_Handler::value_contains_block_html( $fields[ $placeholder ] ) ) {
 						self::remember_rich_field_value( $fields[ $placeholder ] );
 				}
 			}
@@ -494,42 +496,6 @@ class Documentate_Document_Generator {
 				return array();
 		}
 		return array_values( self::$rich_field_values );
-	}
-
-	/**
-	 * Check if a value contains block-level HTML that requires rich text conversion.
-	 *
-	 * This is a safety net to detect HTML content in fields that weren't explicitly
-	 * typed as 'rich' or 'html' in the schema, ensuring tables, lists, and other
-	 * block elements from TinyMCE are properly converted to native document format.
-	 *
-	 * @param string $value Field value to check.
-	 * @return bool True if value contains block HTML tags.
-	 */
-	private static function value_contains_block_html( $value ) {
-		if ( ! is_string( $value ) || '' === $value ) {
-			return false;
-		}
-		// Quick check: must contain both < and > to be HTML.
-		if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
-			return false;
-		}
-		// Detect block-level HTML tags that require conversion.
-		$block_patterns = array(
-			'/<table[\s>]/i',
-			'/<ul[\s>]/i',
-			'/<ol[\s>]/i',
-			'/<p[\s>]/i',
-			'/<h[1-6][\s>]/i',
-			'/<blockquote[\s>]/i',
-			'/<div[\s>]/i',
-		);
-		foreach ( $block_patterns as $pattern ) {
-			if ( preg_match( $pattern, $value ) ) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
@@ -666,6 +632,17 @@ class Documentate_Document_Generator {
 	}
 
 	/**
+	 * Data type normalizer method map.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $type_normalizers = array(
+		'number'  => 'normalize_number_value',
+		'boolean' => 'normalize_boolean_value',
+		'date'    => 'normalize_date_value',
+	);
+
+	/**
 	 * Normalize a field value based on the detected data type.
 	 *
 	 * @param string $value     Original value.
@@ -673,152 +650,71 @@ class Documentate_Document_Generator {
 	 * @return mixed
 	 */
 	private static function normalize_field_value( $value, $data_type ) {
-			$value     = is_string( $value ) ? trim( $value ) : $value;
-			$data_type = sanitize_key( $data_type );
+		$value     = is_string( $value ) ? trim( $value ) : $value;
+		$data_type = sanitize_key( $data_type );
 
-		switch ( $data_type ) {
-			case 'number':
-				if ( '' === $value ) {
-						return '';
-				}
-				if ( is_numeric( $value ) ) {
-						return 0 + $value;
-				}
-				$filtered = preg_replace( '/[^0-9.,\-]/', '', (string) $value );
-				if ( '' === $filtered ) {
-						return '';
-				}
-				$normalized = str_replace( ',', '.', $filtered );
-				if ( is_numeric( $normalized ) ) {
-						return 0 + $normalized;
-				}
-				return $value;
-			case 'boolean':
-				if ( is_bool( $value ) ) {
-					return $value ? 1 : 0;
-				}
-					$value = strtolower( (string) $value );
-				if ( in_array( $value, array( '1', 'true', 'si', 'sí', 'yes', 'on' ), true ) ) {
-						return 1;
-				}
-				if ( in_array( $value, array( '0', 'false', 'no', 'off' ), true ) ) {
-						return 0;
-				}
-				return '' === $value ? 0 : 0;
-			case 'date':
-				if ( '' === $value ) {
-						return '';
-				}
-					$timestamp = strtotime( (string) $value );
-				if ( false === $timestamp ) {
-						return $value;
-				}
-				return wp_date( 'Y-m-d', $timestamp );
-			default:
-				return $value;
+		if ( isset( self::$type_normalizers[ $data_type ] ) ) {
+			return call_user_func( array( __CLASS__, self::$type_normalizers[ $data_type ] ), $value );
 		}
+
+		return $value;
 	}
 
 	/**
-	 * Generate DOCX for a Law post using the same configured DOCX template.
-	 * Expects placeholders like [title] and [contenido] in the template.
+	 * Normalize a number value.
 	 *
-	 * @param int $post_id Post ID.
-	 * @return string|WP_Error
+	 * @param mixed $value Original value.
+	 * @return mixed Normalized number or original value.
 	 */
-	public static function generate_docx_law( $post_id ) {
-		try {
-			self::reset_rich_field_values();
-			$opts   = get_option( 'documentate_settings', array() );
-			$tpl_id = isset( $opts['docx_template_id'] ) ? intval( $opts['docx_template_id'] ) : 0;
-			if ( $tpl_id <= 0 ) {
-				return new WP_Error( 'documentate_template_missing', __( 'No DOCX template configured.', 'documentate' ) );
-			}
-			$template_path = get_attached_file( $tpl_id );
-			if ( ! $template_path || ! file_exists( $template_path ) ) {
-				return new WP_Error( 'documentate_template_missing', __( 'DOCX template not found.', 'documentate' ) );
-			}
-
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
-
-			$content = get_post_field( 'post_content', $post_id );
-			// Process content manually instead of using the_content filter to avoid issues.
-			$content = wptexturize( $content );
-			$content = convert_smilies( $content );
-			$content = wpautop( $content );
-			$content = shortcode_unautofill( $content );
-			$content = wp_filter_content_tags( $content );
-			$content = do_shortcode( $content );
-			$fields = array(
-				'title'     => get_the_title( $post_id ),
-				'contenido' => self::prepare_field_value( (string) $content, 'rich', 'text' ),
-			);
-			self::remember_rich_field_value( $fields['contenido'] );
-
-			$upload_dir = wp_upload_dir();
-			$dir        = trailingslashit( $upload_dir['basedir'] ) . 'documentate';
-			if ( ! is_dir( $dir ) ) {
-				wp_mkdir_p( $dir );
-			}
-			$filename = sanitize_title( $fields['title'] ) . '-' . $post_id . '.docx';
-			$path     = trailingslashit( $dir ) . $filename;
-
-			$res = Documentate_OpenTBS::render_docx( $template_path, $fields, $path, self::get_rich_field_values() );
-			if ( is_wp_error( $res ) ) {
-				return $res;
-			}
-			return $path;
-		} catch ( \Throwable $e ) {
-			return new WP_Error( 'documentate_docx_error', $e->getMessage() );
+	private static function normalize_number_value( $value ) {
+		if ( '' === $value ) {
+			return '';
 		}
+		if ( is_numeric( $value ) ) {
+			return 0 + $value;
+		}
+		$filtered = preg_replace( '/[^0-9.,\-]/', '', (string) $value );
+		if ( '' === $filtered ) {
+			return '';
+		}
+		$normalized = str_replace( ',', '.', $filtered );
+		if ( is_numeric( $normalized ) ) {
+			return 0 + $normalized;
+		}
+		return $value;
 	}
 
 	/**
-	 * Generate ODT for a Law post using the same configured ODT template.
-	 * Placeholders expected: [title], [contenido].
+	 * Normalize a boolean value.
 	 *
-	 * @param int $post_id Post ID.
-	 * @return string|WP_Error
+	 * @param mixed $value Original value.
+	 * @return int 1 for truthy, 0 for falsy.
 	 */
-	public static function generate_odt_law( $post_id ) {
-		try {
-			$opts   = get_option( 'documentate_settings', array() );
-			$tpl_id = isset( $opts['odt_template_id'] ) ? intval( $opts['odt_template_id'] ) : 0;
-			if ( $tpl_id <= 0 ) {
-				return new WP_Error( 'documentate_template_missing', __( 'No ODT template configured.', 'documentate' ) );
-			}
-			$template_path = get_attached_file( $tpl_id );
-			if ( ! $template_path || ! file_exists( $template_path ) ) {
-				return new WP_Error( 'documentate_template_missing', __( 'ODT template not found.', 'documentate' ) );
-			}
-
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
-
-			$content = get_post_field( 'post_content', $post_id );
-			// Process shortcodes and strip tags (no need for the_content filter).
-			$content = do_shortcode( $content );
-			$content = wp_strip_all_tags( $content );
-			$fields = array(
-				'title'     => get_the_title( $post_id ),
-				'contenido' => $content,
-			);
-
-			$upload_dir = wp_upload_dir();
-			$dir        = trailingslashit( $upload_dir['basedir'] ) . 'documentate';
-			if ( ! is_dir( $dir ) ) {
-				wp_mkdir_p( $dir );
-			}
-
-			$filename = sanitize_title( $fields['title'] ) . '-' . $post_id . '.odt';
-			$path     = trailingslashit( $dir ) . $filename;
-
-			$res = Documentate_OpenTBS::render_odt( $template_path, $fields, $path );
-			if ( is_wp_error( $res ) ) {
-				return $res;
-			}
-			return $path;
-		} catch ( \Throwable $e ) {
-			return new WP_Error( 'documentate_odt_error', $e->getMessage() );
+	private static function normalize_boolean_value( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value ? 1 : 0;
 		}
+		$value = strtolower( (string) $value );
+		if ( in_array( $value, array( '1', 'true', 'si', 'sí', 'yes', 'on' ), true ) ) {
+			return 1;
+		}
+		return 0;
+	}
+
+	/**
+	 * Normalize a date value.
+	 *
+	 * @param mixed $value Original value.
+	 * @return string Formatted date or original value.
+	 */
+	private static function normalize_date_value( $value ) {
+		if ( '' === $value ) {
+			return '';
+		}
+		$timestamp = strtotime( (string) $value );
+		if ( false === $timestamp ) {
+			return $value;
+		}
+		return wp_date( 'Y-m-d', $timestamp );
 	}
 }

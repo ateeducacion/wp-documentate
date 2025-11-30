@@ -156,6 +156,30 @@ class DocumentateDocumentMetaBoxTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Verify that Document_Meta::get returns empty values for invalid post_id.
+	 */
+	public function test_document_meta_get_returns_empty_for_invalid_id() {
+		$meta = Document_Meta::get( 0 );
+
+		$this->assertSame( '', $meta['title'], 'Title must be empty for invalid post_id.' );
+		$this->assertSame( '', $meta['subject'], 'Subject must be empty for invalid post_id.' );
+		$this->assertSame( '', $meta['author'], 'Author must be empty for invalid post_id.' );
+		$this->assertSame( '', $meta['keywords'], 'Keywords must be empty for invalid post_id.' );
+	}
+
+	/**
+	 * Verify that Document_Meta::get returns empty values for negative post_id.
+	 */
+	public function test_document_meta_get_handles_negative_id() {
+		$meta = Document_Meta::get( -1 );
+
+		$this->assertSame( '', $meta['title'], 'Title must be empty for negative post_id.' );
+		$this->assertSame( '', $meta['subject'], 'Subject must be empty for negative post_id.' );
+		$this->assertSame( '', $meta['author'], 'Author must be empty for negative post_id.' );
+		$this->assertSame( '', $meta['keywords'], 'Keywords must be empty for negative post_id.' );
+	}
+
+	/**
 	 * Verify that invalid requests do not change stored metadata.
 	 */
 	public function test_save_bails_on_invalid_nonce() {
@@ -177,5 +201,137 @@ class DocumentateDocumentMetaBoxTest extends Documentate_Test_Base {
 		$this->assertSame( 'Original', get_post_meta( $post_id, Document_Meta_Box::META_KEY_SUBJECT, true ), 'Subject must remain the same.' );
 		$this->assertSame( 'Autor original', get_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, true ), 'Author must remain the same.' );
 		$this->assertSame( 'uno', get_post_meta( $post_id, Document_Meta_Box::META_KEY_KEYWORDS, true ), 'Keywords must remain the same.' );
+	}
+
+	/**
+	 * Verify that save bails on post revision.
+	 */
+	public function test_save_bails_on_revision() {
+		$post_id = self::factory()->document->create( array() );
+
+		update_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, 'Original Author' );
+
+		// Create a revision.
+		$revision_id = wp_save_post_revision( $post_id );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME        => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+			'documentate_document_meta_author'   => 'New Author',
+		);
+
+		$this->meta_box->save( $revision_id );
+
+		// The revision shouldn't have the new author meta set.
+		$this->assertSame( '', get_post_meta( $revision_id, Document_Meta_Box::META_KEY_AUTHOR, true ), 'Revision should not have author meta updated.' );
+	}
+
+	/**
+	 * Verify that save bails when user lacks permission.
+	 */
+	public function test_save_bails_without_permission() {
+		// Create the post as admin first.
+		$post_id = self::factory()->document->create( array( 'post_author' => $this->admin_id ) );
+		update_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, 'Original Author' );
+
+		// Now switch to subscriber who shouldn't be able to edit.
+		$subscriber = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME        => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+			'documentate_document_meta_author'   => 'New Author',
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$this->assertSame( 'Original Author', get_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, true ), 'Author must remain unchanged when user lacks permission.' );
+	}
+
+	/**
+	 * Verify that save handles missing nonce.
+	 */
+	public function test_save_bails_on_missing_nonce() {
+		$post_id = self::factory()->document->create( array() );
+
+		update_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, 'Original Author' );
+
+		$_POST = array(
+			'documentate_document_meta_author' => 'New Author',
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$this->assertSame( 'Original Author', get_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, true ), 'Author must remain unchanged without nonce.' );
+	}
+
+	/**
+	 * Verify that save deletes empty meta values.
+	 */
+	public function test_save_deletes_empty_meta_values() {
+		$post_id = self::factory()->document->create( array() );
+
+		update_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, 'Author Value' );
+		update_post_meta( $post_id, Document_Meta_Box::META_KEY_KEYWORDS, 'keyword1, keyword2' );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME          => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+			'documentate_document_meta_author'     => '',
+			'documentate_document_meta_keywords'   => '',
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$this->assertSame( '', get_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, true ), 'Author meta must be deleted when empty.' );
+		$this->assertSame( '', get_post_meta( $post_id, Document_Meta_Box::META_KEY_KEYWORDS, true ), 'Keywords meta must be deleted when empty.' );
+	}
+
+	/**
+	 * Verify that save handles missing author and keywords fields.
+	 */
+	public function test_save_handles_missing_fields() {
+		$post_id = self::factory()->document->create( array() );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$this->assertSame( '', get_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, true ), 'Author must be empty when field is missing.' );
+		$this->assertSame( '', get_post_meta( $post_id, Document_Meta_Box::META_KEY_KEYWORDS, true ), 'Keywords must be empty when field is missing.' );
+	}
+
+	/**
+	 * Verify that render outputs title when post_title is empty.
+	 */
+	public function test_render_handles_empty_title() {
+		$post_id = self::factory()->document->create( array() );
+
+		// Use reflection to set post_title to empty.
+		$post = get_post( $post_id );
+		$post->post_title = '';
+
+		ob_start();
+		$this->meta_box->render( $post );
+		$html = ob_get_clean();
+
+		$this->assertStringContainsString( 'Title', $html, 'Title label must be displayed.' );
+	}
+
+	/**
+	 * Verify the register method adds the correct hooks.
+	 */
+	public function test_register_adds_hooks() {
+		$meta_box = new Document_Meta_Box();
+		$meta_box->register();
+
+		$this->assertNotFalse(
+			has_action( 'add_meta_boxes_documentate_document', array( $meta_box, 'register_meta_box' ) ),
+			'Meta box registration hook must be added.'
+		);
+		$this->assertNotFalse(
+			has_action( 'save_post_documentate_document', array( $meta_box, 'save' ) ),
+			'Save hook must be added.'
+		);
 	}
 }

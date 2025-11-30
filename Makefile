@@ -105,12 +105,19 @@ test-verbose: start-if-not-running
 	CMD="$$CMD --debug --verbose"; \
 	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
+# Run tests with code coverage report.
+# IMPORTANT: Requires wp-env started with Xdebug enabled:
+#   npx wp-env start --xdebug=coverage
+# If coverage shows 0%, restart wp-env with the --xdebug=coverage flag.
+# NOTE: Uses PHPUnit (not ParaTest) because WordPress tests share a single
+# database and don't support parallel execution reliably.
 test-coverage: start-if-not-running
 	@mkdir -p artifacts/coverage
-	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --testdox --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml --coverage-filter=admin --coverage-filter=includes --coverage-filter=public --coverage-filter=documentate.php --coverage-filter=uninstall.php"; \
+	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --testdox --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
 	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD; \
+	EXIT_CODE=$$?; \
 	echo ""; \
 	echo "════════════════════════════════════════════════════════════"; \
 	echo "                    COVERAGE SUMMARY                        "; \
@@ -118,7 +125,8 @@ test-coverage: start-if-not-running
 	grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
 	echo "════════════════════════════════════════════════════════════"; \
 	echo "Full report: artifacts/coverage/html/index.html"; \
-	echo ""
+	echo ""; \
+	exit $$EXIT_CODE
 
 # Ensure tests environment has admin user and plugin active
 setup-tests-env:
@@ -135,7 +143,7 @@ setup-tests-env:
 
 # Run E2E tests with Playwright against wp-env tests environment (port 8889)
 test-e2e: start-if-not-running setup-tests-env
-	WP_BASE_URL=http://localhost:8889 npm run test:e2e
+	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
 
 test-e2e-visual: start-if-not-running setup-tests-env
 	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- --ui
@@ -286,7 +294,7 @@ help:
 	@echo "                         make test FILE=tests/MyTest.php"
 	@echo "                         make test FILE=tests/MyTest.php FILTER=test_my_feature"
 	@echo "  test-generation    - Run document generation tests only"
-	@echo "  test-coverage      - Run PHPUnit with coverage (reports in artifacts/coverage)"
+	@echo "  test-coverage      - Run PHPUnit with coverage (requires: npx wp-env start --xdebug=coverage)"
 	@echo ""
 	@echo "  test-e2e           - Run E2E tests (non-interactive)"
 	@echo "  test-e2e-visual    - Run E2E tests with visual test UI"

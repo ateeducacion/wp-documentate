@@ -41,15 +41,11 @@ test.describe( 'Document Workflow States', () => {
 		// Try to publish
 		await page.locator( '#publish' ).click();
 
-		// Wait for the workflow warning notice to appear
-		await page.waitForSelector( '.notice-warning:visible', { timeout: 10000 } );
+		// Wait for the specific doctype warning notice to appear
+		const warningNotice = page.locator( '.notice-warning.documentate-doctype-warning' );
 
-		// Check for the specific workflow warning message
-		const warningNotice = page.locator( '.notice-warning' ).filter( {
-			hasText: 'Document saved as draft',
-		} );
-
-		await expect( warningNotice ).toBeVisible();
+		await expect( warningNotice ).toBeVisible( { timeout: 10000 } );
+		await expect( warningNotice ).toContainText( 'Select a document type before publishing' );
 	} );
 
 	test( 'schedule publication UI is hidden', async ( { admin, page } ) => {

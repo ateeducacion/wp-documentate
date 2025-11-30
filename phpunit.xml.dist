@@ -5,6 +5,18 @@
   backupGlobals="false"
   colors="true"
   xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd">
+  <coverage>
+    <include>
+      <directory suffix=".php">admin</directory>
+      <directory suffix=".php">includes</directory>
+      <directory suffix=".php">public</directory>
+      <file>documentate.php</file>
+      <file>uninstall.php</file>
+    </include>
+    <exclude>
+      <directory>admin/vendor</directory>
+    </exclude>
+  </coverage>
   <php>
     <env name="WORDPRESS_TABLE_PREFIX" value="wp_"/>
   </php>

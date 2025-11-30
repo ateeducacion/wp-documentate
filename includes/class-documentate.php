@@ -97,6 +97,28 @@ class Documentate {
 		// Removed legacy AJAX handlers for Kanban/Tasks.
 
 		/**
+		 * Refactored document classes following Single Responsibility Principle.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-meta-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-cpt-registration.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-revision-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-field-validator.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-field-renderer.php';
+
+		/**
+		 * Refactored OpenTBS classes.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/opentbs/class-opentbs-html-parser.php';
+
+		/**
+		 * Refactored export handlers.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-docx-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-odt-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-pdf-handler.php';
+
+		/**
 		 * The classes responsible for defining the custom-post-types.
 		 */
 		// Keep boards/labels for KB; remove tasks/events/actions (Kanban removal).

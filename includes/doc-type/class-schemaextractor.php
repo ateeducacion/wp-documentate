@@ -18,6 +18,39 @@ class SchemaExtractor {
 	const SCHEMA_VERSION = 2;
 
 	/**
+	 * Default validation patterns by field type.
+	 *
+	 * @var array<string, array{pattern: string, message: string}>
+	 */
+	private static $default_patterns = array(
+		'email' => array(
+			'pattern' => '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$',
+			'message' => '', // Set at runtime for translation.
+		),
+	);
+
+	/**
+	 * Get default pattern configuration for a field type.
+	 *
+	 * @param string $field_type Field type.
+	 * @return array{pattern: string, message: string}|null
+	 */
+	private static function get_default_pattern( $field_type ) {
+		if ( ! isset( self::$default_patterns[ $field_type ] ) ) {
+			return null;
+		}
+
+		$config = self::$default_patterns[ $field_type ];
+
+		// Handle translatable messages at runtime.
+		if ( 'email' === $field_type && '' === $config['message'] ) {
+			$config['message'] = __( 'Enter a valid email (user@domain.tld)', 'documentate' );
+		}
+
+		return $config;
+	}
+
+	/**
 	 * Extract the schema for a given template file.
 	 *
 	 * @param string $template_path Absolute path to the template file.
@@ -497,13 +530,12 @@ class SchemaExtractor {
 		$length      = isset( $parameters['length'] ) ? (string) $parameters['length'] : '';
 
 		if ( '' === $pattern ) {
-			switch ( $field_type ) {
-				case 'email':
-					$pattern = '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$';
-					if ( '' === $pattern_msg ) {
-						$pattern_msg = __( 'Enter a valid email (user@domain.tld)', 'documentate' );
-					}
-					break;
+			$default_config = self::get_default_pattern( $field_type );
+			if ( $default_config ) {
+				$pattern = $default_config['pattern'];
+				if ( '' === $pattern_msg ) {
+					$pattern_msg = $default_config['message'];
+				}
 			}
 		}
 

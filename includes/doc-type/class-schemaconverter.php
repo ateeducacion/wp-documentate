@@ -138,29 +138,37 @@ class SchemaConverter {
 	}
 
 	/**
+	 * Map of field types to data types.
+	 *
+	 * @var array<string,string>
+	 */
+	private static $data_type_map = array(
+		'number'   => 'number',
+		'date'     => 'date',
+		'boolean'  => 'boolean',
+		'email'    => 'text',
+		'url'      => 'text',
+		'text'     => 'text',
+		'html'     => 'text',
+		'textarea' => 'text',
+	);
+
+	/**
 	 * Determine the legacy data type from v2 type.
+	 *
+	 * Uses lookup array instead of switch for reduced complexity.
 	 *
 	 * @param string $type Field type.
 	 * @return string
 	 */
 	private static function map_data_type( $type ) {
-		switch ( strtolower( (string) $type ) ) {
-			case 'number':
-				return 'number';
-			case 'date':
-				return 'date';
-			case 'boolean':
-				return 'boolean';
-			case 'email':
-			case 'url':
-			case 'text':
-				return 'text';
-			case 'html':
-			case 'textarea':
-				return 'text';
-			default:
-				return 'text';
+		$type = strtolower( (string) $type );
+
+		if ( isset( self::$data_type_map[ $type ] ) ) {
+			return self::$data_type_map[ $type ];
 		}
+
+		return 'text';
 	}
 
 	/**
