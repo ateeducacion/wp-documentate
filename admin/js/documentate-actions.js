@@ -351,11 +351,17 @@
 
 	/**
 	 * Handle conversion using external converter service.
-	 * Opens the converter in a new tab with the file encoded in the URL hash.
+	 * Opens the converter in a new tab with the file as query parameters.
 	 * This works in WordPress Playground because:
 	 * - The new tab has its own context with Cross-Origin Isolation
 	 * - No iframe/popup restrictions apply
 	 * - The converter's Service Worker can enable SharedArrayBuffer
+	 *
+	 * External converter API:
+	 * - base64: Base64-encoded document content
+	 * - name: Filename (required with base64)
+	 * - format: Output format (pdf, docx, etc.)
+	 * - download: If "true", auto-download instead of preview
 	 *
 	 * @param {jQuery} $btn         The button element.
 	 * @param {string} action       Action type (preview, download).
@@ -418,16 +424,21 @@
 				console.warn('Documentate: Document is large (' + Math.round(base64Data.length / 1024) + 'KB encoded). URL might be too long for some browsers.');
 			}
 
-			// Step 4: Build converter URL with file in hash
-			// Format: #file=BASE64&format=pdf&action=preview&filename=document.odt
-			const hashParams = new URLSearchParams({
-				file: base64Data,
-				format: targetFormat,
-				action: action,
-				filename: 'documento.' + sourceFormat
+			// Step 4: Build converter URL with query parameters
+			// API: ?base64=DATA&name=filename.odt&format=pdf&download=true/false
+			const queryParams = new URLSearchParams({
+				base64: base64Data,
+				name: 'documento.' + sourceFormat,
+				format: targetFormat
 			});
 
-			const converterUrl = config.externalConverterUrl + '#' + hashParams.toString();
+			// For downloads (not preview), add download=true parameter
+			if (action !== 'preview') {
+				queryParams.set('download', 'true');
+			}
+			// For preview: don't set download param, converter will show inline
+
+			const converterUrl = config.externalConverterUrl + '?' + queryParams.toString();
 
 			// Step 5: Open converter in new tab
 			// Using <a> tag click instead of window.open for better compatibility
