@@ -350,21 +350,16 @@
 	}
 
 	/**
-	 * Reference to the converter window opened for external conversion.
-	 */
-	let externalConverterWindow = null;
-
-	/**
-	 * Handle conversion using external converter service.
-	 * Opens the converter in a new tab and sends the file via postMessage.
-	 * This approach avoids URL length limits for large files.
+	 * Handle conversion using external converter service via POST form.
+	 * Submits a form with target="_blank" to open converter in new tab with file data.
+	 * This approach avoids URL length limits and COOP/COEP cross-origin restrictions.
 	 *
 	 * Flow:
 	 * 1. Generate source document via AJAX
-	 * 2. Open converter with ?receive=opener (tells it to wait for data)
-	 * 3. Wait for converter to signal ready via postMessage
-	 * 4. Send document via postMessage
-	 * 5. Converter processes and shows result
+	 * 2. Download the generated document
+	 * 3. Create hidden form with file and submit to converter with target="_blank"
+	 * 4. Converter's Service Worker receives POST, stores file, redirects with postData=true
+	 * 5. Converter processes and shows result in new tab
 	 *
 	 * @param {jQuery} $btn         The button element.
 	 * @param {string} action       Action type (preview, download).
@@ -407,89 +402,68 @@
 			if (!docResponse.ok) {
 				throw new Error('Failed to download source document');
 			}
-			const docBuffer = await docResponse.arrayBuffer();
+			const docBlob = await docResponse.blob();
 
-			// Step 3: Open converter in new tab with receive=opener mode
+			// Step 3: Create hidden form and submit via POST to new tab
 			updateModal(
 				strings.loadingWasm || 'Opening converter...',
-				'A new tab will open. Please wait for conversion to complete.'
+				'A new tab will open with the converter. Please wait for the conversion.'
 			);
 
-			// Build URL with opener mode parameters
-			const queryParams = new URLSearchParams({
-				receive: 'opener',
-				format: targetFormat,
-				name: 'documento.' + sourceFormat,
-				download: action !== 'preview' ? 'true' : 'false'
-			});
+			// Create form element
+			const postForm = document.createElement('form');
+			postForm.method = 'POST';
+			postForm.action = config.externalConverterUrl;
+			postForm.enctype = 'multipart/form-data';
+			postForm.target = '_blank'; // Open in new tab
+			postForm.style.display = 'none';
 
-			const converterUrl = config.externalConverterUrl + '?' + queryParams.toString();
+			// Create file input with the document blob
+			const fileInput = document.createElement('input');
+			fileInput.type = 'file';
+			fileInput.name = 'file';
 
-			// Open the converter window
-			// Note: We don't use noopener because we need window.opener for postMessage
-			externalConverterWindow = window.open(converterUrl, 'documentate_converter');
+			// Create a File object from the blob
+			const filename = 'documento.' + sourceFormat;
+			const file = new File([docBlob], filename, { type: docBlob.type });
 
-			// Step 4: Wait for converter to signal ready, then send document
-			updateModal(
-				strings.loadingWasm || 'Waiting for converter...',
-				'The converter is loading LibreOffice WASM (~50MB first time).'
-			);
+			// Use DataTransfer to set the file (workaround for programmatic file setting)
+			const dataTransfer = new DataTransfer();
+			dataTransfer.items.add(file);
+			fileInput.files = dataTransfer.files;
+			postForm.appendChild(fileInput);
 
-			// Set up listener for converter ready signal
-			const sendDocumentWhenReady = new Promise((resolve, reject) => {
-				const timeout = setTimeout(() => {
-					window.removeEventListener('message', readyHandler);
-					reject(new Error('Converter did not respond. Please check if the converter tab opened.'));
-				}, 180000); // 3 minutes timeout
+			// Add format parameter
+			const formatInput = document.createElement('input');
+			formatInput.type = 'hidden';
+			formatInput.name = 'format';
+			formatInput.value = targetFormat;
+			postForm.appendChild(formatInput);
 
-				const readyHandler = (event) => {
-					// Check if it's from our converter
-					if (!event.data || !event.data.type) return;
+			// Add fullscreen parameter for preview, download for other actions
+			if (action === 'preview') {
+				const fullscreenInput = document.createElement('input');
+				fullscreenInput.type = 'hidden';
+				fullscreenInput.name = 'fullscreen';
+				fullscreenInput.value = 'true';
+				postForm.appendChild(fullscreenInput);
+			} else {
+				const downloadInput = document.createElement('input');
+				downloadInput.type = 'hidden';
+				downloadInput.name = 'download';
+				downloadInput.value = 'true';
+				postForm.appendChild(downloadInput);
+			}
 
-					if (event.data.type === 'converterReady') {
-						clearTimeout(timeout);
-						window.removeEventListener('message', readyHandler);
+			// Append form to body, submit, and remove
+			document.body.appendChild(postForm);
+			postForm.submit();
+			document.body.removeChild(postForm);
 
-						console.log('Documentate: Converter ready, sending document...');
-						updateModal(
-							strings.convertingBrowser || 'Converting...',
-							'Processing with LibreOffice WASM...'
-						);
-
-						// Send the document
-						if (externalConverterWindow && !externalConverterWindow.closed) {
-							externalConverterWindow.postMessage({
-								type: 'convertDocument',
-								buffer: docBuffer,
-								name: 'documento.' + sourceFormat,
-								format: targetFormat,
-								download: action !== 'preview'
-							}, '*');
-						}
-						resolve();
-					} else if (event.data.type === 'conversionComplete') {
-						clearTimeout(timeout);
-						window.removeEventListener('message', readyHandler);
-
-						if (event.data.success) {
-							console.log('Documentate: Conversion completed successfully');
-						} else {
-							console.error('Documentate: Conversion failed:', event.data.error);
-						}
-						hideModal();
-						resolve();
-					}
-				};
-
-				window.addEventListener('message', readyHandler);
-			});
-
-			await sendDocumentWhenReady;
-
-			// Hide modal - conversion happens in the new tab
+			// Hide modal after a short delay - conversion happens in the new tab
 			setTimeout(function() {
 				hideModal();
-			}, 2000);
+			}, 1500);
 
 		} catch (error) {
 			console.error('Documentate external conversion error:', error);
@@ -681,7 +655,7 @@
 		// Log mode for debugging
 		if (shouldUseExternalConverter()) {
 			console.log('Documentate: External converter will be used for WASM conversions (Playground mode)');
-			console.log('Documentate: Documents will open in new tab at', config.externalConverterUrl);
+			console.log('Documentate: Documents will be POSTed to', config.externalConverterUrl);
 		} else if (shouldUseIframe()) {
 			console.log('Documentate: Iframe mode will be used for WASM conversions');
 		} else {
