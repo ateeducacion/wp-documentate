@@ -47,7 +47,7 @@ jobs:
           tools: phpmd
 
       - name: Run PHPMD
-        run: phpmd . sarif phpmd.xml --baseline phpmd.baseline.xml --reportfile phpmd-results.sarif
+        run: phpmd . sarif phpmd.xml --baseline-file phpmd.baseline.xml --reportfile phpmd-results.sarif
 
       - name: Upload analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v4
