@@ -116,6 +116,50 @@
 	}
 
 	/**
+	 * Show PDF in an embedded viewer modal.
+	 * Used in Playground where window.open() doesn't work with blob URLs.
+	 *
+	 * @param {string} blobUrl The blob URL of the PDF.
+	 */
+	function showPdfViewer(blobUrl) {
+		// Remove existing viewer if any
+		$('#documentate-pdf-viewer').remove();
+
+		const html = `
+			<div class="documentate-pdf-viewer" id="documentate-pdf-viewer">
+				<div class="documentate-pdf-viewer__header">
+					<span class="documentate-pdf-viewer__title">${escapeHtml(strings.preview || 'Vista previa')}</span>
+					<div class="documentate-pdf-viewer__actions">
+						<a href="${blobUrl}" download="documento.pdf" class="button documentate-pdf-viewer__download">${escapeHtml(strings.download || 'Descargar')}</a>
+						<button type="button" class="documentate-pdf-viewer__close" aria-label="${escapeHtml(strings.close || 'Cerrar')}">&times;</button>
+					</div>
+				</div>
+				<div class="documentate-pdf-viewer__content">
+					<iframe src="${blobUrl}" class="documentate-pdf-viewer__iframe"></iframe>
+				</div>
+			</div>
+		`;
+		$('body').append(html);
+
+		const $viewer = $('#documentate-pdf-viewer');
+
+		// Close button event
+		$viewer.on('click', '.documentate-pdf-viewer__close', function () {
+			$viewer.remove();
+			URL.revokeObjectURL(blobUrl);
+		});
+
+		// ESC key to close
+		$(document).on('keydown.documentatePdfViewer', function (e) {
+			if (e.key === 'Escape') {
+				$viewer.remove();
+				URL.revokeObjectURL(blobUrl);
+				$(document).off('keydown.documentatePdfViewer');
+			}
+		});
+	}
+
+	/**
 	 * Log debug info to the browser console for troubleshooting.
 	 *
 	 * @param {Object} response AJAX response object.
@@ -370,8 +414,8 @@
 			hideModal();
 
 			if (action === 'preview' && targetFormat === 'pdf') {
-				// Open PDF in new tab (this works in Playground for viewing)
-				window.open(blobUrl, '_blank');
+				// In Playground, show PDF in an embedded viewer (new tabs don't work well with blob URLs)
+				showPdfViewer(blobUrl);
 			} else {
 				// Trigger download
 				const a = document.createElement('a');
