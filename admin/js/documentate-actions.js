@@ -158,6 +158,18 @@
 	}
 
 	/**
+	 * Determine if we should use external converter service.
+	 * In WordPress Playground, we can't register our own Service Worker
+	 * because Playground has its own SW that intercepts all requests.
+	 * The external service (erseco.github.io) has proper COOP/COEP headers.
+	 *
+	 * @return {boolean} True if external converter should be used.
+	 */
+	function shouldUseExternalConverter() {
+		return isPlayground() && config.externalConverterUrl;
+	}
+
+	/**
 	 * Initialize BroadcastChannel for receiving converter results.
 	 * This allows the COOP-isolated iframe to send results back to us.
 	 */
@@ -338,10 +350,215 @@
 	}
 
 	/**
+	 * External converter iframe reference.
+	 */
+	let externalConverterIframe = null;
+	let externalConverterReady = false;
+
+	/**
+	 * Initialize external converter iframe for WordPress Playground.
+	 * The external service (erseco.github.io/document-converter) has proper COOP/COEP headers.
+	 */
+	function initExternalConverter() {
+		if (externalConverterIframe) {
+			return;
+		}
+
+		externalConverterIframe = document.createElement('iframe');
+		externalConverterIframe.id = 'documentate-external-converter';
+		externalConverterIframe.src = config.externalConverterUrl;
+		externalConverterIframe.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;border:none;';
+		document.body.appendChild(externalConverterIframe);
+
+		console.log('Documentate: External converter iframe created');
+	}
+
+	/**
+	 * Initialize listener for external converter messages.
+	 */
+	function initExternalConverterListener() {
+		window.addEventListener('message', function (event) {
+			// Only process messages from external converter
+			if (!config.externalConverterUrl) {
+				return;
+			}
+
+			let expectedOrigin;
+			try {
+				expectedOrigin = new URL(config.externalConverterUrl).origin;
+			} catch (e) {
+				return;
+			}
+
+			if (event.origin !== expectedOrigin) {
+				return;
+			}
+
+			const { type, blob, error, ready } = event.data;
+
+			console.log('Documentate: External converter message:', type, event.data);
+
+			// Handle ready signal
+			if (type === 'ready' || (type === 'pong' && ready)) {
+				externalConverterReady = true;
+				console.log('Documentate: External converter ready');
+				return;
+			}
+
+			// Handle conversion result
+			if (type === 'result' && blob && pendingConversion) {
+				handleExternalConversionResult(blob, pendingConversion.action, pendingConversion.format);
+				pendingConversion = null;
+				return;
+			}
+
+			// Handle error
+			if (type === 'error' && pendingConversion) {
+				showError(error || strings.errorGeneric || 'Conversion error.');
+				pendingConversion = null;
+				return;
+			}
+		});
+	}
+
+	/**
+	 * Handle successful conversion from external converter.
+	 *
+	 * @param {Blob}   blob   The converted document blob.
+	 * @param {string} action Action type (preview, download).
+	 * @param {string} format Target format.
+	 */
+	function handleExternalConversionResult(blob, action, format) {
+		const blobUrl = URL.createObjectURL(blob);
+
+		if (action === 'preview' && format === 'pdf') {
+			// Open PDF in new tab
+			window.open(blobUrl, '_blank');
+		} else {
+			// Trigger download
+			const a = document.createElement('a');
+			a.href = blobUrl;
+			a.download = 'documento.' + format;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+
+			setTimeout(function () {
+				URL.revokeObjectURL(blobUrl);
+			}, 1000);
+		}
+
+		hideModal();
+	}
+
+	/**
+	 * Handle conversion using external converter service.
+	 * Used in WordPress Playground where we can't register Service Workers.
+	 *
+	 * @param {jQuery} $btn         The button element.
+	 * @param {string} action       Action type (preview, download).
+	 * @param {string} targetFormat Target format.
+	 * @param {string} sourceFormat Source format.
+	 */
+	async function handleExternalConverterConversion($btn, action, targetFormat, sourceFormat) {
+		try {
+			// Initialize external converter if needed
+			initExternalConverter();
+
+			// Step 1: Generate source document via AJAX
+			updateModal(
+				strings.generating || 'Generating document...',
+				strings.wait || 'Please wait...'
+			);
+
+			const formData = new FormData();
+			formData.append('action', 'documentate_generate_document');
+			formData.append('post_id', config.postId);
+			formData.append('format', sourceFormat);
+			formData.append('output', 'download');
+			formData.append('_wpnonce', config.nonce);
+
+			const ajaxResponse = await fetch(config.ajaxUrl, {
+				method: 'POST',
+				body: formData,
+				credentials: 'same-origin'
+			});
+			const ajaxData = await ajaxResponse.json();
+
+			if (!ajaxData.success || !ajaxData.data?.url) {
+				throw new Error(ajaxData.data?.message || 'Failed to generate source document');
+			}
+
+			// Step 2: Fetch the generated document
+			updateModal(
+				strings.loadingWasm || 'Loading converter...',
+				'Downloading document...'
+			);
+
+			const docResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
+			if (!docResponse.ok) {
+				throw new Error('Failed to download source document');
+			}
+			const docBuffer = await docResponse.arrayBuffer();
+
+			// Step 3: Wait for external converter to be ready
+			updateModal(
+				strings.loadingWasm || 'Loading LibreOffice...',
+				'Waiting for converter to initialize...'
+			);
+
+			// Poll for ready status if not ready yet
+			if (!externalConverterReady && externalConverterIframe) {
+				const expectedOrigin = new URL(config.externalConverterUrl).origin;
+
+				// Send ping and wait
+				for (let i = 0; i < 60; i++) { // Wait up to 60 seconds
+					externalConverterIframe.contentWindow.postMessage({
+						type: 'ping',
+						requestId: 'poll_' + Date.now()
+					}, expectedOrigin);
+
+					await new Promise(resolve => setTimeout(resolve, 1000));
+
+					if (externalConverterReady) {
+						break;
+					}
+				}
+
+				if (!externalConverterReady) {
+					throw new Error('External converter timeout');
+				}
+			}
+
+			// Step 4: Send document to external converter
+			updateModal(
+				strings.convertingBrowser || 'Converting...',
+				'Processing with LibreOffice WASM...'
+			);
+
+			const expectedOrigin = new URL(config.externalConverterUrl).origin;
+			externalConverterIframe.contentWindow.postMessage({
+				type: 'convert',
+				buffer: docBuffer,
+				format: targetFormat,
+				requestId: Date.now().toString()
+			}, expectedOrigin);
+
+			// Result will be handled by the message listener
+
+		} catch (error) {
+			console.error('Documentate external conversion error:', error);
+			showError(error.message || strings.errorGeneric || 'Conversion error.');
+			pendingConversion = null;
+		}
+	}
+
+	/**
 	 * Handle WASM mode conversion via popup or iframe.
 	 * The modal stays visible in this window showing progress.
 	 *
-	 * Uses iframe mode in WordPress Playground (where popups are blocked),
+	 * Uses external converter in WordPress Playground (where Service Workers can't be registered),
+	 * iframe mode in other environments where popups are blocked,
 	 * and popup mode in regular WordPress installations.
 	 *
 	 * @param {jQuery} $btn         The button element.
@@ -356,8 +573,15 @@
 			format: targetFormat
 		};
 
-		if (shouldUseIframe()) {
-			// IFRAME MODE: For WordPress Playground and environments where popups are blocked
+		if (shouldUseExternalConverter()) {
+			// EXTERNAL CONVERTER MODE: For WordPress Playground
+			// Playground has its own Service Worker that prevents us from registering ours.
+			// We use the external converter service which has proper COOP/COEP headers.
+			console.log('Documentate: Using external converter for Playground');
+			handleExternalConverterConversion($btn, action, targetFormat, sourceFormat);
+
+		} else if (shouldUseIframe()) {
+			// IFRAME MODE: For environments where popups are blocked but SW works
 			// The iframe uses a Service Worker to enable cross-origin isolation
 			console.log('Documentate: Using iframe mode for conversion');
 
@@ -506,11 +730,16 @@
 		// Initialize postMessage listener for iframe mode
 		initIframeMessageListener();
 
+		// Initialize external converter listener (for Playground)
+		initExternalConverterListener();
+
 		// Bind click handlers to action buttons
 		$(document).on('click', '[data-documentate-action]', handleActionClick);
 
 		// Log mode for debugging
-		if (shouldUseIframe()) {
+		if (shouldUseExternalConverter()) {
+			console.log('Documentate: External converter will be used for WASM conversions (Playground mode)');
+		} else if (shouldUseIframe()) {
 			console.log('Documentate: Iframe mode will be used for WASM conversions');
 		} else {
 			console.log('Documentate: Popup mode will be used for WASM conversions');
