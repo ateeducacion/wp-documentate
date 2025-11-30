@@ -195,3 +195,47 @@
 	background: #fff;
 	border-radius: 4px;
 }
+
+/* PDF.js Canvas Container */
+.documentate-pdf-viewer__canvas-container {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: auto;
+	background: #525659;
+	border-radius: 4px;
+}
+
+.documentate-pdf-viewer__canvas-container canvas {
+	max-width: 100%;
+	height: auto;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* PDF Navigation and Zoom Controls */
+.documentate-pdf-viewer__nav,
+.documentate-pdf-viewer__zoom {
+	min-width: 32px;
+	height: 32px;
+	padding: 0 8px;
+	font-size: 18px;
+	font-weight: bold;
+	line-height: 1;
+	color: #fff !important;
+	border-color: rgba(255, 255, 255, 0.3) !important;
+	background: transparent !important;
+}
+
+.documentate-pdf-viewer__nav:hover,
+.documentate-pdf-viewer__zoom:hover {
+	border-color: rgba(255, 255, 255, 0.6) !important;
+	background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.documentate-pdf-viewer__page-info {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.8);
+	min-width: 60px;
+	text-align: center;
+}

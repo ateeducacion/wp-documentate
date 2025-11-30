@@ -116,7 +116,39 @@
 	}
 
 	/**
-	 * Show PDF in an embedded viewer modal.
+	 * Load PDF.js library from CDN.
+	 * Only loads once, subsequent calls return the cached promise.
+	 */
+	let pdfJsLoadPromise = null;
+	function loadPdfJs() {
+		if (pdfJsLoadPromise) {
+			return pdfJsLoadPromise;
+		}
+
+		pdfJsLoadPromise = new Promise((resolve, reject) => {
+			// Check if already loaded
+			if (window.pdfjsLib) {
+				resolve(window.pdfjsLib);
+				return;
+			}
+
+			const script = document.createElement('script');
+			script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+			script.onload = () => {
+				// Set worker source
+				window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+					'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+				resolve(window.pdfjsLib);
+			};
+			script.onerror = () => reject(new Error('Failed to load PDF.js'));
+			document.head.appendChild(script);
+		});
+
+		return pdfJsLoadPromise;
+	}
+
+	/**
+	 * Show PDF in an embedded viewer modal using PDF.js.
 	 * Used in Playground where window.open() doesn't work with blob URLs.
 	 *
 	 * @param {Blob} pdfBlob The PDF blob to display.
@@ -124,13 +156,6 @@
 	async function showPdfViewer(pdfBlob) {
 		// Remove existing viewer if any
 		$('#documentate-pdf-viewer').remove();
-
-		// Convert blob to base64 data URL (more compatible than blob URLs in iframes)
-		const arrayBuffer = await pdfBlob.arrayBuffer();
-		const base64 = btoa(
-			new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-		);
-		const dataUrl = 'data:application/pdf;base64,' + base64;
 
 		// Create blob URL for download button
 		const blobUrl = URL.createObjectURL(pdfBlob);
@@ -140,18 +165,21 @@
 				<div class="documentate-pdf-viewer__header">
 					<span class="documentate-pdf-viewer__title">${escapeHtml(strings.preview || 'Vista previa')}</span>
 					<div class="documentate-pdf-viewer__actions">
+						<button type="button" class="button documentate-pdf-viewer__nav" id="pdf-prev" title="Anterior">‹</button>
+						<span class="documentate-pdf-viewer__page-info">
+							<span id="pdf-page-num">1</span> / <span id="pdf-page-count">-</span>
+						</span>
+						<button type="button" class="button documentate-pdf-viewer__nav" id="pdf-next" title="Siguiente">›</button>
+						<button type="button" class="button documentate-pdf-viewer__zoom" id="pdf-zoom-out" title="Reducir">−</button>
+						<button type="button" class="button documentate-pdf-viewer__zoom" id="pdf-zoom-in" title="Ampliar">+</button>
 						<a href="${blobUrl}" download="documento.pdf" class="button documentate-pdf-viewer__download">${escapeHtml(strings.download || 'Descargar')}</a>
 						<button type="button" class="documentate-pdf-viewer__close" aria-label="${escapeHtml(strings.close || 'Cerrar')}">&times;</button>
 					</div>
 				</div>
 				<div class="documentate-pdf-viewer__content">
-					<object data="${dataUrl}" type="application/pdf" class="documentate-pdf-viewer__object">
-						<p style="padding: 20px; text-align: center;">
-							${escapeHtml(strings.pdfNotSupported || 'Tu navegador no puede mostrar PDFs embebidos.')}
-							<br><br>
-							<a href="${blobUrl}" download="documento.pdf" class="button button-primary">${escapeHtml(strings.download || 'Descargar')}</a>
-						</p>
-					</object>
+					<div class="documentate-pdf-viewer__canvas-container" id="pdf-canvas-container">
+						<canvas id="pdf-canvas"></canvas>
+					</div>
 				</div>
 			</div>
 		`;
@@ -159,20 +187,104 @@
 
 		const $viewer = $('#documentate-pdf-viewer');
 
-		// Close button event
-		$viewer.on('click', '.documentate-pdf-viewer__close', function () {
+		// Close function
+		const closeViewer = () => {
 			$viewer.remove();
 			URL.revokeObjectURL(blobUrl);
-		});
+			$(document).off('keydown.documentatePdfViewer');
+		};
+
+		// Close button event
+		$viewer.on('click', '.documentate-pdf-viewer__close', closeViewer);
 
 		// ESC key to close
 		$(document).on('keydown.documentatePdfViewer', function (e) {
 			if (e.key === 'Escape') {
-				$viewer.remove();
-				URL.revokeObjectURL(blobUrl);
-				$(document).off('keydown.documentatePdfViewer');
+				closeViewer();
 			}
 		});
+
+		// Load and render PDF with PDF.js
+		try {
+			const pdfjsLib = await loadPdfJs();
+			const arrayBuffer = await pdfBlob.arrayBuffer();
+			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+			let currentPage = 1;
+			let currentScale = 1.5;
+			const totalPages = pdf.numPages;
+
+			$('#pdf-page-count').text(totalPages);
+
+			const canvas = document.getElementById('pdf-canvas');
+			const ctx = canvas.getContext('2d');
+
+			async function renderPage(pageNum) {
+				const page = await pdf.getPage(pageNum);
+				const viewport = page.getViewport({ scale: currentScale });
+
+				canvas.height = viewport.height;
+				canvas.width = viewport.width;
+
+				await page.render({
+					canvasContext: ctx,
+					viewport: viewport
+				}).promise;
+
+				$('#pdf-page-num').text(pageNum);
+			}
+
+			// Initial render
+			await renderPage(currentPage);
+
+			// Navigation events
+			$('#pdf-prev').on('click', async () => {
+				if (currentPage > 1) {
+					currentPage--;
+					await renderPage(currentPage);
+				}
+			});
+
+			$('#pdf-next').on('click', async () => {
+				if (currentPage < totalPages) {
+					currentPage++;
+					await renderPage(currentPage);
+				}
+			});
+
+			// Zoom events
+			$('#pdf-zoom-in').on('click', async () => {
+				currentScale = Math.min(currentScale + 0.25, 3);
+				await renderPage(currentPage);
+			});
+
+			$('#pdf-zoom-out').on('click', async () => {
+				currentScale = Math.max(currentScale - 0.25, 0.5);
+				await renderPage(currentPage);
+			});
+
+			// Keyboard navigation
+			$(document).on('keydown.documentatePdfViewer', async function (e) {
+				if (e.key === 'ArrowLeft' && currentPage > 1) {
+					currentPage--;
+					await renderPage(currentPage);
+				} else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+					currentPage++;
+					await renderPage(currentPage);
+				}
+			});
+
+		} catch (error) {
+			console.error('PDF.js render error:', error);
+			// Show fallback message
+			$('#pdf-canvas-container').html(`
+				<p style="padding: 20px; text-align: center; color: #fff;">
+					${escapeHtml(strings.pdfNotSupported || 'Error al cargar el PDF.')}
+					<br><br>
+					<a href="${blobUrl}" download="documento.pdf" class="button button-primary">${escapeHtml(strings.download || 'Descargar')}</a>
+				</p>
+			`);
+		}
 	}
 
 	/**
