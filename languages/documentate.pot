@@ -18,7 +18,7 @@ msgid "Documentate – Document Generator"
 msgstr ""
 
 #. Plugin URI of the plugin
-msgid "https://github.com/erseco/wp-documentate"
+msgid "https://github.com/ateeducacion/wp-documentate"
 msgstr ""
 
 #. Description of the plugin

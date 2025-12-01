@@ -3,12 +3,12 @@
  *
  * Documentate – Document Generator.
  *
- * @link              https://github.com/erseco/wp-documentate
+ * @link              https://github.com/ateeducacion/wp-documentate
  * @package           Documentate
  *
  * @wordpress-plugin
  * Plugin Name:       Documentate – Document Generator
- * Plugin URI:        https://github.com/erseco/wp-documentate
+ * Plugin URI:        https://github.com/ateeducacion/wp-documentate
  * Description:       Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF.
  * Version:           0.0.0
  * Author:            Área de Tecnología Educativa

@@ -6,7 +6,7 @@
  * sections stored as post meta and a document type taxonomy that defines
  * the available template fields.
  *
- * @link       https://github.com/erseco/wp-documentate
+ * @link       https://github.com/ateeducacion/wp-documentate
  * @since      0.1.0
  *
  * @package    documentate

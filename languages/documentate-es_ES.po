@@ -19,8 +19,8 @@ msgid "Documentate – Document Generator"
 msgstr "Documentate – Generador de Documentos"
 
 #. Plugin URI of the plugin
-msgid "https://github.com/erseco/wp-documentate"
-msgstr "https://github.com/erseco/wp-documentate"
+msgid "https://github.com/ateeducacion/wp-documentate"
+msgstr "https://github.com/ateeducacion/wp-documentate"
 
 #. Description of the plugin
 msgid "Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF."
