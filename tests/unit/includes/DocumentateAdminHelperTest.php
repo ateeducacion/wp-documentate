@@ -501,7 +501,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term_id = $term['term_id'];
 
 		// Create an attachment for the template using plugin_dir_path.
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -896,7 +896,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'ODT Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -920,7 +920,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'DOCX Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.docx';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/demo-wp-documentate.docx';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -991,7 +991,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term_id = $term['term_id'];
 		update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -1105,7 +1105,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'No Conv Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -1183,8 +1183,8 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'Both Templates Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$odt_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
-		$docx_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.docx';
+		$odt_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
+		$docx_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/demo-wp-documentate.docx';
 
 		if ( file_exists( $odt_path ) && file_exists( $docx_path ) ) {
 			$odt_id = $this->factory->attachment->create_upload_object( $odt_path );
@@ -1559,7 +1559,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'Nonce Test Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -1610,7 +1610,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$doc_type = $term_result['term_id'];
 
 		// Only ODT template, no DOCX.
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $doc_type, 'documentate_type_template_id', $attachment_id );
@@ -1670,7 +1670,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'Conv Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
@@ -1796,7 +1796,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$term = wp_insert_term( 'CDN Type', 'documentate_doc_type' );
 		$term_id = $term['term_id'];
 
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( file_exists( $fixture_path ) ) {
 			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
 			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );

@@ -719,9 +719,9 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	 * Test generate_docx with real template from fixtures.
 	 */
 	public function test_generate_docx_with_real_template() {
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.docx';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/demo-wp-documentate.docx';
 		if ( ! file_exists( $fixture_path ) ) {
-			$this->markTestSkipped( 'Fixture plantilla.docx not found.' );
+			$this->markTestSkipped( 'Fixture demo-wp-documentate.docx not found.' );
 		}
 
 		// Create admin user.
@@ -771,9 +771,9 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	 * Test generate_odt with real template from fixtures.
 	 */
 	public function test_generate_odt_with_real_template() {
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( ! file_exists( $fixture_path ) ) {
-			$this->markTestSkipped( 'Fixture plantilla.odt not found.' );
+			$this->markTestSkipped( 'Fixture resolucion.odt not found.' );
 		}
 
 		// Create admin user.
@@ -821,9 +821,9 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	 * Test get_template_path returns correct path for ODT.
 	 */
 	public function test_get_template_path_odt() {
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( ! file_exists( $fixture_path ) ) {
-			$this->markTestSkipped( 'Fixture plantilla.odt not found.' );
+			$this->markTestSkipped( 'Fixture resolucion.odt not found.' );
 		}
 
 		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
@@ -855,9 +855,9 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	 * Test get_template_path returns correct path for DOCX.
 	 */
 	public function test_get_template_path_docx() {
-		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.docx';
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/demo-wp-documentate.docx';
 		if ( ! file_exists( $fixture_path ) ) {
-			$this->markTestSkipped( 'Fixture plantilla.docx not found.' );
+			$this->markTestSkipped( 'Fixture demo-wp-documentate.docx not found.' );
 		}
 
 		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );

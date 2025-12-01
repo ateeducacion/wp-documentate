@@ -930,7 +930,7 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$term_id = $term['term_id'];
 
 		// Create a real attachment with a test template file.
-		$template_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		$template_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
 		if ( ! file_exists( $template_path ) ) {
 			$this->markTestSkipped( 'Test template not found.' );
 		}

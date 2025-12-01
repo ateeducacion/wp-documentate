@@ -114,7 +114,7 @@ add_action( 'init', 'documentate_maybe_flush_rewrite_rules', 999 );
  * Looks for the file under plugin fixtures directory and root as fallback.
  * Uses file hash to avoid duplicate imports and tags attachment as plugin fixture.
  *
- * @param string $filename Filename inside fixtures/ (e.g., 'plantilla.odt').
+ * @param string $filename Filename inside fixtures/ (e.g., 'resolucion.odt').
  * @return int Attachment ID or 0 on failure/missing file.
  */
 function documentate_import_fixture_file( $filename ) {
@@ -197,10 +197,8 @@ function documentate_import_fixture_file( $filename ) {
  */
 function documentate_ensure_default_media() {
 
-	// ODT template.
-	documentate_import_fixture_file( 'plantilla.odt' );
-	// DOCX template.
-	documentate_import_fixture_file( 'plantilla.docx' );
+	// ODT template for resolutions.
+	documentate_import_fixture_file( 'resolucion.odt' );
 
 	// Ensure demo fixtures are present for testing scenarios.
 	documentate_import_fixture_file( 'demo-wp-documentate.odt' );
@@ -223,27 +221,15 @@ function documentate_maybe_seed_default_doc_types() {
 
 	$definitions = array();
 
-	$odt_id = documentate_import_fixture_file( 'plantilla.odt' );
+	$odt_id = documentate_import_fixture_file( 'resolucion.odt' );
 	if ( $odt_id > 0 ) {
 		$definitions[] = array(
-			'slug'        => 'documentate-demo-odt',
-			'name'        => __( 'Test document type (ODT)', 'documentate' ),
-			'description' => __( 'Example automatically created with the included ODT template.', 'documentate' ),
+			'slug'        => 'resolucion-administrativa',
+			'name'        => 'Resolución Administrativa',
+			'description' => 'Plantilla para resoluciones administrativas con antecedentes, fundamentos de derecho, resuelvo y anexos.',
 			'color'       => '#37517e',
 			'template_id' => $odt_id,
-			'fixture_key' => 'documentate-demo-odt',
-		);
-	}
-
-	$docx_id = documentate_import_fixture_file( 'plantilla.docx' );
-	if ( $docx_id > 0 ) {
-		$definitions[] = array(
-			'slug'        => 'documentate-demo-docx',
-			'name'        => __( 'Test document type (DOCX)', 'documentate' ),
-			'description' => __( 'Example automatically created with the included DOCX template.', 'documentate' ),
-			'color'       => '#2a7fb8',
-			'template_id' => $docx_id,
-			'fixture_key' => 'documentate-demo-docx',
+			'fixture_key' => 'resolucion-administrativa',
 		);
 	}
 
@@ -367,27 +353,289 @@ function documentate_maybe_seed_demo_documents() {
 
 	documentate_maybe_seed_default_doc_types();
 
+	// Get the Resolución Administrativa document type.
+	$term = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
+	if ( $term instanceof WP_Term ) {
+		// Create the 3 specific demo documents for Resolución Administrativa.
+		documentate_create_resolucion_demo_documents( $term );
+	}
+
+	// Also create demo documents for other document types (advanced demos).
 	$terms = get_terms(
 		array(
 			'taxonomy'   => 'documentate_doc_type',
 			'hide_empty' => false,
+			'exclude'    => $term instanceof WP_Term ? array( $term->term_id ) : array(),
 		)
 	);
 
-	if ( is_wp_error( $terms ) || empty( $terms ) ) {
-		delete_option( 'documentate_seed_demo_documents' );
-		return;
-	}
-
-	foreach ( $terms as $term ) {
-		if ( documentate_demo_document_exists( $term->term_id ) ) {
-			continue;
+	if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+		foreach ( $terms as $other_term ) {
+			if ( documentate_demo_document_exists( $other_term->term_id ) ) {
+				continue;
+			}
+			documentate_create_demo_document_for_type( $other_term );
 		}
-
-		documentate_create_demo_document_for_type( $term );
 	}
 
 	delete_option( 'documentate_seed_demo_documents' );
+}
+
+/**
+ * Create the 3 specific demo documents for the Resolución Administrativa type.
+ *
+ * @param WP_Term $term Document type term.
+ * @return void
+ */
+function documentate_create_resolucion_demo_documents( $term ) {
+	if ( ! $term instanceof WP_Term ) {
+		return;
+	}
+
+	$term_id = absint( $term->term_id );
+	if ( $term_id <= 0 ) {
+		return;
+	}
+
+	$demo_documents = documentate_get_resolucion_demo_data();
+
+	foreach ( $demo_documents as $demo_key => $demo_data ) {
+		// Check if this specific demo document already exists.
+		$existing = get_posts(
+			array(
+				'post_type'      => 'documentate_document',
+				'post_status'    => 'any',
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+				'meta_key'       => '_documentate_demo_key',
+				'meta_value'     => $demo_key,
+			)
+		);
+
+		if ( ! empty( $existing ) ) {
+			continue;
+		}
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'    => 'documentate_document',
+				'post_title'   => $demo_data['title'],
+				'post_status'  => 'private',
+				'post_content' => '',
+				'post_author'  => get_current_user_id(),
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) || 0 === $post_id ) {
+			continue;
+		}
+
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
+
+		// Save field values.
+		$structured_fields = array();
+		foreach ( $demo_data['fields'] as $slug => $field_data ) {
+			$value = $field_data['value'];
+			$type  = $field_data['type'];
+
+			if ( 'array' === $type ) {
+				$encoded = wp_json_encode( $value, JSON_UNESCAPED_UNICODE );
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $encoded );
+				$structured_fields[ $slug ] = array(
+					'type'  => 'array',
+					'value' => $encoded,
+				);
+			} else {
+				if ( 'rich' === $type ) {
+					$value = wp_kses_post( $value );
+				} elseif ( 'single' === $type ) {
+					$value = sanitize_text_field( $value );
+				} else {
+					$value = sanitize_textarea_field( $value );
+				}
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $value );
+				$structured_fields[ $slug ] = array(
+					'type'  => $type,
+					'value' => $value,
+				);
+			}
+		}
+
+		update_post_meta( $post_id, '_documentate_demo_type_id', (string) $term_id );
+		update_post_meta( $post_id, '_documentate_demo_key', $demo_key );
+		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_SUBJECT, sanitize_text_field( $demo_data['title'] ) );
+		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_AUTHOR, sanitize_text_field( $demo_data['author'] ) );
+		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_KEYWORDS, sanitize_text_field( $demo_data['keywords'] ) );
+
+		$content = documentate_build_structured_demo_content( $structured_fields );
+		if ( '' !== $content ) {
+			wp_update_post(
+				array(
+					'ID'           => $post_id,
+					'post_content' => $content,
+				)
+			);
+		}
+	}
+}
+
+/**
+ * Get demo data for the 3 specific resolution documents.
+ *
+ * @return array
+ */
+function documentate_get_resolucion_demo_data() {
+	return array(
+		'resolucion-prueba' => array(
+			'title'    => 'Resolución de prueba',
+			'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
+			'keywords' => 'resolución, convocatoria, bases, prueba',
+			'fields'   => array(
+				'objeto'        => array(
+					'type'  => 'textarea',
+					'value' => 'Aprobación de las bases reguladoras y convocatoria del programa piloto de innovación educativa para el curso 2025-2026.',
+				),
+				'antecedentes'  => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> El Decreto 114/2011, de 11 de mayo, por el que se regula la convocatoria, reconocimiento, certificación y registro de las actividades de formación permanente del profesorado.</p>
+<p><strong>Segundo.</strong> La Orden de 9 de octubre de 2013, por la que se desarrolla el Decreto 81/2010, de 8 de julio, por el que se aprueba el Reglamento Orgánico de los centros docentes públicos no universitarios de la Comunidad Autónoma de Canarias.</p>
+<p><strong>Tercero.</strong> Se hace necesario impulsar programas que fomenten la innovación educativa en los centros docentes públicos de la Comunidad Autónoma de Canarias, con el fin de mejorar la calidad de la enseñanza.</p>',
+				),
+				'fundamentos'   => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> La Ley Orgánica 2/2006, de 3 de mayo, de Educación, modificada por la Ley Orgánica 3/2020, de 29 de diciembre, establece en su artículo 102 que la formación permanente constituye un derecho y una obligación de todo el profesorado.</p>
+<p><strong>Segundo.</strong> El artículo 132 del Estatuto de Autonomía de Canarias, aprobado por Ley Orgánica 1/2018, de 5 de noviembre, atribuye a la Comunidad Autónoma la competencia de desarrollo legislativo y ejecución en materia de educación.</p>
+<p><strong>Tercero.</strong> En virtud de las competencias atribuidas por el Decreto 84/2024, de 10 de julio, por el que se aprueba la estructura orgánica de la Consejería de Educación, Formación Profesional, Actividad Física y Deportes.</p>',
+				),
+				'resuelvo'      => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> Aprobar las bases reguladoras del programa piloto de innovación educativa para el curso 2025-2026, que se recogen en el Anexo I de la presente resolución.</p>
+<p><strong>Segundo.</strong> Convocar la participación de los centros docentes públicos no universitarios de la Comunidad Autónoma de Canarias en el citado programa.</p>
+<p><strong>Tercero.</strong> El plazo de presentación de solicitudes será de 15 días hábiles contados a partir del día siguiente al de la publicación de esta resolución.</p>
+<p><strong>Cuarto.</strong> Contra la presente resolución, que no pone fin a la vía administrativa, cabe interponer recurso de alzada ante la Viceconsejería de Educación en el plazo de un mes.</p>',
+				),
+				'anexos'        => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'code'    => 'Anexo I',
+							'title'   => 'BASES REGULADORAS DEL PROGRAMA',
+							'summary' => '<p><strong>1. Objeto y finalidad.</strong> El presente programa tiene como finalidad promover la innovación educativa en los centros docentes públicos.</p>
+<p><strong>2. Destinatarios.</strong> Podrán participar los centros docentes públicos no universitarios dependientes de la Consejería de Educación.</p>
+<p><strong>3. Requisitos.</strong> Los centros participantes deberán contar con la aprobación del Consejo Escolar y disponer de los recursos necesarios.</p>',
+						),
+					),
+				),
+			),
+		),
+		'listado-provisional-prueba' => array(
+			'title'    => 'Listado provisional de prueba',
+			'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
+			'keywords' => 'listado, provisional, admitidos, centros',
+			'fields'   => array(
+				'objeto'        => array(
+					'type'  => 'textarea',
+					'value' => 'Publicación del listado provisional de centros admitidos y excluidos en el programa piloto de innovación educativa para el curso 2025-2026.',
+				),
+				'antecedentes'  => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> Por Resolución de fecha 15 de septiembre de 2025, se aprobaron las bases reguladoras y se convocó la participación en el programa piloto de innovación educativa para el curso 2025-2026.</p>
+<p><strong>Segundo.</strong> Finalizado el plazo de presentación de solicitudes, se ha procedido a la revisión y baremación de las mismas por la comisión de selección.</p>
+<p><strong>Tercero.</strong> De conformidad con lo establecido en la base séptima de la convocatoria, procede la publicación del listado provisional de centros admitidos y excluidos.</p>',
+				),
+				'fundamentos'   => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> La base séptima de la Resolución de 15 de septiembre de 2025 establece que, una vez finalizado el plazo de presentación de solicitudes, se publicará el listado provisional.</p>
+<p><strong>Segundo.</strong> La Ley 39/2015, de 1 de octubre, del Procedimiento Administrativo Común de las Administraciones Públicas, establece en su artículo 45 los requisitos de publicación de actos administrativos.</p>
+<p><strong>Tercero.</strong> En virtud de las competencias atribuidas por el Decreto 84/2024, de 10 de julio.</p>',
+				),
+				'resuelvo'      => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> Publicar el listado provisional de centros admitidos en el programa piloto de innovación educativa, que figura en el Anexo I de la presente resolución.</p>
+<p><strong>Segundo.</strong> Publicar el listado provisional de centros excluidos, con indicación de las causas de exclusión, que figura en el Anexo II.</p>
+<p><strong>Tercero.</strong> Abrir un plazo de 10 días hábiles para la presentación de alegaciones, contados a partir del día siguiente al de la publicación de esta resolución.</p>
+<p><strong>Cuarto.</strong> Las alegaciones deberán presentarse a través de la sede electrónica del Gobierno de Canarias.</p>',
+				),
+				'anexos'        => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'code'    => 'Anexo I',
+							'title'   => 'LISTADO PROVISIONAL DE CENTROS ADMITIDOS',
+							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Isla</th><th>Puntuación</th></tr></thead><tbody>
+<tr><td>35001234</td><td>CEIP Ejemplo Uno</td><td>Gran Canaria</td><td>85</td></tr>
+<tr><td>38002345</td><td>IES Ejemplo Dos</td><td>Tenerife</td><td>82</td></tr>
+<tr><td>35003456</td><td>CEO Ejemplo Tres</td><td>Lanzarote</td><td>78</td></tr>
+<tr><td>38004567</td><td>CEIP Ejemplo Cuatro</td><td>La Palma</td><td>75</td></tr>
+</tbody></table>',
+						),
+						array(
+							'code'    => 'Anexo II',
+							'title'   => 'LISTADO PROVISIONAL DE CENTROS EXCLUIDOS',
+							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
+<tr><td>35005678</td><td>CEIP Ejemplo Cinco</td><td>No aporta acta del Consejo Escolar</td></tr>
+<tr><td>38006789</td><td>IES Ejemplo Seis</td><td>Solicitud fuera de plazo</td></tr>
+</tbody></table>',
+						),
+					),
+				),
+			),
+		),
+		'listado-definitivo-prueba' => array(
+			'title'    => 'Listado definitivo de prueba',
+			'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
+			'keywords' => 'listado, definitivo, admitidos, centros',
+			'fields'   => array(
+				'objeto'        => array(
+					'type'  => 'textarea',
+					'value' => 'Publicación del listado definitivo de centros admitidos y excluidos en el programa piloto de innovación educativa para el curso 2025-2026.',
+				),
+				'antecedentes'  => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> Por Resolución de fecha 15 de septiembre de 2025, se aprobaron las bases reguladoras y se convocó la participación en el programa piloto de innovación educativa para el curso 2025-2026.</p>
+<p><strong>Segundo.</strong> Por Resolución de fecha 20 de octubre de 2025, se publicó el listado provisional de centros admitidos y excluidos, abriéndose un plazo de alegaciones.</p>
+<p><strong>Tercero.</strong> Finalizado el plazo de alegaciones y estudiadas las mismas por la comisión de selección, procede la publicación del listado definitivo.</p>
+<p><strong>Cuarto.</strong> Se han estimado las alegaciones presentadas por el CEIP Ejemplo Cinco, al subsanar la documentación requerida.</p>',
+				),
+				'fundamentos'   => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> La base octava de la Resolución de 15 de septiembre de 2025 establece que, una vez resueltas las alegaciones, se publicará el listado definitivo.</p>
+<p><strong>Segundo.</strong> La Ley 39/2015, de 1 de octubre, del Procedimiento Administrativo Común de las Administraciones Públicas.</p>
+<p><strong>Tercero.</strong> En virtud de las competencias atribuidas por el Decreto 84/2024, de 10 de julio.</p>',
+				),
+				'resuelvo'      => array(
+					'type'  => 'rich',
+					'value' => '<p><strong>Primero.</strong> Publicar el listado definitivo de centros admitidos en el programa piloto de innovación educativa, que figura en el Anexo I de la presente resolución.</p>
+<p><strong>Segundo.</strong> Publicar el listado definitivo de centros excluidos, con indicación de las causas de exclusión, que figura en el Anexo II.</p>
+<p><strong>Tercero.</strong> Contra la presente resolución, que no pone fin a la vía administrativa, cabe interponer recurso de alzada ante la Viceconsejería de Educación en el plazo de un mes.</p>',
+				),
+				'anexos'        => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'code'    => 'Anexo I',
+							'title'   => 'LISTADO DEFINITIVO DE CENTROS ADMITIDOS',
+							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Isla</th><th>Puntuación</th></tr></thead><tbody>
+<tr><td>35001234</td><td>CEIP Ejemplo Uno</td><td>Gran Canaria</td><td>85</td></tr>
+<tr><td>38002345</td><td>IES Ejemplo Dos</td><td>Tenerife</td><td>82</td></tr>
+<tr><td>35003456</td><td>CEO Ejemplo Tres</td><td>Lanzarote</td><td>78</td></tr>
+<tr><td>38004567</td><td>CEIP Ejemplo Cuatro</td><td>La Palma</td><td>75</td></tr>
+<tr><td>35005678</td><td>CEIP Ejemplo Cinco</td><td>Gran Canaria</td><td>72</td></tr>
+</tbody></table>',
+						),
+						array(
+							'code'    => 'Anexo II',
+							'title'   => 'LISTADO DEFINITIVO DE CENTROS EXCLUIDOS',
+							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
+<tr><td>38006789</td><td>IES Ejemplo Seis</td><td>Solicitud fuera de plazo (no subsanable)</td></tr>
+</tbody></table>',
+						),
+					),
+				),
+			),
+		),
+	);
 }
 
 /**

@@ -96,7 +96,7 @@ Documentate\Tests\        -> tests/
 
 - WordPress Coding Standards enforced via PHPCS (`.phpcs.xml.dist`)
 - Tests run inside wp-env container (`tests-cli` environment)
-- Templates stored in `fixtures/` directory (plantilla.odt, plantilla.docx)
+- Templates stored in `fixtures/` directory (resolucion.odt, demo-wp-documentate.odt/docx)
 - TinyButStrong/OpenTBS used for template processing (bundled in `admin/vendor/`)
 - Collaborative editing feature using TipTap and Yjs (optional, enabled in settings)
 

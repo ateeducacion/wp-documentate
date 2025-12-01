@@ -61,10 +61,10 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 	 * Test extract_fields with valid DOCX template.
 	 */
 	public function test_extract_fields_docx() {
-		$template_path = $this->fixtures_path . 'plantilla.docx';
+		$template_path = $this->fixtures_path . 'demo-wp-documentate.docx';
 
 		if ( ! file_exists( $template_path ) ) {
-			$this->markTestSkipped( 'Test fixture plantilla.docx not found.' );
+			$this->markTestSkipped( 'Test fixture demo-wp-documentate.docx not found.' );
 		}
 
 		$result = Documentate_Template_Parser::extract_fields( $template_path );
@@ -76,10 +76,10 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 	 * Test extract_fields with valid ODT template.
 	 */
 	public function test_extract_fields_odt() {
-		$template_path = $this->fixtures_path . 'plantilla.odt';
+		$template_path = $this->fixtures_path . 'resolucion.odt';
 
 		if ( ! file_exists( $template_path ) ) {
-			$this->markTestSkipped( 'Test fixture plantilla.odt not found.' );
+			$this->markTestSkipped( 'Test fixture resolucion.odt not found.' );
 		}
 
 		$result = Documentate_Template_Parser::extract_fields( $template_path );
