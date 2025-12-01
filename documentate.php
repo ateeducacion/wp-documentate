@@ -487,150 +487,177 @@ function documentate_create_resolucion_demo_documents( $term ) {
  */
 function documentate_get_resolucion_demo_data() {
 	return array(
-		'resolucion-prueba' => array(
-			'title'    => 'Resolución de prueba',
-			'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
-			'keywords' => 'resolución, convocatoria, bases, prueba',
-			'fields'   => array(
-				'objeto'        => array(
-					'type'  => 'textarea',
-					'value' => 'Aprobación de las bases reguladoras y convocatoria del programa piloto de innovación educativa para el curso 2025-2026.',
-				),
-				'antecedentes'  => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> El Decreto 114/2011, de 11 de mayo, por el que se regula la convocatoria, reconocimiento, certificación y registro de las actividades de formación permanente del profesorado.</p>
+		'resolucion-prueba'          => documentate_get_resolucion_prueba_demo(),
+		'listado-provisional-prueba' => documentate_get_listado_provisional_demo(),
+		'listado-definitivo-prueba'  => documentate_get_listado_definitivo_demo(),
+	);
+}
+
+/**
+ * Get demo data for "Resolución de prueba".
+ *
+ * @return array
+ */
+function documentate_get_resolucion_prueba_demo() {
+	return array(
+		'title'    => 'Resolución de prueba',
+		'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
+		'keywords' => 'resolución, convocatoria, bases, prueba',
+		'fields'   => array(
+			'objeto'       => array(
+				'type'  => 'textarea',
+				'value' => 'Aprobación de las bases reguladoras y convocatoria del programa piloto de innovación educativa para el curso 2025-2026.',
+			),
+			'antecedentes' => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> El Decreto 114/2011, de 11 de mayo, por el que se regula la convocatoria, reconocimiento, certificación y registro de las actividades de formación permanente del profesorado.</p>
 <p><strong>Segundo.</strong> La Orden de 9 de octubre de 2013, por la que se desarrolla el Decreto 81/2010, de 8 de julio, por el que se aprueba el Reglamento Orgánico de los centros docentes públicos no universitarios de la Comunidad Autónoma de Canarias.</p>
 <p><strong>Tercero.</strong> Se hace necesario impulsar programas que fomenten la innovación educativa en los centros docentes públicos de la Comunidad Autónoma de Canarias, con el fin de mejorar la calidad de la enseñanza.</p>',
-				),
-				'fundamentos'   => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> La Ley Orgánica 2/2006, de 3 de mayo, de Educación, modificada por la Ley Orgánica 3/2020, de 29 de diciembre, establece en su artículo 102 que la formación permanente constituye un derecho y una obligación de todo el profesorado.</p>
+			),
+			'fundamentos'  => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> La Ley Orgánica 2/2006, de 3 de mayo, de Educación, modificada por la Ley Orgánica 3/2020, de 29 de diciembre, establece en su artículo 102 que la formación permanente constituye un derecho y una obligación de todo el profesorado.</p>
 <p><strong>Segundo.</strong> El artículo 132 del Estatuto de Autonomía de Canarias, aprobado por Ley Orgánica 1/2018, de 5 de noviembre, atribuye a la Comunidad Autónoma la competencia de desarrollo legislativo y ejecución en materia de educación.</p>
 <p><strong>Tercero.</strong> En virtud de las competencias atribuidas por el Decreto 84/2024, de 10 de julio, por el que se aprueba la estructura orgánica de la Consejería de Educación, Formación Profesional, Actividad Física y Deportes.</p>',
-				),
-				'resuelvo'      => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> Aprobar las bases reguladoras del programa piloto de innovación educativa para el curso 2025-2026, que se recogen en el Anexo I de la presente resolución.</p>
+			),
+			'resuelvo'     => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> Aprobar las bases reguladoras del programa piloto de innovación educativa para el curso 2025-2026, que se recogen en el Anexo I de la presente resolución.</p>
 <p><strong>Segundo.</strong> Convocar la participación de los centros docentes públicos no universitarios de la Comunidad Autónoma de Canarias en el citado programa.</p>
 <p><strong>Tercero.</strong> El plazo de presentación de solicitudes será de 15 días hábiles contados a partir del día siguiente al de la publicación de esta resolución.</p>
 <p><strong>Cuarto.</strong> Contra la presente resolución, que no pone fin a la vía administrativa, cabe interponer recurso de alzada ante la Viceconsejería de Educación en el plazo de un mes.</p>',
-				),
-				'anexos'        => array(
-					'type'  => 'array',
-					'value' => array(
-						array(
-							'code'    => 'Anexo I',
-							'title'   => 'BASES REGULADORAS DEL PROGRAMA',
-							'summary' => '<p><strong>1. Objeto y finalidad.</strong> El presente programa tiene como finalidad promover la innovación educativa en los centros docentes públicos.</p>
+			),
+			'anexos'       => array(
+				'type'  => 'array',
+				'value' => array(
+					array(
+						'code'    => 'Anexo I',
+						'title'   => 'BASES REGULADORAS DEL PROGRAMA',
+						'summary' => '<p><strong>1. Objeto y finalidad.</strong> El presente programa tiene como finalidad promover la innovación educativa en los centros docentes públicos.</p>
 <p><strong>2. Destinatarios.</strong> Podrán participar los centros docentes públicos no universitarios dependientes de la Consejería de Educación.</p>
 <p><strong>3. Requisitos.</strong> Los centros participantes deberán contar con la aprobación del Consejo Escolar y disponer de los recursos necesarios.</p>',
-						),
 					),
 				),
 			),
 		),
-		'listado-provisional-prueba' => array(
-			'title'    => 'Listado provisional de prueba',
-			'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
-			'keywords' => 'listado, provisional, admitidos, centros',
-			'fields'   => array(
-				'objeto'        => array(
-					'type'  => 'textarea',
-					'value' => 'Publicación del listado provisional de centros admitidos y excluidos en el programa piloto de innovación educativa para el curso 2025-2026.',
-				),
-				'antecedentes'  => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> Por Resolución de fecha 15 de septiembre de 2025, se aprobaron las bases reguladoras y se convocó la participación en el programa piloto de innovación educativa para el curso 2025-2026.</p>
+	);
+}
+
+/**
+ * Get demo data for "Listado provisional de prueba".
+ *
+ * @return array
+ */
+function documentate_get_listado_provisional_demo() {
+	return array(
+		'title'    => 'Listado provisional de prueba',
+		'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
+		'keywords' => 'listado, provisional, admitidos, centros',
+		'fields'   => array(
+			'objeto'       => array(
+				'type'  => 'textarea',
+				'value' => 'Publicación del listado provisional de centros admitidos y excluidos en el programa piloto de innovación educativa para el curso 2025-2026.',
+			),
+			'antecedentes' => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> Por Resolución de fecha 15 de septiembre de 2025, se aprobaron las bases reguladoras y se convocó la participación en el programa piloto de innovación educativa para el curso 2025-2026.</p>
 <p><strong>Segundo.</strong> Finalizado el plazo de presentación de solicitudes, se ha procedido a la revisión y baremación de las mismas por la comisión de selección.</p>
 <p><strong>Tercero.</strong> De conformidad con lo establecido en la base séptima de la convocatoria, procede la publicación del listado provisional de centros admitidos y excluidos.</p>',
-				),
-				'fundamentos'   => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> La base séptima de la Resolución de 15 de septiembre de 2025 establece que, una vez finalizado el plazo de presentación de solicitudes, se publicará el listado provisional.</p>
+			),
+			'fundamentos'  => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> La base séptima de la Resolución de 15 de septiembre de 2025 establece que, una vez finalizado el plazo de presentación de solicitudes, se publicará el listado provisional.</p>
 <p><strong>Segundo.</strong> La Ley 39/2015, de 1 de octubre, del Procedimiento Administrativo Común de las Administraciones Públicas, establece en su artículo 45 los requisitos de publicación de actos administrativos.</p>
 <p><strong>Tercero.</strong> En virtud de las competencias atribuidas por el Decreto 84/2024, de 10 de julio.</p>',
-				),
-				'resuelvo'      => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> Publicar el listado provisional de centros admitidos en el programa piloto de innovación educativa, que figura en el Anexo I de la presente resolución.</p>
+			),
+			'resuelvo'     => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> Publicar el listado provisional de centros admitidos en el programa piloto de innovación educativa, que figura en el Anexo I de la presente resolución.</p>
 <p><strong>Segundo.</strong> Publicar el listado provisional de centros excluidos, con indicación de las causas de exclusión, que figura en el Anexo II.</p>
 <p><strong>Tercero.</strong> Abrir un plazo de 10 días hábiles para la presentación de alegaciones, contados a partir del día siguiente al de la publicación de esta resolución.</p>
 <p><strong>Cuarto.</strong> Las alegaciones deberán presentarse a través de la sede electrónica del Gobierno de Canarias.</p>',
-				),
-				'anexos'        => array(
-					'type'  => 'array',
-					'value' => array(
-						array(
-							'code'    => 'Anexo I',
-							'title'   => 'LISTADO PROVISIONAL DE CENTROS ADMITIDOS',
-							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Isla</th><th>Puntuación</th></tr></thead><tbody>
+			),
+			'anexos'       => array(
+				'type'  => 'array',
+				'value' => array(
+					array(
+						'code'    => 'Anexo I',
+						'title'   => 'LISTADO PROVISIONAL DE CENTROS ADMITIDOS',
+						'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Isla</th><th>Puntuación</th></tr></thead><tbody>
 <tr><td>35001234</td><td>CEIP Ejemplo Uno</td><td>Gran Canaria</td><td>85</td></tr>
 <tr><td>38002345</td><td>IES Ejemplo Dos</td><td>Tenerife</td><td>82</td></tr>
 <tr><td>35003456</td><td>CEO Ejemplo Tres</td><td>Lanzarote</td><td>78</td></tr>
 <tr><td>38004567</td><td>CEIP Ejemplo Cuatro</td><td>La Palma</td><td>75</td></tr>
 </tbody></table>',
-						),
-						array(
-							'code'    => 'Anexo II',
-							'title'   => 'LISTADO PROVISIONAL DE CENTROS EXCLUIDOS',
-							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
+					),
+					array(
+						'code'    => 'Anexo II',
+						'title'   => 'LISTADO PROVISIONAL DE CENTROS EXCLUIDOS',
+						'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
 <tr><td>35005678</td><td>CEIP Ejemplo Cinco</td><td>No aporta acta del Consejo Escolar</td></tr>
 <tr><td>38006789</td><td>IES Ejemplo Seis</td><td>Solicitud fuera de plazo</td></tr>
 </tbody></table>',
-						),
 					),
 				),
 			),
 		),
-		'listado-definitivo-prueba' => array(
-			'title'    => 'Listado definitivo de prueba',
-			'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
-			'keywords' => 'listado, definitivo, admitidos, centros',
-			'fields'   => array(
-				'objeto'        => array(
-					'type'  => 'textarea',
-					'value' => 'Publicación del listado definitivo de centros admitidos y excluidos en el programa piloto de innovación educativa para el curso 2025-2026.',
-				),
-				'antecedentes'  => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> Por Resolución de fecha 15 de septiembre de 2025, se aprobaron las bases reguladoras y se convocó la participación en el programa piloto de innovación educativa para el curso 2025-2026.</p>
+	);
+}
+
+/**
+ * Get demo data for "Listado definitivo de prueba".
+ *
+ * @return array
+ */
+function documentate_get_listado_definitivo_demo() {
+	return array(
+		'title'    => 'Listado definitivo de prueba',
+		'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
+		'keywords' => 'listado, definitivo, admitidos, centros',
+		'fields'   => array(
+			'objeto'       => array(
+				'type'  => 'textarea',
+				'value' => 'Publicación del listado definitivo de centros admitidos y excluidos en el programa piloto de innovación educativa para el curso 2025-2026.',
+			),
+			'antecedentes' => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> Por Resolución de fecha 15 de septiembre de 2025, se aprobaron las bases reguladoras y se convocó la participación en el programa piloto de innovación educativa para el curso 2025-2026.</p>
 <p><strong>Segundo.</strong> Por Resolución de fecha 20 de octubre de 2025, se publicó el listado provisional de centros admitidos y excluidos, abriéndose un plazo de alegaciones.</p>
 <p><strong>Tercero.</strong> Finalizado el plazo de alegaciones y estudiadas las mismas por la comisión de selección, procede la publicación del listado definitivo.</p>
 <p><strong>Cuarto.</strong> Se han estimado las alegaciones presentadas por el CEIP Ejemplo Cinco, al subsanar la documentación requerida.</p>',
-				),
-				'fundamentos'   => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> La base octava de la Resolución de 15 de septiembre de 2025 establece que, una vez resueltas las alegaciones, se publicará el listado definitivo.</p>
+			),
+			'fundamentos'  => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> La base octava de la Resolución de 15 de septiembre de 2025 establece que, una vez resueltas las alegaciones, se publicará el listado definitivo.</p>
 <p><strong>Segundo.</strong> La Ley 39/2015, de 1 de octubre, del Procedimiento Administrativo Común de las Administraciones Públicas.</p>
 <p><strong>Tercero.</strong> En virtud de las competencias atribuidas por el Decreto 84/2024, de 10 de julio.</p>',
-				),
-				'resuelvo'      => array(
-					'type'  => 'rich',
-					'value' => '<p><strong>Primero.</strong> Publicar el listado definitivo de centros admitidos en el programa piloto de innovación educativa, que figura en el Anexo I de la presente resolución.</p>
+			),
+			'resuelvo'     => array(
+				'type'  => 'rich',
+				'value' => '<p><strong>Primero.</strong> Publicar el listado definitivo de centros admitidos en el programa piloto de innovación educativa, que figura en el Anexo I de la presente resolución.</p>
 <p><strong>Segundo.</strong> Publicar el listado definitivo de centros excluidos, con indicación de las causas de exclusión, que figura en el Anexo II.</p>
 <p><strong>Tercero.</strong> Contra la presente resolución, que no pone fin a la vía administrativa, cabe interponer recurso de alzada ante la Viceconsejería de Educación en el plazo de un mes.</p>',
-				),
-				'anexos'        => array(
-					'type'  => 'array',
-					'value' => array(
-						array(
-							'code'    => 'Anexo I',
-							'title'   => 'LISTADO DEFINITIVO DE CENTROS ADMITIDOS',
-							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Isla</th><th>Puntuación</th></tr></thead><tbody>
+			),
+			'anexos'       => array(
+				'type'  => 'array',
+				'value' => array(
+					array(
+						'code'    => 'Anexo I',
+						'title'   => 'LISTADO DEFINITIVO DE CENTROS ADMITIDOS',
+						'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Isla</th><th>Puntuación</th></tr></thead><tbody>
 <tr><td>35001234</td><td>CEIP Ejemplo Uno</td><td>Gran Canaria</td><td>85</td></tr>
 <tr><td>38002345</td><td>IES Ejemplo Dos</td><td>Tenerife</td><td>82</td></tr>
 <tr><td>35003456</td><td>CEO Ejemplo Tres</td><td>Lanzarote</td><td>78</td></tr>
 <tr><td>38004567</td><td>CEIP Ejemplo Cuatro</td><td>La Palma</td><td>75</td></tr>
 <tr><td>35005678</td><td>CEIP Ejemplo Cinco</td><td>Gran Canaria</td><td>72</td></tr>
 </tbody></table>',
-						),
-						array(
-							'code'    => 'Anexo II',
-							'title'   => 'LISTADO DEFINITIVO DE CENTROS EXCLUIDOS',
-							'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
+					),
+					array(
+						'code'    => 'Anexo II',
+						'title'   => 'LISTADO DEFINITIVO DE CENTROS EXCLUIDOS',
+						'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
 <tr><td>38006789</td><td>IES Ejemplo Seis</td><td>Solicitud fuera de plazo (no subsanable)</td></tr>
 </tbody></table>',
-						),
 					),
 				),
 			),
