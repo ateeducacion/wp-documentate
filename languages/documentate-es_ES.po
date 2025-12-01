@@ -812,3 +812,6 @@ msgstr "Enviando al servidor de Collabora."
 
 msgid "Collabora returned an empty response."
 msgstr "Collabora devolvió una respuesta vacía."
+
+msgid "Security check failed."
+msgstr "Falló la verificación de seguridad."

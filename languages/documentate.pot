@@ -390,10 +390,10 @@ msgstr ""
 msgid "Export DOCX"
 msgstr ""
 
-msgid "Invalid nonce."
+msgid "Preview error"
 msgstr ""
 
-msgid "Preview error"
+msgid "Invalid nonce."
 msgstr ""
 
 msgid "User not authenticated."
@@ -467,6 +467,9 @@ msgid "Converting in browser..."
 msgstr ""
 
 msgid "Error loading LibreOffice."
+msgstr ""
+
+msgid "Security check failed."
 msgstr ""
 
 msgid "Configure the Collabora Online service base URL in settings."
