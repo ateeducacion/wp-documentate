@@ -527,7 +527,7 @@ class Documentate_Documents {
 			array( $this, 'render_sections_metabox' ),
 			'documentate_document',
 			'normal',
-			'default'
+			'high'
 		);
 	}
 
