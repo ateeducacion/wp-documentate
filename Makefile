@@ -125,7 +125,7 @@ test-coverage: start-if-not-running
 	echo "════════════════════════════════════════════════════════════"; \
 	echo "                    COVERAGE SUMMARY                        "; \
 	echo "════════════════════════════════════════════════════════════"; \
-	grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
+	awk -f scripts/coverage-summary.awk artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
 	echo "════════════════════════════════════════════════════════════"; \
 	echo "Full report: artifacts/coverage/html/index.html"; \
 	echo ""; \

@@ -389,23 +389,44 @@ class Documentate_Admin_Helper {
 	 */
 	public function handle_preview() {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$nonce   = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
+		$result = $this->prepare_preview_response( $post_id, $nonce );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ), esc_html__( 'Preview error', 'documentate' ), array( 'back_link' => true ) );
 		}
 
-		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_preview_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
+		$this->stream_pdf_inline( $result['path'], $result['title'] );
+	}
+
+	/**
+	 * Prepare the preview response data.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $nonce   Security nonce.
+	 * @return array|WP_Error Response data or error.
+	 */
+	protected function prepare_preview_response( $post_id, $nonce ) {
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error( 'documentate_permission', __( 'Insufficient permissions.', 'documentate' ) );
+		}
+
+		if ( ! wp_verify_nonce( $nonce, 'documentate_preview_' . $post_id ) ) {
+			return new WP_Error( 'documentate_nonce', __( 'Invalid nonce.', 'documentate' ) );
 		}
 
 		$this->ensure_document_generator();
 
 		$result = Documentate_Document_Generator::generate_pdf( $post_id );
 		if ( is_wp_error( $result ) ) {
-			wp_die( esc_html( $result->get_error_message() ), esc_html__( 'Preview error', 'documentate' ), array( 'back_link' => true ) );
+			return $result;
 		}
 
-		$this->stream_pdf_inline( $result, get_the_title( $post_id ) );
+		return array(
+			'path'  => $result,
+			'title' => get_the_title( $post_id ),
+		);
 	}
 
 	/**
@@ -415,18 +436,38 @@ class Documentate_Admin_Helper {
 	 */
 	public function handle_preview_stream() {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
-		}
-
-		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_preview_stream_' . $post_id ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
-		}
-
+		$nonce   = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$user_id = get_current_user_id();
+
+		$result = $this->prepare_preview_stream_response( $post_id, $nonce, $user_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		$this->send_pdf_response( $result['path'], $result['filename'] );
+		exit;
+	}
+
+	/**
+	 * Prepare the preview stream response data.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $nonce   Nonce value.
+	 * @param int    $user_id User ID.
+	 * @return array|WP_Error Response data or error.
+	 */
+	protected function prepare_preview_stream_response( $post_id, $nonce, $user_id ) {
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error( 'documentate_permission', __( 'Insufficient permissions.', 'documentate' ) );
+		}
+
+		if ( ! wp_verify_nonce( $nonce, 'documentate_preview_stream_' . $post_id ) ) {
+			return new WP_Error( 'documentate_nonce', __( 'Invalid nonce.', 'documentate' ) );
+		}
+
 		if ( $user_id <= 0 ) {
-			wp_die( esc_html__( 'User not authenticated.', 'documentate' ) );
+			return new WP_Error( 'documentate_auth', __( 'User not authenticated.', 'documentate' ) );
 		}
 
 		$key      = $this->get_preview_stream_transient_key( $post_id, $user_id );
@@ -436,7 +477,7 @@ class Documentate_Admin_Helper {
 			$this->ensure_document_generator();
 			$result = Documentate_Document_Generator::generate_pdf( $post_id );
 			if ( is_wp_error( $result ) ) {
-				wp_die( esc_html__( 'Could not generate the PDF for preview.', 'documentate' ) );
+				return new WP_Error( 'documentate_generate', __( 'Could not generate the PDF for preview.', 'documentate' ) );
 			}
 
 			$filename = basename( $result );
@@ -445,7 +486,7 @@ class Documentate_Admin_Helper {
 
 		$filename = sanitize_file_name( (string) $filename );
 		if ( '' === $filename ) {
-			wp_die( esc_html__( 'Preview file not available.', 'documentate' ) );
+			return new WP_Error( 'documentate_missing', __( 'Preview file not available.', 'documentate' ) );
 		}
 
 		$upload_dir = wp_upload_dir();
@@ -453,17 +494,36 @@ class Documentate_Admin_Helper {
 
 		$fs = $this->get_wp_filesystem();
 		if ( is_wp_error( $fs ) ) {
-			wp_die( esc_html( $fs->get_error_message() ) );
+			return $fs;
 		}
 
 		if ( ! $fs->exists( $path ) || ! $fs->is_readable( $path ) ) {
-			wp_die( esc_html__( 'Could not access the generated PDF file.', 'documentate' ) );
+			return new WP_Error( 'documentate_access', __( 'Could not access the generated PDF file.', 'documentate' ) );
 		}
 
-		$filesize       = (int) $fs->size( $path );
-		$download_name  = wp_basename( $filename );
-		$encoded_name   = rawurlencode( $download_name );
-		$disposition    = 'inline; filename="' . $download_name . '"; filename*=UTF-8\'\'' . $encoded_name;
+		return array(
+			'path'     => $path,
+			'filename' => $filename,
+		);
+	}
+
+	/**
+	 * Send PDF response headers and content.
+	 *
+	 * @param string $path     File path.
+	 * @param string $filename Filename for disposition header.
+	 * @return void
+	 */
+	protected function send_pdf_response( $path, $filename ) {
+		$fs = $this->get_wp_filesystem();
+		if ( is_wp_error( $fs ) ) {
+			wp_die( esc_html( $fs->get_error_message() ) );
+		}
+
+		$filesize      = (int) $fs->size( $path );
+		$download_name = wp_basename( $filename );
+		$encoded_name  = rawurlencode( $download_name );
+		$disposition   = 'inline; filename="' . $download_name . '"; filename*=UTF-8\'\'' . $encoded_name;
 
 		status_header( 200 );
 		nocache_headers();
@@ -479,7 +539,6 @@ class Documentate_Admin_Helper {
 		}
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
-		exit;
 	}
 
 	/**
@@ -497,6 +556,24 @@ class Documentate_Admin_Helper {
 			error_log( "Documentate: Headers already sent in $file on line $line" );
 		}
 
+		$this->prepare_converter_page_headers();
+
+		// Verify user has permission.
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'documentate' ) );
+		}
+
+		$template_path = $this->get_converter_template_path();
+		include $template_path;
+		exit;
+	}
+
+	/**
+	 * Prepare headers for the converter page.
+	 *
+	 * @return void
+	 */
+	protected function prepare_converter_page_headers() {
 		// Clear ALL output buffering levels from WordPress.
 		while ( ob_get_level() > 0 ) {
 			ob_end_clean();
@@ -520,13 +597,14 @@ class Documentate_Admin_Helper {
 
 		// Discard any buffered output.
 		ob_end_clean();
+	}
 
-		// Verify user has permission.
-		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'documentate' ) );
-		}
-
-		// Determine which template to use based on conversion engine and environment.
+	/**
+	 * Get the template path for the converter page.
+	 *
+	 * @return string Template file path.
+	 */
+	protected function get_converter_template_path() {
 		$options = get_option( 'documentate_settings', array() );
 		$engine  = isset( $options['conversion_engine'] ) ? $options['conversion_engine'] : 'collabora';
 
@@ -534,12 +612,11 @@ class Documentate_Admin_Helper {
 		// - Engine is 'collabora' AND we're in Playground environment
 		// - This bypasses PHP's wp_remote_post which doesn't handle multipart well in Playground.
 		if ( 'collabora' === $engine && class_exists( 'Documentate_Collabora_Converter' ) && Documentate_Collabora_Converter::is_playground() ) {
-			include plugin_dir_path( __FILE__ ) . '../admin/documentate-collabora-playground-template.php';
-		} else {
-			// Use ZetaJS WASM template for 'wasm' engine or non-Playground environments.
-			include plugin_dir_path( __FILE__ ) . '../admin/documentate-converter-template.php';
+			return plugin_dir_path( __FILE__ ) . '../admin/documentate-collabora-playground-template.php';
 		}
-		exit;
+
+		// Use ZetaJS WASM template for 'wasm' engine or non-Playground environments.
+		return plugin_dir_path( __FILE__ ) . '../admin/documentate-converter-template.php';
 	}
 
 	/**
@@ -1039,16 +1116,37 @@ class Documentate_Admin_Helper {
 	 * @return void
 	 */
 	public function ajax_generate_document() {
+		// Verify nonce first before accessing any other POST data.
+		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'documentate_generate' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Security check failed.', 'documentate' ) ) );
+		}
+
 		$post_id = isset( $_POST['post_id'] ) ? intval( $_POST['post_id'] ) : 0;
 		$format  = isset( $_POST['format'] ) ? sanitize_key( $_POST['format'] ) : 'pdf';
 		$output  = isset( $_POST['output'] ) ? sanitize_key( $_POST['output'] ) : 'download';
 
-		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'documentate' ) ) );
+		$result = $this->prepare_ajax_generate_response( $post_id, $format, $output );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( $this->build_ajax_error_response( $result ) );
 		}
 
-		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'documentate_generate_' . $post_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'Invalid nonce.', 'documentate' ) ) );
+		wp_send_json_success( array( 'url' => $result ) );
+	}
+
+	/**
+	 * Prepare the AJAX document generation response.
+	 *
+	 * Nonce verification is done in ajax_generate_document() before calling this method.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $format  Document format (pdf, docx, odt).
+	 * @param string $output  Output type (download, preview).
+	 * @return string|WP_Error URL on success, WP_Error on failure.
+	 */
+	protected function prepare_ajax_generate_response( $post_id, $format, $output ) {
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			return new WP_Error( 'documentate_permission', __( 'Insufficient permissions.', 'documentate' ) );
 		}
 
 		$this->ensure_document_generator();
@@ -1059,31 +1157,28 @@ class Documentate_Admin_Helper {
 		$result = call_user_func( array( 'Documentate_Document_Generator', $method ), $post_id );
 
 		if ( is_wp_error( $result ) ) {
-			// Include debug info for troubleshooting.
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
-
-			$debug = array(
-				'code'          => $result->get_error_code(),
-				'data'          => $result->get_error_data(),
-				'is_playground' => Documentate_Collabora_Converter::is_playground(),
-			);
-
-			wp_send_json_error(
-				array(
-					'message' => $result->get_error_message(),
-					'debug'   => $debug,
-				)
-			);
+			return $result;
 		}
 
-		// Build the URL for download/preview.
+		return $this->build_ajax_result_url( $post_id, $format, $output, $result );
+	}
+
+	/**
+	 * Build the result URL for AJAX document generation.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $format  Document format.
+	 * @param string $output  Output type.
+	 * @param string $result  Generated file path.
+	 * @return string Result URL.
+	 */
+	protected function build_ajax_result_url( $post_id, $format, $output, $result ) {
 		$nonce_action = 'preview' === $output ? 'documentate_preview_' . $post_id : 'documentate_export_' . $post_id;
 		$nonce        = wp_create_nonce( $nonce_action );
 
 		if ( 'preview' === $output ) {
-			// For preview, use the preview stream URL.
 			$this->remember_preview_stream_file( $post_id, basename( $result ) );
-			$url = add_query_arg(
+			return add_query_arg(
 				array(
 					'action'   => 'documentate_preview_stream',
 					'post_id'  => $post_id,
@@ -1091,20 +1186,36 @@ class Documentate_Admin_Helper {
 				),
 				admin_url( 'admin-post.php' )
 			);
-		} else {
-			// For download, use the export URL.
-			$action_name = 'documentate_export_' . $format;
-			$url         = add_query_arg(
-				array(
-					'action'   => $action_name,
-					'post_id'  => $post_id,
-					'_wpnonce' => $nonce,
-				),
-				admin_url( 'admin-post.php' )
-			);
 		}
 
-		wp_send_json_success( array( 'url' => $url ) );
+		$action_name = 'documentate_export_' . $format;
+		return add_query_arg(
+			array(
+				'action'   => $action_name,
+				'post_id'  => $post_id,
+				'_wpnonce' => $nonce,
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+
+	/**
+	 * Build an error response for AJAX document generation.
+	 *
+	 * @param WP_Error $error The error object.
+	 * @return array Error response data.
+	 */
+	protected function build_ajax_error_response( $error ) {
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
+
+		return array(
+			'message' => $error->get_error_message(),
+			'debug'   => array(
+				'code'          => $error->get_error_code(),
+				'data'          => $error->get_error_data(),
+				'is_playground' => Documentate_Collabora_Converter::is_playground(),
+			),
+		);
 	}
 }
 
