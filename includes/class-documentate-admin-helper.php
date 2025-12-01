@@ -171,12 +171,25 @@ class Documentate_Admin_Helper {
 		wp_enqueue_editor();
 		wp_enqueue_style( 'documentate-title-textarea', plugins_url( 'admin/css/documentate-title.css', DOCUMENTATE_PLUGIN_FILE ), array(), DOCUMENTATE_VERSION );
 		wp_enqueue_script( 'documentate-title-textarea', plugins_url( 'admin/js/documentate-title.js', DOCUMENTATE_PLUGIN_FILE ), array( 'jquery' ), DOCUMENTATE_VERSION, true );
+
+		// Get the current post ID and uppercase setting.
+		global $post;
+		$uppercase_value = '1'; // Default to enabled.
+		if ( $post && $post->ID ) {
+			$stored = get_post_meta( $post->ID, '_documentate_meta_title_uppercase', true );
+			// If explicitly set to '0', use that; otherwise default to '1'.
+			$uppercase_value = ( '0' === $stored ) ? '0' : '1';
+		}
+
 		wp_localize_script(
 			'documentate-title-textarea',
 			'documentateTitleConfig',
 			array(
-				'requiredMessage' => __( 'Title is required.', 'documentate' ),
-				'placeholder'     => __( 'Enter document title', 'documentate' ),
+				'requiredMessage'  => __( 'Title is required.', 'documentate' ),
+				'placeholder'      => __( 'Enter document title', 'documentate' ),
+				'uppercaseLabel'   => __( 'Uppercase title in document', 'documentate' ),
+				'uppercaseHint'    => __( 'The title will be rendered in uppercase in the generated document. It is recommended to write it in lowercase here for readability and document metadata.', 'documentate' ),
+				'uppercaseDefault' => $uppercase_value,
 			)
 		);
 

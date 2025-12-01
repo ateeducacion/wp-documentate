@@ -24,6 +24,48 @@
     $title.hide().attr('aria-hidden', 'true');
     $ta.insertAfter($title);
 
+    // Uppercase checkbox
+    var uppercaseLabel = (typeof documentateTitleConfig !== 'undefined' && documentateTitleConfig.uppercaseLabel)
+      ? documentateTitleConfig.uppercaseLabel
+      : 'Uppercase title in document';
+    var uppercaseHint = (typeof documentateTitleConfig !== 'undefined' && documentateTitleConfig.uppercaseHint)
+      ? documentateTitleConfig.uppercaseHint
+      : 'The title will be rendered in uppercase in the generated document.';
+
+    // Get initial value from config (set by PHP from post meta)
+    var uppercaseDefault = (typeof documentateTitleConfig !== 'undefined' && documentateTitleConfig.uppercaseDefault)
+      ? documentateTitleConfig.uppercaseDefault
+      : '1';
+    var isChecked = uppercaseDefault === '1';
+
+    // Create hidden field for form submission (in the post form)
+    var $hiddenUppercase = $('<input/>', {
+      type: 'hidden',
+      id: 'documentate_title_uppercase',
+      name: 'documentate_title_uppercase',
+      value: uppercaseDefault
+    });
+    // Insert hidden field in the form (near the title)
+    $hiddenUppercase.insertAfter($title);
+
+    var $checkboxWrap = $('<p/>', { class: 'documentate-title-uppercase-wrap' });
+    var $checkbox = $('<input/>', {
+      type: 'checkbox',
+      id: 'documentate_title_uppercase_checkbox'
+    }).prop('checked', isChecked);
+    var $label = $('<label/>', { for: 'documentate_title_uppercase_checkbox' })
+      .append($checkbox)
+      .append(' ' + uppercaseLabel);
+
+    $checkboxWrap.append($label);
+    $checkboxWrap.append($('<p/>', { class: 'description', text: uppercaseHint }));
+    $checkboxWrap.insertAfter($ta);
+
+    // Sync checkbox -> hidden field
+    $checkbox.on('change', function () {
+      $hiddenUppercase.val($(this).is(':checked') ? '1' : '0');
+    });
+
     // Error message element
     var errorMessage = (typeof documentateTitleConfig !== 'undefined' && documentateTitleConfig.requiredMessage)
       ? documentateTitleConfig.requiredMessage
@@ -33,7 +75,7 @@
       class: 'documentate-title-error',
       text: errorMessage
     }).hide();
-    $error.insertAfter($ta);
+    $error.insertAfter($checkboxWrap);
 
     // Sync textarea -> hidden title input continuously
     $ta.on('input', function () {

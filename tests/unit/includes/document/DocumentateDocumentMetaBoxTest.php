@@ -334,4 +334,55 @@ class DocumentateDocumentMetaBoxTest extends Documentate_Test_Base {
 			'Save hook must be added.'
 		);
 	}
+
+	/**
+	 * Verify that title uppercase option saves correctly when enabled.
+	 */
+	public function test_save_title_uppercase_enabled() {
+		$post_id = self::factory()->document->create( array() );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME        => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+			'documentate_title_uppercase'        => '1',
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$value = get_post_meta( $post_id, Document_Meta_Box::META_KEY_TITLE_UPPERCASE, true );
+		$this->assertSame( '1', $value, 'Title uppercase must be saved as "1" when enabled.' );
+	}
+
+	/**
+	 * Verify that title uppercase option saves correctly when disabled.
+	 */
+	public function test_save_title_uppercase_disabled() {
+		$post_id = self::factory()->document->create( array() );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME        => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+			'documentate_title_uppercase'        => '0',
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$value = get_post_meta( $post_id, Document_Meta_Box::META_KEY_TITLE_UPPERCASE, true );
+		$this->assertSame( '0', $value, 'Title uppercase must be saved as "0" when disabled.' );
+	}
+
+	/**
+	 * Verify that title uppercase defaults to enabled when not provided.
+	 */
+	public function test_save_title_uppercase_defaults_to_enabled() {
+		$post_id = self::factory()->document->create( array() );
+
+		$_POST = array(
+			Document_Meta_Box::NONCE_NAME => wp_create_nonce( Document_Meta_Box::NONCE_ACTION ),
+		);
+
+		$this->meta_box->save( $post_id );
+
+		$value = get_post_meta( $post_id, Document_Meta_Box::META_KEY_TITLE_UPPERCASE, true );
+		$this->assertSame( '1', $value, 'Title uppercase must default to "1" when field is missing.' );
+	}
+
 }

@@ -299,9 +299,17 @@ class Documentate_Document_Generator {
 			$structured = Documentate_Documents::parse_structured_content( (string) $content );
 		}
 
+		// Apply uppercase transformation to title if enabled (default: enabled).
+		$title     = get_the_title( $post_id );
+		$uppercase = get_post_meta( $post_id, '_documentate_meta_title_uppercase', true );
+		if ( '' === $uppercase || '1' === $uppercase ) {
+			$title = mb_strtoupper( $title, 'UTF-8' );
+		}
+
 		$fields = array(
-			'title'  => get_the_title( $post_id ),
-			'margen' => wp_strip_all_tags( isset( $opts['doc_margin_text'] ) ? $opts['doc_margin_text'] : '' ),
+			'title'      => $title,
+			'post_title' => $title, // Alias for templates using [post_title].
+			'margen'     => wp_strip_all_tags( isset( $opts['doc_margin_text'] ) ? $opts['doc_margin_text'] : '' ),
 		);
 
 		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
@@ -318,6 +326,11 @@ class Documentate_Document_Generator {
 						continue;
 				}
 					$slug     = sanitize_key( $def['slug'] );
+
+				// Skip post_title - it's already set from get_the_title() above.
+				if ( 'post_title' === $slug ) {
+					continue;
+				}
 					// Prefer the original template name for TinyButStrong merges when available.
 					$tbs_name = '';
 				if ( isset( $def['name'] ) && is_string( $def['name'] ) ) {

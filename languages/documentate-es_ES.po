@@ -804,3 +804,9 @@ msgstr "El título es obligatorio."
 
 msgid "Enter document title"
 msgstr "Introduce el título del documento"
+
+msgid "Uppercase title in document"
+msgstr "Título en mayúsculas en el documento"
+
+msgid "The title will be rendered in uppercase in the generated document. It is recommended to write it in lowercase here for readability and document metadata."
+msgstr "El título se pintará en mayúsculas en el documento generado. Se recomienda escribirlo en minúsculas aquí para favorecer su legibilidad y los metadatos del documento."

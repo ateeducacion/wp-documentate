@@ -1318,4 +1318,102 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 		$this->assertEmpty( $result );
 	}
 
+	/**
+	 * Test that title is converted to uppercase by default.
+	 */
+	public function test_title_uppercase_by_default() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'mi título de prueba',
+				'post_status' => 'publish',
+			)
+		);
+
+		// No uppercase meta set - should default to uppercase.
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_merge_fields' );
+		$method->setAccessible( true );
+
+		$fields = $method->invoke( null, $post_id );
+
+		$this->assertSame( 'MI TÍTULO DE PRUEBA', $fields['title'], 'Title must be uppercase by default.' );
+
+		wp_delete_post( $post_id, true );
+	}
+
+	/**
+	 * Test that title is converted to uppercase when explicitly enabled.
+	 */
+	public function test_title_uppercase_when_enabled() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'mi título de prueba',
+				'post_status' => 'publish',
+			)
+		);
+
+		update_post_meta( $post_id, '_documentate_meta_title_uppercase', '1' );
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_merge_fields' );
+		$method->setAccessible( true );
+
+		$fields = $method->invoke( null, $post_id );
+
+		$this->assertSame( 'MI TÍTULO DE PRUEBA', $fields['title'], 'Title must be uppercase when enabled.' );
+
+		wp_delete_post( $post_id, true );
+	}
+
+	/**
+	 * Test that title is NOT converted to uppercase when disabled.
+	 */
+	public function test_title_not_uppercase_when_disabled() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'mi título de prueba',
+				'post_status' => 'publish',
+			)
+		);
+
+		update_post_meta( $post_id, '_documentate_meta_title_uppercase', '0' );
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_merge_fields' );
+		$method->setAccessible( true );
+
+		$fields = $method->invoke( null, $post_id );
+
+		$this->assertSame( 'mi título de prueba', $fields['title'], 'Title must NOT be uppercase when disabled.' );
+
+		wp_delete_post( $post_id, true );
+	}
+
+	/**
+	 * Test that title uppercase handles special characters correctly.
+	 */
+	public function test_title_uppercase_with_special_characters() {
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'título con ñ, ü, á, é, í, ó, ú',
+				'post_status' => 'publish',
+			)
+		);
+
+		// Default to uppercase.
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_merge_fields' );
+		$method->setAccessible( true );
+
+		$fields = $method->invoke( null, $post_id );
+
+		$this->assertSame( 'TÍTULO CON Ñ, Ü, Á, É, Í, Ó, Ú', $fields['title'], 'Title must handle special characters correctly.' );
+
+		wp_delete_post( $post_id, true );
+	}
+
 }

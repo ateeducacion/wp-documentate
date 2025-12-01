@@ -390,6 +390,15 @@ msgstr ""
 msgid "Title is required."
 msgstr ""
 
+msgid "Enter document title"
+msgstr ""
+
+msgid "Uppercase title in document"
+msgstr ""
+
+msgid "The title will be rendered in uppercase in the generated document. It is recommended to write it in lowercase here for readability and document metadata."
+msgstr ""
+
 msgid "Export DOCX"
 msgstr ""
 
@@ -722,9 +731,6 @@ msgid "Add New Type"
 msgstr ""
 
 msgid "New Type"
-msgstr ""
-
-msgid "Enter document title"
 msgstr ""
 
 msgid "Document Sections"
