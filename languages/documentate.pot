@@ -387,6 +387,9 @@ msgstr ""
 msgid "Could not initialize the WordPress filesystem."
 msgstr ""
 
+msgid "Title is required."
+msgstr ""
+
 msgid "Export DOCX"
 msgstr ""
 
@@ -645,20 +648,6 @@ msgstr ""
 msgid "Published - Final (locked)"
 msgstr ""
 
-#. translators: %s: plugin version number.
-#, php-format
-msgid "You are adding sample data to a non-development version of Documentate (v%s)"
-msgstr ""
-
-msgid "Do you want to continue?"
-msgstr ""
-
-msgid "Starting sample data creation..."
-msgstr ""
-
-msgid "Sample data created successfully!"
-msgstr ""
-
 msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
 msgstr ""
 
@@ -733,6 +722,9 @@ msgid "Add New Type"
 msgstr ""
 
 msgid "New Type"
+msgstr ""
+
+msgid "Enter document title"
 msgstr ""
 
 msgid "Document Sections"

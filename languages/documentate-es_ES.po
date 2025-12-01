@@ -781,20 +781,6 @@ msgstr "palabra1, palabra2"
 msgid "Comma-separated list."
 msgstr "Lista separada por comas."
 
-#. translators: %s: plugin version number.
-#, php-format
-msgid "You are adding sample data to a non-development version of Documentate (v%s)"
-msgstr "Estás añadiendo datos de ejemplo a una versión no de desarrollo de Documentate (v%s)"
-
-msgid "Do you want to continue?"
-msgstr "¿Deseas continuar?"
-
-msgid "Starting sample data creation..."
-msgstr "Iniciando creación de datos de ejemplo..."
-
-msgid "Sample data created successfully!"
-msgstr "¡Datos de ejemplo creados correctamente!"
-
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
 
@@ -812,3 +798,9 @@ msgstr "Enviando al servidor de Collabora."
 
 msgid "Collabora returned an empty response."
 msgstr "Collabora devolvió una respuesta vacía."
+
+msgid "Title is required."
+msgstr "El título es obligatorio."
+
+msgid "Enter document title"
+msgstr "Introduce el título del documento"

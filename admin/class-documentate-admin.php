@@ -555,7 +555,7 @@ class Documentate_Admin {
 	}
 
 	/**
-	 * Register TinyMCE table plugin for document editors.
+	 * Register TinyMCE table and searchreplace plugins for document editors.
 	 *
 	 * @param array<string,string> $plugins Array of external TinyMCE plugins.
 	 * @return array<string,string> Modified array of plugins.
@@ -563,8 +563,9 @@ class Documentate_Admin {
 	public function add_tinymce_table_plugin( $plugins ) {
 		$screen = get_current_screen();
 		if ( $screen && 'documentate_document' === $screen->post_type ) {
-			$suffix            = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-			$plugins['table'] = plugin_dir_url( __FILE__ ) . 'mce/table/plugin' . $suffix . '.js';
+			$suffix                   = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
+			$plugins['table']         = plugin_dir_url( __FILE__ ) . 'mce/table/plugin' . $suffix . '.js';
+			$plugins['searchreplace'] = plugin_dir_url( __FILE__ ) . 'mce/searchreplace/plugin' . $suffix . '.js';
 		}
 		return $plugins;
 	}

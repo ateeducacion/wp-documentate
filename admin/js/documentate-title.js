@@ -8,7 +8,9 @@
     if ($('#documentate_title_textarea').length) return; // already enhanced
 
     var current = $title.val();
-    var placeholder = $title.attr('placeholder') || '';
+    var placeholder = (typeof documentateTitleConfig !== 'undefined' && documentateTitleConfig.placeholder)
+      ? documentateTitleConfig.placeholder
+      : ($title.attr('placeholder') || '');
 
     var $ta = $('<textarea/>', {
       id: 'documentate_title_textarea',

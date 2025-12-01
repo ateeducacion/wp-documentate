@@ -85,6 +85,9 @@ class Documentate_Documents {
 		add_action( 'add_meta_boxes', array( $this, 'register_meta_boxes' ) );
 		add_action( 'save_post_documentate_document', array( $this, 'save_meta_boxes' ) );
 
+		// Title placeholder.
+		add_filter( 'enter_title_here', array( $this, 'title_placeholder' ), 10, 2 );
+
 		// Revision handling - keep hooks on $this for backwards compatibility.
 		add_action( 'wp_save_post_revision', array( $this, 'copy_meta_to_revision' ), 10, 2 );
 		add_action( 'wp_restore_post_revision', array( $this, 'restore_meta_from_revision' ), 10, 2 );
@@ -508,6 +511,20 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Set custom placeholder for the title field.
+	 *
+	 * @param string  $placeholder Default placeholder text.
+	 * @param WP_Post $post        Current post object.
+	 * @return string
+	 */
+	public function title_placeholder( $placeholder, $post ) {
+		if ( 'documentate_document' === $post->post_type ) {
+			return __( 'Enter document title', 'documentate' );
+		}
+		return $placeholder;
+	}
+
+	/**
 	 * Register admin meta boxes for document sections.
 	 */
 	public function register_meta_boxes() {
@@ -840,7 +857,7 @@ class Documentate_Documents {
 					'teeny'         => false,
 					'wpautop'       => false,
 					'tinymce'       => array(
-						'toolbar1'      => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,removeformat',
+						'toolbar1'      => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
 						'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
 					),
 					'quicktags'     => true,
@@ -2255,7 +2272,7 @@ class Documentate_Documents {
 					'teeny'         => false,
 					'wpautop'       => false,
 					'tinymce'       => array(
-						'toolbar1'      => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,removeformat',
+						'toolbar1'      => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
 						'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
 					),
 					'quicktags'     => true,

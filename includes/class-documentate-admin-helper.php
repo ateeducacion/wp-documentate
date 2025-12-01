@@ -176,6 +176,7 @@ class Documentate_Admin_Helper {
 			'documentateTitleConfig',
 			array(
 				'requiredMessage' => __( 'Title is required.', 'documentate' ),
+				'placeholder'     => __( 'Enter document title', 'documentate' ),
 			)
 		);
 
