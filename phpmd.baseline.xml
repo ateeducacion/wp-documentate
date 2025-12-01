@@ -14,6 +14,7 @@
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="includes/class-documentate-admin-helper.php" method="render_actions_metabox"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="includes/class-documentate-admin-helper.php" method="render_actions_metabox"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="includes/class-documentate-admin-helper.php" method="ajax_generate_document"/>
+  <violation rule="PHPMD\Rule\Design\NpathComplexity" file="includes/class-documentate-admin-helper.php" method="prepare_preview_stream_response"/>
   <violation rule="PHPMD\Rule\Design\NpathComplexity" file="includes/class-documentate-collabora-converter.php" method="convert"/>
   <violation rule="PHPMD\Rule\Design\LongMethod" file="includes/class-documentate-collabora-converter.php" method="convert"/>
   <violation rule="PHPMD\Rule\Design\WeightedMethodCount" file="includes/class-documentate-document-generator.php"/>
