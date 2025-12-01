@@ -495,4 +495,107 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 		$this->assertIsString( $path, 'Empty table should not crash generation.' );
 		$this->assertFileExists( $path );
 	}
+
+	// =========================================================================
+	// Table Spacing Tests
+	// =========================================================================
+
+	/**
+	 * Test that tables do not have extra line-breaks before them in ODT.
+	 *
+	 * Tables should not have text:line-break elements immediately preceding them,
+	 * as this causes unwanted visual gaps.
+	 */
+	public function test_odt_table_no_extra_line_breaks_before() {
+		$html = '<p>Before</p><table><tr><td>Cell</td></tr></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Before', $xml, 'Paragraph content should be present.' );
+		$this->assertStringContainsString( 'Cell', $xml, 'Table content should be present.' );
+
+		// There should NOT be text:line-break immediately before table:table.
+		$this->assertDoesNotMatchRegularExpression(
+			'/<text:line-break[^>]*\/>\s*<table:table/',
+			$xml,
+			'No line-break should appear immediately before the table.'
+		);
+	}
+
+	/**
+	 * Test that nbsp paragraphs between tables are preserved for spacing in ODT.
+	 *
+	 * When users add <p>&nbsp;</p> between tables for intentional spacing,
+	 * these should be preserved in the output document.
+	 */
+	public function test_odt_nbsp_paragraph_between_tables_preserved() {
+		$html = '<table><tr><td>SpacingTest1</td></tr></table>'
+			. '<p>&nbsp;</p>'
+			. '<table><tr><td>SpacingTest2</td></tr></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'SpacingTest1', $xml, 'First table content should be present.' );
+		$this->assertStringContainsString( 'SpacingTest2', $xml, 'Second table content should be present.' );
+
+		// Find the content between SpacingTest1 and SpacingTest2.
+		$table1_pos = strpos( $xml, 'SpacingTest1' );
+		$table2_pos = strpos( $xml, 'SpacingTest2' );
+
+		$this->assertNotFalse( $table1_pos, 'First table marker should exist.' );
+		$this->assertNotFalse( $table2_pos, 'Second table marker should exist.' );
+
+		if ( false !== $table1_pos && false !== $table2_pos ) {
+			$between = substr( $xml, $table1_pos, $table2_pos - $table1_pos );
+			// There should be a text:p element between tables (for the nbsp spacing).
+			$this->assertStringContainsString( '<text:p', $between, 'A paragraph should exist between tables for spacing.' );
+		}
+	}
+
+	/**
+	 * Test that multiple nbsp paragraphs between tables create spacing in ODT.
+	 *
+	 * This test verifies that spacing paragraphs are preserved when multiple
+	 * <p>&nbsp;</p> elements exist between tables.
+	 */
+	public function test_odt_multiple_nbsp_paragraphs_preserved() {
+		$html = '<table><tr><td>MultiSpaceTest1</td></tr></table>'
+			. '<p>&nbsp;</p>'
+			. '<p>&nbsp;</p>'
+			. '<p>&nbsp;</p>'
+			. '<table><tr><td>MultiSpaceTest2</td></tr></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'MultiSpaceTest1', $xml, 'First table content should be present.' );
+		$this->assertStringContainsString( 'MultiSpaceTest2', $xml, 'Second table content should be present.' );
+
+		// Find the content between MultiSpaceTest1 and MultiSpaceTest2 (same approach as previous test).
+		$table1_pos = strpos( $xml, 'MultiSpaceTest1' );
+		$table2_pos = strpos( $xml, 'MultiSpaceTest2' );
+
+		$this->assertNotFalse( $table1_pos, 'First table marker should exist.' );
+		$this->assertNotFalse( $table2_pos, 'Second table marker should exist.' );
+
+		if ( false !== $table1_pos && false !== $table2_pos ) {
+			$between = substr( $xml, $table1_pos, $table2_pos - $table1_pos );
+			// Should have at least 1 text:p for spacing between tables.
+			$this->assertStringContainsString( '<text:p', $between, 'At least one spacing paragraph should be preserved between tables.' );
+		}
+	}
 }

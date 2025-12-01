@@ -725,13 +725,16 @@ class Documentate_OpenTBS {
 			$paragraph->removeChild( $child );
 		}
 
-		// Insert new nodes. Tables need to be inserted after the paragraph.
+		// Insert new nodes. Block-level elements need to be inserted after the paragraph.
 		$parent = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		$next_sibling = $paragraph->nextSibling; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 
 		foreach ( $nodes_to_insert as $node ) {
-			if ( $node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName ) {
-				// Tables must be siblings of paragraphs, not children.
+			$is_table     = $node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName;
+			$is_paragraph = $node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName;
+
+			if ( $is_table || $is_paragraph ) {
+				// Tables and paragraphs must be siblings, not children.
 				if ( $parent instanceof DOMNode ) {
 					$parent->insertBefore( $node, $next_sibling );
 				}
@@ -783,7 +786,12 @@ class Documentate_OpenTBS {
 			// Use raw HTML for parsing, not the possibly-encoded key.
 			$nodes = self::build_odt_inline_nodes( $doc, $match_raw, $style_require );
 			foreach ( $nodes as $node ) {
-				if ( $node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName ) {
+				// Check if node is a block-level element that must be a sibling of paragraphs.
+				$is_table     = $node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName;
+				$is_paragraph = $node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName;
+
+				if ( $is_table || $is_paragraph ) {
+					// Tables and paragraphs must be siblings of the containing paragraph, not children.
 					$target_parent = $parent;
 					$reference     = $text_node;
 
@@ -982,30 +990,35 @@ class Documentate_OpenTBS {
 				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 			case 'p':
 			case 'div':
-				$alignment = self::extract_text_alignment( $node );
-				$children  = self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
-				if ( empty( $children ) ) {
+				$alignment            = self::extract_text_alignment( $node );
+				$children             = self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
+				$is_spacing_paragraph = self::is_nbsp_only_paragraph( $node );
+
+				if ( empty( $children ) && ! $is_spacing_paragraph ) {
 					return array();
 				}
 
-				// If alignment is specified, create a real paragraph with alignment style.
+				// Always create a real ODT paragraph for proper spacing control.
+				$paragraph = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
+
+				// Apply alignment style if specified.
 				if ( null !== $alignment && 'left' !== $alignment ) {
-					$paragraph  = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
 					$style_name = 'DocumentateAlign' . ucfirst( $alignment );
 					$paragraph->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', $style_name );
 					$style_require[ 'align_' . $alignment ] = true;
+				}
 
+				if ( ! empty( $children ) ) {
 					self::trim_odt_inline_nodes( $children );
 					foreach ( $children as $child_node ) {
 						$paragraph->appendChild( $child_node );
 					}
-					return array( $paragraph );
+				} elseif ( $is_spacing_paragraph ) {
+					// For spacing paragraphs, add a non-breaking space.
+					$paragraph->appendChild( $doc->createTextNode( "\xC2\xA0" ) );
 				}
 
-				// No alignment - use line-break approach for backward compatibility.
-				$result   = $children;
-				$result[] = $doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' );
-				return $result;
+				return array( $paragraph );
 			case 'table':
 				return self::convert_table_node_to_odt( $doc, $node, $formatting, $style_require );
 			case 'ul':
@@ -1128,11 +1141,9 @@ class Documentate_OpenTBS {
 			$table_element->appendChild( $row_element );
 		}
 
-		return array(
-			$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
-			$table_element,
-			$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
-		);
+		// Tables in ODT are block-level elements that are siblings of paragraphs.
+		// No line-breaks needed - the XML structure provides natural separation.
+		return array( $table_element );
 	}
 
 	/**
@@ -2338,6 +2349,35 @@ class Documentate_OpenTBS {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Check if a paragraph node contains only non-breaking spaces.
+	 *
+	 * This detects intentional spacing paragraphs like <p>&nbsp;</p>.
+	 *
+	 * @param DOMNode $node The paragraph node to check.
+	 * @return bool True if the paragraph contains only nbsp characters.
+	 */
+	private static function is_nbsp_only_paragraph( DOMNode $node ) {
+		$text_content = '';
+		foreach ( $node->childNodes as $child ) {
+			if ( $child instanceof DOMText ) {
+				$text_content .= $child->wholeText;
+			} elseif ( $child instanceof DOMElement ) {
+				// If there are child elements (like <strong>), it's not a spacing-only paragraph.
+				return false;
+			}
+		}
+
+		// Decode HTML entities.
+		$decoded = html_entity_decode( $text_content, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+		// Check if it only contains non-breaking space characters (U+00A0).
+		$trimmed   = trim( $decoded );
+		$nbsp_only = preg_replace( '/[\x{00A0}]+/u', '', $trimmed );
+
+		return '' === $nbsp_only && '' !== $trimmed;
 	}
 
 	/**

@@ -733,9 +733,10 @@ class Documentate_Document_Generator {
 	private static function remove_linebreak_artifacts( $value ) {
 		$value = (string) $value;
 
-		// 1) Remove paragraphs that only contain stray literal newline markers (n or rn) or whitespace.
+		// 1) Remove paragraphs that contain stray literal newline markers (n or rn).
+		// Only removes if at least one marker is present - preserves intentional <p>&nbsp;</p> spacing.
 		// NOTE: Do NOT use case-insensitive flag to avoid matching "N" in words like "Numbered".
-		$value = preg_replace( '#<p(?:[^>]*)>(?:\s|&nbsp;)*(?:rn|n)*(?:\s|&nbsp;)*</p>#', '', $value );
+		$value = preg_replace( '#<p(?:[^>]*)>(?:\s)*(?:rn|n)+(?:\s)*</p>#', '', $value );
 		if ( ! is_string( $value ) ) {
 			$value = '';
 		}
