@@ -171,6 +171,13 @@ class Documentate_Admin_Helper {
 		wp_enqueue_editor();
 		wp_enqueue_style( 'documentate-title-textarea', plugins_url( 'admin/css/documentate-title.css', DOCUMENTATE_PLUGIN_FILE ), array(), DOCUMENTATE_VERSION );
 		wp_enqueue_script( 'documentate-title-textarea', plugins_url( 'admin/js/documentate-title.js', DOCUMENTATE_PLUGIN_FILE ), array( 'jquery' ), DOCUMENTATE_VERSION, true );
+		wp_localize_script(
+			'documentate-title-textarea',
+			'documentateTitleConfig',
+			array(
+				'requiredMessage' => __( 'Title is required.', 'documentate' ),
+			)
+		);
 
 		// Annexes repeater UI.
 		wp_enqueue_script( 'documentate-annexes', plugins_url( 'admin/js/documentate-annexes.js', DOCUMENTATE_PLUGIN_FILE ), array( 'jquery', 'wp-editor' ), DOCUMENTATE_VERSION, true );

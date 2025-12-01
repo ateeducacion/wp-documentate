@@ -5,6 +5,17 @@
   resize: vertical;
 }
 
+#documentate_title_textarea.documentate-title-invalid {
+  border-color: #d63638;
+  box-shadow: 0 0 0 1px #d63638;
+}
+
+.documentate-title-error {
+  color: #d63638;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
 #titlewrap {
   padding-bottom: 0;
 }
