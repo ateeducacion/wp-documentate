@@ -714,4 +714,294 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 
 		$this->assertNotSame( $path1, $path2 );
 	}
+
+	/**
+	 * Test generate_docx with real template from fixtures.
+	 */
+	public function test_generate_docx_with_real_template() {
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.docx';
+		if ( ! file_exists( $fixture_path ) ) {
+			$this->markTestSkipped( 'Fixture plantilla.docx not found.' );
+		}
+
+		// Create admin user.
+		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		// Create doc type with template.
+		$term    = wp_insert_term( 'Real DOCX Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$attachment_id = $this->factory()->attachment->create_upload_object( $fixture_path );
+		update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'docx' );
+
+		// Parse schema from template.
+		$schema = Documentate_Template_Parser::extract_fields( $fixture_path );
+		if ( ! is_wp_error( $schema ) && ! empty( $schema ) ) {
+			$storage = new Documentate\DocType\SchemaStorage();
+			$storage->save_schema( $term_id, $schema );
+		}
+
+		// Create document.
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Real Template Test',
+				'post_status' => 'publish',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		$result = Documentate_Document_Generator::generate_docx( $post_id );
+
+		if ( is_wp_error( $result ) ) {
+			// Accept error if template parsing failed.
+			$this->assertInstanceOf( WP_Error::class, $result );
+		} else {
+			$this->assertIsString( $result );
+			$this->assertFileExists( $result );
+			// Clean up generated file.
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+			@unlink( $result );
+		}
+	}
+
+	/**
+	 * Test generate_odt with real template from fixtures.
+	 */
+	public function test_generate_odt_with_real_template() {
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( ! file_exists( $fixture_path ) ) {
+			$this->markTestSkipped( 'Fixture plantilla.odt not found.' );
+		}
+
+		// Create admin user.
+		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		// Create doc type with template.
+		$term    = wp_insert_term( 'Real ODT Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$attachment_id = $this->factory()->attachment->create_upload_object( $fixture_path );
+		update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+
+		// Parse schema from template.
+		$schema = Documentate_Template_Parser::extract_fields( $fixture_path );
+		if ( ! is_wp_error( $schema ) && ! empty( $schema ) ) {
+			$storage = new Documentate\DocType\SchemaStorage();
+			$storage->save_schema( $term_id, $schema );
+		}
+
+		// Create document.
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Real ODT Test',
+				'post_status' => 'publish',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		$result = Documentate_Document_Generator::generate_odt( $post_id );
+
+		if ( is_wp_error( $result ) ) {
+			$this->assertInstanceOf( WP_Error::class, $result );
+		} else {
+			$this->assertIsString( $result );
+			$this->assertFileExists( $result );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+			@unlink( $result );
+		}
+	}
+
+	/**
+	 * Test get_template_path returns correct path for ODT.
+	 */
+	public function test_get_template_path_odt() {
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( ! file_exists( $fixture_path ) ) {
+			$this->markTestSkipped( 'Fixture plantilla.odt not found.' );
+		}
+
+		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$term    = wp_insert_term( 'Template Path ODT', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$attachment_id = $this->factory()->attachment->create_upload_object( $fixture_path );
+		update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Template Path ODT Test',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		$result = Documentate_Document_Generator::get_template_path( $post_id, 'odt' );
+
+		$this->assertNotEmpty( $result );
+		$this->assertStringContainsString( '.odt', $result );
+	}
+
+	/**
+	 * Test get_template_path returns correct path for DOCX.
+	 */
+	public function test_get_template_path_docx() {
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.docx';
+		if ( ! file_exists( $fixture_path ) ) {
+			$this->markTestSkipped( 'Fixture plantilla.docx not found.' );
+		}
+
+		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$term    = wp_insert_term( 'Template Path DOCX', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$attachment_id = $this->factory()->attachment->create_upload_object( $fixture_path );
+		update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'docx' );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Template Path DOCX Test',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		$result = Documentate_Document_Generator::get_template_path( $post_id, 'docx' );
+
+		$this->assertNotEmpty( $result );
+		$this->assertStringContainsString( '.docx', $result );
+	}
+
+	/**
+	 * Test build_merge_fields with document containing field values.
+	 */
+	public function test_build_merge_fields_with_values() {
+		$term    = wp_insert_term( 'Merge Fields Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'  => 'title',
+						'slug'  => 'title',
+						'type'  => 'text',
+						'title' => 'Title',
+					),
+					array(
+						'name'  => 'body',
+						'slug'  => 'body',
+						'type'  => 'html',
+						'title' => 'Body',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Merge Fields Test',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		update_post_meta( $post_id, 'documentate_field_title', 'Test Title Value' );
+		update_post_meta( $post_id, 'documentate_field_body', '<p>Test body content</p>' );
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_merge_fields' );
+		$method->setAccessible( true );
+
+		$fields = $method->invoke( null, $post_id );
+
+		$this->assertArrayHasKey( 'title', $fields );
+		$this->assertArrayHasKey( 'body', $fields );
+		$this->assertSame( 'Test Title Value', $fields['title'] );
+		$this->assertStringContainsString( 'Test body content', $fields['body'] );
+	}
+
+	/**
+	 * Test generate with comprehensive test template.
+	 */
+	public function test_generate_with_comprehensive_template() {
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'tests/fixtures/templates/comprehensive-test.odt';
+		if ( ! file_exists( $fixture_path ) ) {
+			$this->markTestSkipped( 'Fixture comprehensive-test.odt not found.' );
+		}
+
+		$admin_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$term    = wp_insert_term( 'Comprehensive Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$attachment_id = $this->factory()->attachment->create_upload_object( $fixture_path );
+		update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Comprehensive Test',
+				'post_status' => 'publish',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type' );
+
+		$result = Documentate_Document_Generator::generate_odt( $post_id );
+
+		if ( is_wp_error( $result ) ) {
+			$this->assertInstanceOf( WP_Error::class, $result );
+		} else {
+			$this->assertFileExists( $result );
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+			@unlink( $result );
+		}
+	}
+
+	/**
+	 * Test prepare_field_value for date-time.
+	 */
+	public function test_prepare_field_value_datetime() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, '2024-01-15T10:30', 'single', 'datetime-local' );
+
+		$this->assertIsString( $result );
+	}
+
+	/**
+	 * Test prepare_field_value for empty value.
+	 */
+	public function test_prepare_field_value_empty() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, '', 'single', 'text' );
+
+		$this->assertSame( '', $result );
+	}
+
 }

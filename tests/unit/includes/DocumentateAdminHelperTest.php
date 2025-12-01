@@ -1202,4 +1202,250 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$this->assertStringContainsString( 'ODT', $output );
 	}
+
+	/**
+	 * Test get_current_post_id from GET parameter.
+	 */
+	public function test_get_current_post_id_from_get() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$_GET['post'] = $post->ID;
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_current_post_id' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		$this->assertSame( $post->ID, $result );
+
+		unset( $_GET['post'] );
+	}
+
+	/**
+	 * Test get_current_post_id from global post.
+	 */
+	public function test_get_current_post_id_from_global() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$GLOBALS['post'] = $post;
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_current_post_id' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		$this->assertSame( $post->ID, $result );
+
+		unset( $GLOBALS['post'] );
+	}
+
+	/**
+	 * Test get_current_post_id returns zero when not available.
+	 */
+	public function test_get_current_post_id_returns_zero() {
+		unset( $_GET['post'] );
+		unset( $GLOBALS['post'] );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_current_post_id' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		$this->assertSame( 0, $result );
+	}
+
+	/**
+	 * Test get_actions_script_strings returns expected keys.
+	 */
+	public function test_get_actions_script_strings() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_actions_script_strings' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'generating', $result );
+		$this->assertArrayHasKey( 'generatingPreview', $result );
+		$this->assertArrayHasKey( 'generatingFormat', $result );
+		$this->assertArrayHasKey( 'wait', $result );
+		$this->assertArrayHasKey( 'close', $result );
+		$this->assertArrayHasKey( 'errorGeneric', $result );
+		$this->assertArrayHasKey( 'errorNetwork', $result );
+		$this->assertArrayHasKey( 'loadingWasm', $result );
+		$this->assertArrayHasKey( 'convertingBrowser', $result );
+		$this->assertArrayHasKey( 'wasmError', $result );
+	}
+
+	/**
+	 * Test build_actions_script_config returns expected structure.
+	 */
+	public function test_build_actions_script_config() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_actions_script_config' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, $post->ID );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'ajaxUrl', $result );
+		$this->assertArrayHasKey( 'postId', $result );
+		$this->assertArrayHasKey( 'nonce', $result );
+		$this->assertArrayHasKey( 'strings', $result );
+		$this->assertSame( $post->ID, $result['postId'] );
+		$this->assertStringContainsString( 'admin-ajax.php', $result['ajaxUrl'] );
+	}
+
+	/**
+	 * Test add_conversion_mode_config with no conversion available.
+	 */
+	public function test_add_conversion_mode_config_default() {
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$config = array( 'test' => 'value' );
+		$result = $method->invoke( $this->helper, $config );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'test', $result );
+		$this->assertSame( 'value', $result['test'] );
+	}
+
+	/**
+	 * Test render_converter_page method exists.
+	 */
+	public function test_render_converter_page_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'render_converter_page' ) );
+	}
+
+	/**
+	 * Test ajax_generate_document handler exists.
+	 */
+	public function test_ajax_generate_document_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'ajax_generate_document' ) );
+	}
+
+	/**
+	 * Test handle_preview method exists.
+	 */
+	public function test_handle_preview_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'handle_preview' ) );
+	}
+
+	/**
+	 * Test handle_preview_stream method exists.
+	 */
+	public function test_handle_preview_stream_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'handle_preview_stream' ) );
+	}
+
+	/**
+	 * Test handle_export_docx method exists.
+	 */
+	public function test_handle_export_docx_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'handle_export_docx' ) );
+	}
+
+	/**
+	 * Test handle_export_odt method exists.
+	 */
+	public function test_handle_export_odt_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'handle_export_odt' ) );
+	}
+
+	/**
+	 * Test handle_export_pdf method exists.
+	 */
+	public function test_handle_export_pdf_method_exists() {
+		$this->assertTrue( method_exists( $this->helper, 'handle_export_pdf' ) );
+	}
+
+	/**
+	 * Test get_current_post_id prefers GET over global.
+	 */
+	public function test_get_current_post_id_prefers_get() {
+		$post1 = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$post2 = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$_GET['post'] = $post1->ID;
+		$GLOBALS['post'] = $post2;
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_current_post_id' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		$this->assertSame( $post1->ID, $result );
+
+		unset( $_GET['post'] );
+		unset( $GLOBALS['post'] );
+	}
+
+	/**
+	 * Test build_actions_script_config with different post IDs.
+	 */
+	public function test_build_actions_script_config_different_posts() {
+		$post1 = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$post2 = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_actions_script_config' );
+		$method->setAccessible( true );
+
+		$result1 = $method->invoke( $this->helper, $post1->ID );
+		$result2 = $method->invoke( $this->helper, $post2->ID );
+
+		$this->assertNotSame( $result1['postId'], $result2['postId'] );
+		$this->assertNotSame( $result1['nonce'], $result2['nonce'] );
+	}
+
+	/**
+	 * Test get_actions_script_strings values are strings.
+	 */
+	public function test_get_actions_script_strings_all_strings() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_actions_script_strings' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		foreach ( $result as $key => $value ) {
+			$this->assertIsString( $value, "Value for key '$key' should be a string" );
+			$this->assertNotEmpty( $value, "Value for key '$key' should not be empty" );
+		}
+	}
+
+	/**
+	 * Test add_conversion_mode_config preserves existing config.
+	 */
+	public function test_add_conversion_mode_config_preserves_existing() {
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$config = array(
+			'ajaxUrl' => 'http://example.com/ajax',
+			'postId'  => 123,
+			'nonce'   => 'test_nonce',
+			'strings' => array( 'test' => 'value' ),
+		);
+		$result = $method->invoke( $this->helper, $config );
+
+		$this->assertSame( 'http://example.com/ajax', $result['ajaxUrl'] );
+		$this->assertSame( 123, $result['postId'] );
+		$this->assertSame( 'test_nonce', $result['nonce'] );
+		$this->assertSame( array( 'test' => 'value' ), $result['strings'] );
+	}
 }

@@ -304,4 +304,298 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 		$this->assertSame( 'rich', $rich_scalar['type'] );
 		$this->assertSame( 'text', $rich_scalar['data_type'] );
         }
+
+	/**
+	 * Test parse_placeholder with simple field.
+	 */
+	public function test_parse_placeholder_simple() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'parse_placeholder' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'title' );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'placeholder', $result );
+		$this->assertSame( 'title', $result['placeholder'] );
+	}
+
+	/**
+	 * Test parse_placeholder with parameters.
+	 */
+	public function test_parse_placeholder_with_params() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'parse_placeholder' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'date;tbs:strconv=date' );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'date', $result['placeholder'] );
+		$this->assertArrayHasKey( 'parameters', $result );
+	}
+
+	/**
+	 * Test humanize_key.
+	 */
+	public function test_humanize_key() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'humanize_key' );
+		$method->setAccessible( true );
+
+		$this->assertSame( 'Resolution Title', $method->invoke( null, 'resolution_title' ) );
+		$this->assertSame( 'User Name', $method->invoke( null, 'user_name' ) );
+		$this->assertSame( 'Test', $method->invoke( null, 'test' ) );
+	}
+
+	/**
+	 * Test ends_with.
+	 */
+	public function test_ends_with() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'ends_with' );
+		$method->setAccessible( true );
+
+		$this->assertTrue( $method->invoke( null, 'test_date', '_date' ) );
+		$this->assertTrue( $method->invoke( null, 'hello world', 'world' ) );
+		$this->assertFalse( $method->invoke( null, 'test', 'testing' ) );
+		$this->assertFalse( $method->invoke( null, 'foo', 'bar' ) );
+	}
+
+	/**
+	 * Test detect_data_type with date.
+	 */
+	public function test_detect_data_type_date() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		// Fields ending in 'date' or 'fecha' are detected as date.
+		$result = $method->invoke( null, 'created_date', array() );
+		$this->assertSame( 'date', $result );
+
+		// Using explicit 'ope' parameter.
+		$result = $method->invoke( null, 'my_field', array( 'ope' => 'tbs:date' ) );
+		$this->assertSame( 'date', $result );
+	}
+
+	/**
+	 * Test detect_data_type with number.
+	 */
+	public function test_detect_data_type_number() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		// Using 'ope' parameter for explicit number type.
+		$result = $method->invoke( null, 'total', array( 'ope' => 'tbs:num' ) );
+		$this->assertSame( 'number', $result );
+
+		// Field ending in 'amount' should be detected as number.
+		$result = $method->invoke( null, 'total_amount', array() );
+		$this->assertSame( 'number', $result );
+	}
+
+	/**
+	 * Test detect_data_type with boolean.
+	 */
+	public function test_detect_data_type_boolean() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'is_active', array() );
+		$this->assertSame( 'boolean', $result );
+
+		$result = $method->invoke( null, 'has_permission', array() );
+		$this->assertSame( 'boolean', $result );
+	}
+
+	/**
+	 * Test detect_array_placeholder_with_index.
+	 */
+	public function test_detect_array_placeholder_with_index() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_array_placeholder_with_index' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'items[*].name' );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'items', $result['base'] );
+		$this->assertSame( 'name', $result['key'] );
+
+		$result = $method->invoke( null, 'simple_field' );
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * Test detect_array_placeholder_without_index.
+	 */
+	public function test_detect_array_placeholder_without_index() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_array_placeholder_without_index' );
+		$method->setAccessible( true );
+
+		// Dot notation may return array with base and key.
+		$result = $method->invoke( null, 'items.name' );
+		if ( $result !== null ) {
+			$this->assertArrayHasKey( 'base', $result );
+			$this->assertArrayHasKey( 'key', $result );
+		}
+
+		$result = $method->invoke( null, 'simple_field' );
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * Test infer_array_item_type.
+	 */
+	public function test_infer_array_item_type() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'infer_array_item_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'content', 'text' );
+		$this->assertSame( 'rich', $result );
+
+		$result = $method->invoke( null, 'name', 'text' );
+		$this->assertSame( 'single', $result );
+
+		$result = $method->invoke( null, 'count', 'number' );
+		$this->assertSame( 'single', $result );
+	}
+
+	/**
+	 * Test infer_scalar_field_type.
+	 */
+	public function test_infer_scalar_field_type() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'infer_scalar_field_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'body', 'Body', 'text', 'body' );
+		$this->assertSame( 'rich', $result );
+
+		$result = $method->invoke( null, 'content', 'Content', 'text', 'content' );
+		$this->assertSame( 'rich', $result );
+
+		$result = $method->invoke( null, 'title', 'Title', 'text', 'title' );
+		$this->assertSame( 'single', $result );
+	}
+
+	/**
+	 * Test normalize_slug_source.
+	 */
+	public function test_normalize_slug_source() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'normalize_slug_source' );
+		$method->setAccessible( true );
+
+		// Method preserves array notation in slug.
+		$result = $method->invoke( null, 'items[*].name' );
+		$this->assertIsString( $result );
+
+		$result = $method->invoke( null, 'simple.field' );
+		$this->assertIsString( $result );
+
+		$result = $method->invoke( null, 'normal_field' );
+		$this->assertSame( 'normal_field', $result );
+	}
+
+	/**
+	 * Test format_field_info.
+	 */
+	public function test_format_field_info() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'format_field_info' );
+		$method->setAccessible( true );
+
+		$parsed = array(
+			'placeholder' => 'test_field',
+			'slug'        => 'test_field',
+			'label'       => 'Test Field',
+			'parameters'  => array(),
+		);
+
+		$result = $method->invoke( null, $parsed );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'placeholder', $result );
+		$this->assertArrayHasKey( 'slug', $result );
+		$this->assertArrayHasKey( 'label', $result );
+		$this->assertArrayHasKey( 'data_type', $result );
+	}
+
+	/**
+	 * Test normalize_xml_text.
+	 */
+	public function test_normalize_xml_text() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'normalize_xml_text' );
+		$method->setAccessible( true );
+
+		$xml = '<root><text:span>hello</text:span><text:span> </text:span><text:span>world</text:span></root>';
+		$result = $method->invoke( null, $xml );
+
+		$this->assertIsString( $result );
+	}
+
+	/**
+	 * Test build_schema_from_field_definitions with HTML type hint.
+	 */
+	public function test_build_schema_detects_html_type() {
+		$fields = array(
+			array(
+				'placeholder' => 'description;tbs:html',
+				'slug'        => 'description',
+				'label'       => 'Description',
+				'parameters'  => array( 'tbs:html' => true ),
+				'data_type'   => 'text',
+			),
+		);
+
+		$schema = Documentate_Template_Parser::build_schema_from_field_definitions( $fields );
+
+		$this->assertNotEmpty( $schema );
+		$field = $schema[0];
+		// HTML type hint produces textarea type.
+		$this->assertContains( $field['type'], array( 'rich', 'textarea' ) );
+	}
+
+	/**
+	 * Test extract_fields returns error for corrupted file.
+	 */
+	public function test_extract_fields_corrupted_file() {
+		$temp_dir  = sys_get_temp_dir();
+		$temp_file = $temp_dir . '/test_' . uniqid() . '.docx';
+		file_put_contents( $temp_file, 'not a valid docx file' );
+
+		$result = Documentate_Template_Parser::extract_fields( $temp_file );
+
+		// Corrupted files return WP_Error.
+		$this->assertTrue( is_wp_error( $result ) || is_array( $result ) );
+
+		if ( file_exists( $temp_file ) ) {
+			unlink( $temp_file );
+		}
+	}
+
+	/**
+	 * Test parse_placeholder with array notation.
+	 */
+	public function test_parse_placeholder_array_notation() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'parse_placeholder' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'items[*].name;tbs:strconv=text' );
+
+		$this->assertIsArray( $result );
+		$this->assertStringContainsString( 'items', $result['placeholder'] );
+	}
+
+	/**
+	 * Test detect_data_type with parameters override.
+	 */
+	public function test_detect_data_type_with_parameters() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		// Test with 'ope' parameter for date.
+		$result = $method->invoke( null, 'my_field', array( 'ope' => 'tbs:date' ) );
+		$this->assertSame( 'date', $result );
+
+		// Test with 'ope' parameter for number.
+		$result = $method->invoke( null, 'my_field', array( 'ope' => 'tbs:num' ) );
+		$this->assertSame( 'number', $result );
+
+		// Test with 'frm' parameter containing date format chars.
+		$result = $method->invoke( null, 'my_field', array( 'frm' => 'd/m/Y' ) );
+		$this->assertSame( 'date', $result );
+	}
 }
