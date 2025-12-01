@@ -1004,4 +1004,318 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 		$this->assertSame( '', $result );
 	}
 
+	/**
+	 * Test normalize_number_value with various inputs.
+	 */
+	public function test_normalize_number_value() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_number_value' );
+		$method->setAccessible( true );
+
+		// Empty string.
+		$this->assertSame( '', $method->invoke( null, '' ) );
+
+		// Numeric string.
+		$this->assertEquals( 123, $method->invoke( null, '123' ) );
+
+		// Decimal with comma.
+		$this->assertEquals( 123.45, $method->invoke( null, '123,45' ) );
+
+		// Decimal with period.
+		$this->assertEquals( 123.45, $method->invoke( null, '123.45' ) );
+
+		// Negative number.
+		$this->assertEquals( -50, $method->invoke( null, '-50' ) );
+
+		// Non-numeric string returns empty (filtered to empty).
+		$this->assertSame( '', $method->invoke( null, 'abc' ) );
+
+		// Numeric with currency.
+		$this->assertEquals( 100, $method->invoke( null, '$100' ) );
+	}
+
+	/**
+	 * Test normalize_boolean_value with various inputs.
+	 */
+	public function test_normalize_boolean_value() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_boolean_value' );
+		$method->setAccessible( true );
+
+		// Boolean true.
+		$this->assertSame( 1, $method->invoke( null, true ) );
+
+		// Boolean false.
+		$this->assertSame( 0, $method->invoke( null, false ) );
+
+		// String '1'.
+		$this->assertSame( 1, $method->invoke( null, '1' ) );
+
+		// String 'true'.
+		$this->assertSame( 1, $method->invoke( null, 'true' ) );
+
+		// String 'TRUE' (case insensitive).
+		$this->assertSame( 1, $method->invoke( null, 'TRUE' ) );
+
+		// String 'yes'.
+		$this->assertSame( 1, $method->invoke( null, 'yes' ) );
+
+		// String 'si' (Spanish).
+		$this->assertSame( 1, $method->invoke( null, 'si' ) );
+
+		// String 'sí' (Spanish with accent).
+		$this->assertSame( 1, $method->invoke( null, 'sí' ) );
+
+		// String 'on'.
+		$this->assertSame( 1, $method->invoke( null, 'on' ) );
+
+		// String '0'.
+		$this->assertSame( 0, $method->invoke( null, '0' ) );
+
+		// String 'false'.
+		$this->assertSame( 0, $method->invoke( null, 'false' ) );
+
+		// String 'no'.
+		$this->assertSame( 0, $method->invoke( null, 'no' ) );
+
+		// Empty string.
+		$this->assertSame( 0, $method->invoke( null, '' ) );
+	}
+
+	/**
+	 * Test normalize_date_value with various inputs.
+	 */
+	public function test_normalize_date_value() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_date_value' );
+		$method->setAccessible( true );
+
+		// Empty string.
+		$this->assertSame( '', $method->invoke( null, '' ) );
+
+		// Standard ISO date.
+		$result = $method->invoke( null, '2024-03-15' );
+		$this->assertSame( '2024-03-15', $result );
+
+		// Date with time.
+		$result = $method->invoke( null, '2024-03-15 10:30:00' );
+		$this->assertSame( '2024-03-15', $result );
+
+		// Invalid date.
+		$result = $method->invoke( null, 'not-a-date' );
+		$this->assertSame( 'not-a-date', $result );
+	}
+
+	/**
+	 * Test remember_rich_field_value edge cases.
+	 */
+	public function test_remember_rich_field_value() {
+		$ref = new ReflectionClass( Documentate_Document_Generator::class );
+
+		// Reset first.
+		$reset = $ref->getMethod( 'reset_rich_field_values' );
+		$reset->setAccessible( true );
+		$reset->invoke( null );
+
+		// Remember method.
+		$remember = $ref->getMethod( 'remember_rich_field_value' );
+		$remember->setAccessible( true );
+
+		// Get method.
+		$get = $ref->getMethod( 'get_rich_field_values' );
+		$get->setAccessible( true );
+
+		// Empty string should not be remembered.
+		$remember->invoke( null, '' );
+		$this->assertEmpty( $get->invoke( null ) );
+
+		// Reset.
+		$reset->invoke( null );
+
+		// Value without HTML tags should not be remembered.
+		$remember->invoke( null, 'Plain text without tags' );
+		$this->assertEmpty( $get->invoke( null ) );
+
+		// Reset.
+		$reset->invoke( null );
+
+		// Value with incomplete HTML should not be remembered.
+		$remember->invoke( null, 'Only opening <' );
+		$this->assertEmpty( $get->invoke( null ) );
+
+		// Reset.
+		$reset->invoke( null );
+
+		// Valid HTML value should be remembered.
+		$remember->invoke( null, '<p>Valid HTML</p>' );
+		$result = $get->invoke( null );
+		$this->assertNotEmpty( $result );
+		$this->assertContains( '<p>Valid HTML</p>', $result );
+	}
+
+	/**
+	 * Test prepare_field_value with rich type.
+	 */
+	public function test_prepare_field_value_rich_type() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		// Rich type should preserve allowed HTML.
+		$html   = '<p>Paragraph</p><strong>Bold</strong>';
+		$result = $method->invoke( null, $html, 'rich', 'text' );
+		$this->assertStringContainsString( '<p>', $result );
+		$this->assertStringContainsString( '<strong>', $result );
+	}
+
+	/**
+	 * Test prepare_field_value with html type.
+	 */
+	public function test_prepare_field_value_html_type() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		// HTML type should also preserve allowed HTML.
+		$html   = '<ul><li>Item</li></ul>';
+		$result = $method->invoke( null, $html, 'html', 'text' );
+		$this->assertStringContainsString( '<ul>', $result );
+		$this->assertStringContainsString( '<li>', $result );
+	}
+
+	/**
+	 * Test get_structured_field_value with empty slug.
+	 */
+	public function test_get_structured_field_value_empty_slug() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_structured_field_value' );
+		$method->setAccessible( true );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Empty Slug Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = $method->invoke( null, array(), '', $post_id );
+
+		$this->assertSame( '', $result );
+	}
+
+	/**
+	 * Test get_array_field_items_for_merge with empty slug.
+	 */
+	public function test_get_array_field_items_for_merge_empty_slug() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'get_array_field_items_for_merge' );
+		$method->setAccessible( true );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Empty Slug Array Test',
+				'post_status' => 'draft',
+			)
+		);
+
+		$result = $method->invoke( null, array(), '', $post_id );
+
+		$this->assertIsArray( $result );
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test normalize_field_value with unknown data type.
+	 */
+	public function test_normalize_field_value_unknown_type() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_field_value' );
+		$method->setAccessible( true );
+
+		// Unknown type should return trimmed value.
+		$result = $method->invoke( null, '  test value  ', 'unknown_type' );
+		$this->assertSame( 'test value', $result );
+	}
+
+	/**
+	 * Test prepare_field_value strips tags for non-rich types.
+	 */
+	public function test_prepare_field_value_textarea_strips_tags() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		$html   = '<p>Paragraph</p>';
+		$result = $method->invoke( null, $html, 'textarea', 'text' );
+
+		$this->assertStringNotContainsString( '<p>', $result );
+		$this->assertStringContainsString( 'Paragraph', $result );
+	}
+
+	/**
+	 * Test prepare_field_value with non-string value.
+	 */
+	public function test_prepare_field_value_non_string() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'prepare_field_value' );
+		$method->setAccessible( true );
+
+		// Non-string should be converted to empty string.
+		$result = $method->invoke( null, null, 'single', 'text' );
+		$this->assertSame( '', $result );
+
+		$result = $method->invoke( null, 123, 'single', 'text' );
+		$this->assertSame( '', $result );
+	}
+
+	/**
+	 * Test remember_rich_values_from_array_items with empty items.
+	 */
+	public function test_remember_rich_values_from_array_items_empty() {
+		$ref = new ReflectionClass( Documentate_Document_Generator::class );
+
+		// Reset first.
+		$reset = $ref->getMethod( 'reset_rich_field_values' );
+		$reset->setAccessible( true );
+		$reset->invoke( null );
+
+		// Call with empty array.
+		$remember = $ref->getMethod( 'remember_rich_values_from_array_items' );
+		$remember->setAccessible( true );
+		$remember->invoke( null, array() );
+
+		// Get values should be empty.
+		$get    = $ref->getMethod( 'get_rich_field_values' );
+		$get->setAccessible( true );
+		$result = $get->invoke( null );
+
+		$this->assertEmpty( $result );
+	}
+
+	/**
+	 * Test remember_rich_values_from_array_items with non-array item.
+	 */
+	public function test_remember_rich_values_from_array_items_non_array_item() {
+		$ref = new ReflectionClass( Documentate_Document_Generator::class );
+
+		// Reset first.
+		$reset = $ref->getMethod( 'reset_rich_field_values' );
+		$reset->setAccessible( true );
+		$reset->invoke( null );
+
+		// Call with non-array items.
+		$remember = $ref->getMethod( 'remember_rich_values_from_array_items' );
+		$remember->setAccessible( true );
+		$remember->invoke( null, array( 'string', 123, null ) );
+
+		// Get values should be empty since items weren't arrays.
+		$get    = $ref->getMethod( 'get_rich_field_values' );
+		$get->setAccessible( true );
+		$result = $get->invoke( null );
+
+		$this->assertEmpty( $result );
+	}
+
 }

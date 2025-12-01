@@ -265,4 +265,154 @@ class ExportHandlerTest extends WP_UnitTestCase {
 
 		$this->assertTrue( $result );
 	}
+
+	/**
+	 * Test stream_file_download returns error for non-existent file.
+	 */
+	public function test_stream_file_download_returns_error_for_missing_file() {
+		$handler    = new Export_DOCX_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'stream_file_download' );
+		$reflection->setAccessible( true );
+
+		$result = $reflection->invoke( $handler, '/nonexistent/path/file.docx' );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'documentate_file_not_found', $result->get_error_code() );
+	}
+
+	/**
+	 * Test stream_file_download method is protected.
+	 */
+	public function test_stream_file_download_is_protected() {
+		$reflection = new \ReflectionMethod( Export_DOCX_Handler::class, 'stream_file_download' );
+
+		$this->assertTrue( $reflection->isProtected() );
+	}
+
+	/**
+	 * Test DOCX handler generate method.
+	 */
+	public function test_docx_handler_generate() {
+		$handler    = new Export_DOCX_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'generate' );
+		$reflection->setAccessible( true );
+
+		// Create a test post without template.
+		$post_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'post',
+				'post_status' => 'publish',
+			)
+		);
+
+		$result = $reflection->invoke( $handler, $post_id );
+
+		// Should return WP_Error because no template is configured.
+		$this->assertInstanceOf( \WP_Error::class, $result );
+	}
+
+	/**
+	 * Test ODT handler generate method.
+	 */
+	public function test_odt_handler_generate() {
+		$handler    = new Export_ODT_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'generate' );
+		$reflection->setAccessible( true );
+
+		$post_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'post',
+				'post_status' => 'publish',
+			)
+		);
+
+		$result = $reflection->invoke( $handler, $post_id );
+
+		// Should return WP_Error because no template is configured.
+		$this->assertInstanceOf( \WP_Error::class, $result );
+	}
+
+	/**
+	 * Test PDF handler generate method.
+	 */
+	public function test_pdf_handler_generate() {
+		$handler    = new Export_PDF_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'generate' );
+		$reflection->setAccessible( true );
+
+		$post_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'post',
+				'post_status' => 'publish',
+			)
+		);
+
+		$result = $reflection->invoke( $handler, $post_id );
+
+		// Should return WP_Error because no source template is configured.
+		$this->assertInstanceOf( \WP_Error::class, $result );
+	}
+
+	/**
+	 * Test validate_request fails for invalid nonce.
+	 */
+	public function test_validate_request_fails_for_invalid_nonce() {
+		$admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$post_id = self::factory()->post->create();
+
+		$handler    = new Export_DOCX_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'validate_request' );
+		$reflection->setAccessible( true );
+
+		$_GET['_wpnonce'] = 'invalid_nonce_value';
+
+		$this->expectException( \WPDieException::class );
+
+		$reflection->invoke( $handler, $post_id );
+	}
+
+	/**
+	 * Test get_post_id_from_request with negative value.
+	 */
+	public function test_get_post_id_from_request_negative_value() {
+		$handler    = new Export_DOCX_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'get_post_id_from_request' );
+		$reflection->setAccessible( true );
+
+		$_GET['post_id'] = '-5';
+
+		$result = $reflection->invoke( $handler );
+
+		unset( $_GET['post_id'] );
+
+		// intval of negative is negative.
+		$this->assertSame( -5, $result );
+	}
+
+	/**
+	 * Test handle_error method exists and is protected.
+	 */
+	public function test_handle_error_method_exists() {
+		$reflection = new \ReflectionMethod( Export_DOCX_Handler::class, 'handle_error' );
+
+		$this->assertTrue( $reflection->isProtected() );
+		$this->assertSame( 2, $reflection->getNumberOfParameters() );
+	}
+
+	/**
+	 * Test that handlers properly initialize Document Generator.
+	 */
+	public function test_handlers_initialize_document_generator() {
+		$handler    = new Export_DOCX_Handler();
+		$reflection = new \ReflectionMethod( $handler, 'generate' );
+		$reflection->setAccessible( true );
+
+		// This will cause Document Generator to be loaded.
+		$post_id = self::factory()->post->create();
+		$reflection->invoke( $handler, $post_id );
+
+		$this->assertTrue( class_exists( 'Documentate_Document_Generator' ) );
+	}
 }

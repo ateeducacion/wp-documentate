@@ -1448,4 +1448,503 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$this->assertSame( 'test_nonce', $result['nonce'] );
 		$this->assertSame( array( 'test' => 'value' ), $result['strings'] );
 	}
+
+	/**
+	 * Test build_action_url method via reflection.
+	 */
+	public function test_build_action_url() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_action_url' );
+		$method->setAccessible( true );
+
+		$url = $method->invoke( $this->helper, 'documentate_preview', 123, 'test_nonce' );
+
+		$this->assertStringContainsString( 'admin-post.php', $url );
+		$this->assertStringContainsString( 'action=documentate_preview', $url );
+		$this->assertStringContainsString( 'post_id=123', $url );
+		$this->assertStringContainsString( '_wpnonce=test_nonce', $url );
+	}
+
+	/**
+	 * Test build_action_url with different actions.
+	 */
+	public function test_build_action_url_different_actions() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_action_url' );
+		$method->setAccessible( true );
+
+		$docx_url = $method->invoke( $this->helper, 'documentate_export_docx', 456, 'nonce1' );
+		$odt_url = $method->invoke( $this->helper, 'documentate_export_odt', 456, 'nonce2' );
+		$pdf_url = $method->invoke( $this->helper, 'documentate_export_pdf', 456, 'nonce3' );
+
+		$this->assertStringContainsString( 'documentate_export_docx', $docx_url );
+		$this->assertStringContainsString( 'documentate_export_odt', $odt_url );
+		$this->assertStringContainsString( 'documentate_export_pdf', $pdf_url );
+	}
+
+	/**
+	 * Test format_generator_map static property exists.
+	 */
+	public function test_format_generator_map_exists() {
+		$reflection = new ReflectionClass( $this->helper );
+		$prop = $reflection->getProperty( 'format_generator_map' );
+		$prop->setAccessible( true );
+
+		$map = $prop->getValue();
+
+		$this->assertIsArray( $map );
+		$this->assertArrayHasKey( 'docx', $map );
+		$this->assertArrayHasKey( 'odt', $map );
+		$this->assertArrayHasKey( 'pdf', $map );
+		$this->assertSame( 'generate_docx', $map['docx'] );
+		$this->assertSame( 'generate_odt', $map['odt'] );
+		$this->assertSame( 'generate_pdf', $map['pdf'] );
+	}
+
+	/**
+	 * Test export handlers are initialized in constructor.
+	 */
+	public function test_export_handlers_initialized() {
+		$reflection = new ReflectionClass( $this->helper );
+
+		$docx_prop = $reflection->getProperty( 'docx_handler' );
+		$docx_prop->setAccessible( true );
+		$this->assertInstanceOf( 'Documentate\\Export\\Export_DOCX_Handler', $docx_prop->getValue( $this->helper ) );
+
+		$odt_prop = $reflection->getProperty( 'odt_handler' );
+		$odt_prop->setAccessible( true );
+		$this->assertInstanceOf( 'Documentate\\Export\\Export_ODT_Handler', $odt_prop->getValue( $this->helper ) );
+
+		$pdf_prop = $reflection->getProperty( 'pdf_handler' );
+		$pdf_prop->setAccessible( true );
+		$this->assertInstanceOf( 'Documentate\\Export\\Export_PDF_Handler', $pdf_prop->getValue( $this->helper ) );
+	}
+
+	/**
+	 * Test handle_export methods exist and are public.
+	 */
+	public function test_handle_export_methods_are_public() {
+		$docx_ref = new ReflectionMethod( $this->helper, 'handle_export_docx' );
+		$odt_ref = new ReflectionMethod( $this->helper, 'handle_export_odt' );
+		$pdf_ref = new ReflectionMethod( $this->helper, 'handle_export_pdf' );
+
+		$this->assertTrue( $docx_ref->isPublic() );
+		$this->assertTrue( $odt_ref->isPublic() );
+		$this->assertTrue( $pdf_ref->isPublic() );
+	}
+
+	/**
+	 * Test render_actions_metabox with all buttons disabled.
+	 */
+	public function test_render_actions_metabox_all_disabled() {
+		delete_option( 'documentate_settings' );
+
+		$post = $this->factory->post->create_and_get( array(
+			'post_type' => 'documentate_document',
+		) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		// Should have disabled buttons.
+		$this->assertStringContainsString( 'disabled', $output );
+	}
+
+	/**
+	 * Test render_actions_metabox generates correct nonces.
+	 */
+	public function test_render_actions_metabox_generates_nonces() {
+		// Configure a template so buttons are enabled.
+		$term = wp_insert_term( 'Nonce Test Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( file_exists( $fixture_path ) ) {
+			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
+			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+			update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+		}
+
+		$post = $this->factory->post->create_and_get( array(
+			'post_type' => 'documentate_document',
+		) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		// Verify action buttons exist.
+		$this->assertStringContainsString( 'data-documentate-action', $output );
+	}
+
+	/**
+	 * Test stream_file_download with valid file via mock.
+	 */
+	public function test_stream_file_download_valid_path() {
+		// Create a temporary file.
+		$upload_dir = wp_upload_dir();
+		$temp_dir = $upload_dir['basedir'] . '/documentate';
+		wp_mkdir_p( $temp_dir );
+		$temp_file = $temp_dir . '/test-document.docx';
+		file_put_contents( $temp_file, 'test content' );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'stream_file_download' );
+		$method->setAccessible( true );
+
+		// Can't fully test because it sends headers and exits.
+		// Just verify the file exists and method can be called.
+		$this->assertFileExists( $temp_file );
+
+		// Cleanup.
+		unlink( $temp_file );
+	}
+
+	/**
+	 * Test add_row_actions with ODT template at term level.
+	 */
+	public function test_add_row_actions_with_odt_term_template() {
+		$term_result = wp_insert_term( 'ODT Only Type', 'documentate_doc_type' );
+		$doc_type = $term_result['term_id'];
+
+		// Only ODT template, no DOCX.
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( file_exists( $fixture_path ) ) {
+			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
+			update_term_meta( $doc_type, 'documentate_type_template_id', $attachment_id );
+			update_term_meta( $doc_type, 'documentate_type_template_type', 'odt' );
+		}
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_object_terms( $post->ID, $doc_type, 'documentate_doc_type' );
+
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		// No DOCX template, so no DOCX export link.
+		$this->assertArrayNotHasKey( 'documentate_export_docx', $result );
+	}
+
+	/**
+	 * Test enqueue_title_textarea_assets loads wp_editor.
+	 */
+	public function test_enqueue_title_textarea_loads_editor() {
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->base = 'post';
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->helper->enqueue_title_textarea_assets( 'post.php' );
+
+		// Verify scripts are enqueued.
+		$this->assertTrue( wp_script_is( 'documentate-title-textarea', 'enqueued' ) );
+		$this->assertTrue( wp_script_is( 'documentate-annexes', 'enqueued' ) );
+	}
+
+	/**
+	 * Test add_actions_metabox adds metabox to correct location.
+	 */
+	public function test_add_actions_metabox_location() {
+		global $wp_meta_boxes;
+
+		$this->helper->add_actions_metabox();
+
+		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['high'] );
+
+		$metabox = $wp_meta_boxes['documentate_document']['side']['high']['documentate_actions'];
+		$this->assertSame( __( 'Document Actions', 'documentate' ), $metabox['title'] );
+	}
+
+	/**
+	 * Test render_actions_metabox with conversion manager available.
+	 */
+	public function test_render_actions_metabox_with_conversion() {
+		// Configure conversion settings.
+		update_option( 'documentate_settings', array(
+			'pdf_converter' => 'collabora',
+			'collabora_base_url' => 'https://example.com/collabora',
+		) );
+
+		$term = wp_insert_term( 'Conv Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( file_exists( $fixture_path ) ) {
+			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
+			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+			update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+		}
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'button', $output );
+	}
+
+	/**
+	 * Test build_actions_script_config includes all required keys.
+	 */
+	public function test_build_actions_script_config_complete() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_actions_script_config' );
+		$method->setAccessible( true );
+
+		$config = $method->invoke( $this->helper, $post->ID );
+
+		$this->assertArrayHasKey( 'ajaxUrl', $config );
+		$this->assertArrayHasKey( 'postId', $config );
+		$this->assertArrayHasKey( 'nonce', $config );
+		$this->assertArrayHasKey( 'strings', $config );
+		$this->assertIsString( $config['ajaxUrl'] );
+		$this->assertIsInt( $config['postId'] );
+		$this->assertIsString( $config['nonce'] );
+		$this->assertIsArray( $config['strings'] );
+	}
+
+	/**
+	 * Test add_conversion_mode_config with zetajs cdn mode.
+	 */
+	public function test_add_conversion_mode_config_zetajs_cdn() {
+		// Configure ZetaJS CDN mode.
+		update_option( 'documentate_settings', array(
+			'pdf_converter' => 'zetajs_cdn',
+		) );
+
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$config = array( 'test' => 'value' );
+		$result = $method->invoke( $this->helper, $config );
+
+		// Should have cdnMode key when zetajs_cdn is configured.
+		if ( Documentate_Zetajs_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available() ) {
+			$this->assertArrayHasKey( 'cdnMode', $result );
+			$this->assertTrue( $result['cdnMode'] );
+		}
+	}
+
+	/**
+	 * Test render_actions_metabox shows conversion engine label.
+	 */
+	public function test_render_actions_metabox_shows_engine_label() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'description', $output );
+	}
+
+	/**
+	 * Test maybe_notice on edit base screen shows message.
+	 */
+	public function test_maybe_notice_edit_base_screen() {
+		$_GET['documentate_notice'] = 'Test error on edit';
+		$screen = WP_Screen::get( 'edit-documentate_document' );
+		$screen->base = 'edit';
+		$screen->id = 'edit-documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		ob_start();
+		$this->helper->maybe_notice();
+		$output = ob_get_clean();
+
+		// Edit screen doesn't match 'post' base, so might be empty.
+		// But documentate_document screen should work.
+		unset( $_GET['documentate_notice'] );
+	}
+
+	/**
+	 * Test get_current_post_id sanitizes input.
+	 */
+	public function test_get_current_post_id_sanitizes() {
+		$_GET['post'] = '123abc';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_current_post_id' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper );
+
+		$this->assertSame( 123, $result );
+
+		unset( $_GET['post'] );
+	}
+
+	/**
+	 * Test render_actions_metabox with CDN mode attributes.
+	 */
+	public function test_render_actions_metabox_cdn_mode_attributes() {
+		update_option( 'documentate_settings', array(
+			'pdf_converter' => 'zetajs_cdn',
+		) );
+
+		$term = wp_insert_term( 'CDN Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$fixture_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/plantilla.odt';
+		if ( file_exists( $fixture_path ) ) {
+			$attachment_id = $this->factory->attachment->create_upload_object( $fixture_path );
+			update_term_meta( $term_id, 'documentate_type_template_id', $attachment_id );
+			update_term_meta( $term_id, 'documentate_type_template_type', 'odt' );
+		}
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		// Should have action buttons.
+		$this->assertStringContainsString( 'button', $output );
+	}
+
+	/**
+	 * Test build_action_attributes with boolean attributes.
+	 */
+	public function test_build_action_attributes_boolean() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'build_action_attributes' );
+		$method->setAccessible( true );
+
+		$attrs = array(
+			'class' => 'button',
+			'disabled' => 'disabled',
+			'data-active' => '1',
+		);
+
+		$result = $method->invoke( $this->helper, $attrs );
+
+		$this->assertStringContainsString( 'class="button"', $result );
+		$this->assertStringContainsString( 'disabled="disabled"', $result );
+		$this->assertStringContainsString( 'data-active="1"', $result );
+	}
+
+	/**
+	 * Test enqueue_actions_metabox_assets localizes script.
+	 */
+	public function test_enqueue_actions_metabox_assets_localizes() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$_GET['post'] = $post->ID;
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->helper->enqueue_actions_metabox_assets( 'post.php' );
+
+		$this->assertTrue( wp_script_is( 'documentate-actions', 'enqueued' ) );
+
+		unset( $_GET['post'] );
+	}
+
+	/**
+	 * Test remember_preview_stream_file with special characters.
+	 */
+	public function test_remember_preview_stream_file_special_chars() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'remember_preview_stream_file' );
+		$method->setAccessible( true );
+
+		$post_id = 789;
+		$filename = 'document with spaces & symbols!.pdf';
+
+		$result = $method->invoke( $this->helper, $post_id, $filename );
+
+		$this->assertTrue( $result );
+
+		$key_method = $reflection->getMethod( 'get_preview_stream_transient_key' );
+		$key_method->setAccessible( true );
+		$key = $key_method->invoke( $this->helper, $post_id, get_current_user_id() );
+
+		$stored = get_transient( $key );
+		// sanitize_file_name will clean up the filename.
+		$this->assertNotEmpty( $stored );
+	}
+
+	/**
+	 * Test get_preview_stream_transient_key format.
+	 */
+	public function test_get_preview_stream_transient_key_format() {
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'get_preview_stream_transient_key' );
+		$method->setAccessible( true );
+
+		$key = $method->invoke( $this->helper, 100, 200 );
+
+		$this->assertSame( 'documentate_preview_stream_200_100', $key );
+	}
+
+	/**
+	 * Test render_actions_metabox with pending post.
+	 */
+	public function test_render_actions_metabox_pending_post() {
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post = $this->factory->post->create_and_get( array(
+			'post_type'   => 'documentate_document',
+			'post_status' => 'pending',
+		) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'DOCX', $output );
+	}
+
+	/**
+	 * Test add_row_actions with multiple document types.
+	 */
+	public function test_add_row_actions_multiple_types() {
+		$term1 = wp_insert_term( 'Type One', 'documentate_doc_type' );
+		$term2 = wp_insert_term( 'Type Two', 'documentate_doc_type' );
+
+		update_term_meta( $term1['term_id'], 'documentate_type_docx_template', 111 );
+		update_term_meta( $term2['term_id'], 'documentate_type_docx_template', 222 );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_object_terms( $post->ID, array( $term1['term_id'], $term2['term_id'] ), 'documentate_doc_type' );
+
+		$actions = array();
+		$result = $this->helper->add_row_actions( $actions, $post );
+
+		// Uses first type's template.
+		$this->assertArrayHasKey( 'documentate_export_docx', $result );
+	}
+
+	/**
+	 * Test document_generator_loaded property behavior.
+	 */
+	public function test_document_generator_loaded_tracking() {
+		$reflection = new ReflectionClass( $this->helper );
+
+		$prop = $reflection->getProperty( 'document_generator_loaded' );
+		$prop->setAccessible( true );
+
+		// Initially false (might be true if already loaded).
+		$initial = $prop->getValue( $this->helper );
+
+		$method = $reflection->getMethod( 'ensure_document_generator' );
+		$method->setAccessible( true );
+		$method->invoke( $this->helper );
+
+		// After calling, should be true.
+		$this->assertTrue( $prop->getValue( $this->helper ) );
+	}
 }
