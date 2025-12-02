@@ -13,16 +13,16 @@
 // which handles headers, permission checks, and nonce validation.
 
 // Get conversion parameters from the validated request.
-$document_id   = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
-$target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
-$source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
-$output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
-$nonce         = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
-$use_channel   = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
+$documentate_document_id   = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
+$documentate_target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
+$documentate_source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
+$documentate_output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
+$documentate_nonce         = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+$documentate_use_channel   = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
 
 // Get Collabora URL from settings.
-$options       = get_option( 'documentate_settings', array() );
-$collabora_url = isset( $options['collabora_base_url'] ) ? esc_url( $options['collabora_base_url'] ) : '';
+$documentate_options       = get_option( 'documentate_settings', array() );
+$documentate_collabora_url = isset( $documentate_options['collabora_base_url'] ) ? esc_url( $documentate_options['collabora_base_url'] ) : '';
 
 ?>
 <!DOCTYPE html>
@@ -87,14 +87,14 @@ $collabora_url = isset( $options['collabora_base_url'] ) ? esc_url( $options['co
 	<script type="module">
 		// Conversion parameters from URL (validated by PHP).
 		const conversionConfig = {
-			postId: <?php echo (int) $document_id; ?>,
-			targetFormat: <?php echo wp_json_encode( $target_format ); ?>,
-			sourceFormat: <?php echo wp_json_encode( $source_format ); ?>,
-			outputAction: <?php echo wp_json_encode( $output_action ); ?>,
-			nonce: <?php echo wp_json_encode( $nonce ); ?>,
+			postId: <?php echo (int) $documentate_document_id; ?>,
+			targetFormat: <?php echo wp_json_encode( $documentate_target_format ); ?>,
+			sourceFormat: <?php echo wp_json_encode( $documentate_source_format ); ?>,
+			outputAction: <?php echo wp_json_encode( $documentate_output_action ); ?>,
+			nonce: <?php echo wp_json_encode( $documentate_nonce ); ?>,
 			ajaxUrl: <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
-			collaboraUrl: <?php echo wp_json_encode( $collabora_url ); ?>,
-			useChannel: <?php echo $use_channel ? 'true' : 'false'; ?>
+			collaboraUrl: <?php echo wp_json_encode( $documentate_collabora_url ); ?>,
+			useChannel: <?php echo $documentate_use_channel ? 'true' : 'false'; ?>
 		};
 
 		// BroadcastChannel for sending results to opener (when useChannel is true).

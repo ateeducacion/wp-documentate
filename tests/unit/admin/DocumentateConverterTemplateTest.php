@@ -53,11 +53,11 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 	public function test_template_contains_required_variables() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( '$document_id', $content );
-		$this->assertStringContainsString( '$target_format', $content );
-		$this->assertStringContainsString( '$source_format', $content );
-		$this->assertStringContainsString( '$output_action', $content );
-		$this->assertStringContainsString( '$nonce', $content );
+		$this->assertStringContainsString( '$documentate_document_id', $content );
+		$this->assertStringContainsString( '$documentate_target_format', $content );
+		$this->assertStringContainsString( '$documentate_source_format', $content );
+		$this->assertStringContainsString( '$documentate_output_action', $content );
+		$this->assertStringContainsString( '$documentate_nonce', $content );
 	}
 
 	/**
@@ -239,7 +239,7 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 	public function test_template_contains_use_channel() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( '$use_channel', $content );
+		$this->assertStringContainsString( '$documentate_use_channel', $content );
 		$this->assertStringContainsString( 'useChannel', $content );
 	}
 
@@ -249,8 +249,8 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 	public function test_template_contains_helper_urls() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( '$helper_url', $content );
-		$this->assertStringContainsString( '$thread_url', $content );
+		$this->assertStringContainsString( '$documentate_helper_url', $content );
+		$this->assertStringContainsString( '$documentate_thread_url', $content );
 		$this->assertStringContainsString( 'plugins_url(', $content );
 	}
 }

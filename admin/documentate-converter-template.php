@@ -13,16 +13,16 @@
 // which handles headers, permission checks, and nonce validation.
 
 // Get conversion parameters from the validated request.
-$document_id   = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
-$target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
-$source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
-$output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
-$nonce         = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
-$use_channel   = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
+$documentate_document_id   = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
+$documentate_target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
+$documentate_source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
+$documentate_output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
+$documentate_nonce         = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+$documentate_use_channel   = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
 
 // Helper and thread URLs are local, WASM loads from CDN.
-$helper_url = plugins_url( 'admin/vendor/zetajs/zetaHelper.js', DOCUMENTATE_PLUGIN_FILE );
-$thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE_PLUGIN_FILE );
+$documentate_helper_url = plugins_url( 'admin/vendor/zetajs/zetaHelper.js', DOCUMENTATE_PLUGIN_FILE );
+$documentate_thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE_PLUGIN_FILE );
 
 ?>
 <!DOCTYPE html>
@@ -90,15 +90,15 @@ $thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE
 	<script type="module">
 		// Conversion parameters from URL (validated by PHP).
 		const conversionConfig = {
-			postId: <?php echo (int) $document_id; ?>,
-			targetFormat: <?php echo wp_json_encode( $target_format ); ?>,
-			sourceFormat: <?php echo wp_json_encode( $source_format ); ?>,
-			outputAction: <?php echo wp_json_encode( $output_action ); ?>,
-			nonce: <?php echo wp_json_encode( $nonce ); ?>,
+			postId: <?php echo (int) $documentate_document_id; ?>,
+			targetFormat: <?php echo wp_json_encode( $documentate_target_format ); ?>,
+			sourceFormat: <?php echo wp_json_encode( $documentate_source_format ); ?>,
+			outputAction: <?php echo wp_json_encode( $documentate_output_action ); ?>,
+			nonce: <?php echo wp_json_encode( $documentate_nonce ); ?>,
 			ajaxUrl: <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
-			helperUrl: <?php echo wp_json_encode( $helper_url ); ?>,
-			threadUrl: <?php echo wp_json_encode( $thread_url ); ?>,
-			useChannel: <?php echo $use_channel ? 'true' : 'false'; ?>
+			helperUrl: <?php echo wp_json_encode( $documentate_helper_url ); ?>,
+			threadUrl: <?php echo wp_json_encode( $documentate_thread_url ); ?>,
+			useChannel: <?php echo $documentate_use_channel ? 'true' : 'false'; ?>
 		};
 
 		// BroadcastChannel for sending results to opener (when useChannel is true)
