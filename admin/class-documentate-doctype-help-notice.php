@@ -93,15 +93,21 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= esc_html__( 'use blocks with', 'documentate' ) . ' <code>[items;block=begin]</code> &hellip; <code>[items;block=end]</code> ';
 		$markup .= esc_html__( 'and define the fields for each item inside.', 'documentate' ) . '</p>';
 
+		$markup .= '<p><strong>' . esc_html__( 'Repeater in tables:', 'documentate' ) . '</strong> ';
+		$markup .= esc_html__( 'to repeat table rows, use', 'documentate' ) . ' <code>block=tbs:row</code> ';
+		$markup .= esc_html__( 'in the first field of the row instead of block=begin/end.', 'documentate' ) . '</p>';
+
 		$markup .= '<p><strong>' . esc_html__( 'Quick examples:', 'documentate' ) . '</strong></p>';
 
 		$markup .= '<pre style="white-space:pre-wrap;">';
 		$markup .= esc_html( "[Email;type='email';title='Email';placeholder='you@domain.com']\n" );
-		$markup .= esc_html( "[items;block=begin][Item title;type='text'] [items.content;type='html'][items;block=end]" );
+		$markup .= esc_html( "[items;block=begin][items.title;type='text'] [items.content;type='html'][items;block=end]\n" );
+		$markup .= esc_html__( '-- Table row:', 'documentate' ) . "\n";
+		$markup .= esc_html( "| [items.name;block=tbs:row;type='text'] | [items.qty;type='number'] |" );
 		$markup .= '</pre>';
 
-		$markup .= '<p>' . esc_html__( 'Tip: in DOCX the text can be fragmented; make sure each marker', 'documentate' ) . ' ';
-		$markup .= '<code>[...]</code> ' . esc_html__( 'remains intact.', 'documentate' ) . '</p>';
+		$markup .= '<p>' . esc_html__( 'Tip: in ODT/DOCX the text can be fragmented internally. To ensure each marker', 'documentate' ) . ' ';
+		$markup .= '<code>[...]</code> ' . esc_html__( 'remains intact, write it in a plain text editor, then copy and paste without formatting.', 'documentate' ) . '</p>';
 
 		return $markup;
 	}

@@ -184,4 +184,103 @@ class SchemaExtractorTest extends WP_UnitTestCase {
 		}
 		return $indexed;
 	}
+
+	/**
+	 * Test that tbs:row repeater fields are extracted with full attributes.
+	 */
+	public function test_tbs_row_repeater_extracts_field_attributes() {
+		$extractor = new SchemaExtractor();
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/autorizacionviaje.odt' );
+
+		$this->assertNotWPError( $schema, 'Expected a valid schema when parsing the autorizacionviaje ODT template.' );
+
+		$repeaters = $this->index_repeaters( $schema['repeaters'] );
+		$this->assertArrayHasKey( 'asistentes', $repeaters, 'Repeater asistentes must exist.' );
+
+		// Verify field attributes are extracted.
+		$this->assertArrayHasKey( 'apellido1', $repeaters['asistentes'], 'apellido1 field must exist in repeater.' );
+		$this->assertSame( 'text', $repeaters['asistentes']['apellido1']['type'] );
+		$this->assertSame( 'Apellido 1', $repeaters['asistentes']['apellido1']['title'] );
+
+		$this->assertArrayHasKey( 'apellido2', $repeaters['asistentes'], 'apellido2 field must exist in repeater.' );
+		$this->assertSame( 'text', $repeaters['asistentes']['apellido2']['type'] );
+		$this->assertSame( 'Apellido 2', $repeaters['asistentes']['apellido2']['title'] );
+
+		$this->assertArrayHasKey( 'nombre', $repeaters['asistentes'], 'nombre field must exist in repeater.' );
+		$this->assertSame( 'text', $repeaters['asistentes']['nombre']['type'] );
+		$this->assertSame( 'Nombre', $repeaters['asistentes']['nombre']['title'] );
+	}
+
+	/**
+	 * Test that tbs:row dotted fields do not appear as root fields.
+	 */
+	public function test_tbs_row_fields_not_duplicated_as_root() {
+		$extractor = new SchemaExtractor();
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/autorizacionviaje.odt' );
+
+		$this->assertNotWPError( $schema );
+
+		$fields = $this->index_fields( $schema['fields'] );
+
+		// Dotted fields (asistentes.X) should NOT appear as root fields.
+		$this->assertArrayNotHasKey( 'asistentes.apellido1', $fields, 'Dotted field should not be in root.' );
+		$this->assertArrayNotHasKey( 'asistentes.apellido2', $fields, 'Dotted field should not be in root.' );
+		$this->assertArrayNotHasKey( 'asistentes.nombre', $fields, 'Dotted field should not be in root.' );
+		$this->assertArrayNotHasKey( 'apellido1', $fields, 'Repeater sub-field should not be in root.' );
+		$this->assertArrayNotHasKey( 'apellido2', $fields, 'Repeater sub-field should not be in root.' );
+	}
+
+	/**
+	 * Test that duplicate fields are deduplicated.
+	 */
+	public function test_duplicate_fields_are_deduplicated() {
+		$extractor = new SchemaExtractor();
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/autorizacionviaje.odt' );
+
+		$this->assertNotWPError( $schema );
+
+		// Count occurrences of each slug.
+		$slug_counts = array();
+		foreach ( $schema['fields'] as $field ) {
+			$slug = isset( $field['slug'] ) ? $field['slug'] : '';
+			if ( '' !== $slug ) {
+				$slug_counts[ $slug ] = isset( $slug_counts[ $slug ] ) ? $slug_counts[ $slug ] + 1 : 1;
+			}
+		}
+
+		// Each field should appear only once.
+		foreach ( $slug_counts as $slug => $count ) {
+			$this->assertSame( 1, $count, "Field '$slug' should appear only once, found $count times." );
+		}
+	}
+
+	/**
+	 * Test that tbs:row repeater legacy conversion includes item_schema.
+	 */
+	public function test_tbs_row_repeater_legacy_has_item_schema() {
+		$extractor = new SchemaExtractor();
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/gastossuplidos.odt' );
+
+		$this->assertNotWPError( $schema );
+
+		$legacy = SchemaConverter::to_legacy( $schema );
+
+		// Find the 'gastos' repeater in legacy.
+		$gastos_entry = null;
+		foreach ( $legacy as $entry ) {
+			if ( isset( $entry['slug'] ) && 'gastos' === $entry['slug'] ) {
+				$gastos_entry = $entry;
+				break;
+			}
+		}
+
+		$this->assertNotNull( $gastos_entry, 'Repeater gastos must exist in legacy.' );
+		$this->assertSame( 'array', $gastos_entry['type'] );
+		$this->assertArrayHasKey( 'item_schema', $gastos_entry );
+		$this->assertArrayHasKey( 'proveedor', $gastos_entry['item_schema'], 'proveedor must be in item_schema.' );
+		$this->assertArrayHasKey( 'cif', $gastos_entry['item_schema'], 'cif must be in item_schema.' );
+		$this->assertArrayHasKey( 'factura', $gastos_entry['item_schema'], 'factura must be in item_schema.' );
+		$this->assertArrayHasKey( 'fecha', $gastos_entry['item_schema'], 'fecha must be in item_schema.' );
+		$this->assertArrayHasKey( 'importe', $gastos_entry['item_schema'], 'importe must be in item_schema.' );
+	}
 }
