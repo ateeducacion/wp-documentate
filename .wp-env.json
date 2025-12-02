@@ -13,7 +13,7 @@
         },
         "tests": {
             "config": {
-                "WPLANG": "" 
+                "WPLANG": "en_US" 
             }
         }
     },
