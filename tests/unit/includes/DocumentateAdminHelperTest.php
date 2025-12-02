@@ -1729,7 +1729,11 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$config = array( 'test' => 'value' );
 		$result = $method->invoke( $this->helper, $config );
 
-		// Should have cdnMode key when zetajs_cdn is configured.
+		// Original config should be preserved.
+		$this->assertArrayHasKey( 'test', $result );
+		$this->assertSame( 'value', $result['test'] );
+
+		// Should have cdnMode key when zetajs_cdn is configured and conversion not available.
 		if ( Documentate_Zetajs_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available() ) {
 			$this->assertArrayHasKey( 'cdnMode', $result );
 			$this->assertTrue( $result['cdnMode'] );
@@ -1750,7 +1754,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test maybe_notice on edit base screen shows message.
+	 * Test maybe_notice on edit base screen does not show message.
 	 */
 	public function test_maybe_notice_edit_base_screen() {
 		$_GET['documentate_notice'] = 'Test error on edit';
@@ -1763,8 +1767,9 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$this->helper->maybe_notice();
 		$output = ob_get_clean();
 
-		// Edit screen doesn't match 'post' base, so might be empty.
-		// But documentate_document screen should work.
+		// Edit screen doesn't match 'post' base, so output should be empty.
+		$this->assertEmpty( $output );
+
 		unset( $_GET['documentate_notice'] );
 	}
 
