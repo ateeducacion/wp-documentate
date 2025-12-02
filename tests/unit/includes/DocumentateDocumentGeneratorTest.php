@@ -1093,17 +1093,43 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 		// Empty string.
 		$this->assertSame( '', $method->invoke( null, '' ) );
 
-		// Standard ISO date.
+		// Standard ISO date with default format (d/m/Y).
 		$result = $method->invoke( null, '2024-03-15' );
-		$this->assertSame( '2024-03-15', $result );
+		$this->assertSame( '15/03/2024', $result );
 
-		// Date with time.
+		// Date with time, default format.
 		$result = $method->invoke( null, '2024-03-15 10:30:00' );
-		$this->assertSame( '2024-03-15', $result );
+		$this->assertSame( '15/03/2024', $result );
 
 		// Invalid date.
 		$result = $method->invoke( null, 'not-a-date' );
 		$this->assertSame( 'not-a-date', $result );
+	}
+
+	/**
+	 * Test normalize_date_value with custom formats.
+	 */
+	public function test_normalize_date_value_with_custom_format() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'normalize_date_value' );
+		$method->setAccessible( true );
+
+		// ISO format.
+		$result = $method->invoke( null, '2024-03-15', 'Y-m-d' );
+		$this->assertSame( '2024-03-15', $result );
+
+		// European format with dots.
+		$result = $method->invoke( null, '2024-03-15', 'd.m.Y' );
+		$this->assertSame( '15.03.2024', $result );
+
+		// Long format with escaped literals.
+		$result = $method->invoke( null, '2024-03-15', 'j \d\e F \d\e Y' );
+		$this->assertStringContainsString( '15 de', $result );
+		$this->assertStringContainsString( 'de 2024', $result );
+
+		// Empty value with custom format.
+		$result = $method->invoke( null, '', 'Y-m-d' );
+		$this->assertSame( '', $result );
 	}
 
 	/**

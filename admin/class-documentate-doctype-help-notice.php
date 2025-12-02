@@ -87,6 +87,12 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= '<li><strong>' . esc_html__( 'Case', 'documentate' ) . '</strong>: <code>case</code> ';
 		$markup .= '(<code>upper</code>, <code>lower</code>, <code>title</code>). ';
 		$markup .= esc_html__( 'Text case transformation in the generated document.', 'documentate' ) . '</li>';
+
+		$markup .= '<li><strong>' . esc_html__( 'Date format', 'documentate' ) . '</strong>: <code>format</code> ';
+		$markup .= esc_html__( 'for date fields. Uses', 'documentate' ) . ' ';
+		$markup .= '<a href="https://www.php.net/manual/en/datetime.format.php" target="_blank" rel="noopener">PHP date format</a>. ';
+		$markup .= esc_html__( 'Default:', 'documentate' ) . ' <code>d/m/Y</code>. ';
+		$markup .= esc_html__( 'Examples:', 'documentate' ) . ' <code>Y-m-d</code>, <code>j \\de F \\de Y</code>.</li>';
 		$markup .= '</ul>';
 
 		$markup .= '<p><strong>' . esc_html__( 'Repeater (lists):', 'documentate' ) . '</strong> ';
@@ -101,6 +107,7 @@ class Documentate_Doctype_Help_Notice {
 
 		$markup .= '<pre style="white-space:pre-wrap;">';
 		$markup .= esc_html( "[Email;type='email';title='Email';placeholder='you@domain.com']\n" );
+		$markup .= esc_html( "[fecha;type='date';format='j \\de F \\de Y']\n" );
 		$markup .= esc_html( "[items;block=begin][items.title;type='text'] [items.content;type='html'][items;block=end]\n" );
 		$markup .= esc_html__( '-- Table row:', 'documentate' ) . "\n";
 		$markup .= esc_html( "| [items.name;block=tbs:row;type='text'] | [items.qty;type='number'] |" );

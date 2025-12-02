@@ -373,7 +373,7 @@ class Documentate_Document_Generator {
 				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
 					$type = 'rich';
 				}
-					$prepared = self::prepare_field_value( $value, $type, $data_type );
+					$prepared = self::prepare_field_value( $value, $type, $data_type, $def );
 
 				// Apply case transformation if specified (skip for HTML content).
 				$field_case = isset( $def['case'] ) ? sanitize_key( $def['case'] ) : '';
@@ -639,9 +639,10 @@ class Documentate_Document_Generator {
 	 * @param string $value      Raw value retrieved from storage.
 	 * @param string $field_type Field UI type (single|textarea|rich|array).
 	 * @param string $data_type  Data type detected for the placeholder.
+	 * @param array  $field_def  Field definition with parameters (optional).
 	 * @return mixed
 	 */
-	private static function prepare_field_value( $value, $field_type, $data_type ) {
+	private static function prepare_field_value( $value, $field_type, $data_type, $field_def = array() ) {
 		$field_type = sanitize_key( $field_type );
 		$value      = is_string( $value ) ? $value : '';
 
@@ -650,14 +651,14 @@ class Documentate_Document_Generator {
 			$sanitized = wp_kses_post( $value );
 			$sanitized = self::strip_unsupported_html_tags( $sanitized );
 			$sanitized = self::remove_linebreak_artifacts( $sanitized );
-			return self::normalize_field_value( $sanitized, $data_type );
+			return self::normalize_field_value( $sanitized, $data_type, $field_def );
 		}
 
 		if ( '' === $value ) {
-			return self::normalize_field_value( '', $data_type );
+			return self::normalize_field_value( '', $data_type, $field_def );
 		}
 
-		return self::normalize_field_value( wp_strip_all_tags( $value ), $data_type );
+		return self::normalize_field_value( wp_strip_all_tags( $value ), $data_type, $field_def );
 	}
 
 	/**
@@ -676,11 +677,17 @@ class Documentate_Document_Generator {
 	 *
 	 * @param string $value     Original value.
 	 * @param string $data_type Detected data type.
+	 * @param array  $field_def Field definition with parameters (optional).
 	 * @return mixed
 	 */
-	private static function normalize_field_value( $value, $data_type ) {
+	private static function normalize_field_value( $value, $data_type, $field_def = array() ) {
 		$value     = is_string( $value ) ? trim( $value ) : $value;
 		$data_type = sanitize_key( $data_type );
+
+		if ( 'date' === $data_type ) {
+			$format = isset( $field_def['parameters']['format'] ) ? $field_def['parameters']['format'] : 'd/m/Y';
+			return self::normalize_date_value( $value, $format );
+		}
 
 		if ( isset( self::$type_normalizers[ $data_type ] ) ) {
 			return call_user_func( array( __CLASS__, self::$type_normalizers[ $data_type ] ), $value );
@@ -733,10 +740,11 @@ class Documentate_Document_Generator {
 	/**
 	 * Normalize a date value.
 	 *
-	 * @param mixed $value Original value.
+	 * @param mixed  $value  Original value.
+	 * @param string $format PHP date format string (default 'd/m/Y').
 	 * @return string Formatted date or original value.
 	 */
-	private static function normalize_date_value( $value ) {
+	private static function normalize_date_value( $value, $format = 'd/m/Y' ) {
 		if ( '' === $value ) {
 			return '';
 		}
@@ -744,7 +752,7 @@ class Documentate_Document_Generator {
 		if ( false === $timestamp ) {
 			return $value;
 		}
-		return wp_date( 'Y-m-d', $timestamp );
+		return wp_date( $format, $timestamp );
 	}
 
 	/**
