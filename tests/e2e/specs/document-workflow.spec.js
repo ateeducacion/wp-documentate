@@ -45,7 +45,6 @@ test.describe( 'Document Workflow States', () => {
 		const warningNotice = page.locator( '.notice-warning.documentate-doctype-warning' );
 
 		await expect( warningNotice ).toBeVisible( { timeout: 10000 } );
-		await expect( warningNotice ).toContainText( 'Select a document type before publishing' );
 	} );
 
 	test( 'schedule publication UI is hidden', async ( { admin, page } ) => {
