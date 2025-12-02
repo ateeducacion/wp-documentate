@@ -590,4 +590,35 @@ class Documentate_Admin {
 		}
 		return $init;
 	}
+
+	/**
+	 * Enqueue TinyMCE unsupported HTML warning script for document editors.
+	 *
+	 * Loads a JavaScript file that monitors TinyMCE editors for unsupported HTML
+	 * patterns (div, font, form, input, button, ...) and displays
+	 * warning messages under each editor when such patterns are detected.
+	 *
+	 * @param string $hook_suffix The current admin page.
+	 */
+	public function enqueue_tinymce_warning( $hook_suffix ) {
+		// Only on post edit screens.
+		if ( ! in_array( $hook_suffix, array( 'post.php', 'post-new.php' ), true ) ) {
+			return;
+		}
+
+		// Only for documentate_document post type.
+		$screen = get_current_screen();
+		if ( ! $screen || 'documentate_document' !== $screen->post_type ) {
+			return;
+		}
+
+		// Enqueue the warning detection script.
+		wp_enqueue_script(
+			'documentate-tinymce-warning',
+			plugin_dir_url( __FILE__ ) . 'js/documentate-tinymce-warning.js',
+			array(),
+			$this->version,
+			true
+		);
+	}
 }

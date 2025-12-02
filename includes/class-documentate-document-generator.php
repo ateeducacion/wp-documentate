@@ -638,6 +638,7 @@ class Documentate_Document_Generator {
 		if ( in_array( $field_type, array( 'rich', 'html' ), true ) ) {
 			// Apply sanitization and cleanup only at generation time.
 			$sanitized = wp_kses_post( $value );
+			$sanitized = self::strip_unsupported_html_tags( $sanitized );
 			$sanitized = self::remove_linebreak_artifacts( $sanitized );
 			return self::normalize_field_value( $sanitized, $data_type );
 		}
@@ -734,6 +735,41 @@ class Documentate_Document_Generator {
 			return $value;
 		}
 		return wp_date( 'Y-m-d', $timestamp );
+	}
+
+	/**
+	 * Strip unsupported HTML tags from content before document generation.
+	 *
+	 * Removes tags that are not properly supported by OpenTBS/ODT/DOCX conversion:
+	 * div, font, form, input, button. Inline styles (style attribute) are kept
+	 * as they are supported.
+	 *
+	 * @param string $value HTML content.
+	 * @return string Content with unsupported tags removed.
+	 */
+	private static function strip_unsupported_html_tags( $value ) {
+		$value = is_string( $value ) ? $value : '';
+		if ( '' === $value ) {
+			return '';
+		}
+
+		// List of unsupported tags to remove (keeping their inner content).
+		$unsupported_tags = array( 'div', 'font', 'form', 'input', 'button' );
+
+		foreach ( $unsupported_tags as $tag ) {
+			// Remove opening tags (with or without attributes).
+			$value = preg_replace( '#<' . $tag . '\b[^>]*>#i', '', $value );
+			if ( ! is_string( $value ) ) {
+				$value = '';
+			}
+			// Remove closing tags.
+			$value = preg_replace( '#</' . $tag . '>#i', '', $value );
+			if ( ! is_string( $value ) ) {
+				$value = '';
+			}
+		}
+
+		return $value;
 	}
 
 	/**

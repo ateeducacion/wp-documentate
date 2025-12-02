@@ -872,6 +872,11 @@ class Documentate_Documents {
 					'editor_height' => 220,
 				)
 			);
+
+			// Warning element for unsupported HTML formatting (hidden by default).
+			echo '<p id="' . esc_attr( $meta_key ) . '-unsupported-warning" class="description documentate-unsupported-warning" style="display:none;color:#d63638;margin-top:8px;">';
+			echo esc_html__( 'This field contains unsupported formatting (div, font, form…). Please remove it.', 'documentate' );
+			echo '</p>';
 		}
 	}
 
@@ -2287,7 +2292,12 @@ class Documentate_Documents {
 					'editor_height' => 200,
 				)
 			);
-					echo '</div>';
+
+			// Warning element for unsupported HTML formatting (hidden by default).
+			echo '<p id="' . esc_attr( $meta_key ) . '-unsupported-warning" class="description documentate-unsupported-warning" style="display:none;color:#d63638;margin-top:8px;">';
+			echo esc_html__( 'This field contains unsupported formatting (div, font, form…). Please remove it.', 'documentate' );
+			echo '</p>';
+			echo '</div>';
 		}
 
 		echo '</div>';
