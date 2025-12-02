@@ -2286,9 +2286,9 @@ class Documentate_Documents {
 						'content_style'    => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
 						// TinyMCE content filtering: remove elements not supported by OpenTBS.
 						'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-					    'valid_elements'   => 'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,' .
-                        					  'h1,h2,h3,h4,h5,h6,blockquote,code,pre,' .
-                         					  'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
+						'valid_elements'   => 'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,' .
+											  'h1,h2,h3,h4,h5,h6,blockquote,code,pre,' .
+											  'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
 
 					),
 					'quicktags'     => true,

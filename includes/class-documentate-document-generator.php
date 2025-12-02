@@ -301,12 +301,10 @@ class Documentate_Document_Generator {
 			$structured = Documentate_Documents::parse_structured_content( (string) $content );
 		}
 
-		// Apply uppercase transformation to title if enabled (default: enabled).
-		$title     = get_the_title( $post_id );
-		$uppercase = get_post_meta( $post_id, '_documentate_meta_title_uppercase', true );
-		if ( '' === $uppercase || '1' === $uppercase ) {
-			$title = mb_strtoupper( $title, 'UTF-8' );
-		}
+		// Apply case transformation to title based on schema attribute.
+		$title      = get_the_title( $post_id );
+		$title_case = self::get_title_case_from_schema( $post_id );
+		$title      = self::apply_case_transformation( $title, $title_case );
 
 		$fields = array(
 			'title'      => $title,
@@ -354,14 +352,19 @@ class Documentate_Document_Generator {
 					$type      = isset( $def['type'] ) ? sanitize_key( $def['type'] ) : 'textarea';
 
 				if ( 'array' === $type ) {
-						$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
-						// Use block name for MergeBlock, with alias for legacy behavior.
-						$fields[ $tbs_name ] = $items;
+					$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
+
+					// Apply case transformations to repeater items.
+					$item_schema = isset( $def['item_schema'] ) ? $def['item_schema'] : array();
+					$items       = self::apply_case_to_array_items( $items, $item_schema );
+
+					// Use block name for MergeBlock, with alias for legacy behavior.
+					$fields[ $tbs_name ] = $items;
 					if ( $alias_key !== $tbs_name ) {
 						$fields[ $alias_key ] = $items;
 					}
-						self::remember_rich_values_from_array_items( $items );
-						continue;
+					self::remember_rich_values_from_array_items( $items );
+					continue;
 				}
 
 					$value = self::get_structured_field_value( $structured, $slug, $post_id );
@@ -370,8 +373,15 @@ class Documentate_Document_Generator {
 				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
 					$type = 'rich';
 				}
-					$prepared               = self::prepare_field_value( $value, $type, $data_type );
-					$fields[ $tbs_name ]    = $prepared;
+					$prepared = self::prepare_field_value( $value, $type, $data_type );
+
+				// Apply case transformation if specified (skip for HTML content).
+				$field_case = isset( $def['case'] ) ? sanitize_key( $def['case'] ) : '';
+				if ( '' !== $field_case && ! in_array( $type, array( 'rich', 'html' ), true ) ) {
+					$prepared = self::apply_case_transformation( $prepared, $field_case );
+				}
+
+				$fields[ $tbs_name ] = $prepared;
 				if ( $alias_key !== $tbs_name ) {
 					$fields[ $alias_key ] = $prepared;
 				}
@@ -735,6 +745,92 @@ class Documentate_Document_Generator {
 			return $value;
 		}
 		return wp_date( 'Y-m-d', $timestamp );
+	}
+
+	/**
+	 * Apply case transformation to a string value.
+	 *
+	 * @param string $value String to transform.
+	 * @param string $case  Case type: 'upper', 'lower', 'title', or empty for no change.
+	 * @return string Transformed string.
+	 */
+	private static function apply_case_transformation( $value, $case ) {
+		if ( ! is_string( $value ) || '' === $value || '' === $case ) {
+			return (string) $value;
+		}
+		$case = strtolower( trim( $case ) );
+		switch ( $case ) {
+			case 'upper':
+				return function_exists( 'mb_strtoupper' )
+					? mb_strtoupper( $value, 'UTF-8' )
+					: strtoupper( $value );
+			case 'lower':
+				return function_exists( 'mb_strtolower' )
+					? mb_strtolower( $value, 'UTF-8' )
+					: strtolower( $value );
+			case 'title':
+				return function_exists( 'mb_convert_case' )
+					? mb_convert_case( $value, MB_CASE_TITLE, 'UTF-8' )
+					: ucwords( strtolower( $value ) );
+		}
+		return $value;
+	}
+
+	/**
+	 * Get the case attribute for the title field from the document type schema.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return string Case value ('upper', 'lower', 'title') or empty string.
+	 */
+	private static function get_title_case_from_schema( $post_id ) {
+		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $types ) || empty( $types ) ) {
+			return '';
+		}
+		$type_id = intval( $types[0] );
+		$schema  = class_exists( 'Documentate_Documents' )
+			? Documentate_Documents::get_term_schema( $type_id )
+			: self::get_type_schema( $type_id );
+		foreach ( $schema as $def ) {
+			$slug = isset( $def['slug'] ) ? sanitize_key( $def['slug'] ) : '';
+			if ( in_array( $slug, array( 'title', 'post_title' ), true ) ) {
+				return isset( $def['case'] ) ? sanitize_key( $def['case'] ) : '';
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Apply case transformations to array field items based on item schema.
+	 *
+	 * @param array $items       Array field items.
+	 * @param array $item_schema Item field schema with 'case' attributes.
+	 * @return array Transformed items.
+	 */
+	private static function apply_case_to_array_items( $items, $item_schema ) {
+		if ( empty( $items ) || ! is_array( $items ) || empty( $item_schema ) ) {
+			return $items;
+		}
+
+		foreach ( $items as $idx => $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			foreach ( $item as $key => $value ) {
+				if ( ! is_string( $value ) || '' === $value ) {
+					continue;
+				}
+				if ( isset( $item_schema[ $key ]['case'] ) ) {
+					$field_case = sanitize_key( $item_schema[ $key ]['case'] );
+					$field_type = isset( $item_schema[ $key ]['type'] ) ? $item_schema[ $key ]['type'] : '';
+					if ( ! in_array( $field_type, array( 'rich', 'html' ), true ) ) {
+						$items[ $idx ][ $key ] = self::apply_case_transformation( $value, $field_case );
+					}
+				}
+			}
+		}
+
+		return $items;
 	}
 
 	/**

@@ -69,6 +69,8 @@ class SchemaConverter {
 			$type = 'textarea';
 		}
 
+		$case = isset( $field['case'] ) ? sanitize_key( $field['case'] ) : '';
+
 		return array(
 			'slug'        => $slug,
 			'label'       => $label,
@@ -77,6 +79,7 @@ class SchemaConverter {
 			// Name of the placeholder in the template (e.g., "name", "phone", "Observaciones").
 			'name'        => $tbs_name,
 			'data_type'   => self::map_data_type( $type ),
+			'case'        => $case,
 		);
 	}
 
@@ -117,11 +120,13 @@ class SchemaConverter {
 			if ( '' === $item_type ) {
 				$item_type = 'textarea';
 			}
+			$item_case = isset( $field['case'] ) ? sanitize_key( $field['case'] ) : '';
 
 			$item_schema[ $item_slug ] = array(
 				'label'     => $item_label,
 				'type'      => self::guess_array_item_control_type( $item_type, $item_slug, $item_label ),
 				'data_type' => self::map_data_type( $item_type ),
+				'case'      => $item_case,
 			);
 		}
 

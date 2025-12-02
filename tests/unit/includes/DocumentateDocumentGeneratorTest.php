@@ -1319,9 +1319,9 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test that title is converted to uppercase by default.
+	 * Test that title is NOT transformed when no case attribute in schema.
 	 */
-	public function test_title_uppercase_by_default() {
+	public function test_title_no_case_transformation_by_default() {
 		$post_id = wp_insert_post(
 			array(
 				'post_type'   => 'documentate_document',
@@ -1330,90 +1330,81 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 			)
 		);
 
-		// No uppercase meta set - should default to uppercase.
+		// No document type assigned - no case transformation.
 		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
 		$method = $ref->getMethod( 'build_merge_fields' );
 		$method->setAccessible( true );
 
 		$fields = $method->invoke( null, $post_id );
 
-		$this->assertSame( 'MI TÍTULO DE PRUEBA', $fields['title'], 'Title must be uppercase by default.' );
+		$this->assertSame( 'mi título de prueba', $fields['title'], 'Title must NOT be transformed without case attribute.' );
 
 		wp_delete_post( $post_id, true );
 	}
 
 	/**
-	 * Test that title is converted to uppercase when explicitly enabled.
+	 * Test apply_case_transformation with uppercase.
 	 */
-	public function test_title_uppercase_when_enabled() {
-		$post_id = wp_insert_post(
-			array(
-				'post_type'   => 'documentate_document',
-				'post_title'  => 'mi título de prueba',
-				'post_status' => 'publish',
-			)
-		);
-
-		update_post_meta( $post_id, '_documentate_meta_title_uppercase', '1' );
-
+	public function test_apply_case_transformation_upper() {
 		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'build_merge_fields' );
+		$method = $ref->getMethod( 'apply_case_transformation' );
 		$method->setAccessible( true );
 
-		$fields = $method->invoke( null, $post_id );
+		$result = $method->invoke( null, 'mi título de prueba', 'upper' );
 
-		$this->assertSame( 'MI TÍTULO DE PRUEBA', $fields['title'], 'Title must be uppercase when enabled.' );
-
-		wp_delete_post( $post_id, true );
+		$this->assertSame( 'MI TÍTULO DE PRUEBA', $result, 'Must transform to uppercase.' );
 	}
 
 	/**
-	 * Test that title is NOT converted to uppercase when disabled.
+	 * Test apply_case_transformation with lowercase.
 	 */
-	public function test_title_not_uppercase_when_disabled() {
-		$post_id = wp_insert_post(
-			array(
-				'post_type'   => 'documentate_document',
-				'post_title'  => 'mi título de prueba',
-				'post_status' => 'publish',
-			)
-		);
-
-		update_post_meta( $post_id, '_documentate_meta_title_uppercase', '0' );
-
+	public function test_apply_case_transformation_lower() {
 		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'build_merge_fields' );
+		$method = $ref->getMethod( 'apply_case_transformation' );
 		$method->setAccessible( true );
 
-		$fields = $method->invoke( null, $post_id );
+		$result = $method->invoke( null, 'MI TÍTULO DE PRUEBA', 'lower' );
 
-		$this->assertSame( 'mi título de prueba', $fields['title'], 'Title must NOT be uppercase when disabled.' );
-
-		wp_delete_post( $post_id, true );
+		$this->assertSame( 'mi título de prueba', $result, 'Must transform to lowercase.' );
 	}
 
 	/**
-	 * Test that title uppercase handles special characters correctly.
+	 * Test apply_case_transformation with title case.
 	 */
-	public function test_title_uppercase_with_special_characters() {
-		$post_id = wp_insert_post(
-			array(
-				'post_type'   => 'documentate_document',
-				'post_title'  => 'título con ñ, ü, á, é, í, ó, ú',
-				'post_status' => 'publish',
-			)
-		);
-
-		// Default to uppercase.
+	public function test_apply_case_transformation_title() {
 		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'build_merge_fields' );
+		$method = $ref->getMethod( 'apply_case_transformation' );
 		$method->setAccessible( true );
 
-		$fields = $method->invoke( null, $post_id );
+		$result = $method->invoke( null, 'mi título de prueba', 'title' );
 
-		$this->assertSame( 'TÍTULO CON Ñ, Ü, Á, É, Í, Ó, Ú', $fields['title'], 'Title must handle special characters correctly.' );
+		$this->assertSame( 'Mi Título De Prueba', $result, 'Must transform to title case.' );
+	}
 
-		wp_delete_post( $post_id, true );
+	/**
+	 * Test apply_case_transformation with empty case (no transformation).
+	 */
+	public function test_apply_case_transformation_empty() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'apply_case_transformation' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'Mi Título De Prueba', '' );
+
+		$this->assertSame( 'Mi Título De Prueba', $result, 'Must not transform with empty case.' );
+	}
+
+	/**
+	 * Test apply_case_transformation handles special characters correctly.
+	 */
+	public function test_apply_case_transformation_special_characters() {
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'apply_case_transformation' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'título con ñ, ü, á, é, í, ó, ú', 'upper' );
+
+		$this->assertSame( 'TÍTULO CON Ñ, Ü, Á, É, Í, Ó, Ú', $result, 'Must handle special characters correctly.' );
 	}
 
 }

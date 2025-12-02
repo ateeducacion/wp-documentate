@@ -14,12 +14,11 @@ use WP_Post;
  */
 class Document_Meta_Box {
 
-	const META_KEY_SUBJECT         = '_documentate_meta_subject';
-	const META_KEY_AUTHOR          = '_documentate_meta_author';
-	const META_KEY_KEYWORDS        = '_documentate_meta_keywords';
-	const META_KEY_TITLE_UPPERCASE = '_documentate_meta_title_uppercase';
-	const NONCE_ACTION             = 'documentate_document_meta_save';
-	const NONCE_NAME               = 'documentate_document_meta_nonce';
+	const META_KEY_SUBJECT  = '_documentate_meta_subject';
+	const META_KEY_AUTHOR   = '_documentate_meta_author';
+	const META_KEY_KEYWORDS = '_documentate_meta_keywords';
+	const NONCE_ACTION      = 'documentate_document_meta_save';
+	const NONCE_NAME        = 'documentate_document_meta_nonce';
 
 	/**
 	 * Register hooks for the meta box.
@@ -135,13 +134,6 @@ class Document_Meta_Box {
 		$this->persist_meta( $post_id, self::META_KEY_SUBJECT, $subject );
 		$this->persist_meta( $post_id, self::META_KEY_AUTHOR, $author );
 		$this->persist_meta( $post_id, self::META_KEY_KEYWORDS, $keywords );
-
-		// Title uppercase option: '1' = enabled, '0' = disabled.
-		// We use update_post_meta directly to always store a value (don't delete on '0').
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified above.
-		$uppercase_input = isset( $_POST['documentate_title_uppercase'] ) ? sanitize_text_field( wp_unslash( $_POST['documentate_title_uppercase'] ) ) : '1';
-		$uppercase       = '1' === $uppercase_input ? '1' : '0';
-		update_post_meta( $post_id, self::META_KEY_TITLE_UPPERCASE, $uppercase );
 	}
 
 	/**

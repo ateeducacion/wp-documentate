@@ -529,6 +529,12 @@ class SchemaExtractor {
 		$max_value   = isset( $parameters['maxvalue'] ) ? (string) $parameters['maxvalue'] : '';
 		$length      = isset( $parameters['length'] ) ? (string) $parameters['length'] : '';
 
+		// Case transformation: upper, lower, title.
+		$case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
+		if ( '' !== $case && ! in_array( $case, array( 'upper', 'lower', 'title' ), true ) ) {
+			$case = '';
+		}
+
 		if ( '' === $pattern ) {
 			$default_config = self::get_default_pattern( $field_type );
 			if ( $default_config ) {
@@ -556,6 +562,7 @@ class SchemaExtractor {
 			'minvalue'    => $min_value,
 			'maxvalue'    => $max_value,
 			'length'      => $length,
+			'case'        => $case,
 			'parameters'  => $parameters,
 			'raw'         => isset( $token['raw'] ) ? (string) $token['raw'] : '',
 			'source'      => isset( $token['source'] ) ? (string) $token['source'] : '',
@@ -799,10 +806,16 @@ class SchemaExtractor {
 					$parts      = explode( '.', $name );
 					$field_name = isset( $parts[1] ) ? $parts[1] : '';
 					if ( '' !== $field_name ) {
+						// Extract case attribute if present.
+						$field_case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
+						if ( '' !== $field_case && ! in_array( $field_case, array( 'upper', 'lower', 'title' ), true ) ) {
+							$field_case = '';
+						}
 						$repeaters[ $base_name ]['fields'][ $field_name ] = array(
 							'name' => $field_name,
 							'slug' => sanitize_key( $field_name ),
 							'type' => 'text',
+							'case' => $field_case,
 						);
 					}
 				}
@@ -850,6 +863,7 @@ class SchemaExtractor {
 					'minvalue'    => '',
 					'maxvalue'    => '',
 					'length'      => '',
+					'case'        => isset( $field_info['case'] ) ? $field_info['case'] : '',
 					'parameters'  => array(),
 					'raw'         => '',
 					'source'      => '',

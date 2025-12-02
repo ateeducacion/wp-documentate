@@ -66,7 +66,7 @@ class Documentate_Doctype_Help_Notice {
 
 		$markup .= '<p><strong>' . esc_html__( 'Fields:', 'documentate' ) . '</strong> ';
 		$markup .= esc_html__( 'write markers like this:', 'documentate' ) . ' <code>';
-		$markup .= esc_html( "[name;type='...';title='...';placeholder='...';description='...';pattern='...';patternmsg='...';minvalue='...';maxvalue='...';length='...']" );
+		$markup .= esc_html( "[name;type='...';title='...';case='...';placeholder='...';description='...']" );
 		$markup .= '</code>.</p>';
 
 		$markup .= '<ul style="margin-left:1.2em;list-style:disc;">';
@@ -83,6 +83,10 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= '<li><strong>' . esc_html__( 'UI Help', 'documentate' ) . '</strong>: <code>title</code> ';
 		$markup .= '(' . esc_html__( 'label', 'documentate' ) . '), <code>placeholder</code>, <code>description</code> ';
 		$markup .= '(' . esc_html__( 'help text', 'documentate' ) . ').</li>';
+
+		$markup .= '<li><strong>' . esc_html__( 'Case', 'documentate' ) . '</strong>: <code>case</code> ';
+		$markup .= '(<code>upper</code>, <code>lower</code>, <code>title</code>). ';
+		$markup .= esc_html__( 'Text case transformation in the generated document.', 'documentate' ) . '</li>';
 		$markup .= '</ul>';
 
 		$markup .= '<p><strong>' . esc_html__( 'Repeater (lists):', 'documentate' ) . '</strong> ';

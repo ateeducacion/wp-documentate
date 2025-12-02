@@ -28,7 +28,6 @@
 		editableSelectors: [
 			'#title',
 			'#documentate_title_textarea',
-			'#documentate_title_uppercase_checkbox',
 			'#titlewrap input',
 			'#content',
 			'#postdivrich',
