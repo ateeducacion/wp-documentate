@@ -203,6 +203,9 @@ function documentate_ensure_default_media() {
 	// Ensure demo fixtures are present for testing scenarios.
 	documentate_import_fixture_file( 'demo-wp-documentate.odt' );
 	documentate_import_fixture_file( 'demo-wp-documentate.docx' );
+	documentate_import_fixture_file( 'autorizacionviaje.odt' );
+	documentate_import_fixture_file( 'gastossuplidos.odt' );
+	documentate_import_fixture_file( 'propuestagasto.odt' );
 }
 
 /**
@@ -254,6 +257,42 @@ function documentate_maybe_seed_default_doc_types() {
 			'color'       => '#0f9d58',
 			'template_id' => $advanced_docx_id,
 			'fixture_key' => 'documentate-demo-wp-documentate-docx',
+		);
+	}
+
+	$autorizacion_id = documentate_import_fixture_file( 'autorizacionviaje.odt' );
+	if ( $autorizacion_id > 0 ) {
+		$definitions[] = array(
+			'slug'        => 'autorizacion-viaje',
+			'name'        => 'Autorización de viaje',
+			'description' => 'Plantilla para autorizaciones de viaje con listado de asistentes.',
+			'color'       => '#e67e22',
+			'template_id' => $autorizacion_id,
+			'fixture_key' => 'autorizacion-viaje',
+		);
+	}
+
+	$gastos_id = documentate_import_fixture_file( 'gastossuplidos.odt' );
+	if ( $gastos_id > 0 ) {
+		$definitions[] = array(
+			'slug'        => 'gastos-suplidos',
+			'name'        => 'Solicitud de gastos suplidos',
+			'description' => 'Plantilla para solicitud de reembolso de gastos con listado de facturas.',
+			'color'       => '#27ae60',
+			'template_id' => $gastos_id,
+			'fixture_key' => 'gastos-suplidos',
+		);
+	}
+
+	$propuesta_id = documentate_import_fixture_file( 'propuestagasto.odt' );
+	if ( $propuesta_id > 0 ) {
+		$definitions[] = array(
+			'slug'        => 'propuesta-gasto',
+			'name'        => 'Propuesta de gasto',
+			'description' => 'Plantilla para propuestas de gasto con libramientos, servicios, suministros y expertos.',
+			'color'       => '#9b59b6',
+			'template_id' => $propuesta_id,
+			'fixture_key' => 'propuesta-gasto',
 		);
 	}
 
@@ -360,12 +399,44 @@ function documentate_maybe_seed_demo_documents() {
 		documentate_create_resolucion_demo_documents( $term );
 	}
 
+	// Create specific demo document for Autorización de viaje.
+	$autorizacion_term = get_term_by( 'slug', 'autorizacion-viaje', 'documentate_doc_type' );
+	if ( $autorizacion_term instanceof WP_Term ) {
+		documentate_create_specific_demo_documents( $autorizacion_term, documentate_get_autorizacion_viaje_demo() );
+	}
+
+	// Create specific demo document for Gastos suplidos.
+	$gastos_term = get_term_by( 'slug', 'gastos-suplidos', 'documentate_doc_type' );
+	if ( $gastos_term instanceof WP_Term ) {
+		documentate_create_specific_demo_documents( $gastos_term, documentate_get_gastos_suplidos_demo() );
+	}
+
+	// Create specific demo document for Propuesta de gasto.
+	$propuesta_term = get_term_by( 'slug', 'propuesta-gasto', 'documentate_doc_type' );
+	if ( $propuesta_term instanceof WP_Term ) {
+		documentate_create_specific_demo_documents( $propuesta_term, documentate_get_propuesta_gasto_demo() );
+	}
+
 	// Also create demo documents for other document types (advanced demos).
+	$exclude_ids = array();
+	if ( $term instanceof WP_Term ) {
+		$exclude_ids[] = $term->term_id;
+	}
+	if ( $autorizacion_term instanceof WP_Term ) {
+		$exclude_ids[] = $autorizacion_term->term_id;
+	}
+	if ( $gastos_term instanceof WP_Term ) {
+		$exclude_ids[] = $gastos_term->term_id;
+	}
+	if ( $propuesta_term instanceof WP_Term ) {
+		$exclude_ids[] = $propuesta_term->term_id;
+	}
+
 	$terms = get_terms(
 		array(
 			'taxonomy'   => 'documentate_doc_type',
 			'hide_empty' => false,
-			'exclude'    => $term instanceof WP_Term ? array( $term->term_id ) : array(),
+			'exclude'    => $exclude_ids,
 		)
 	);
 
@@ -467,6 +538,104 @@ function documentate_create_resolucion_demo_documents( $term ) {
 		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_SUBJECT, sanitize_text_field( $demo_data['title'] ) );
 		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_AUTHOR, sanitize_text_field( $demo_data['author'] ) );
 		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_KEYWORDS, sanitize_text_field( $demo_data['keywords'] ) );
+
+		$content = documentate_build_structured_demo_content( $structured_fields );
+		if ( '' !== $content ) {
+			wp_update_post(
+				array(
+					'ID'           => $post_id,
+					'post_content' => $content,
+				)
+			);
+		}
+	}
+}
+
+/**
+ * Create specific demo documents for a document type using provided data.
+ *
+ * @param WP_Term $term       Document type term.
+ * @param array   $demo_data  Array of demo documents keyed by demo_key.
+ * @return void
+ */
+function documentate_create_specific_demo_documents( $term, $demo_data ) {
+	if ( ! $term instanceof WP_Term ) {
+		return;
+	}
+
+	$term_id = absint( $term->term_id );
+	if ( $term_id <= 0 || empty( $demo_data ) ) {
+		return;
+	}
+
+	foreach ( $demo_data as $demo_key => $data ) {
+		// Check if this specific demo document already exists.
+		$existing = get_posts(
+			array(
+				'post_type'      => 'documentate_document',
+				'post_status'    => 'any',
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+				'meta_key'       => '_documentate_demo_key',
+				'meta_value'     => $demo_key,
+			)
+		);
+
+		if ( ! empty( $existing ) ) {
+			continue;
+		}
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'    => 'documentate_document',
+				'post_title'   => $data['title'],
+				'post_status'  => 'private',
+				'post_content' => '',
+				'post_author'  => get_current_user_id(),
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) || 0 === $post_id ) {
+			continue;
+		}
+
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
+
+		// Save field values.
+		$structured_fields = array();
+		foreach ( $data['fields'] as $slug => $field_data ) {
+			$value = $field_data['value'];
+			$type  = $field_data['type'];
+
+			if ( 'array' === $type ) {
+				$encoded = wp_json_encode( $value, JSON_UNESCAPED_UNICODE );
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $encoded );
+				$structured_fields[ $slug ] = array(
+					'type'  => 'array',
+					'value' => $encoded,
+				);
+			} else {
+				if ( 'rich' === $type ) {
+					$value = wp_kses_post( $value );
+				} elseif ( 'single' === $type ) {
+					$value = sanitize_text_field( $value );
+				} else {
+					$value = sanitize_textarea_field( $value );
+				}
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $value );
+				$structured_fields[ $slug ] = array(
+					'type'  => $type,
+					'value' => $value,
+				);
+			}
+		}
+
+		update_post_meta( $post_id, '_documentate_demo_type_id', (string) $term_id );
+		update_post_meta( $post_id, '_documentate_demo_key', $demo_key );
+		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_SUBJECT, sanitize_text_field( $data['title'] ) );
+		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_AUTHOR, sanitize_text_field( $data['author'] ) );
+		update_post_meta( $post_id, \Documentate\Document\Meta\Document_Meta_Box::META_KEY_KEYWORDS, sanitize_text_field( $data['keywords'] ) );
 
 		$content = documentate_build_structured_demo_content( $structured_fields );
 		if ( '' !== $content ) {
@@ -658,6 +827,306 @@ function documentate_get_listado_definitivo_demo() {
 						'summary' => '<table><thead><tr><th>Código</th><th>Centro</th><th>Causa de exclusión</th></tr></thead><tbody>
 <tr><td>38006789</td><td>IES Ejemplo Seis</td><td>Solicitud fuera de plazo (no subsanable)</td></tr>
 </tbody></table>',
+					),
+				),
+			),
+		),
+	);
+}
+
+/**
+ * Get demo data for "Autorización de viaje".
+ *
+ * @return array
+ */
+function documentate_get_autorizacion_viaje_demo() {
+	return array(
+		'autorizacion-viaje-prueba' => array(
+			'title'    => 'Autorización de viaje a Madrid',
+			'author'   => 'Dirección General de Personal',
+			'keywords' => 'viaje, autorización, comisión de servicios',
+			'fields'   => array(
+				'lugar'               => array(
+					'type'  => 'single',
+					'value' => 'Madrid',
+				),
+				'fecha_evento_inicio' => array(
+					'type'  => 'single',
+					'value' => '2025-03-10',
+				),
+				'fecha_evento_fin'    => array(
+					'type'  => 'single',
+					'value' => '2025-03-12',
+				),
+				'invitante'           => array(
+					'type'  => 'single',
+					'value' => 'Ministerio de Educación, Formación Profesional y Deportes',
+				),
+				'temas'               => array(
+					'type'  => 'textarea',
+					'value' => 'Reunión de coordinación interterritorial sobre programas de innovación educativa y formación del profesorado para el curso 2025-2026.',
+				),
+				'pagador'             => array(
+					'type'  => 'single',
+					'value' => 'Consejería de Educación, Formación Profesional, Actividad Física y Deportes del Gobierno de Canarias',
+				),
+				'asistentes'          => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'apellido1' => 'García',
+							'apellido2' => 'Hernández',
+							'nombre'    => 'María del Carmen',
+						),
+						array(
+							'apellido1' => 'Rodríguez',
+							'apellido2' => 'Pérez',
+							'nombre'    => 'Juan Antonio',
+						),
+					),
+				),
+			),
+		),
+	);
+}
+
+/**
+ * Get demo data for "Solicitud de gastos suplidos".
+ *
+ * @return array
+ */
+function documentate_get_gastos_suplidos_demo() {
+	return array(
+		'gastos-suplidos-prueba' => array(
+			'title'    => 'Solicitud de reembolso de gastos de viaje',
+			'author'   => 'Servicio de Gestión Económica',
+			'keywords' => 'gastos, suplidos, reembolso, facturas',
+			'fields'   => array(
+				'nombre_completo' => array(
+					'type'  => 'single',
+					'value' => 'María del Carmen García Hernández',
+				),
+				'dni'             => array(
+					'type'  => 'single',
+					'value' => '43123456A',
+				),
+				'iban'            => array(
+					'type'  => 'single',
+					'value' => 'ES9121000418450200051332',
+				),
+				'gastos'          => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'proveedor' => 'Iberia LAE S.A.',
+							'cif'       => 'A28017648',
+							'factura'   => 'IBE-2025-00123',
+							'fecha'     => '2025-03-10',
+							'importe'   => '245,80 €',
+						),
+						array(
+							'proveedor' => 'Hotel Meliá Castilla',
+							'cif'       => 'A28011069',
+							'factura'   => 'FAC-2025-4567',
+							'fecha'     => '2025-03-12',
+							'importe'   => '312,50 €',
+						),
+						array(
+							'proveedor' => 'Taxi Madrid S.L.',
+							'cif'       => 'B12345678',
+							'factura'   => 'T-2025-0089',
+							'fecha'     => '2025-03-10',
+							'importe'   => '35,00 €',
+						),
+					),
+				),
+			),
+		),
+	);
+}
+
+/**
+ * Get demo data for "Propuesta de gasto".
+ *
+ * @return array
+ */
+function documentate_get_propuesta_gasto_demo() {
+	return array(
+		'propuesta-gasto-prueba' => array(
+			'title'    => 'Documento 0 - Propuesta de gasto para formación del profesorado',
+			'author'   => 'Servicio de Innovación Educativa',
+			'keywords' => 'propuesta, gasto, formación, profesorado',
+			'fields'   => array(
+				'curso'                => array(
+					'type'  => 'single',
+					'value' => '2024/2025',
+				),
+				'numero_decreto'       => array(
+					'type'  => 'single',
+					'value' => '17',
+				),
+				'letra_decreto'        => array(
+					'type'  => 'single',
+					'value' => 'a',
+				),
+				'para'                 => array(
+					'type'  => 'textarea',
+					'value' => 'la formación del profesorado en metodologías activas y competencias digitales',
+				),
+				'objeto'               => array(
+					'type'  => 'textarea',
+					'value' => 'Desarrollo de un programa de formación continua para el profesorado de centros públicos de Canarias en el ámbito de las metodologías activas de aprendizaje y la competencia digital docente.',
+				),
+				'lineadeactuacion'     => array(
+					'type'  => 'textarea',
+					'value' => 'Formación del profesorado y desarrollo profesional docente',
+				),
+				'destinatarios'        => array(
+					'type'  => 'single',
+					'value' => 'Profesorado de centros públicos de educación primaria y secundaria',
+				),
+				'alcance_centros'      => array(
+					'type'  => 'single',
+					'value' => '150',
+				),
+				'alcance_profesorado'  => array(
+					'type'  => 'single',
+					'value' => '2500',
+				),
+				'alcance_alumnado'     => array(
+					'type'  => 'single',
+					'value' => '45000',
+				),
+				'alcance_familias'     => array(
+					'type'  => 'single',
+					'value' => '0',
+				),
+				'gasto_numero'         => array(
+					'type'  => 'single',
+					'value' => '25000',
+				),
+				'gasto_letra'          => array(
+					'type'  => 'single',
+					'value' => 'veinticinco mil euros',
+				),
+				'partida'              => array(
+					'type'  => 'single',
+					'value' => '18.02.322A.640.00',
+				),
+				'g_libramientos'       => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'centro'    => '35001234',
+							'finalidad' => 'Material didáctico para formación',
+							'importe'   => '3.500,00 €',
+						),
+						array(
+							'centro'    => '38002345',
+							'finalidad' => 'Equipamiento tecnológico',
+							'importe'   => '4.200,00 €',
+						),
+					),
+				),
+				'servicios_proveedor'  => array(
+					'type'  => 'single',
+					'value' => 'Formación Docente Canarias S.L.',
+				),
+				'servicios_cif'        => array(
+					'type'  => 'single',
+					'value' => 'B76543210',
+				),
+				'servicios_email'      => array(
+					'type'  => 'single',
+					'value' => 'contacto@formaciondocente.es',
+				),
+				'servicios_telefono'   => array(
+					'type'  => 'single',
+					'value' => '922123456',
+				),
+				'servicios_total'      => array(
+					'type'  => 'single',
+					'value' => '8.500,00 €',
+				),
+				'g_servicios'          => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'concepto'     => 'Curso presencial metodologías activas (20h)',
+							'cantidad'     => '2',
+							'sinimpuestos' => '3.000,00 €',
+							'igic'         => '7%',
+							'irpf'         => '0%',
+							'total'        => '3.210,00 €',
+						),
+						array(
+							'concepto'     => 'Taller competencia digital docente (10h)',
+							'cantidad'     => '3',
+							'sinimpuestos' => '4.500,00 €',
+							'igic'         => '7%',
+							'irpf'         => '0%',
+							'total'        => '4.815,00 €',
+						),
+					),
+				),
+				'suministros_proveedor' => array(
+					'type'  => 'single',
+					'value' => 'TecnoEducación S.A.',
+				),
+				'suministros_cif'      => array(
+					'type'  => 'single',
+					'value' => 'A12345678',
+				),
+				'suministros_email'    => array(
+					'type'  => 'single',
+					'value' => 'ventas@tecnoeducacion.es',
+				),
+				'suministros_telefono' => array(
+					'type'  => 'single',
+					'value' => '928654321',
+				),
+				'g_suministros'        => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'concepto'     => 'Tablets educativas',
+							'cantidad'     => '10',
+							'unitario'     => '350,00 €',
+							'sinimpuestos' => '3.500,00 €',
+							'igic'         => '7%',
+							'irpf'         => '0%',
+							'total'        => '3.745,00 €',
+						),
+					),
+				),
+				'expertos_proveedor'   => array(
+					'type'  => 'single',
+					'value' => 'Dr. Juan Pérez González',
+				),
+				'expertos_cif'         => array(
+					'type'  => 'single',
+					'value' => '43123456B',
+				),
+				'expertos_email'       => array(
+					'type'  => 'single',
+					'value' => 'juan.perez@universidad.es',
+				),
+				'expertos_telefono'    => array(
+					'type'  => 'single',
+					'value' => '650123456',
+				),
+				'g_expertos'           => array(
+					'type'  => 'array',
+					'value' => array(
+						array(
+							'concepto'     => 'Ponencia inaugural jornadas formativas',
+							'cantidad'     => '1',
+							'unitario'     => '500,00 €',
+							'sinimpuestos' => '500,00 €',
+							'igic'         => '0%',
+							'irpf'         => '15%',
+							'total'        => '425,00 €',
+						),
 					),
 				),
 			),
@@ -984,6 +1453,57 @@ function documentate_generate_demo_scalar_value( $slug, $type, $data_type, $inde
 
 	if ( false !== strpos( $slug, 'observaciones' ) ) {
 		return __( 'Additional observations to complete the template.', 'documentate' );
+	}
+
+	// Repeater "gastos" fields (table row repeater).
+	if ( false !== strpos( $slug, 'proveedor' ) ) {
+		return ( 1 === $index ) ? 'Suministros Ejemplo S.L.' : 'Servicios Demo S.A.';
+	}
+
+	if ( 'cif' === $slug ) {
+		return ( 1 === $index ) ? 'B12345678' : 'A87654321';
+	}
+
+	if ( false !== strpos( $slug, 'factura' ) ) {
+		return sprintf( '%03d/2025', 100 + $index );
+	}
+
+	if ( false !== strpos( $slug, 'importe' ) ) {
+		return ( 1 === $index ) ? '1.250,00 €' : '3.475,50 €';
+	}
+
+	// Fields for autorizacionviaje.odt template.
+	if ( false !== strpos( $slug, 'lugar' ) ) {
+		return 'Madrid';
+	}
+
+	if ( false !== strpos( $slug, 'invitante' ) ) {
+		return 'Ministerio de Educación';
+	}
+
+	if ( false !== strpos( $slug, 'temas' ) ) {
+		return 'Discusión de programas de innovación educativa y coordinación interterritorial.';
+	}
+
+	if ( false !== strpos( $slug, 'pagador' ) ) {
+		return 'Consejería de Educación del Gobierno de Canarias';
+	}
+
+	if ( false !== strpos( $slug, 'apellido1' ) ) {
+		return ( 1 === $index ) ? 'García' : 'Rodríguez';
+	}
+
+	if ( false !== strpos( $slug, 'apellido2' ) ) {
+		return ( 1 === $index ) ? 'López' : 'Martínez';
+	}
+
+	// Fields for gastossuplidos.odt template.
+	if ( false !== strpos( $slug, 'iban' ) ) {
+		return 'ES9121000418450200051332';
+	}
+
+	if ( false !== strpos( $slug, 'nombre_completo' ) ) {
+		return ( 1 === $index ) ? 'María García López' : 'Juan Rodríguez Martínez';
 	}
 
 	if ( false !== strpos( $slug, 'body' ) || false !== strpos( $slug, 'cuerpo' ) ) {

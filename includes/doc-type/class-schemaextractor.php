@@ -400,7 +400,8 @@ class SchemaExtractor {
 		$stack     = array();
 
 		// First pass: identify repeaters from tbs:row or tbs:cell block patterns.
-		$tbs_repeaters = $this->detect_tbs_repeaters( $placeholders );
+		$tbs_repeaters       = $this->detect_tbs_repeaters( $placeholders );
+		$added_tbs_repeaters = array();
 
 		foreach ( $placeholders as $token ) {
 			$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
@@ -421,10 +422,10 @@ class SchemaExtractor {
 			if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) ) {
 				$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
 				$base_name  = $this->extract_tbs_repeater_base( $token_name );
-				if ( '' !== $base_name && isset( $tbs_repeaters[ $base_name ] ) && ! isset( $repeaters[ $base_name . '_idx' ] ) ) {
-					$repeater_entry                         = $this->build_tbs_repeater_entry( $base_name, $tbs_repeaters[ $base_name ] );
-					$repeaters[]                            = $repeater_entry;
-					$repeaters[ $base_name . '_idx' ]       = count( $repeaters ) - 1;
+				if ( '' !== $base_name && isset( $tbs_repeaters[ $base_name ] ) && ! isset( $added_tbs_repeaters[ $base_name ] ) ) {
+					$repeater_entry                   = $this->build_tbs_repeater_entry( $base_name, $tbs_repeaters[ $base_name ] );
+					$repeaters[]                      = $repeater_entry;
+					$added_tbs_repeaters[ $base_name ] = true;
 				}
 				continue;
 			}
