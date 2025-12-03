@@ -669,7 +669,7 @@ function documentate_get_resolucion_demo_data() {
  */
 function documentate_get_resolucion_prueba_demo() {
 	return array(
-		'title'    => 'Resolución de prueba',
+		'title'    => 'Ejemplo: Resolución de prueba',
 		'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
 		'keywords' => 'resolución, convocatoria, bases, prueba',
 		'fields'   => array(
@@ -719,7 +719,7 @@ function documentate_get_resolucion_prueba_demo() {
  */
 function documentate_get_listado_provisional_demo() {
 	return array(
-		'title'    => 'Listado provisional de prueba',
+		'title'    => 'Ejemplo: Listado provisional de prueba',
 		'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
 		'keywords' => 'listado, provisional, admitidos, centros',
 		'fields'   => array(
@@ -780,7 +780,7 @@ function documentate_get_listado_provisional_demo() {
  */
 function documentate_get_listado_definitivo_demo() {
 	return array(
-		'title'    => 'Listado definitivo de prueba',
+		'title'    => 'Ejemplo: Listado definitivo de prueba',
 		'author'   => 'Dirección General de Ordenación, Innovación y Calidad',
 		'keywords' => 'listado, definitivo, admitidos, centros',
 		'fields'   => array(
@@ -842,7 +842,7 @@ function documentate_get_listado_definitivo_demo() {
 function documentate_get_autorizacion_viaje_demo() {
 	return array(
 		'autorizacion-viaje-prueba' => array(
-			'title'    => 'Autorización de viaje a Madrid',
+			'title'    => 'Ejemplo: Autorización de viaje a Madrid',
 			'author'   => 'Dirección General de Personal',
 			'keywords' => 'viaje, autorización, comisión de servicios',
 			'fields'   => array(
@@ -898,7 +898,7 @@ function documentate_get_autorizacion_viaje_demo() {
 function documentate_get_gastos_suplidos_demo() {
 	return array(
 		'gastos-suplidos-prueba' => array(
-			'title'    => 'Solicitud de reembolso de gastos de viaje',
+			'title'    => 'Ejemplo: Solicitud de reembolso de gastos de viaje',
 			'author'   => 'Servicio de Gestión Económica',
 			'keywords' => 'gastos, suplidos, reembolso, facturas',
 			'fields'   => array(
@@ -953,7 +953,7 @@ function documentate_get_gastos_suplidos_demo() {
 function documentate_get_propuesta_gasto_demo() {
 	return array(
 		'propuesta-gasto-prueba' => array(
-			'title'    => 'Documento 0 Propuesta de gasto para formación del profesorado',
+			'title'    => 'Ejemplo: Documento 0 - Propuesta de gasto para formación del profesorado',
 			'author'   => 'Servicio de Innovación Educativa',
 			'keywords' => 'propuesta, gasto, formación, profesorado',
 			'fields'   => array(
