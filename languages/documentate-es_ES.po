@@ -829,9 +829,6 @@ msgstr "Elemento cp:coreProperties no encontrado."
 msgid "Case"
 msgstr "Capitalización"
 
-msgid "Text case transformation in the generated document."
-msgstr "Transformación de mayúsculas/minúsculas del texto en el documento generado."
-
 msgid "Repeater in tables:"
 msgstr "Repetidor en tablas:"
 
@@ -853,11 +850,26 @@ msgstr "quede íntegro, escríbelo en un editor de texto plano y luego copia y p
 msgid "Date format"
 msgstr "Formato de fecha"
 
-msgid "for date fields. Uses"
-msgstr "para campos de fecha. Usa"
+msgid "Text case transformation inline."
+msgstr "Transformación de mayúsculas/minúsculas en línea."
 
-msgid "Default:"
-msgstr "Por defecto:"
+msgid "Use"
+msgstr "Usa"
 
-msgid "Examples:"
-msgstr "Ejemplos:"
+msgid "before for accents/ñ."
+msgstr "antes para acentos/ñ."
+
+msgid "Example:"
+msgstr "Ejemplo:"
+
+msgid "for date fields."
+msgstr "para campos de fecha."
+
+msgid "More info"
+msgstr "Más información"
+
+msgid "TBS Manual"
+msgstr "Manual TBS"
+
+msgid "frm, ope, conditions, etc."
+msgstr "frm, ope, condiciones, etc."

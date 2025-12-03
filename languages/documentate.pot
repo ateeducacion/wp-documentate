@@ -306,19 +306,31 @@ msgstr ""
 msgid "Case"
 msgstr ""
 
-msgid "Text case transformation in the generated document."
+msgid "Text case transformation inline."
+msgstr ""
+
+msgid "Use"
+msgstr ""
+
+msgid "before for accents/ñ."
+msgstr ""
+
+msgid "Example:"
 msgstr ""
 
 msgid "Date format"
 msgstr ""
 
-msgid "for date fields. Uses"
+msgid "for date fields."
 msgstr ""
 
-msgid "Default:"
+msgid "More info"
 msgstr ""
 
-msgid "Examples:"
+msgid "TBS Manual"
+msgstr ""
+
+msgid "frm, ope, conditions, etc."
 msgstr ""
 
 msgid "Repeater (lists):"

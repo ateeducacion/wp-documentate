@@ -922,21 +922,21 @@ function documentate_get_gastos_suplidos_demo() {
 							'cif'       => 'A28017648',
 							'factura'   => 'IBE-2025-00123',
 							'fecha'     => '2025-03-10',
-							'importe'   => '245,80 €',
+							'importe'   => '245.80',
 						),
 						array(
 							'proveedor' => 'Hotel Meliá Castilla',
 							'cif'       => 'A28011069',
 							'factura'   => 'FAC-2025-4567',
 							'fecha'     => '2025-03-12',
-							'importe'   => '312,50 €',
+							'importe'   => '312.50',
 						),
 						array(
 							'proveedor' => 'Taxi Madrid S.L.',
 							'cif'       => 'B12345678',
 							'factura'   => 'T-2025-0089',
 							'fecha'     => '2025-03-10',
-							'importe'   => '35,00 €',
+							'importe'   => '35.00',
 						),
 					),
 				),
@@ -953,7 +953,7 @@ function documentate_get_gastos_suplidos_demo() {
 function documentate_get_propuesta_gasto_demo() {
 	return array(
 		'propuesta-gasto-prueba' => array(
-			'title'    => 'Documento 0 - Propuesta de gasto para formación del profesorado',
+			'title'    => 'Documento 0 Propuesta de gasto para formación del profesorado',
 			'author'   => 'Servicio de Innovación Educativa',
 			'keywords' => 'propuesta, gasto, formación, profesorado',
 			'fields'   => array(
@@ -1019,12 +1019,12 @@ function documentate_get_propuesta_gasto_demo() {
 						array(
 							'centro'    => '35001234',
 							'finalidad' => 'Material didáctico para formación',
-							'importe'   => '3.500,00 €',
+							'importe'   => '3500',
 						),
 						array(
 							'centro'    => '38002345',
 							'finalidad' => 'Equipamiento tecnológico',
-							'importe'   => '4.200,00 €',
+							'importe'   => '4200',
 						),
 					),
 				),
@@ -1046,7 +1046,7 @@ function documentate_get_propuesta_gasto_demo() {
 				),
 				'servicios_total'      => array(
 					'type'  => 'single',
-					'value' => '8.500,00 €',
+					'value' => '8500',
 				),
 				'g_servicios'          => array(
 					'type'  => 'array',
@@ -1054,18 +1054,20 @@ function documentate_get_propuesta_gasto_demo() {
 						array(
 							'concepto'     => 'Curso presencial metodologías activas (20h)',
 							'cantidad'     => '2',
-							'sinimpuestos' => '3.000,00 €',
-							'igic'         => '7%',
-							'irpf'         => '0%',
-							'total'        => '3.210,00 €',
+							'unitario'     => '2',
+							'sinimpuestos' => '3000',
+							'igic'         => '7',
+							'irpf'         => '0',
+							'total'        => '3210',
 						),
 						array(
 							'concepto'     => 'Taller competencia digital docente (10h)',
 							'cantidad'     => '3',
-							'sinimpuestos' => '4.500,00 €',
-							'igic'         => '7%',
-							'irpf'         => '0%',
-							'total'        => '4.815,00 €',
+							'unitario'     => '2',
+							'sinimpuestos' => '4500',
+							'igic'         => '7',
+							'irpf'         => '0',
+							'total'        => '4815',
 						),
 					),
 				),
@@ -1091,11 +1093,11 @@ function documentate_get_propuesta_gasto_demo() {
 						array(
 							'concepto'     => 'Tablets educativas',
 							'cantidad'     => '10',
-							'unitario'     => '350,00 €',
-							'sinimpuestos' => '3.500,00 €',
-							'igic'         => '7%',
-							'irpf'         => '0%',
-							'total'        => '3.745,00 €',
+							'unitario'     => '350',
+							'sinimpuestos' => '3500',
+							'igic'         => '7',
+							'irpf'         => '0',
+							'total'        => '3745',
 						),
 					),
 				),
@@ -1121,11 +1123,11 @@ function documentate_get_propuesta_gasto_demo() {
 						array(
 							'concepto'     => 'Ponencia inaugural jornadas formativas',
 							'cantidad'     => '1',
-							'unitario'     => '500,00 €',
-							'sinimpuestos' => '500,00 €',
-							'igic'         => '0%',
-							'irpf'         => '15%',
-							'total'        => '425,00 €',
+							'unitario'     => '500',
+							'sinimpuestos' => '500',
+							'igic'         => '0',
+							'irpf'         => '15',
+							'total'        => '425',
 						),
 					),
 				),
@@ -1469,7 +1471,7 @@ function documentate_generate_demo_scalar_value( $slug, $type, $data_type, $inde
 	}
 
 	if ( false !== strpos( $slug, 'importe' ) ) {
-		return ( 1 === $index ) ? '1.250,00 €' : '3.475,50 €';
+		return ( 1 === $index ) ? '1250' : '3475.50';
 	}
 
 	// Fields for autorizacionviaje.odt template.

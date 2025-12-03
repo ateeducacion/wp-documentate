@@ -207,6 +207,11 @@ class Documentate_OpenTBS {
 			return new WP_Error( 'documentate_template_missing', __( 'Template not found.', 'documentate' ) );
 		}
 		try {
+			// Set locale for TBS date formatting (month/day names in local language).
+			$wp_locale = get_locale();
+			$old_locale = setlocale( LC_TIME, 0 );
+			setlocale( LC_TIME, $wp_locale . '.UTF-8', $wp_locale . '.utf8', $wp_locale, 0 );
+
 			$tbs_engine = new clsTinyButStrong();
 			$tbs_engine->Plugin( TBS_INSTALL, OPENTBS_PLUGIN );
 			$tbs_engine->LoadTemplate( $template_path, OPENTBS_ALREADY_UTF8 );
@@ -242,8 +247,17 @@ class Documentate_OpenTBS {
 			}
 
 			$tbs_engine->Show( OPENTBS_FILE, $dest_path );
+
+			// Restore original locale.
+			if ( $old_locale ) {
+				setlocale( LC_TIME, $old_locale );
+			}
 			return true;
 		} catch ( \Throwable $e ) {
+			// Restore original locale on error.
+			if ( isset( $old_locale ) && $old_locale ) {
+				setlocale( LC_TIME, $old_locale );
+			}
 			return new WP_Error( 'documentate_opentbs_error', $e->getMessage() );
 		}
 	}

@@ -48,6 +48,10 @@ clean:
 	npx wp-env clean development
 	npx wp-env clean tests
 	npx wp-env run cli wp plugin activate documentate
+	npx wp-env run cli wp language core install es_ES --activate
+	npx wp-env run cli wp site switch-language es_ES
+
+
 
 destroy:
 	npx wp-env destroy
@@ -137,6 +141,8 @@ setup-tests-env:
 		--admin_password=password \
 		--admin_email=admin@example.com \
 		--skip-email 2>/dev/null || true
+	@npx wp-env run cli wp language core install es_ES --activate
+	@npx wp-env run cli wp site switch-language es_ES
 	@npx wp-env run tests-cli wp plugin activate documentate 2>/dev/null || true
 	@npx wp-env run tests-cli wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
