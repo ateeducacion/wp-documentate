@@ -554,6 +554,17 @@ class Documentate_Documents {
 			'normal',
 			'high'
 		);
+
+		// Move author metabox to side with low priority.
+		remove_meta_box( 'authordiv', 'documentate_document', 'normal' );
+		add_meta_box(
+			'authordiv',
+			__( 'Author' ),
+			'post_author_meta_box',
+			'documentate_document',
+			'side',
+			'low'
+		);
 	}
 
 	/**
