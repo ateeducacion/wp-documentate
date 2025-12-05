@@ -113,6 +113,7 @@ class Documentate_Documents {
 		add_action( 'manage_documentate_document_posts_custom_column', array( $this, 'render_admin_column' ), 10, 2 );
 		add_filter( 'manage_edit-documentate_document_sortable_columns', array( $this, 'add_sortable_columns' ) );
 		add_action( 'admin_head', array( $this, 'add_admin_list_styles' ) );
+		add_filter( 'views_edit-documentate_document', array( $this, 'add_archived_view' ) );
 
 		$this->register_revision_ui();
 	}
@@ -749,7 +750,7 @@ class Documentate_Documents {
 			if ( 'single' === $type ) {
 				$this->render_single_input_control( $meta_key, $label, $value, $field_type, $data_type, $raw_field, $describedby, $validation );
 			} elseif ( 'rich' === $type ) {
-				$is_locked = ( 'publish' === $post->post_status );
+				$is_locked = in_array( $post->post_status, array( 'publish', 'archived' ), true );
 				$this->render_rich_editor_control( $meta_key, $value, $is_locked );
 			} else {
 				$this->render_textarea_control( $meta_key, $value, $raw_field, $describedby, $validation );
@@ -2472,6 +2473,16 @@ class Documentate_Documents {
 			return;
 		}
 
+		// Hide archived posts unless specifically requesting them.
+		$post_status   = $query->get( 'post_status' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$show_archived = isset( $_GET['post_status'] ) && 'archived' === sanitize_key( $_GET['post_status'] );
+
+		if ( empty( $post_status ) && ! $show_archived ) {
+			// Default view: exclude archived.
+			$query->set( 'post_status', array( 'publish', 'pending', 'draft', 'private', 'future' ) );
+		}
+
 		$orderby = $query->get( 'orderby' );
 
 		// Handle sorting by author.
@@ -2528,6 +2539,39 @@ class Documentate_Documents {
 				2
 			);
 		}
+	}
+
+	/**
+	 * Add "Archived" link to list table views.
+	 *
+	 * @param array $views Existing views.
+	 * @return array Modified views.
+	 */
+	public function add_archived_view( $views ) {
+		$count          = wp_count_posts( 'documentate_document' );
+		$archived_count = isset( $count->archived ) ? intval( $count->archived ) : 0;
+
+		if ( $archived_count > 0 ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$current     = isset( $_GET['post_status'] ) && 'archived' === sanitize_key( $_GET['post_status'] ) ? ' class="current"' : '';
+			$views['archived'] = sprintf(
+				'<a href="%s"%s>%s <span class="count">(%d)</span></a>',
+				esc_url(
+					add_query_arg(
+						array(
+							'post_type'   => 'documentate_document',
+							'post_status' => 'archived',
+						),
+						admin_url( 'edit.php' )
+					)
+				),
+				$current,
+				esc_html__( 'Archived', 'documentate' ),
+				$archived_count
+			);
+		}
+
+		return $views;
 	}
 
 	/**
@@ -2671,8 +2715,8 @@ class Documentate_Documents {
 					$editRow.find('textarea[data-wp-taxonomy="documentate_doc_type"]').prop('disabled', true).css('background', '#f0f0f0');
 					$editRow.find('.documentate_doc_type-checklist input[type="checkbox"]').prop('disabled', true);
 
-					// If post is published, disable title.
-					if (postStatus === 'publish' || $row.hasClass('status-publish')) {
+					// If post is published or archived, disable title.
+					if (postStatus === 'publish' || postStatus === 'archived' || $row.hasClass('status-publish') || $row.hasClass('status-archived')) {
 						$editRow.find('input[name="post_title"]').prop('readonly', true).css('background', '#f0f0f0');
 					}
 				}, 50);

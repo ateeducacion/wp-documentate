@@ -108,10 +108,13 @@ class Documentate_Admin_Helper {
 		$this->pdf_handler  = new Export_PDF_Handler();
 
 		add_filter( 'post_row_actions', array( $this, 'add_row_actions' ), 10, 2 );
+		add_filter( 'post_row_actions', array( $this, 'add_archive_row_actions' ), 15, 2 );
 		add_action( 'admin_post_documentate_export_docx', array( $this, 'handle_export_docx' ) );
 		add_action( 'admin_post_documentate_export_odt', array( $this, 'handle_export_odt' ) );
 		add_action( 'admin_post_documentate_export_pdf', array( $this, 'handle_export_pdf' ) );
 		add_action( 'admin_post_documentate_preview', array( $this, 'handle_preview' ) );
+		add_action( 'admin_post_documentate_archive', array( $this, 'handle_archive_action' ) );
+		add_action( 'admin_post_documentate_unarchive', array( $this, 'handle_unarchive_action' ) );
 		add_action( 'admin_post_documentate_preview_stream', array( $this, 'handle_preview_stream' ) );
 
 		// Handler for the converter page with COOP/COEP headers (ZetaJS CDN mode).
@@ -231,6 +234,127 @@ class Documentate_Admin_Helper {
 		}
 
 		return $actions;
+	}
+
+	/**
+	 * Add archive/unarchive row actions for administrators.
+	 *
+	 * @param array   $actions Row actions.
+	 * @param WP_Post $post    Post object.
+	 * @return array Modified row actions.
+	 */
+	public function add_archive_row_actions( $actions, $post ) {
+		if ( 'documentate_document' !== $post->post_type ) {
+			return $actions;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return $actions;
+		}
+
+		if ( 'publish' === $post->post_status ) {
+			$url = wp_nonce_url(
+				add_query_arg(
+					array(
+						'action'  => 'documentate_archive',
+						'post_id' => $post->ID,
+					),
+					admin_url( 'admin-post.php' )
+				),
+				'documentate_archive_' . $post->ID
+			);
+			$actions['documentate_archive'] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Archive', 'documentate' ) . '</a>';
+		}
+
+		if ( 'archived' === $post->post_status ) {
+			$url = wp_nonce_url(
+				add_query_arg(
+					array(
+						'action'  => 'documentate_unarchive',
+						'post_id' => $post->ID,
+					),
+					admin_url( 'admin-post.php' )
+				),
+				'documentate_unarchive_' . $post->ID
+			);
+			$actions['documentate_unarchive'] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Unarchive', 'documentate' ) . '</a>';
+		}
+
+		return $actions;
+	}
+
+	/**
+	 * Handle archive action.
+	 *
+	 * @return void
+	 */
+	public function handle_archive_action() {
+		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0;
+
+		if ( ! $post_id || ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
+		}
+
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_archive_' . $post_id ) ) {
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post || 'documentate_document' !== $post->post_type || 'publish' !== $post->post_status ) {
+			wp_die( esc_html__( 'Invalid document or status.', 'documentate' ) );
+		}
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		wp_safe_redirect(
+			add_query_arg(
+				array( 'post_type' => 'documentate_document' ),
+				admin_url( 'edit.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Handle unarchive action.
+	 *
+	 * @return void
+	 */
+	public function handle_unarchive_action() {
+		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0;
+
+		if ( ! $post_id || ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'documentate' ) );
+		}
+
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'documentate_unarchive_' . $post_id ) ) {
+			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post || 'documentate_document' !== $post->post_type || 'archived' !== $post->post_status ) {
+			wp_die( esc_html__( 'Invalid document or status.', 'documentate' ) );
+		}
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_safe_redirect(
+			add_query_arg(
+				array( 'post_type' => 'documentate_document' ),
+				admin_url( 'edit.php' )
+			)
+		);
+		exit;
 	}
 
 	/**
