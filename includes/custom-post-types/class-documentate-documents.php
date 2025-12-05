@@ -106,6 +106,14 @@ class Documentate_Documents {
 		add_action( 'admin_head-post.php', array( $this, 'hide_submit_box_controls' ) );
 		add_action( 'admin_head-post-new.php', array( $this, 'hide_submit_box_controls' ) );
 
+		// Admin list table filters and columns.
+		add_action( 'restrict_manage_posts', array( $this, 'add_admin_filters' ), 10, 2 );
+		add_action( 'pre_get_posts', array( $this, 'apply_admin_filters' ) );
+		add_filter( 'manage_documentate_document_posts_columns', array( $this, 'add_admin_columns' ) );
+		add_action( 'manage_documentate_document_posts_custom_column', array( $this, 'render_admin_column' ), 10, 2 );
+		add_filter( 'manage_edit-documentate_document_sortable_columns', array( $this, 'add_sortable_columns' ) );
+		add_action( 'admin_head', array( $this, 'add_admin_list_styles' ) );
+
 		$this->register_revision_ui();
 	}
 
@@ -2352,6 +2360,315 @@ class Documentate_Documents {
 		};
 
 			return (string) preg_replace_callback( '/u([0-9a-fA-F]{4})/i', $callback, $text );
+	}
+
+	/**
+	 * Add filter dropdowns to the admin list table.
+	 *
+	 * @param string $post_type Current post type.
+	 * @param string $which     Location of the extra table nav markup: 'top' or 'bottom'.
+	 * @return void
+	 */
+	public function add_admin_filters( $post_type, $which ) {
+		if ( 'documentate_document' !== $post_type || 'top' !== $which ) {
+			return;
+		}
+
+		// Author filter.
+		$authors = get_users(
+			array(
+				'has_published_posts' => array( 'documentate_document' ),
+				'fields'              => array( 'ID', 'display_name' ),
+				'orderby'             => 'display_name',
+			)
+		);
+
+		if ( ! empty( $authors ) ) {
+			$current_author = isset( $_GET['author'] ) ? absint( $_GET['author'] ) : 0;
+			echo '<select name="author" id="filter-by-author">';
+			echo '<option value="">' . esc_html__( 'All authors', 'documentate' ) . '</option>';
+			foreach ( $authors as $author ) {
+				printf(
+					'<option value="%d"%s>%s</option>',
+					absint( $author->ID ),
+					selected( $current_author, $author->ID, false ),
+					esc_html( $author->display_name )
+				);
+			}
+			echo '</select>';
+		}
+
+		// Document type filter (taxonomy dropdown).
+		$doc_types = get_terms(
+			array(
+				'taxonomy'   => 'documentate_doc_type',
+				'hide_empty' => false,
+			)
+		);
+
+		if ( ! is_wp_error( $doc_types ) && ! empty( $doc_types ) ) {
+			$current_type = isset( $_GET['documentate_doc_type'] ) ? sanitize_text_field( wp_unslash( $_GET['documentate_doc_type'] ) ) : '';
+			echo '<select name="documentate_doc_type" id="filter-by-doc-type">';
+			echo '<option value="">' . esc_html__( 'All document types', 'documentate' ) . '</option>';
+			foreach ( $doc_types as $doc_type ) {
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $doc_type->slug ),
+					selected( $current_type, $doc_type->slug, false ),
+					esc_html( $doc_type->name )
+				);
+			}
+			echo '</select>';
+		}
+
+		// Category filter (if taxonomy exists).
+		$categories = get_terms(
+			array(
+				'taxonomy'   => 'category',
+				'hide_empty' => false,
+			)
+		);
+
+		if ( ! is_wp_error( $categories ) && ! empty( $categories ) ) {
+			$current_cat = isset( $_GET['category_name'] ) ? sanitize_text_field( wp_unslash( $_GET['category_name'] ) ) : '';
+			echo '<select name="category_name" id="filter-by-category">';
+			echo '<option value="">' . esc_html__( 'All categories', 'documentate' ) . '</option>';
+			foreach ( $categories as $category ) {
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $category->slug ),
+					selected( $current_cat, $category->slug, false ),
+					esc_html( $category->name )
+				);
+			}
+			echo '</select>';
+		}
+	}
+
+	/**
+	 * Apply admin filters and sorting to the query.
+	 *
+	 * @param WP_Query $query Query object.
+	 * @return void
+	 */
+	public function apply_admin_filters( $query ) {
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'edit-documentate_document' !== $screen->id ) {
+			return;
+		}
+
+		$orderby = $query->get( 'orderby' );
+
+		// Handle sorting by author.
+		if ( 'author_name' === $orderby ) {
+			$query->set( 'orderby', 'author' );
+		}
+
+		// Handle sorting by document type.
+		if ( 'doc_type' === $orderby ) {
+			add_filter(
+				'posts_clauses',
+				function ( $clauses, $wp_query ) {
+					global $wpdb;
+
+					if ( $wp_query->get( 'orderby' ) !== 'doc_type' ) {
+						return $clauses;
+					}
+
+					$order = strtoupper( $wp_query->get( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
+
+					$clauses['join']   .= " LEFT JOIN {$wpdb->term_relationships} AS dtr ON ({$wpdb->posts}.ID = dtr.object_id)";
+					$clauses['join']   .= " LEFT JOIN {$wpdb->term_taxonomy} AS dtt ON (dtr.term_taxonomy_id = dtt.term_taxonomy_id AND dtt.taxonomy = 'documentate_doc_type')";
+					$clauses['join']   .= " LEFT JOIN {$wpdb->terms} AS dt ON (dtt.term_id = dt.term_id)";
+					$clauses['orderby'] = "dt.name {$order}, " . $clauses['orderby'];
+
+					return $clauses;
+				},
+				10,
+				2
+			);
+		}
+
+		// Handle sorting by category.
+		if ( 'category_name' === $orderby ) {
+			add_filter(
+				'posts_clauses',
+				function ( $clauses, $wp_query ) {
+					global $wpdb;
+
+					if ( $wp_query->get( 'orderby' ) !== 'category_name' ) {
+						return $clauses;
+					}
+
+					$order = strtoupper( $wp_query->get( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
+
+					$clauses['join']   .= " LEFT JOIN {$wpdb->term_relationships} AS ctr ON ({$wpdb->posts}.ID = ctr.object_id)";
+					$clauses['join']   .= " LEFT JOIN {$wpdb->term_taxonomy} AS ctt ON (ctr.term_taxonomy_id = ctt.term_taxonomy_id AND ctt.taxonomy = 'category')";
+					$clauses['join']   .= " LEFT JOIN {$wpdb->terms} AS ct ON (ctt.term_id = ct.term_id)";
+					$clauses['orderby'] = "ct.name {$order}, " . $clauses['orderby'];
+
+					return $clauses;
+				},
+				10,
+				2
+			);
+		}
+	}
+
+	/**
+	 * Add custom columns to the admin list table.
+	 *
+	 * @param array $columns Existing columns.
+	 * @return array Modified columns.
+	 */
+	public function add_admin_columns( $columns ) {
+		// Remove default taxonomy columns (we add custom sortable ones).
+		unset( $columns['categories'] );
+		unset( $columns['taxonomy-documentate_doc_type'] );
+
+		$new_columns = array();
+
+		foreach ( $columns as $key => $label ) {
+			$new_columns[ $key ] = $label;
+
+			// Insert doc_type column after title.
+			if ( 'title' === $key ) {
+				$new_columns['doc_type'] = __( 'Document Type', 'documentate' );
+			}
+
+			// Insert category column after author.
+			if ( 'author' === $key ) {
+				$new_columns['doc_category'] = __( 'Category', 'documentate' );
+			}
+		}
+
+		return $new_columns;
+	}
+
+	/**
+	 * Render custom column content.
+	 *
+	 * @param string $column  Column name.
+	 * @param int    $post_id Post ID.
+	 * @return void
+	 */
+	public function render_admin_column( $column, $post_id ) {
+		if ( 'doc_type' === $column ) {
+			$terms = get_the_terms( $post_id, 'documentate_doc_type' );
+			if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+				$term  = $terms[0];
+				$color = get_term_meta( $term->term_id, 'documentate_type_color', true );
+				$style = $color ? 'background-color:' . esc_attr( $color ) . ';color:#fff;padding:2px 6px;border-radius:3px;' : '';
+				printf(
+					'<a href="%s" style="%s">%s</a>',
+					esc_url( add_query_arg( 'documentate_doc_type', $term->slug, admin_url( 'edit.php?post_type=documentate_document' ) ) ),
+					esc_attr( $style ),
+					esc_html( $term->name )
+				);
+			} else {
+				echo '—';
+			}
+		}
+
+		if ( 'doc_category' === $column ) {
+			$terms = get_the_terms( $post_id, 'category' );
+			if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+				$links = array();
+				foreach ( $terms as $term ) {
+					$links[] = sprintf(
+						'<a href="%s">%s</a>',
+						esc_url( add_query_arg( 'category_name', $term->slug, admin_url( 'edit.php?post_type=documentate_document' ) ) ),
+						esc_html( $term->name )
+					);
+				}
+				echo wp_kses_post( implode( ', ', $links ) );
+			} else {
+				echo '—';
+			}
+		}
+	}
+
+	/**
+	 * Add sortable columns.
+	 *
+	 * @param array $columns Sortable columns.
+	 * @return array Modified sortable columns.
+	 */
+	public function add_sortable_columns( $columns ) {
+		$columns['author']       = 'author_name';
+		$columns['doc_type']     = 'doc_type';
+		$columns['doc_category'] = 'category_name';
+
+		return $columns;
+	}
+
+	/**
+	 * Add CSS styles for the admin list table columns.
+	 *
+	 * @return void
+	 */
+	public function add_admin_list_styles() {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'edit-documentate_document' !== $screen->id ) {
+			return;
+		}
+
+		echo '<style>
+			/* Column widths */
+			.post-type-documentate_document .column-doc_type { width: 140px; }
+			.post-type-documentate_document .column-author { width: 120px; }
+			.post-type-documentate_document .column-doc_category { width: 120px; }
+			.post-type-documentate_document .column-date { width: 100px; }
+
+			/* Quick Edit: hide date, password, private and status fields */
+			.post-type-documentate_document .inline-edit-row .inline-edit-date,
+			.post-type-documentate_document .inline-edit-row .inline-edit-password-input,
+			.post-type-documentate_document .inline-edit-row .inline-edit-private,
+			.post-type-documentate_document .inline-edit-row .inline-edit-or,
+			.post-type-documentate_document .inline-edit-row .inline-edit-status {
+				display: none !important;
+			}
+
+			/* Quick Edit: make doc_type taxonomy read-only appearance */
+			.post-type-documentate_document .inline-edit-row .inline-edit-col .inline-edit-group.documentate_doc_type-checklist {
+				pointer-events: none;
+				opacity: 0.6;
+			}
+		</style>';
+
+		// JavaScript for Quick Edit behavior.
+		?>
+		<script>
+		(function($) {
+			// Hook into Quick Edit open.
+			$(document).on('click', '.editinline', function() {
+				var $row = $(this).closest('tr');
+				var postId = $row.attr('id').replace('post-', '');
+				var postStatus = $row.find('.post_status').text() || $row.find('.status').text();
+
+				setTimeout(function() {
+					var $editRow = $('#edit-' + postId);
+
+					// Hide password field container.
+					$editRow.find('input.inline-edit-password-input').closest('label').hide();
+
+					// Make doc_type read-only (textarea and checkboxes).
+					$editRow.find('textarea[data-wp-taxonomy="documentate_doc_type"]').prop('disabled', true).css('background', '#f0f0f0');
+					$editRow.find('.documentate_doc_type-checklist input[type="checkbox"]').prop('disabled', true);
+
+					// If post is published, disable title.
+					if (postStatus === 'publish' || $row.hasClass('status-publish')) {
+						$editRow.find('input[name="post_title"]').prop('readonly', true).css('background', '#f0f0f0');
+					}
+				}, 50);
+			});
+		})(jQuery);
+		</script>
+		<?php
 	}
 }
 
