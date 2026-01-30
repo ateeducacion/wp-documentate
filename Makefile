@@ -95,11 +95,11 @@ test: start-if-not-running
 	@CMD="./vendor/bin/phpunit"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --testdox --colors=always
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
 # Run document generation tests only
 test-generation: start-if-not-running
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --testdox --colors=always
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
 
 # Run unit tests in verbose mode. Honor TEST filter if provided.
 test-verbose: start-if-not-running
@@ -116,7 +116,7 @@ test-verbose: start-if-not-running
 # database and don't support parallel execution reliably.
 test-coverage: start-if-not-running
 	@mkdir -p artifacts/coverage
-	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --testdox --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
+	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
 	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD; \
@@ -141,8 +141,8 @@ setup-tests-env:
 		--admin_password=password \
 		--admin_email=admin@example.com \
 		--skip-email 2>/dev/null || true
-	@npx wp-env run cli wp language core install es_ES --activate
-	@npx wp-env run cli wp site switch-language es_ES
+	@npx wp-env run tests-cli wp language core install es_ES --activate 2>/dev/null || true
+	@npx wp-env run tests-cli wp site switch-language es_ES 2>/dev/null || true
 	@npx wp-env run tests-cli wp plugin activate documentate 2>/dev/null || true
 	@npx wp-env run tests-cli wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
