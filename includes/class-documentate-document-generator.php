@@ -302,7 +302,7 @@ class Documentate_Document_Generator {
 		}
 
 		// Apply case transformation to title based on schema attribute.
-		$title      = get_the_title( $post_id );
+		$title      = get_post_field( 'post_title', $post_id, 'raw' );
 		$title_case = self::get_title_case_from_schema( $post_id );
 		$title      = self::apply_case_transformation( $title, $title_case );
 

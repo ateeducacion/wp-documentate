@@ -22,8 +22,8 @@ class DocumentateDocumentTypeSeedingTest extends WP_UnitTestCase {
         $this->delete_term_if_exists( 'documentate-demo-wp-documentate-odt' );
         $this->delete_term_if_exists( 'documentate-demo-wp-documentate-docx' );
 
-        documentate_ensure_default_media();
-        documentate_maybe_seed_default_doc_types();
+        Documentate_Demo_Data::ensure_default_media();
+        Documentate_Demo_Data::maybe_seed_default_doc_types();
 
         $storage = new SchemaStorage();
 
@@ -98,7 +98,7 @@ class DocumentateDocumentTypeSeedingTest extends WP_UnitTestCase {
         $this->assertIsArray( $converted_schema, 'CPT must be able to read the stored schema.' );
         $this->assertNotEmpty( $converted_schema );
 
-        documentate_maybe_seed_default_doc_types();
+        Documentate_Demo_Data::maybe_seed_default_doc_types();
         $resolucion_after = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
         $this->assertSame( $resolucion->term_id, $resolucion_after->term_id );
         $advanced_odt_after = get_term_by( 'slug', 'documentate-demo-wp-documentate-odt', 'documentate_doc_type' );

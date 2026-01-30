@@ -873,3 +873,175 @@ msgstr "Manual TBS"
 
 msgid "frm, ope, conditions, etc."
 msgstr "frm, ope, condiciones, etc."
+
+msgid "Advanced test document type (ODT)"
+msgstr "Tipo de documento de prueba avanzado (ODT)"
+
+msgid "Example automatically created with the included demo-wp-documentate.odt template."
+msgstr "Ejemplo creado automáticamente con la plantilla demo-wp-documentate.odt incluida."
+
+msgid "Advanced test document type (DOCX)"
+msgstr "Tipo de documento de prueba avanzado (DOCX)"
+
+msgid "Example automatically created with the included demo-wp-documentate.docx template."
+msgstr "Ejemplo creado automáticamente con la plantilla demo-wp-documentate.docx incluida."
+
+#. translators: %s: document type name.
+#, php-format
+msgid "Test document – %s"
+msgstr "Documento de prueba – %s"
+
+msgid "Demo team"
+msgstr "Equipo de demostración"
+
+msgid "lorem, ipsum, demo"
+msgstr "lorem, ipsum, demo"
+
+msgid "Demo resolution"
+msgstr "Resolución de demostración"
+
+#. translators: %d: item sequence number.
+#, php-format
+msgid "Demo item %d"
+msgstr "Elemento de demo %d"
+
+#. translators: %d: item sequence number.
+#, php-format
+msgid "Demo summary %d with brief information."
+msgstr "Resumen de demo %d con información breve."
+
+msgid "Subject of the example resolution to illustrate the workflow."
+msgstr "Asunto de la resolución de ejemplo para ilustrar el flujo de trabajo."
+
+msgid "Background facts written with test content."
+msgstr "Hechos de antecedentes escritos con contenido de prueba."
+
+msgid "Legal grounds for testing with generic references."
+msgstr "Fundamentos legales para pruebas con referencias genéricas."
+
+msgid "First. Approve the demo action."
+msgstr "Primero. Aprobar la acción de demostración."
+
+msgid "Second. Notify interested parties."
+msgstr "Segundo. Notificar a los interesados."
+
+msgid "Additional observations to complete the template."
+msgstr "Observaciones adicionales para completar la plantilla."
+
+msgid "Test heading"
+msgstr "Encabezado de prueba"
+
+msgid "First paragraph with example text."
+msgstr "Primer párrafo con texto de ejemplo."
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+#, php-format
+msgid "Second paragraph with %1$s, %2$s and %3$s."
+msgstr "Segundo párrafo con %1$s, %2$s y %3$s."
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+msgid "bold"
+msgstr "negrita"
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+msgid "italics"
+msgstr "cursiva"
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+msgid "underline"
+msgstr "subrayado"
+
+msgid "Item one"
+msgstr "Elemento uno"
+
+msgid "Item two"
+msgstr "Elemento dos"
+
+msgid "Col 1"
+msgstr "Col 1"
+
+msgid "Col 2"
+msgstr "Col 2"
+
+msgid "Data A1"
+msgstr "Dato A1"
+
+msgid "Data A2"
+msgstr "Dato A2"
+
+msgid "Data B1"
+msgstr "Dato B1"
+
+msgid "Data B2"
+msgstr "Dato B2"
+
+msgid "keywords, tags, demo"
+msgstr "palabras clave, etiquetas, demo"
+
+msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+msgstr "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+
+msgid "All authors"
+msgstr "Todos los autores"
+
+msgid "All document types"
+msgstr "Todos los tipos de documento"
+
+msgid "All categories"
+msgstr "Todas las categorías"
+
+msgid "Category"
+msgstr "Categoría"
+
+msgid "Archive"
+msgstr "Archivar"
+
+msgid "Unarchive"
+msgstr "Desarchivar"
+
+msgid "Invalid document or status."
+msgstr "Documento o estado no válido."
+
+msgid "Only published documents can be archived."
+msgstr "Solo se pueden archivar documentos publicados."
+
+msgid "Only administrators can archive documents."
+msgstr "Solo los administradores pueden archivar documentos."
+
+msgid "Archived documents can only be modified by administrators."
+msgstr "Los documentos archivados solo pueden ser modificados por administradores."
+
+msgctxt "post status"
+msgid "Archived"
+msgstr "Archivado"
+
+#. translators: %s: Number of archived documents
+#, php-format
+msgid "Archived <span class=\"count\">(%s)</span>"
+msgid_plural "Archived <span class=\"count\">(%s)</span>"
+msgstr[0] "Archivado <span class=\"count\">(%s)</span>"
+msgstr[1] "Archivados <span class=\"count\">(%s)</span>"
+
+msgid "This document is archived and read-only. Only an administrator can unarchive it."
+msgstr "Este documento está archivado y es de solo lectura. Solo un administrador puede desarchivarlo."
+
+msgid "Unarchive to enable editing."
+msgstr "Desarchiva para habilitar la edición."
+
+msgid "Archived"
+msgstr "Archivado"
+
+msgid "Document is archived and read-only. Unarchive to enable editing."
+msgstr "El documento está archivado y es de solo lectura. Desarchiva para habilitar la edición."
+
+msgid "Document is archived. Contact an administrator to unarchive."
+msgstr "El documento está archivado. Contacta a un administrador para desarchivarlo."
+
+msgid "Archive Document"
+msgstr "Archivar documento"
+
+msgid "Unarchive Document"
+msgstr "Desarchivar documento"
+
+msgid "Archived - Historical record"
+msgstr "Archivado - Registro histórico"

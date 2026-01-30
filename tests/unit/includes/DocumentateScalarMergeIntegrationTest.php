@@ -19,8 +19,8 @@ class DocumentateScalarMergeIntegrationTest extends WP_UnitTestCase {
 	 */
 	public function test_generate_odt_merges_scalar_placeholders_correctly() {
 		// Import the advanced ODT template from fixtures and prepare the type.
-		documentate_ensure_default_media();
-		$tpl_id = documentate_import_fixture_file( 'demo-wp-documentate.odt' );
+		Documentate_Demo_Data::ensure_default_media();
+		$tpl_id = Documentate_Demo_Data::import_fixture_file( 'demo-wp-documentate.odt' );
 		$this->assertGreaterThan( 0, $tpl_id, 'Test ODT template must be imported correctly.' );
 		$tpl_path = get_attached_file( $tpl_id );
 		$this->assertFileExists( $tpl_path, 'ODT template path must exist.' );
@@ -99,8 +99,8 @@ class DocumentateScalarMergeIntegrationTest extends WP_UnitTestCase {
 	 */
 	public function test_generate_docx_merges_scalar_placeholders_correctly() {
 		// Import the advanced DOCX template from fixtures and prepare the type.
-		documentate_ensure_default_media();
-		$tpl_id = documentate_import_fixture_file( 'demo-wp-documentate.docx' );
+		Documentate_Demo_Data::ensure_default_media();
+		$tpl_id = Documentate_Demo_Data::import_fixture_file( 'demo-wp-documentate.docx' );
 		$this->assertGreaterThan( 0, $tpl_id, 'Test DOCX template must be imported correctly.' );
 		$tpl_path = get_attached_file( $tpl_id );
 		$this->assertFileExists( $tpl_path, 'DOCX template path must exist.' );

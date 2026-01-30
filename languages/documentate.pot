@@ -438,7 +438,16 @@ msgstr ""
 msgid "Export DOCX"
 msgstr ""
 
+msgid "Archive"
+msgstr ""
+
+msgid "Unarchive"
+msgstr ""
+
 msgid "Invalid nonce."
+msgstr ""
+
+msgid "Invalid document or status."
 msgstr ""
 
 msgid "Preview error"
@@ -570,6 +579,113 @@ msgstr ""
 msgid "Required to generate %s."
 msgstr ""
 
+msgid "Advanced test document type (ODT)"
+msgstr ""
+
+msgid "Example automatically created with the included demo-wp-documentate.odt template."
+msgstr ""
+
+msgid "Advanced test document type (DOCX)"
+msgstr ""
+
+msgid "Example automatically created with the included demo-wp-documentate.docx template."
+msgstr ""
+
+#. translators: %s: document type name.
+#, php-format
+msgid "Test document – %s"
+msgstr ""
+
+msgid "Demo team"
+msgstr ""
+
+msgid "lorem, ipsum, demo"
+msgstr ""
+
+msgid "Demo resolution"
+msgstr ""
+
+#. translators: %d: item sequence number.
+#, php-format
+msgid "Demo item %d"
+msgstr ""
+
+#. translators: %d: item sequence number.
+#, php-format
+msgid "Demo summary %d with brief information."
+msgstr ""
+
+msgid "Subject of the example resolution to illustrate the workflow."
+msgstr ""
+
+msgid "Background facts written with test content."
+msgstr ""
+
+msgid "Legal grounds for testing with generic references."
+msgstr ""
+
+msgid "First. Approve the demo action."
+msgstr ""
+
+msgid "Second. Notify interested parties."
+msgstr ""
+
+msgid "Additional observations to complete the template."
+msgstr ""
+
+msgid "Test heading"
+msgstr ""
+
+msgid "First paragraph with example text."
+msgstr ""
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+#, php-format
+msgid "Second paragraph with %1$s, %2$s and %3$s."
+msgstr ""
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+msgid "bold"
+msgstr ""
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+msgid "italics"
+msgstr ""
+
+#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+msgid "underline"
+msgstr ""
+
+msgid "Item one"
+msgstr ""
+
+msgid "Item two"
+msgstr ""
+
+msgid "Col 1"
+msgstr ""
+
+msgid "Col 2"
+msgstr ""
+
+msgid "Data A1"
+msgstr ""
+
+msgid "Data A2"
+msgstr ""
+
+msgid "Data B1"
+msgstr ""
+
+msgid "Data B2"
+msgstr ""
+
+msgid "keywords, tags, demo"
+msgstr ""
+
+msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+msgstr ""
+
 msgid "Warning"
 msgstr ""
 
@@ -657,13 +773,39 @@ msgstr ""
 msgid "Published documents can only be modified by administrators."
 msgstr ""
 
+msgid "Only published documents can be archived."
+msgstr ""
+
+msgid "Only administrators can archive documents."
+msgstr ""
+
+msgid "Archived documents can only be modified by administrators."
+msgstr ""
+
+msgctxt "post status"
+msgid "Archived"
+msgstr ""
+
+#. translators: %s: Number of archived documents
+#, php-format
+msgid "Archived <span class=\"count\">(%s)</span>"
+msgid_plural "Archived <span class=\"count\">(%s)</span>"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "Document Locked"
 msgstr ""
 
 msgid "This document is published and read-only. Only an administrator can unlock it by reverting to draft."
 msgstr ""
 
+msgid "This document is archived and read-only. Only an administrator can unarchive it."
+msgstr ""
+
 msgid "Change status to Draft to enable editing."
+msgstr ""
+
+msgid "Unarchive to enable editing."
 msgstr ""
 
 msgid "Select a document type before publishing."
@@ -696,6 +838,9 @@ msgstr ""
 msgid "Published"
 msgstr ""
 
+msgid "Archived"
+msgstr ""
+
 msgid "No document type selected. Must assign a type before publishing."
 msgstr ""
 
@@ -705,7 +850,19 @@ msgstr ""
 msgid "Document is locked. Contact an administrator."
 msgstr ""
 
+msgid "Document is archived and read-only. Unarchive to enable editing."
+msgstr ""
+
+msgid "Document is archived. Contact an administrator to unarchive."
+msgstr ""
+
 msgid "Submit for Pending Review when ready. An administrator will publish."
+msgstr ""
+
+msgid "Archive Document"
+msgstr ""
+
+msgid "Unarchive Document"
 msgstr ""
 
 msgid "Workflow:"
@@ -718,6 +875,9 @@ msgid "Pending - Ready for review"
 msgstr ""
 
 msgid "Published - Final (locked)"
+msgstr ""
+
+msgid "Archived - Historical record"
 msgstr ""
 
 msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
@@ -835,6 +995,18 @@ msgid "Additional field: %s"
 msgstr ""
 
 msgid "This field is not defined in the current document type taxonomy."
+msgstr ""
+
+msgid "All authors"
+msgstr ""
+
+msgid "All document types"
+msgstr ""
+
+msgid "All categories"
+msgstr ""
+
+msgid "Category"
 msgstr ""
 
 msgid "Enter a valid email (user@domain.tld)"

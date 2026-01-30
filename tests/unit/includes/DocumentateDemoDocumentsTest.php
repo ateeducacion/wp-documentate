@@ -35,8 +35,8 @@ class DocumentateDemoDocumentsTest extends WP_UnitTestCase {
 		delete_option( 'documentate_seed_demo_documents' );
 		update_option( 'documentate_seed_demo_documents', true );
 
-		documentate_ensure_default_media();
-		documentate_maybe_seed_default_doc_types();
+		Documentate_Demo_Data::ensure_default_media();
+		Documentate_Demo_Data::maybe_seed_default_doc_types();
 
 		$terms = get_terms(
 			array(
@@ -48,7 +48,7 @@ class DocumentateDemoDocumentsTest extends WP_UnitTestCase {
 		$this->assertNotWPError( $terms );
 		$this->assertNotEmpty( $terms );
 
-		documentate_maybe_seed_demo_documents();
+		Documentate_Demo_Data::maybe_seed_demo_documents();
 
 		foreach ( $terms as $term ) {
 			$posts = get_posts(
@@ -89,9 +89,9 @@ class DocumentateDemoDocumentsTest extends WP_UnitTestCase {
 		delete_option( 'documentate_seed_demo_documents' );
 		update_option( 'documentate_seed_demo_documents', true );
 
-		documentate_ensure_default_media();
-		documentate_maybe_seed_default_doc_types();
-		documentate_maybe_seed_demo_documents();
+		Documentate_Demo_Data::ensure_default_media();
+		Documentate_Demo_Data::maybe_seed_default_doc_types();
+		Documentate_Demo_Data::maybe_seed_demo_documents();
 
 		$expected_keys = array( 'resolucion-prueba', 'listado-provisional-prueba', 'listado-definitivo-prueba' );
 
