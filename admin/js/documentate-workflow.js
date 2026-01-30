@@ -71,13 +71,13 @@
 
 			// Re-apply state after DOM updates (e.g., meta box loading).
 			$(document).on('ajaxComplete', function () {
-				if (self.config.isPublished) {
+				if (self.config.isPublished || self.config.isArchived) {
 					self.lockFields();
 				}
 			});
 
 			// Lock TinyMCE editors when they are initialized (after page load).
-			if (this.config.isPublished && typeof tinyMCE !== 'undefined') {
+			if ((this.config.isPublished || this.config.isArchived) && typeof tinyMCE !== 'undefined') {
 				tinyMCE.on('AddEditor', function (e) {
 					if (e.editor && e.editor.on) {
 						e.editor.on('init', function () {
@@ -113,7 +113,7 @@
 		 * Apply the current workflow state to the UI.
 		 */
 		applyWorkflowState: function () {
-			if (this.config.isPublished) {
+			if (this.config.isPublished || this.config.isArchived) {
 				this.lockFields();
 				this.showLockedNotice();
 			}
@@ -257,14 +257,24 @@
 			if ($container.length && !$container.find('.locked-overlay').length) {
 				$container.css('position', 'relative');
 
-				var message = self.config.strings && self.config.strings.lockedMessage
-					? self.config.strings.lockedMessage
-					: 'This document is published and cannot be edited.';
+				var message;
+				var icon = 'dashicons-lock';
+
+				if (self.config.isArchived) {
+					icon = 'dashicons-archive';
+					message = self.config.strings && self.config.strings.archivedMessage
+						? self.config.strings.archivedMessage
+						: 'This document is archived and cannot be edited.';
+				} else {
+					message = self.config.strings && self.config.strings.lockedMessage
+						? self.config.strings.lockedMessage
+						: 'This document is published and cannot be edited.';
+				}
 
 				$container.append(
 					'<div class="locked-overlay">' +
 					'<div class="locked-message">' +
-					'<span class="dashicons dashicons-lock"></span>' +
+					'<span class="dashicons ' + icon + '"></span>' +
 					'<span>' + message + '</span>' +
 					'</div>' +
 					'</div>'
@@ -276,9 +286,19 @@
 		 * Show notice when document is locked.
 		 */
 		showLockedNotice: function () {
-			var message = this.config.isAdmin
-				? this.config.strings.adminUnlock
-				: this.config.strings.lockedMessage;
+			var message;
+			var icon = 'dashicons-lock';
+
+			if (this.config.isArchived) {
+				icon = 'dashicons-archive';
+				message = this.config.isAdmin
+					? this.config.strings.adminUnarchive
+					: this.config.strings.archivedMessage;
+			} else {
+				message = this.config.isAdmin
+					? this.config.strings.adminUnlock
+					: this.config.strings.lockedMessage;
+			}
 
 			var noticeClass = this.config.isAdmin
 				? 'notice-info'
@@ -288,7 +308,7 @@
 				'<div class="notice ' +
 					noticeClass +
 					' documentate-workflow-notice">' +
-					'<p><span class="dashicons dashicons-lock"></span> ' +
+					'<p><span class="dashicons ' + icon + '"></span> ' +
 					'<strong>' +
 					this.config.strings.lockedTitle +
 					'</strong> - ' +

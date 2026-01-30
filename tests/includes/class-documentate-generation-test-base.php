@@ -270,6 +270,38 @@ class Documentate_Generation_Test_Base extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Extract numbering XML from a DOCX document.
+	 *
+	 * Numbering.xml defines list formats (bullet, decimal, roman, etc.) for DOCX files.
+	 *
+	 * @param string $doc_path Path to the DOCX file.
+	 * @return string|false XML content or false on failure.
+	 */
+	protected function extract_numbering_xml( $doc_path ) {
+		$ext = strtolower( pathinfo( $doc_path, PATHINFO_EXTENSION ) );
+		if ( 'docx' !== $ext ) {
+			return false;
+		}
+
+		return $this->extract_document_xml( $doc_path, 'word/numbering.xml' );
+	}
+
+	/**
+	 * Extract relationships XML from a document.
+	 *
+	 * Relationships define hyperlink targets and other external references.
+	 *
+	 * @param string $doc_path Path to the document file.
+	 * @return string|false XML content or false on failure.
+	 */
+	protected function extract_relationships_xml( $doc_path ) {
+		$ext      = strtolower( pathinfo( $doc_path, PATHINFO_EXTENSION ) );
+		$xml_file = 'docx' === $ext ? 'word/_rels/document.xml.rels' : 'META-INF/manifest.xml';
+
+		return $this->extract_document_xml( $doc_path, $xml_file );
+	}
+
+	/**
 	 * Assert that a document contains expected text.
 	 *
 	 * @param string $doc_path Path to the document file.

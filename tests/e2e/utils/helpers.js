@@ -1,10 +1,17 @@
 /**
  * Shared test utilities for Documentate E2E tests.
+ *
+ * NOTE: These helpers are kept for backward compatibility.
+ * New tests should use the Page Object Model fixtures from '../fixtures'.
+ *
+ * @see ../fixtures/index.js
+ * @see ../page-objects/
  */
 
 /**
  * Create a new document with optional document type.
  *
+ * @deprecated Use DocumentEditorPage from fixtures instead.
  * @param {Object} admin - Playwright admin helper
  * @param {Object} page  - Playwright page object
  * @param {Object} options - Options
@@ -53,6 +60,7 @@ async function createDocument( admin, page, { title, docType } = {} ) {
 /**
  * Select a document type from the taxonomy meta box.
  *
+ * @deprecated Use DocumentEditorPage.selectDocType() instead.
  * @param {Object} page     - Playwright page object
  * @param {string} typeName - Document type name or slug
  */
@@ -76,14 +84,22 @@ async function selectDocumentType( page, typeName ) {
 /**
  * Save the current document.
  *
+ * @deprecated Use DocumentEditorPage.saveDraft() or .publish() instead.
  * @param {Object} page   - Playwright page object
  * @param {string} [status] - 'draft' or 'publish'
  */
 async function saveDocument( page, status = 'draft' ) {
 	if ( status === 'publish' ) {
-		await page.locator( '#publish' ).click();
+		// Use accessible selector first, fall back to ID
+		const publishBtn = page.getByRole( 'button', { name: /publish|update/i } ).or(
+			page.locator( '#publish' )
+		);
+		await publishBtn.click();
 	} else {
-		await page.locator( '#save-post' ).click();
+		const draftBtn = page.getByRole( 'button', { name: /save draft/i } ).or(
+			page.locator( '#save-post' )
+		);
+		await draftBtn.click();
 	}
 
 	// Wait for save to complete
@@ -95,6 +111,7 @@ async function saveDocument( page, status = 'draft' ) {
 /**
  * Fill a simple text field by its slug.
  *
+ * @deprecated Use DocumentEditorPage.fillField() instead.
  * @param {Object} page      - Playwright page object
  * @param {string} fieldSlug - Field slug (without documentate_field_ prefix)
  * @param {string} value     - Value to fill
@@ -109,6 +126,7 @@ async function fillTextField( page, fieldSlug, value ) {
 /**
  * Fill a textarea field by its slug.
  *
+ * @deprecated Use DocumentEditorPage.fillField() instead.
  * @param {Object} page      - Playwright page object
  * @param {string} fieldSlug - Field slug
  * @param {string} value     - Value to fill
@@ -147,6 +165,7 @@ async function fillRichField( page, fieldSlug, htmlContent ) {
 /**
  * Get the value of a field by its slug.
  *
+ * @deprecated Use DocumentEditorPage.getFieldValue() instead.
  * @param {Object} page      - Playwright page object
  * @param {string} fieldSlug - Field slug
  * @return {Promise<string>} Field value
@@ -161,6 +180,7 @@ async function getFieldValue( page, fieldSlug ) {
 /**
  * Fill metadata fields in the document metadata meta box.
  *
+ * @deprecated Use DocumentEditorPage.fillMetadata() instead.
  * @param {Object} page     - Playwright page object
  * @param {Object} metadata - Metadata values
  * @param {string} [metadata.author] - Author name
@@ -178,12 +198,13 @@ async function fillMetadata( page, { author, keywords } = {} ) {
 /**
  * Open the export modal.
  *
+ * @deprecated Use DocumentEditorPage.openExportModal() instead.
  * @param {Object} page - Playwright page object
  */
 async function openExportModal( page ) {
-	// Click the export button to open modal
-	const exportButton = page.locator(
-		'#documentate-export-button, .documentate-export-button, [data-action="documentate-export"]'
+	// Use accessible selector first
+	const exportButton = page.getByRole( 'button', { name: /export/i } ).or(
+		page.locator( '#documentate-export-button, .documentate-export-button, [data-action="documentate-export"]' )
 	);
 	await exportButton.click();
 
@@ -197,6 +218,7 @@ async function openExportModal( page ) {
 /**
  * Close the export modal.
  *
+ * @deprecated Use DocumentEditorPage.closeExportModal() instead.
  * @param {Object} page - Playwright page object
  */
 async function closeExportModal( page ) {
@@ -210,6 +232,7 @@ async function closeExportModal( page ) {
 /**
  * Navigate to the Documentate settings page.
  *
+ * @deprecated Use SettingsPage.navigate() instead.
  * @param {Object} admin - Playwright admin helper
  */
 async function navigateToSettings( admin ) {
@@ -219,6 +242,7 @@ async function navigateToSettings( admin ) {
 /**
  * Navigate to the document types admin page.
  *
+ * @deprecated Use DocumentTypesPage.navigate() instead.
  * @param {Object} admin - Playwright admin helper
  */
 async function navigateToDocumentTypes( admin ) {
@@ -231,6 +255,7 @@ async function navigateToDocumentTypes( admin ) {
 /**
  * Navigate to the documents list.
  *
+ * @deprecated Use DocumentsListPage.navigate() instead.
  * @param {Object} admin - Playwright admin helper
  */
 async function navigateToDocumentsList( admin ) {
@@ -243,6 +268,7 @@ async function navigateToDocumentsList( admin ) {
 /**
  * Get the post ID from the current edit page URL.
  *
+ * @deprecated Use DocumentEditorPage.getPostId() instead.
  * @param {Object} page - Playwright page object
  * @return {Promise<number|null>} Post ID or null
  */
@@ -255,6 +281,7 @@ async function getPostIdFromUrl( page ) {
 /**
  * Delete a document by moving it to trash.
  *
+ * @deprecated Use DocumentEditorPage.trash() instead.
  * @param {Object} admin  - Playwright admin helper
  * @param {Object} page   - Playwright page object
  * @param {number} postId - Post ID to delete
@@ -265,8 +292,10 @@ async function trashDocument( admin, page, postId ) {
 		`post=${ postId }&action=edit`
 	);
 
-	// Click the "Move to Trash" link
-	const trashLink = page.locator( '#delete-action a, .submitdelete' );
+	// Use accessible selector
+	const trashLink = page.getByRole( 'link', { name: /move to trash/i } ).or(
+		page.locator( '#delete-action a, .submitdelete' )
+	);
 	await trashLink.click();
 
 	// Wait for redirect to list page
@@ -276,6 +305,7 @@ async function trashDocument( admin, page, postId ) {
 /**
  * Wait for the document to be saved (notices to appear).
  *
+ * @deprecated Use DocumentEditorPage.waitForSave() instead.
  * @param {Object} page - Playwright page object
  */
 async function waitForSave( page ) {
@@ -294,6 +324,7 @@ async function waitForSave( page ) {
 /**
  * Get the title field locator (handles both custom textarea and hidden input).
  *
+ * @deprecated Use DocumentEditorPage.titleField instead.
  * @param {Object} page - Playwright page object
  * @return {Object} Locator for the title field
  */
@@ -308,6 +339,7 @@ async function getTitleField( page ) {
 /**
  * Fill the document title (handles both custom textarea and hidden input).
  *
+ * @deprecated Use DocumentEditorPage.fillTitle() instead.
  * @param {Object} page  - Playwright page object
  * @param {string} title - Title to fill
  */
@@ -325,6 +357,7 @@ async function fillTitle( page, title ) {
 /**
  * Get the current title value.
  *
+ * @deprecated Use DocumentEditorPage.getTitle() instead.
  * @param {Object} page - Playwright page object
  * @return {Promise<string>} Title value
  */

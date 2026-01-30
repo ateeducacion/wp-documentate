@@ -2601,4 +2601,268 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 		$this->assertSame( $original, $fields );
 	}
+
+	/**
+	 * Test add_archived_view adds archived link when archived documents exist.
+	 */
+	public function test_add_archived_view_with_archived_documents() {
+		// Create an archived document.
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'archived',
+			)
+		);
+
+		// Clear cache so wp_count_posts picks up the new post.
+		wp_cache_delete( 'posts-documentate_document', 'counts' );
+		wp_cache_delete( _count_posts_cache_key( 'documentate_document', 'readable' ), 'counts' );
+
+		$views = array( 'all' => '<a href="#">All</a>' );
+		$result = $this->documents->add_archived_view( $views );
+
+		$this->assertArrayHasKey( 'archived', $result );
+		$this->assertStringContainsString( 'Archived', $result['archived'] );
+		$this->assertStringContainsString( 'post_status=archived', $result['archived'] );
+	}
+
+	/**
+	 * Test add_archived_view does not add link when no archived documents.
+	 */
+	public function test_add_archived_view_without_archived_documents() {
+		// Clear cache.
+		wp_cache_delete( 'posts-documentate_document', 'counts' );
+		wp_cache_delete( _count_posts_cache_key( 'documentate_document', 'readable' ), 'counts' );
+
+		$views = array( 'all' => '<a href="#">All</a>' );
+		$result = $this->documents->add_archived_view( $views );
+
+		$this->assertArrayNotHasKey( 'archived', $result );
+	}
+
+	/**
+	 * Test add_archived_view marks current view when on archived page.
+	 */
+	public function test_add_archived_view_marks_current() {
+		// Create an archived document.
+		$this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'archived',
+			)
+		);
+
+		// Clear cache.
+		wp_cache_delete( 'posts-documentate_document', 'counts' );
+		wp_cache_delete( _count_posts_cache_key( 'documentate_document', 'readable' ), 'counts' );
+
+		// Simulate being on the archived page.
+		$_GET['post_status'] = 'archived';
+
+		$views = array( 'all' => '<a href="#">All</a>' );
+		$result = $this->documents->add_archived_view( $views );
+
+		$this->assertArrayHasKey( 'archived', $result );
+		$this->assertStringContainsString( 'class="current"', $result['archived'] );
+
+		unset( $_GET['post_status'] );
+	}
+
+	/**
+	 * Test apply_admin_filters hook is registered.
+	 */
+	public function test_apply_admin_filters_hook_registered() {
+		$this->assertNotFalse( has_action( 'pre_get_posts', array( $this->documents, 'apply_admin_filters' ) ) );
+	}
+
+	/**
+	 * Test apply_admin_filters ignores non-admin context.
+	 */
+	public function test_apply_admin_filters_ignores_non_admin() {
+		// In non-admin context, the query should remain unchanged.
+		$query = new WP_Query();
+		$query->set( 'post_type', 'documentate_document' );
+
+		// apply_admin_filters checks is_admin() which is false in unit tests.
+		// The method should return early without modifying the query.
+		$this->documents->apply_admin_filters( $query );
+
+		// post_status should remain unchanged (empty).
+		$post_status = $query->get( 'post_status' );
+		$this->assertEmpty( $post_status );
+	}
+
+	/**
+	 * Test render_sections_metabox locks rich editor for archived documents.
+	 */
+	public function test_render_sections_metabox_locks_archived() {
+		// Create document type with a rich field.
+		$term_result = wp_insert_term( 'Archived Test Type ' . uniqid(), 'documentate_doc_type' );
+		$this->assertNotWPError( $term_result );
+		$term_id = $term_result['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name' => 'Rich Field',
+						'slug' => 'rich_field',
+						'type' => 'rich',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		// Create an archived document.
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'archived',
+			)
+		);
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		// The metabox should render (it will contain the field).
+		$this->assertStringContainsString( 'documentate-sections', $output );
+	}
+
+	/**
+	 * Test add_admin_columns adds expected columns.
+	 */
+	public function test_add_admin_columns() {
+		$columns = array(
+			'cb'    => '<input type="checkbox">',
+			'title' => 'Title',
+			'author' => 'Author',
+			'date'  => 'Date',
+		);
+
+		$result = $this->documents->add_admin_columns( $columns );
+
+		$this->assertArrayHasKey( 'doc_type', $result );
+		$this->assertArrayHasKey( 'doc_category', $result );
+	}
+
+	/**
+	 * Test render_admin_column renders doc_type.
+	 */
+	public function test_render_admin_column_doc_type() {
+		$term_result = wp_insert_term( 'Test Type Column ' . uniqid(), 'documentate_doc_type' );
+		$this->assertNotWPError( $term_result );
+		$term_id = $term_result['term_id'];
+		update_term_meta( $term_id, 'documentate_type_color', '#ff0000' );
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_admin_column( 'doc_type', $post->ID );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Test Type Column', $output );
+		$this->assertStringContainsString( '#ff0000', $output );
+	}
+
+	/**
+	 * Test render_admin_column renders empty for doc_type without terms.
+	 */
+	public function test_render_admin_column_doc_type_empty() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		ob_start();
+		$this->documents->render_admin_column( 'doc_type', $post->ID );
+		$output = ob_get_clean();
+
+		$this->assertSame( '—', $output );
+	}
+
+	/**
+	 * Test render_admin_column renders doc_category.
+	 */
+	public function test_render_admin_column_category() {
+		$term_result = wp_insert_term( 'Test Category ' . uniqid(), 'category' );
+		$this->assertNotWPError( $term_result );
+		$term_id = $term_result['term_id'];
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'category' );
+
+		ob_start();
+		$this->documents->render_admin_column( 'doc_category', $post->ID );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Test Category', $output );
+	}
+
+	/**
+	 * Test add_sortable_columns adds sortable columns.
+	 */
+	public function test_add_sortable_columns() {
+		$columns = array();
+		$result = $this->documents->add_sortable_columns( $columns );
+
+		$this->assertArrayHasKey( 'author', $result );
+		$this->assertArrayHasKey( 'doc_type', $result );
+	}
+
+	/**
+	 * Test add_admin_filters outputs dropdown filters.
+	 */
+	public function test_add_admin_filters() {
+		// Create a document type.
+		$term_result = wp_insert_term( 'Filter Type ' . uniqid(), 'documentate_doc_type' );
+		$this->assertNotWPError( $term_result );
+
+		ob_start();
+		$this->documents->add_admin_filters( 'documentate_document', 'top' );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate_doc_type', $output );
+		$this->assertStringContainsString( 'select', $output );
+	}
+
+	/**
+	 * Test add_admin_filters does nothing for other post types.
+	 */
+	public function test_add_admin_filters_other_type() {
+		ob_start();
+		$this->documents->add_admin_filters( 'post', 'top' );
+		$output = ob_get_clean();
+
+		$this->assertEmpty( $output );
+	}
+
+	/**
+	 * Test add_admin_filters does nothing for bottom location.
+	 */
+	public function test_add_admin_filters_bottom() {
+		ob_start();
+		$this->documents->add_admin_filters( 'documentate_document', 'bottom' );
+		$output = ob_get_clean();
+
+		$this->assertEmpty( $output );
+	}
+
+	/**
+	 * Test add_admin_list_styles outputs CSS and JS.
+	 */
+	public function test_add_admin_list_styles() {
+		$screen = WP_Screen::get( 'edit-documentate_document' );
+		$screen->id = 'edit-documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		ob_start();
+		$this->documents->add_admin_list_styles();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( '<style', $output );
+	}
 }

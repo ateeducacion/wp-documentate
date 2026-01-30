@@ -1,67 +1,63 @@
 /**
  * Document Revisions E2E Tests for Documentate plugin.
  *
- * Tests the document revision system.
+ * Uses Page Object Model, REST API setup, and accessible selectors
+ * following WordPress/Gutenberg E2E best practices.
  */
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const {
-	createDocument,
-	getPostIdFromUrl,
-	waitForSave,
-	fillTitle,
-} = require( '../utils/helpers' );
+const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Revisions', () => {
 	test( 'creating and editing document creates revisions', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
 		// Create a document
-		await createDocument( admin, page, { title: 'Revision Test Document' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Revision Test Document' );
 
 		// Publish it
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.publish();
 
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 
 		// Edit the title to create a revision
-		await fillTitle( page, 'Revision Test Document - Updated' );
+		await documentEditor.fillTitle( 'Revision Test Document - Updated' );
 
 		// Update
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.publish();
 
 		// Check for revisions link
-		const revisionsLink = page.locator(
-			'#revisions-meta-box a, .misc-pub-revisions a, a[href*="revision.php"]'
+		const revisionsLink = page.getByRole( 'link', { name: /revisions/i } ).or(
+			page.locator( 'a[href*="revision.php"]' )
 		);
 
 		// If revisions are enabled, the link should exist
-		if ( ( await revisionsLink.count() ) > 0 ) {
+		if ( await revisionsLink.count() > 0 ) {
 			await expect( revisionsLink.first() ).toBeVisible();
 		}
 	} );
 
-	test( 'can view revision history', async ( { admin, page } ) => {
+	test( 'can view revision history', async ( {
+		documentEditor,
+		page,
+	} ) => {
 		// Create and edit document to ensure revisions exist
-		await createDocument( admin, page, { title: 'View Revisions Test' } );
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'View Revisions Test' );
+		await documentEditor.publish();
 
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 
 		// Make an edit
-		await fillTitle( page, 'View Revisions Test - Edit 1' );
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.fillTitle( 'View Revisions Test - Edit 1' );
+		await documentEditor.publish();
 
 		// Look for revisions link
-		const revisionsLink = page.locator(
-			'a[href*="revision.php"], .misc-pub-revisions a'
+		const revisionsLink = page.getByRole( 'link', { name: /revisions/i } ).or(
+			page.locator( 'a[href*="revision.php"]' )
 		).first();
 
-		if ( ( await revisionsLink.count() ) === 0 ) {
+		if ( await revisionsLink.count() === 0 ) {
 			test.skip();
 			return;
 		}
@@ -74,66 +70,60 @@ test.describe( 'Document Revisions', () => {
 	} );
 
 	test( 'revisions page shows comparison slider', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
 		// Create document with multiple revisions
-		await createDocument( admin, page, { title: 'Compare Revisions Test' } );
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
-
-		const postId = await getPostIdFromUrl( page );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Compare Revisions Test' );
+		await documentEditor.publish();
 
 		// Make multiple edits
 		for ( let i = 1; i <= 2; i++ ) {
-			await fillTitle( page, `Compare Revisions Test - Edit ${ i }` );
-			await page.locator( '#publish' ).click();
-			await waitForSave( page );
+			await documentEditor.fillTitle( `Compare Revisions Test - Edit ${ i }` );
+			await documentEditor.publish();
 		}
 
 		// Navigate to revisions
-		const revisionsLink = page.locator(
-			'a[href*="revision.php"], .misc-pub-revisions a'
+		const revisionsLink = page.getByRole( 'link', { name: /revisions/i } ).or(
+			page.locator( 'a[href*="revision.php"]' )
 		).first();
 
-		if ( ( await revisionsLink.count() ) === 0 ) {
+		if ( await revisionsLink.count() === 0 ) {
 			test.skip();
 			return;
 		}
 
 		await revisionsLink.click();
 
-		// Look for revision slider/controls
-		const revisionControls = page.locator(
-			'.revisions-controls, #revisions-controls, .wp-slider, input[type="range"]'
-		);
-
 		// Revision UI elements should be visible
 		await expect( page.locator( '.revisions, #revisions' ).first() ).toBeVisible();
 	} );
 
-	test( 'can restore from revision', async ( { admin, page } ) => {
+	test( 'can restore from revision', async ( {
+		documentEditor,
+		page,
+	} ) => {
 		const originalTitle = 'Restore Revision Test - Original';
 		const updatedTitle = 'Restore Revision Test - Updated';
 
 		// Create document
-		await createDocument( admin, page, { title: originalTitle } );
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( originalTitle );
+		await documentEditor.publish();
 
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 
 		// Update the title
-		await fillTitle( page, updatedTitle );
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.fillTitle( updatedTitle );
+		await documentEditor.publish();
 
 		// Navigate to revisions
-		const revisionsLink = page.locator(
-			'a[href*="revision.php"], .misc-pub-revisions a'
+		const revisionsLink = page.getByRole( 'link', { name: /revisions/i } ).or(
+			page.locator( 'a[href*="revision.php"]' )
 		).first();
 
-		if ( ( await revisionsLink.count() ) === 0 ) {
+		if ( await revisionsLink.count() === 0 ) {
 			test.skip();
 			return;
 		}
@@ -144,11 +134,11 @@ test.describe( 'Document Revisions', () => {
 		await page.waitForSelector( '.revisions, #revisions', { timeout: 5000 } );
 
 		// Look for restore button
-		const restoreButton = page.locator(
-			'input[value*="Restore"], button:has-text("Restore"), a:has-text("Restore"), input[value*="Restaurar"], button:has-text("Restaurar")'
+		const restoreButton = page.getByRole( 'button', { name: /restore/i } ).or(
+			page.locator( 'input[value*="Restore"], input[value*="Restaurar"]' )
 		).first();
 
-		if ( ( await restoreButton.count() ) > 0 && ( await restoreButton.isVisible() ) ) {
+		if ( await restoreButton.count() > 0 && await restoreButton.isVisible() ) {
 			await restoreButton.click();
 
 			// Should redirect back to edit page

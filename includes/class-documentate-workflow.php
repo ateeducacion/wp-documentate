@@ -52,16 +52,28 @@ class Documentate_Workflow {
 	 */
 	private static function get_notice_config() {
 		return array(
-			'no_classification' => array(
+			'no_classification'        => array(
 				'message' => __( 'Document saved as draft. You must select a document type before publishing.', 'documentate' ),
 				'type'    => 'warning',
 			),
-			'editor_no_publish' => array(
+			'editor_no_publish'        => array(
 				'message' => __( 'Document set to pending review. Only administrators can publish documents.', 'documentate' ),
 				'type'    => 'info',
 			),
-			'published_locked'  => array(
+			'published_locked'         => array(
 				'message' => __( 'Published documents can only be modified by administrators.', 'documentate' ),
+				'type'    => 'error',
+			),
+			'archive_requires_publish' => array(
+				'message' => __( 'Only published documents can be archived.', 'documentate' ),
+				'type'    => 'error',
+			),
+			'archive_admin_only'       => array(
+				'message' => __( 'Only administrators can archive documents.', 'documentate' ),
+				'type'    => 'error',
+			),
+			'archived_locked'          => array(
+				'message' => __( 'Archived documents can only be modified by administrators.', 'documentate' ),
 				'type'    => 'error',
 			),
 		);
@@ -85,6 +97,9 @@ class Documentate_Workflow {
 	 * Register all hooks for workflow management.
 	 */
 	private function init_hooks() {
+		// Register custom post status.
+		add_action( 'init', array( $this, 'register_archived_status' ), 5 );
+
 		// Status control before saving.
 		add_filter( 'wp_insert_post_data', array( $this, 'control_post_status' ), 10, 2 );
 
@@ -108,6 +123,28 @@ class Documentate_Workflow {
 
 		// Prevent editors from setting publish status via quick edit.
 		add_filter( 'wp_insert_post_empty_content', array( $this, 'check_publish_capability' ), 10, 2 );
+	}
+
+	/**
+	 * Register the 'archived' custom post status.
+	 */
+	public function register_archived_status() {
+		register_post_status(
+			'archived',
+			array(
+				'label'                     => _x( 'Archived', 'post status', 'documentate' ),
+				'public'                    => false,
+				'exclude_from_search'       => true,
+				'show_in_admin_all_list'    => false,
+				'show_in_admin_status_list' => true,
+				/* translators: %s: Number of archived documents */
+				'label_count'               => _n_noop(
+					'Archived <span class="count">(%s)</span>',
+					'Archived <span class="count">(%s)</span>',
+					'documentate'
+				),
+			)
+		);
 	}
 
 	/**
@@ -171,6 +208,44 @@ class Documentate_Workflow {
 					// Non-admins cannot modify published posts.
 					$data['post_status']         = 'publish';
 					$this->status_change_reason = 'published_locked';
+				}
+			}
+		}
+
+		// Rule 4: Archive transitions (admin only, from publish only).
+		if ( 'archived' === $requested_status ) {
+			if ( ! $is_admin ) {
+				// Non-admins cannot archive.
+				$data['post_status']        = $post_id > 0 ? get_post_field( 'post_status', $post_id ) : 'draft';
+				$this->status_change_reason = 'archive_admin_only';
+				return $data;
+			}
+
+			if ( $post_id > 0 ) {
+				$current_post = get_post( $post_id );
+				if ( $current_post && 'publish' !== $current_post->post_status ) {
+					// Can only archive from publish.
+					$data['post_status']        = $current_post->post_status;
+					$this->status_change_reason = 'archive_requires_publish';
+					return $data;
+				}
+			}
+		}
+
+		// Rule 5: Archived documents are locked (similar to published).
+		if ( $post_id > 0 ) {
+			$current_post = get_post( $post_id );
+			if ( $current_post && 'archived' === $current_post->post_status ) {
+				if ( ! $is_admin ) {
+					// Non-admins cannot modify archived posts.
+					$data['post_status']        = 'archived';
+					$this->status_change_reason = 'archived_locked';
+					return $data;
+				}
+
+				// Admins can only unarchive to publish.
+				if ( 'archived' !== $requested_status && 'publish' !== $requested_status ) {
+					$data['post_status'] = 'publish';
 				}
 			}
 		}
@@ -309,6 +384,8 @@ class Documentate_Workflow {
 		$is_admin         = current_user_can( 'manage_options' );
 		$has_doc_type     = $this->post_has_doc_type( $post_id );
 
+		$is_locked_status = in_array( $post_status, array( 'publish', 'archived' ), true );
+
 		wp_localize_script(
 			'documentate-workflow',
 			'documentateWorkflow',
@@ -318,11 +395,14 @@ class Documentate_Workflow {
 				'isAdmin'      => $is_admin,
 				'hasDocType'   => $has_doc_type,
 				'isPublished'  => 'publish' === $post_status,
-				'isLocked'     => 'publish' === $post_status && ! $is_admin,
+				'isArchived'   => 'archived' === $post_status,
+				'isLocked'     => $is_locked_status && ! $is_admin,
 				'strings'      => array(
 					'lockedTitle'       => __( 'Document Locked', 'documentate' ),
 					'lockedMessage'     => __( 'This document is published and read-only. Only an administrator can unlock it by reverting to draft.', 'documentate' ),
+					'archivedMessage'   => __( 'This document is archived and read-only. Only an administrator can unarchive it.', 'documentate' ),
 					'adminUnlock'       => __( 'Change status to Draft to enable editing.', 'documentate' ),
+					'adminUnarchive'    => __( 'Unarchive to enable editing.', 'documentate' ),
 					'needsDocType'      => __( 'Select a document type before publishing.', 'documentate' ),
 					'editorRestriction' => __( 'Editors can only save as Draft or Pending Review.', 'documentate' ),
 				),
@@ -436,6 +516,7 @@ class Documentate_Workflow {
 			'draft'      => __( 'Draft', 'documentate' ),
 			'pending'    => __( 'Pending Review', 'documentate' ),
 			'publish'    => __( 'Published', 'documentate' ),
+			'archived'   => __( 'Archived', 'documentate' ),
 		);
 
 		$status_icons = array(
@@ -443,6 +524,7 @@ class Documentate_Workflow {
 			'draft'      => 'dashicons-media-text',
 			'pending'    => 'dashicons-clock',
 			'publish'    => 'dashicons-yes-alt',
+			'archived'   => 'dashicons-archive',
 		);
 
 		$status_label = isset( $status_labels[ $status ] ) ? $status_labels[ $status ] : $status;
@@ -472,11 +554,40 @@ class Documentate_Workflow {
 				</p>
 			<?php endif; ?>
 
+			<?php if ( 'archived' === $status ) : ?>
+				<p class="workflow-info workflow-archived">
+					<span class="dashicons dashicons-archive"></span>
+					<?php if ( $is_admin ) : ?>
+						<?php esc_html_e( 'Document is archived and read-only. Unarchive to enable editing.', 'documentate' ); ?>
+					<?php else : ?>
+						<?php esc_html_e( 'Document is archived. Contact an administrator to unarchive.', 'documentate' ); ?>
+					<?php endif; ?>
+				</p>
+			<?php endif; ?>
+
 			<?php if ( ! $is_admin && in_array( $status, array( 'draft', 'auto-draft' ), true ) ) : ?>
 				<p class="workflow-info">
 					<span class="dashicons dashicons-info-outline"></span>
 					<?php esc_html_e( 'Submit for Pending Review when ready. An administrator will publish.', 'documentate' ); ?>
 				</p>
+			<?php endif; ?>
+
+			<?php if ( $is_admin ) : ?>
+				<?php if ( 'publish' === $status ) : ?>
+					<p class="workflow-action">
+						<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'archive' ) ); ?>" class="button button-secondary">
+							<span class="dashicons dashicons-archive"></span>
+							<?php esc_html_e( 'Archive Document', 'documentate' ); ?>
+						</a>
+					</p>
+				<?php elseif ( 'archived' === $status ) : ?>
+					<p class="workflow-action">
+						<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'unarchive' ) ); ?>" class="button button-secondary">
+							<span class="dashicons dashicons-upload"></span>
+							<?php esc_html_e( 'Unarchive Document', 'documentate' ); ?>
+						</a>
+					</p>
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<div class="workflow-legend">
@@ -485,10 +596,31 @@ class Documentate_Workflow {
 					<li><?php esc_html_e( 'Draft - Work in progress', 'documentate' ); ?></li>
 					<li><?php esc_html_e( 'Pending - Ready for review', 'documentate' ); ?></li>
 					<li><?php esc_html_e( 'Published - Final (locked)', 'documentate' ); ?></li>
+					<li><?php esc_html_e( 'Archived - Historical record', 'documentate' ); ?></li>
 				</ol>
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Get the URL for archive/unarchive actions.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $action  Action type: 'archive' or 'unarchive'.
+	 * @return string URL with nonce.
+	 */
+	private function get_archive_action_url( $post_id, $action ) {
+		return wp_nonce_url(
+			add_query_arg(
+				array(
+					'action'  => 'documentate_' . $action,
+					'post_id' => $post_id,
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'documentate_' . $action . '_' . $post_id
+		);
 	}
 
 	/**
