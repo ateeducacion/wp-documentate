@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Documentate is a WordPress plugin for generating official resolutions with structured sections and export to DOCX. It uses a custom post type (`documentate_document`) with a document type taxonomy (`documentate_doc_type`) that defines template fields extracted from ODT/DOCX templates.
 
+### General Rules
+- Early development, no users. No backwards compatibility concerns. Do things RIGHT: clean, organized, zero tech debt. Never create compatibility shims.
+- WE NEVER WANT WORKAROUNDS, we always want FULL implementations that are long term sustainable for many >1000 users. so dont come up with half baked solutions
+- Important: Do not remove, hide, or rename any existing features or UI options (even temporarily) unless I explicitly ask for it. If something isn't fully wired yet, keep the UX surface intact and stub/annotate it instead of deleting it.
+
+
 ## Development Commands
 
 ### Environment Setup

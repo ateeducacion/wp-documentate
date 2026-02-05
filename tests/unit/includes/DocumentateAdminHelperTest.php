@@ -1952,4 +1952,71 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		// After calling, should be true.
 		$this->assertTrue( $prop->getValue( $this->helper ) );
 	}
+
+	/**
+	 * Test add_archive_row_actions ignores other post types.
+	 */
+	public function test_add_archive_row_actions_ignores_other_types() {
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'post',
+				'post_status' => 'publish',
+			)
+		);
+
+		$actions = array( 'edit' => 'Edit' );
+		$result = $this->helper->add_archive_row_actions( $actions, $post );
+
+		// Should not add archive action for non-document post types.
+		$this->assertArrayNotHasKey( 'documentate_archive', $result );
+	}
+
+	/**
+	 * Test add_archive_row_actions returns actions unchanged for draft.
+	 */
+	public function test_add_archive_row_actions_draft() {
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		$actions = array( 'edit' => 'Edit' );
+		$result = $this->helper->add_archive_row_actions( $actions, $post );
+
+		// Draft documents should not have archive/unarchive actions.
+		$this->assertArrayNotHasKey( 'documentate_archive', $result );
+		$this->assertArrayNotHasKey( 'documentate_unarchive', $result );
+	}
+
+	/**
+	 * Test constructor registers archive hooks.
+	 */
+	public function test_constructor_registers_archive_hooks() {
+		$this->assertSame( 15, has_filter( 'post_row_actions', array( $this->helper, 'add_archive_row_actions' ) ) );
+		$this->assertSame( 10, has_action( 'admin_post_documentate_archive', array( $this->helper, 'handle_archive_action' ) ) );
+		$this->assertSame( 10, has_action( 'admin_post_documentate_unarchive', array( $this->helper, 'handle_unarchive_action' ) ) );
+	}
+
+	/**
+	 * Test render_actions_metabox for archived post still shows download buttons.
+	 */
+	public function test_render_actions_metabox_archived_post() {
+		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'archived',
+			)
+		);
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		// Download actions should still be available for archived documents.
+		$this->assertStringContainsString( 'DOCX', $output );
+	}
 }

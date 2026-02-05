@@ -31,7 +31,7 @@ class Document_Meta {
 		}
 
 		return array(
-			'title'    => get_the_title( $post_id ),
+			'title'    => get_post_field( 'post_title', $post_id, 'raw' ),
 			'subject'  => (string) get_post_meta( $post_id, Document_Meta_Box::META_KEY_SUBJECT, true ),
 			'author'   => (string) get_post_meta( $post_id, Document_Meta_Box::META_KEY_AUTHOR, true ),
 			'keywords' => (string) get_post_meta( $post_id, Document_Meta_Box::META_KEY_KEYWORDS, true ),
