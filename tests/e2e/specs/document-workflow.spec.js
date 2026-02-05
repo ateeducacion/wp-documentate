@@ -1,45 +1,40 @@
 /**
  * Document Workflow E2E Tests for Documentate plugin.
  *
+ * Uses Page Object Model, REST API setup, and accessible selectors
+ * following WordPress/Gutenberg E2E best practices.
+ *
  * Tests the workflow restrictions:
  * - Save as draft works without doc_type
  * - Documents without doc_type cannot be published
  * - Published documents are locked (read-only)
  * - Admin can revert published to draft
  */
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const {
-	createDocument,
-	saveDocument,
-	getPostIdFromUrl,
-} = require( '../utils/helpers' );
+const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Workflow States', () => {
 	test( 'can save document as draft without doc_type', async ( {
-		admin,
-		page,
+		documentEditor,
 	} ) => {
-		await createDocument( admin, page, { title: 'Draft Document' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Draft Document' );
 
 		// Save as draft
-		await saveDocument( page, 'draft' );
+		await documentEditor.saveDraft();
 
 		// Verify success message
-		await expect(
-			page.locator( '#message, .notice-success' )
-		).toBeVisible();
+		await expect( documentEditor.successNotice ).toBeVisible();
 	} );
 
 	test( 'document without doc_type shows warning when publishing', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
-		await createDocument( admin, page, {
-			title: 'Publish Attempt Without Type',
-		} );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Publish Attempt Without Type' );
 
 		// Try to publish
-		await page.locator( '#publish' ).click();
+		await documentEditor.publish();
 
 		// Wait for the specific doctype warning notice to appear
 		const warningNotice = page.locator( '.notice-warning.documentate-doctype-warning' );
@@ -47,8 +42,12 @@ test.describe( 'Document Workflow States', () => {
 		await expect( warningNotice ).toBeVisible( { timeout: 10000 } );
 	} );
 
-	test( 'schedule publication UI is hidden', async ( { admin, page } ) => {
-		await createDocument( admin, page, { title: 'Check Schedule Hidden' } );
+	test( 'schedule publication UI is hidden', async ( {
+		documentEditor,
+		page,
+	} ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Check Schedule Hidden' );
 
 		// Wait for page to fully load
 		await page.waitForLoadState( 'networkidle' );
@@ -59,10 +58,12 @@ test.describe( 'Document Workflow States', () => {
 		expect( isHidden ).toBeTruthy();
 	} );
 
-	test( 'private visibility option is hidden', async ( { admin, page } ) => {
-		await createDocument( admin, page, {
-			title: 'Check Private Hidden',
-		} );
+	test( 'private visibility option is hidden', async ( {
+		documentEditor,
+		page,
+	} ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Check Private Hidden' );
 
 		// Wait for page to fully load
 		await page.waitForLoadState( 'networkidle' );
@@ -73,9 +74,13 @@ test.describe( 'Document Workflow States', () => {
 		expect( isHidden ).toBeTruthy();
 	} );
 
-	test( 'workflow status metabox is displayed', async ( { admin, page } ) => {
-		await createDocument( admin, page, { title: 'Check Workflow Metabox' } );
-		await saveDocument( page, 'draft' );
+	test( 'workflow status metabox is displayed', async ( {
+		documentEditor,
+		page,
+	} ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Check Workflow Metabox' );
+		await documentEditor.saveDraft();
 
 		// The workflow status metabox should be visible
 		const workflowMetabox = page.locator( '#documentate_workflow_status' );
@@ -85,42 +90,35 @@ test.describe( 'Document Workflow States', () => {
 
 test.describe( 'Document Published State', () => {
 	test( 'published document has workflow assets loaded', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
 		// Create a document with doc_type and publish it
-		await createDocument( admin, page, { title: 'Published Lock Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Published Lock Test' );
 
-		// Select first document type if available
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		if ( ( await typeOptions.count() ) === 0 ) {
-			test.skip( true, 'No document types available' );
+		// Skip if no document types available
+		if ( ! await documentEditor.hasDocTypes() ) {
+			test.skip( 'No document types available' );
 			return;
 		}
 
-		await typeOptions.first().check();
+		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
-		await saveDocument( page, 'draft' );
+		await documentEditor.saveDraft();
 
 		// Now publish
-		await page.locator( '#publish' ).click();
-		await page.waitForSelector( '#message, .notice-success', {
-			timeout: 10000,
-		} );
+		await documentEditor.publish();
 
 		// Get post ID and reload
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 		if ( ! postId ) {
-			test.skip( true, 'Could not get post ID' );
+			test.skip( 'Could not get post ID' );
 			return;
 		}
 
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-		await page.waitForLoadState( 'networkidle' );
+		await documentEditor.navigateToEdit( postId );
 
 		// Check that the workflow script is loaded
 		const workflowScriptLoaded = await page.evaluate( () => {
@@ -131,99 +129,83 @@ test.describe( 'Document Published State', () => {
 	} );
 
 	test( 'published document has locked class on body', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
 		// Create a document with doc_type and publish it
-		await createDocument( admin, page, { title: 'Body Class Lock Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Body Class Lock Test' );
 
-		// Select first document type if available
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		if ( ( await typeOptions.count() ) === 0 ) {
-			test.skip( true, 'No document types available' );
+		// Skip if no document types available
+		if ( ! await documentEditor.hasDocTypes() ) {
+			test.skip( 'No document types available' );
 			return;
 		}
 
-		await typeOptions.first().check();
+		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
-		await saveDocument( page, 'draft' );
+		await documentEditor.saveDraft();
 
 		// Now publish
-		await page.locator( '#publish' ).click();
-		await page.waitForSelector( '#message, .notice-success', {
-			timeout: 10000,
-		} );
+		await documentEditor.publish();
 
 		// Get post ID and reload
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 		if ( ! postId ) {
-			test.skip( true, 'Could not get post ID' );
+			test.skip( 'Could not get post ID' );
 			return;
 		}
 
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-		await page.waitForLoadState( 'networkidle' );
+		await documentEditor.navigateToEdit( postId );
 
 		// Wait a bit for JS to execute
 		await page.waitForTimeout( 500 );
 
 		// Check that body has locked class
 		const hasLockedClass = await page.evaluate( () => {
-			return document.body.classList.contains(
-				'documentate-document-locked'
-			);
+			return document.body.classList.contains( 'documentate-document-locked' );
 		} );
 
 		expect( hasLockedClass ).toBeTruthy();
 	} );
 
 	test( 'published document has disabled form fields', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
 		// Create a document with doc_type and publish it
-		await createDocument( admin, page, { title: 'Disabled Fields Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Disabled Fields Test' );
 
-		// Select first document type if available
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		if ( ( await typeOptions.count() ) === 0 ) {
-			test.skip( true, 'No document types available' );
+		// Skip if no document types available
+		if ( ! await documentEditor.hasDocTypes() ) {
+			test.skip( 'No document types available' );
 			return;
 		}
 
-		await typeOptions.first().check();
+		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
-		await saveDocument( page, 'draft' );
+		await documentEditor.saveDraft();
 
 		// Now publish
-		await page.locator( '#publish' ).click();
-		await page.waitForSelector( '#message, .notice-success', {
-			timeout: 10000,
-		} );
+		await documentEditor.publish();
 
 		// Get post ID and reload
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 		if ( ! postId ) {
-			test.skip( true, 'Could not get post ID' );
+			test.skip( 'Could not get post ID' );
 			return;
 		}
 
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-		await page.waitForLoadState( 'networkidle' );
+		await documentEditor.navigateToEdit( postId );
 
 		// Wait a bit for JS to execute
 		await page.waitForTimeout( 500 );
 
 		// Check that title field is disabled
-		const titleInput = page.locator( '#title' );
+		const titleInput = documentEditor.titleInput;
 		if ( await titleInput.isVisible().catch( () => false ) ) {
 			const isDisabled = await titleInput.isDisabled();
 			expect( isDisabled ).toBeTruthy();
@@ -231,42 +213,35 @@ test.describe( 'Document Published State', () => {
 	} );
 
 	test( 'admin can revert published document to draft', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
 		// Create a document with doc_type and publish it
-		await createDocument( admin, page, { title: 'Revert to Draft Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Revert to Draft Test' );
 
-		// Select first document type if available
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		if ( ( await typeOptions.count() ) === 0 ) {
-			test.skip( true, 'No document types available' );
+		// Skip if no document types available
+		if ( ! await documentEditor.hasDocTypes() ) {
+			test.skip( 'No document types available' );
 			return;
 		}
 
-		await typeOptions.first().check();
+		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
-		await saveDocument( page, 'draft' );
+		await documentEditor.saveDraft();
 
 		// Now publish
-		await page.locator( '#publish' ).click();
-		await page.waitForSelector( '#message, .notice-success', {
-			timeout: 10000,
-		} );
+		await documentEditor.publish();
 
 		// Get post ID and reload
-		const postId = await getPostIdFromUrl( page );
+		const postId = await documentEditor.getPostId();
 		if ( ! postId ) {
-			test.skip( true, 'Could not get post ID' );
+			test.skip( 'Could not get post ID' );
 			return;
 		}
 
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-		await page.waitForLoadState( 'networkidle' );
+		await documentEditor.navigateToEdit( postId );
 
 		// Click Edit status link
 		const editStatusLink = page.locator( '.edit-post-status' );
@@ -283,17 +258,10 @@ test.describe( 'Document Published State', () => {
 			}
 
 			// Update the post
-			await page.locator( '#publish' ).click();
-			await page.waitForSelector( '#message, .notice-success', {
-				timeout: 10000,
-			} );
+			await documentEditor.publish();
 
 			// Reload and verify status is draft
-			await admin.visitAdminPage(
-				'post.php',
-				`post=${ postId }&action=edit`
-			);
-			await page.waitForLoadState( 'networkidle' );
+			await documentEditor.navigateToEdit( postId );
 
 			const postStatus = page.locator( '#post_status' );
 			const status = await postStatus.inputValue().catch( () => '' );

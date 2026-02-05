@@ -1,46 +1,37 @@
 /**
  * WASM Conversion E2E Tests for Documentate plugin.
  *
+ * Uses Page Object Model, REST API setup, and accessible selectors
+ * following WordPress/Gutenberg E2E best practices.
+ *
  * Tests the ZetaJS WASM-based document conversion functionality.
  * This includes the loading modal, popup converter, and BroadcastChannel communication.
  *
  * Note: Full WASM conversion tests are slow (requires ~50MB download) and may be skipped
  * in CI environments. Set DOCUMENTATE_TEST_WASM=1 to run full conversion tests.
  */
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const {
-	createDocument,
-	getPostIdFromUrl,
-} = require( '../utils/helpers' );
+const { test, expect } = require( '../fixtures' );
 
 // Extended timeout for WASM tests (2 minutes)
 const WASM_TIMEOUT = 120000;
 
 test.describe( 'WASM Conversion', () => {
-	let postId;
-
 	/**
 	 * Helper to create a document with a type (needed for export/preview).
 	 */
-	async function createDocumentWithType( admin, page, title ) {
-		await createDocument( admin, page, { title } );
+	async function createDocumentWithType( documentEditor ) {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'WASM Test Document' );
 
 		// Select a document type if available
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		if ( ( await typeOptions.count() ) > 0 ) {
-			await typeOptions.first().check();
+		if ( await documentEditor.hasDocTypes() ) {
+			await documentEditor.selectFirstDocType();
 		}
 
 		// Publish the document
-		await page.locator( '#publish' ).click();
-		await page.waitForSelector( '#message, .notice-success', {
-			timeout: 10000,
-		} );
+		await documentEditor.publish();
 
-		return await getPostIdFromUrl( page );
+		return await documentEditor.getPostId();
 	}
 
 	/**
@@ -64,21 +55,15 @@ test.describe( 'WASM Conversion', () => {
 
 	test.describe( 'Loading Modal', () => {
 		test( 'shows loading modal when clicking action button', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Loading Modal Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
@@ -87,7 +72,7 @@ test.describe( 'WASM Conversion', () => {
 			await previewButton.click();
 
 			// Loading modal should appear
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
 			// Modal should have visible class
@@ -103,26 +88,20 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'loading modal shows progress updates', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Progress Updates Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( previewButton ) ) ) {
+			if ( ! await isCdnMode( previewButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
@@ -131,7 +110,7 @@ test.describe( 'WASM Conversion', () => {
 			await previewButton.click();
 
 			// Wait for modal to appear
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
 			// Title should update with progress (wait up to 30 seconds for WASM to start loading)
@@ -142,19 +121,13 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'loading modal can show error state', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Error State Test'
-			);
-
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
 			// Inject a test to trigger error state
-			await page.evaluate( () => {
+			await documentEditor.page.evaluate( () => {
 				// Create and show the modal in error state for testing
 				const modal = document.getElementById( 'documentate-loading-modal' );
 				if ( modal ) {
@@ -166,7 +139,7 @@ test.describe( 'WASM Conversion', () => {
 				}
 			} );
 
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 
 			// If modal was created, check error state
 			if ( await modal.isVisible() ) {
@@ -185,21 +158,15 @@ test.describe( 'WASM Conversion', () => {
 
 	test.describe( 'CDN Mode Detection', () => {
 		test( 'buttons have CDN mode data attributes when enabled', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'CDN Mode Attributes Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
@@ -223,18 +190,12 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'download buttons have correct format attributes', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Download Format Attributes Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 
 			// Check PDF download button
 			const pdfButton = buttons.pdfDownload.first();
@@ -260,33 +221,27 @@ test.describe( 'WASM Conversion', () => {
 
 	test.describe( 'Converter Popup', () => {
 		test( 'converter page has correct COOP/COEP headers', async ( {
-			admin,
-			page,
+			documentEditor,
 			request,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'COOP COEP Headers Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( previewButton ) ) ) {
+			if ( ! await isCdnMode( previewButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
 
 			// Get the converter URL from the config
-			const converterUrl = await page.evaluate( () => {
+			const converterUrl = await documentEditor.page.evaluate( () => {
 				return window.documentateActionsConfig?.converterUrl;
 			} );
 
@@ -314,27 +269,21 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'clicking preview opens converter popup in CDN mode', async ( {
-			admin,
-			page,
+			documentEditor,
 			context,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Popup Open Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( previewButton ) ) ) {
+			if ( ! await isCdnMode( previewButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
@@ -368,29 +317,23 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'preview conversion completes and shows PDF in popup', async ( {
-			admin,
-			page,
+			documentEditor,
 			context,
 		} ) => {
 			test.setTimeout( WASM_TIMEOUT );
 
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Full Preview Conversion Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( previewButton ) ) ) {
+			if ( ! await isCdnMode( previewButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
@@ -402,7 +345,7 @@ test.describe( 'WASM Conversion', () => {
 			await previewButton.click();
 
 			// Loading modal should appear
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
 			// Wait for popup
@@ -429,29 +372,23 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'download conversion completes and triggers download', async ( {
-			admin,
-			page,
+			documentEditor,
 			context,
 		} ) => {
 			test.setTimeout( WASM_TIMEOUT );
 
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Full Download Conversion Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const pdfButton = buttons.pdfDownload.first();
 
-			if ( ! ( await pdfButton.isVisible() ) ) {
+			if ( ! await pdfButton.isVisible() ) {
 				test.skip( 'PDF download button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( pdfButton ) ) ) {
+			if ( ! await isCdnMode( pdfButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
@@ -460,13 +397,13 @@ test.describe( 'WASM Conversion', () => {
 			const popupPromise = context.waitForEvent( 'page', { timeout: 10000 } );
 
 			// Listen for download
-			const downloadPromise = page.waitForEvent( 'download', { timeout: WASM_TIMEOUT } );
+			const downloadPromise = documentEditor.page.waitForEvent( 'download', { timeout: WASM_TIMEOUT } );
 
 			// Click download button
 			await pdfButton.click();
 
 			// Loading modal should appear
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
 			// Wait for popup (but it will close after conversion)
@@ -489,26 +426,20 @@ test.describe( 'WASM Conversion', () => {
 
 	test.describe( 'BroadcastChannel Communication', () => {
 		test( 'BroadcastChannel is initialized when clicking CDN mode button', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'BroadcastChannel Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( previewButton ) ) ) {
+			if ( ! await isCdnMode( previewButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
@@ -517,10 +448,10 @@ test.describe( 'WASM Conversion', () => {
 			await previewButton.click();
 
 			// Wait a moment for initialization
-			await page.waitForTimeout( 500 );
+			await documentEditor.page.waitForTimeout( 500 );
 
 			// Check that BroadcastChannel was created
-			const hasChannel = await page.evaluate( () => {
+			const hasChannel = await documentEditor.page.evaluate( () => {
 				return typeof BroadcastChannel !== 'undefined';
 			} );
 
@@ -528,39 +459,33 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'receives progress messages via BroadcastChannel', async ( {
-			admin,
-			page,
+			documentEditor,
 			context,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Progress Messages Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
 
-			if ( ! ( await isCdnMode( previewButton ) ) ) {
+			if ( ! await isCdnMode( previewButton ) ) {
 				test.skip( 'CDN mode not enabled' );
 				return;
 			}
 
 			// Set up a listener for modal title changes
 			const titleChanges = [];
-			await page.exposeFunction( 'recordTitleChange', ( title ) => {
+			await documentEditor.page.exposeFunction( 'recordTitleChange', ( title ) => {
 				titleChanges.push( title );
 			} );
 
 			// Observe title changes
-			await page.evaluate( () => {
+			await documentEditor.page.evaluate( () => {
 				const observer = new MutationObserver( ( mutations ) => {
 					mutations.forEach( ( mutation ) => {
 						if ( mutation.type === 'characterData' || mutation.type === 'childList' ) {
@@ -592,7 +517,7 @@ test.describe( 'WASM Conversion', () => {
 			await popupPromise;
 
 			// Wait a few seconds for some progress messages
-			await page.waitForTimeout( 5000 );
+			await documentEditor.page.waitForTimeout( 5000 );
 
 			// Should have received at least one title update
 			// (The initial title or progress messages from BroadcastChannel)
@@ -602,19 +527,13 @@ test.describe( 'WASM Conversion', () => {
 
 	test.describe( 'Error Handling', () => {
 		test( 'handles conversion errors gracefully', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Error Handling Test'
-			);
-
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
 			// Simulate an error via BroadcastChannel
-			await page.evaluate( () => {
+			await documentEditor.page.evaluate( () => {
 				// Create modal if it doesn't exist
 				if ( ! document.getElementById( 'documentate-loading-modal' ) ) {
 					const html = `
@@ -643,9 +562,9 @@ test.describe( 'WASM Conversion', () => {
 			} );
 
 			// Wait for error state
-			await page.waitForTimeout( 500 );
+			await documentEditor.page.waitForTimeout( 500 );
 
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 
 			if ( await modal.isVisible() ) {
 				// Modal might show error state
@@ -669,19 +588,13 @@ test.describe( 'WASM Conversion', () => {
 		} );
 
 		test( 'ESC key closes modal in error state', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'ESC Key Test'
-			);
-
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
 			// Create modal in error state
-			await page.evaluate( () => {
+			await documentEditor.page.evaluate( () => {
 				const html = `
 					<div class="documentate-loading-modal is-visible is-error" id="documentate-loading-modal">
 						<div class="documentate-loading-modal__content">
@@ -706,11 +619,11 @@ test.describe( 'WASM Conversion', () => {
 				} );
 			} );
 
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible();
 
 			// Press ESC
-			await page.keyboard.press( 'Escape' );
+			await documentEditor.page.keyboard.press( 'Escape' );
 
 			// Modal should be hidden
 			await expect( modal ).not.toHaveClass( /is-visible/ );

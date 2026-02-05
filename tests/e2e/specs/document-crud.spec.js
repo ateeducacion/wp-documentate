@@ -1,208 +1,188 @@
 /**
  * Document CRUD E2E Tests for Documentate plugin.
+ *
+ * Uses Page Object Model, UI-based document creation, and accessible selectors
+ * following WordPress/Gutenberg E2E best practices.
+ *
+ * NOTE: The documentate_document CPT has show_in_rest => false for security,
+ * so we use UI-based creation for documents instead of REST API.
  */
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const {
-	createDocument,
-	saveDocument,
-	navigateToDocumentsList,
-	getPostIdFromUrl,
-	trashDocument,
-	waitForSave,
-	fillTitle,
-	getTitleValue,
-} = require( '../utils/helpers' );
+const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document CRUD Operations', () => {
-	test( 'can create a new document with title', async ( { admin, page } ) => {
-		await createDocument( admin, page, { title: 'Test Document Title' } );
+	test( 'can create a new document with title', async ( { documentEditor } ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Test Document Title' );
 
 		// Verify title is filled
-		const titleValue = await getTitleValue( page );
+		const titleValue = await documentEditor.getTitle();
 		expect( titleValue ).toBe( 'Test Document Title' );
 
 		// Save as draft
-		await saveDocument( page, 'draft' );
+		await documentEditor.saveDraft();
 
 		// Verify success message
-		await expect( page.locator( '#message, .notice-success' ) ).toBeVisible();
+		await expect( documentEditor.successNotice ).toBeVisible();
 	} );
 
-	test( 'can create document and select document type', async ( {
-		admin,
-		page,
-	} ) => {
-		await createDocument( admin, page, { title: 'Document With Type' } );
+	test( 'can create document and select document type', async ( { documentEditor } ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Document With Type' );
 
 		// Check if document type meta box exists
-		const docTypeMetaBox = page.locator(
-			'#documentate_doc_typediv, #taxonomy-documentate_doc_type'
-		);
-
-		// Skip if meta box not visible (may not exist in test env)
-		if ( ! ( await docTypeMetaBox.isVisible().catch( () => false ) ) ) {
+		if ( ! await documentEditor.docTypeMetabox.isVisible().catch( () => false ) ) {
 			test.skip();
 			return;
 		}
 
-		// Look for any document type option
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		// If there are document types, select the first one
-		if ( ( await typeOptions.count() ) > 0 ) {
-			await typeOptions.first().check();
-
-			// Save the document
-			await saveDocument( page, 'draft' );
-
-			// Verify the type is selected after save
-			await expect( typeOptions.first() ).toBeChecked();
+		// Skip if no document types available
+		if ( ! await documentEditor.hasDocTypes() ) {
+			test.skip();
+			return;
 		}
+
+		// Select first document type
+		await documentEditor.selectFirstDocType();
+
+		// Save the document
+		await documentEditor.saveDraft();
+
+		// Verify the type is selected after save
+		await expect( documentEditor.docTypeOptions.first() ).toBeChecked();
 	} );
 
-	test( 'can edit existing document title', async ( { admin, page } ) => {
-		// Create a document first
-		await createDocument( admin, page, { title: 'Original Title' } );
-		await saveDocument( page, 'draft' );
+	test( 'can edit existing document title', async ( {
+		documentEditor,
+		testDocument,
+	} ) => {
+		// testDocument fixture creates a document via UI automatically
+		expect( testDocument.id ).toBeTruthy();
 
-		// Get the post ID
-		const postId = await getPostIdFromUrl( page );
-		expect( postId ).toBeTruthy();
+		// Navigate to edit the document
+		await documentEditor.navigateToEdit( testDocument.id );
 
-		// Visit the edit page again
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+		// Edit the title using hidden input with force
+		await documentEditor.titleInput.fill( 'Updated Title', { force: true } );
 
-		// Wait for page to fully load
-		await page.waitForLoadState( 'networkidle' );
+		// Save
+		await documentEditor.publish();
 
-		// Try to edit the title using the hidden #title input with force
-		const titleInput = page.locator( '#title' );
-		await titleInput.fill( 'Updated Title', { force: true } );
+		// Verify we still have the same post ID
+		const postId = await documentEditor.getPostId();
+		expect( postId ).toBe( testDocument.id );
 
-		// Save using the Update/Save button
-		const saveButton = page.locator( '#publish' );
-		await saveButton.click();
-
-		// Wait for save
-		await page.waitForLoadState( 'networkidle' );
-
-		// Verify we still have a post ID (save succeeded)
-		const newPostId = await getPostIdFromUrl( page );
-		expect( newPostId ).toBe( postId );
+		// Document will be automatically cleaned up by fixture
 	} );
 
-	test( 'can save document as draft', async ( { admin, page } ) => {
-		await createDocument( admin, page, { title: 'Draft Document' } );
+	test( 'can save document as draft', async ( { documentEditor } ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Draft Document' );
 
 		// Click Save Draft button
-		await page.locator( '#save-post' ).click();
-		await waitForSave( page );
+		await documentEditor.saveDraft();
 
-		// Verify document is saved - either we have a success notice or the post has an ID
-		const successNotice = page.locator( '#message, .notice-success' );
-		const postId = await getPostIdFromUrl( page );
+		// Verify document is saved
+		const postId = await documentEditor.getPostId();
+		const hasNotice = await documentEditor.successNotice.count() > 0;
 
-		const isSaved =
-			( await successNotice.count() ) > 0 || postId !== null;
-
-		expect( isSaved ).toBe( true );
+		expect( postId !== null || hasNotice ).toBe( true );
 	} );
 
-	test( 'can publish document', async ( { admin, page } ) => {
-		await createDocument( admin, page, { title: 'Published Document' } );
+	test( 'can publish document', async ( { documentEditor } ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Published Document' );
 
 		// Click Publish button
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.publish();
 
-		// Verify document is published - check for success message or post status
-		const successMessage = page.locator( '#message, .notice-success' );
-		const postStatus = page.locator( '#post_status' );
-
-		// Either we have a success message or the post is now published
+		// Verify document is published
+		const hasNotice = await documentEditor.successNotice.count() > 0;
+		const postStatus = documentEditor.page.locator( '#post_status' );
 		const isPublished =
-			( await successMessage.count() ) > 0 ||
-			( await postStatus.inputValue() ) === 'publish';
+			hasNotice || ( await postStatus.inputValue() ) === 'publish';
 
 		expect( isPublished ).toBe( true );
 	} );
 
 	test( 'can delete document by moving to trash', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
-		// Create a document first
-		await createDocument( admin, page, { title: 'Document To Delete' } );
-		await saveDocument( page, 'draft' );
-
-		const postId = await getPostIdFromUrl( page );
-		expect( postId ).toBeTruthy();
+		// Create document via UI
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Document To Delete' );
+		await documentEditor.saveDraft();
 
 		// Trash the document
-		await trashDocument( admin, page, postId );
+		await documentEditor.trash();
 
 		// Verify we're back on the list page
 		await expect( page ).toHaveURL( /post_type=documentate_document/ );
 	} );
 
 	test( 'document appears in list after creation', async ( {
-		admin,
-		page,
+		documentsList,
+		documentEditor,
 	} ) => {
 		const uniqueTitle = `List Test Document ${ Date.now() }`;
 
-		// Create document
-		await createDocument( admin, page, { title: uniqueTitle } );
-		await saveDocument( page, 'draft' );
+		// Create via UI
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( uniqueTitle );
+		await documentEditor.saveDraft();
 
 		// Navigate to documents list
-		await navigateToDocumentsList( admin );
+		await documentsList.navigate();
 
 		// Verify document appears in list
-		const documentRow = page.locator( `a.row-title:has-text("${ uniqueTitle }")` );
-		await expect( documentRow ).toBeVisible();
+		const documentLink = documentsList.findDocumentLink( uniqueTitle );
+		await expect( documentLink ).toBeVisible();
 	} );
 
 	test( 'document type is locked after first save', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
-		await createDocument( admin, page, { title: 'Type Lock Test' } );
-
-		// Check for document type options
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Type Lock Test' );
 
 		// Skip if no document types available
-		if ( ( await typeOptions.count() ) === 0 ) {
+		if ( ! await documentEditor.hasDocTypes() ) {
 			test.skip();
 			return;
 		}
 
 		// Select a document type
-		await typeOptions.first().check();
+		await documentEditor.selectFirstDocType();
 
 		// Publish the document (type gets locked on publish)
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.publish();
 
 		// Reload the page
 		await page.reload();
 
 		// Check if the type selection is disabled/locked
-		// The plugin should either disable the checkboxes or show a message
-		const lockedIndicator = page.locator(
-			'#documentate_doc_typechecklist input:disabled, .documentate-type-locked, .doc-type-locked'
-		);
-
-		// If inputs are disabled, the type is locked
-		const isLocked = await lockedIndicator.count() > 0 ||
-			await typeOptions.first().isDisabled();
+		const isLocked = await documentEditor.isDocTypeLocked();
 
 		// Document type should be locked after publishing with a type
 		expect( isLocked ).toBe( true );
+	} );
+
+	test( 'testDocument fixture provides pre-created document', async ( {
+		documentEditor,
+		testDocument,
+	} ) => {
+		// testDocument is automatically created by the fixture
+		expect( testDocument.id ).toBeTruthy();
+		expect( testDocument.title ).toContain( 'Test Document' );
+
+		// Navigate to the document
+		await documentEditor.navigateToEdit( testDocument.id );
+
+		// Verify we can access it
+		const postId = await documentEditor.getPostId();
+		expect( postId ).toBe( testDocument.id );
+
+		// Document will be automatically cleaned up by fixture
 	} );
 } );
