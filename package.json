@@ -2,7 +2,7 @@
   "devDependencies": {
     "@wordpress/e2e-test-utils-playwright": "^1.39.0",
     "@wordpress/env": "^10.39.0",
-    "@wordpress/scripts": "^31.4.0",
+    "@wordpress/scripts": "^31.5.0",
     "zetajs": "^1.0.0"
   },
   "scripts": {
