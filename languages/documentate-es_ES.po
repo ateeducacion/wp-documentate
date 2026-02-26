@@ -1045,3 +1045,15 @@ msgstr "Desarchivar documento"
 
 msgid "Archived - Historical record"
 msgstr "Archivado - Registro histórico"
+
+msgid "You do not have permission to manage templates."
+msgstr "No tienes permiso para gestionar plantillas."
+
+msgid "Scope category"
+msgstr "Categoría de ámbito"
+
+msgid "— No scope —"
+msgstr "— Sin ámbito —"
+
+msgid "Documents in this category (and subcategories) will be visible to this user."
+msgstr "Los documentos en esta categoría (y subcategorías) serán visibles para este usuario."
