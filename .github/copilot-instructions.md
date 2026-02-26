@@ -94,12 +94,14 @@ security, maintainability, and test coverage.
   * `_e()`
   * `_n()`
   * `_x()`
-* Text domain: `wp-documentate`
+* Text domain: `documentate`
 * Every new translatable string must:
 
   1. Be wrapped in a translation function.
-  2. Be added to `languages/wp-documentate-es_ES.po`
+  2. Be added to `languages/documentate-es_ES.po`
      in the same commit.
+  3. The `Plural-Forms: nplurals=2; plural=(n != 1);` header is
+     already present in the file — do not duplicate it.
 * Always verify untranslated strings using:
 
 ```
