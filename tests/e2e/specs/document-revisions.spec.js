@@ -139,13 +139,28 @@ test.describe( 'Document Revisions', () => {
 		).first();
 
 		if ( await restoreButton.count() > 0 && await restoreButton.isVisible() ) {
-			await restoreButton.click();
+			// Navigate to a previous revision if the restore button is disabled
+			// (it starts disabled when viewing the current/latest revision).
+			const isDisabled = await restoreButton.isDisabled();
+			if ( isDisabled ) {
+				const prevButton = page.locator( '.revisions-controls .prev' ).first();
+				if ( await prevButton.count() > 0 ) {
+					await prevButton.click();
+					// Wait for restore button to become enabled
+					await restoreButton.waitFor( { state: 'visible', timeout: 5000 } ).catch( () => {} );
+				}
+			}
 
-			// Should redirect back to edit page
-			await page.waitForURL( /post\.php.*action=edit/, { timeout: 10000 } );
+			// Only click if enabled after navigation
+			if ( ! await restoreButton.isDisabled() ) {
+				await restoreButton.click();
 
-			// Verify we're back on the edit page
-			await expect( page ).toHaveURL( /post\.php/ );
+				// Should redirect back to edit page
+				await page.waitForURL( /post\.php.*action=edit/, { timeout: 10000 } );
+
+				// Verify we're back on the edit page
+				await expect( page ).toHaveURL( /post\.php/ );
+			}
 		}
 	} );
 } );

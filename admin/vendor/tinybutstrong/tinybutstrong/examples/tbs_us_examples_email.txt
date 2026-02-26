@@ -1,0 +1,18 @@
+~~~~~~~~~~~~~~~ [subject;block=begin;enlarge=_] ~~~~~~~~~~~~~~~
+Command for [i.nb_articles] articles
+~~~~~~~~~~~~~~~ [subject;block=end;enlarge=_]   ~~~~~~~~~~~~~~~
+Dear [i.firstname] [i.lastname],
+
+Tank you for having choosen TBS Examples Copr for selecting your items.
+
+~~~~~~~~~~~~~~~ [a.#;block=begin;enlarge=_]     ~~~~~~~~~~~~~~~
+Article #[a.#]
+----------
+Caption:    [a.caption]
+Quantity:   [a.qty]
+Unit Price: [a.uprice;frm=0.00] $
+
+~~~~~~~~~~~~~~~ [a.#;block=end;enlarge=_]       ~~~~~~~~~~~~~~~
+
+Have a nice day,
+TBS Examples Corp

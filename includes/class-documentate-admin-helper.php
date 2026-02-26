@@ -821,6 +821,60 @@ class Documentate_Admin_Helper {
 
 		/* translators: %s: converter engine label. */
 		echo '<p class="description">' . sprintf( esc_html__( 'Additional conversions are performed with %s.', 'documentate' ), esc_html( $engine_label ) ) . '</p>';
+
+		echo '<p>';
+		echo '<button type="button" id="documentate-export-button" class="button documentate-export-button" data-documentate-export-modal-open>';
+		echo esc_html__( 'Export', 'documentate' );
+		echo '</button>';
+		echo '</p>';
+
+		$this->render_export_modal( $post, $docx, $odt, $pdf, $docx_available, $odt_available, $pdf_available );
+	}
+
+	/**
+	 * Render the export modal HTML.
+	 *
+	 * @param WP_Post $post           Post object.
+	 * @param string  $docx           DOCX export URL.
+	 * @param string  $odt            ODT export URL.
+	 * @param string  $pdf            PDF export URL.
+	 * @param bool    $docx_available Whether DOCX export is available.
+	 * @param bool    $odt_available  Whether ODT export is available.
+	 * @param bool    $pdf_available  Whether PDF export is available.
+	 * @return void
+	 */
+	private function render_export_modal( $post, $docx, $odt, $pdf, $docx_available, $odt_available, $pdf_available ) {
+		?>
+		<div id="documentate-export-modal" class="documentate-export-modal" hidden aria-modal="true" role="dialog" aria-labelledby="documentate-export-modal-title">
+			<div class="documentate-export-modal__overlay" data-documentate-export-modal-close></div>
+			<div class="documentate-export-modal__dialog">
+				<h2 id="documentate-export-modal-title" class="documentate-export-modal__title">
+					<?php esc_html_e( 'Export Document', 'documentate' ); ?>
+				</h2>
+				<p class="documentate-export-modal__intro">
+					<?php esc_html_e( 'Choose a format to export the document.', 'documentate' ); ?>
+				</p>
+				<button type="button" class="documentate-export-modal__close" data-documentate-export-modal-close aria-label="<?php esc_attr_e( 'Close', 'documentate' ); ?>">&#x2715;</button>
+				<div class="documentate-export-modal__buttons">
+					<?php if ( $docx_available ) : ?>
+					<a href="<?php echo esc_url( $docx ); ?>" class="button button-primary" data-format="docx">DOCX</a>
+					<?php else : ?>
+					<button type="button" class="button" disabled data-format="docx">DOCX</button>
+					<?php endif; ?>
+					<?php if ( $odt_available ) : ?>
+					<a href="<?php echo esc_url( $odt ); ?>" class="button" data-format="odt">ODT</a>
+					<?php else : ?>
+					<button type="button" class="button" disabled data-format="odt">ODT</button>
+					<?php endif; ?>
+					<?php if ( $pdf_available ) : ?>
+					<a href="<?php echo esc_url( $pdf ); ?>" class="button" data-format="pdf">PDF</a>
+					<?php else : ?>
+					<button type="button" class="button" disabled data-format="pdf">PDF</button>
+					<?php endif; ?>
+				</div>
+			</div>
+		</div>
+		<?php
 	}
 
 	/**
@@ -948,6 +1002,21 @@ class Documentate_Admin_Helper {
 
 		$config = $this->build_actions_script_config( $post_id );
 		wp_localize_script( 'documentate-actions', 'documentateActionsConfig', $config );
+
+		wp_enqueue_style(
+			'documentate-export-modal',
+			plugins_url( 'admin/css/documentate-export-modal.css', DOCUMENTATE_PLUGIN_FILE ),
+			array(),
+			DOCUMENTATE_VERSION
+		);
+
+		wp_enqueue_script(
+			'documentate-export-modal',
+			plugins_url( 'admin/js/documentate-export-modal.js', DOCUMENTATE_PLUGIN_FILE ),
+			array( 'jquery' ),
+			DOCUMENTATE_VERSION,
+			true
+		);
 	}
 
 	/**
