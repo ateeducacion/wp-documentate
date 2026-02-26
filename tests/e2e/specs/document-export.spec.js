@@ -71,12 +71,13 @@ test.describe( 'Document Export', () => {
 
 		await documentEditor.openExportModal();
 
-		// Look for format options (DOCX, ODT, PDF)
-		const docxOption = page.getByRole( 'button', { name: /docx/i } ).or(
-			page.locator( '[data-format="docx"]' )
+		// Look for format options (DOCX, ODT, PDF) scoped to the modal.
+		const exportModal = documentEditor.exportModal.first();
+		const docxOption = exportModal.getByRole( 'link', { name: /docx/i } ).or(
+			exportModal.locator( '[data-format="docx"]' )
 		);
-		const odtOption = page.getByRole( 'button', { name: /odt/i } ).or(
-			page.locator( '[data-format="odt"]' )
+		const odtOption = exportModal.getByRole( 'link', { name: /odt/i } ).or(
+			exportModal.locator( '[data-format="odt"]' )
 		);
 
 		// At least one format should be available
@@ -100,9 +101,11 @@ test.describe( 'Document Export', () => {
 
 		await documentEditor.openExportModal();
 
-		// Find DOCX button
-		const docxButton = page.getByRole( 'button', { name: /docx/i } ).or(
-			page.locator( '[data-format="docx"]' )
+		// Find DOCX button scoped to the export modal to avoid matching the
+		// disabled "DOCX" button that lives in the actions metabox outside it.
+		const exportModal = documentEditor.exportModal.first();
+		const docxButton = exportModal.getByRole( 'link', { name: /docx/i } ).or(
+			exportModal.locator( '[data-format="docx"]' )
 		).first();
 
 		if ( await docxButton.count() > 0 ) {
