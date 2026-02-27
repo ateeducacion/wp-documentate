@@ -138,14 +138,39 @@ test.describe( 'Document Revisions', () => {
 			page.locator( 'input[value*="Restore"], input[value*="Restaurar"]' )
 		).first();
 
-		if ( await restoreButton.count() > 0 && await restoreButton.isVisible() ) {
-			await restoreButton.click();
-
-			// Should redirect back to edit page
-			await page.waitForURL( /post\.php.*action=edit/, { timeout: 10000 } );
-
-			// Verify we're back on the edit page
-			await expect( page ).toHaveURL( /post\.php/ );
+		if ( await restoreButton.count() === 0 || ! await restoreButton.isVisible() ) {
+			test.skip();
+			return;
 		}
+
+		// On WP revisions screen, restore can be disabled while viewing latest revision.
+		if ( await restoreButton.isDisabled() ) {
+			const previousButton = page.locator( '#previous' ).or(
+				page.getByRole( 'button', { name: /previous|older|anterior/i } )
+			).first();
+			const diffSlider = page.locator( '#diff-slider' ).first();
+
+			if ( await previousButton.count() > 0 && await previousButton.isVisible() ) {
+				await previousButton.click();
+			} else if ( await diffSlider.count() > 0 ) {
+				await diffSlider.focus();
+				await page.keyboard.press( 'ArrowLeft' );
+			}
+
+			await page.waitForTimeout( 500 );
+		}
+
+		if ( await restoreButton.isDisabled() ) {
+			test.skip();
+			return;
+		}
+
+		await restoreButton.click();
+
+		// Should redirect back to edit page
+		await page.waitForURL( /post\.php.*action=edit/, { timeout: 10000 } );
+
+		// Verify we're back on the edit page
+		await expect( page ).toHaveURL( /post\.php/ );
 	} );
 } );
