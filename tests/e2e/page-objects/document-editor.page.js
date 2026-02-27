@@ -136,8 +136,8 @@ class DocumentEditorPage {
 	 * Export button.
 	 */
 	get exportButton() {
-		return this.page.getByRole( 'button', { name: /export/i } ).or(
-			this.page.locator( '#documentate-export-button, .documentate-export-button' )
+		return this.page.locator(
+			'#documentate_actions [data-documentate-export-modal-open], #documentate_actions #documentate-export-button, #documentate_actions .documentate-export-button'
 		);
 	}
 
@@ -358,7 +358,7 @@ class DocumentEditorPage {
 	 * Open the export modal.
 	 */
 	async openExportModal() {
-		await this.exportButton.click();
+		await this.exportButton.first().click();
 		await this.exportModal.waitFor( { state: 'visible', timeout: 5000 } );
 	}
 

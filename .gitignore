@@ -39,8 +39,11 @@ sftp-config.json
 /behat.yml
 .php-cs-fixer.cache
 
-resolate/
-.aider*
+admin/vendor/tinybutstrong/tinybutstrong/examples/
+admin/vendor/tinybutstrong/tinybutstrong/testunit/
+admin/vendor/tinybutstrong/tinybutstrong/.gitattributes
+admin/vendor/tinybutstrong/tinybutstrong/.gitignore
+
 .env
 
 wp/
