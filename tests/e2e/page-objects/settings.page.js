@@ -30,7 +30,7 @@ class SettingsPage {
 	 * The page wrapper.
 	 */
 	get pageWrapper() {
-		return this.page.locator( '.wrap' );
+		return this.page.locator( '.wrap, .settings_page_documentate_settings form, form[action="options.php"]' );
 	}
 
 	/**
