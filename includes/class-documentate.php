@@ -158,6 +158,21 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-document-access-protection.php';
 
 		/**
+		 * The class responsible for restricting template (doc_type) management to admins.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-template-access.php';
+
+		/**
+		 * The class responsible for filtering documents by user scope category.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-scope-filter.php';
+
+		/**
+		 * The class responsible for the user scope profile field.
+		 */
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-user-scope.php';
+
+		/**
 		 * The class responsible for defining the MVC.
 		 */
 		// Remove Task MVC models/managers; not needed for Documentate/KB.

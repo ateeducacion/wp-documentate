@@ -41,4 +41,26 @@ For development, you can bring up a local WordPress environment with the plugin 
 make up
 ```
 
-This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`. 
+This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`.
+
+## Access Control
+
+### Template management (Document Types)
+
+Only users with **administrator** privileges can create, edit, or delete Document Types (templates). Non-admin users are blocked at the server level from accessing the Document Types admin screens, even if they try to access the URL directly. The Document Types menu item is also hidden from non-admin users.
+
+### Document visibility by scope
+
+Documents are filtered based on a per-user **scope category** assignment:
+
+- **Administrators** see all documents regardless of scope.
+- **Non-admin users** only see documents that are assigned to their scope category **or any of its subcategories** (hierarchical). If no scope is assigned, the user sees zero documents.
+
+### Assigning a scope to a user
+
+1. Go to **Users** in the WordPress admin.
+2. Edit the desired user profile.
+3. Under the **Documentate** section, select a **Scope category** from the dropdown.
+4. Save the profile.
+
+The dropdown lists all WordPress categories in hierarchical order. Only users who have permission to edit the profile (respecting `edit_user` capability) can change the scope assignment. 

@@ -1044,3 +1044,15 @@ msgstr ""
 
 msgid "Generated file not found."
 msgstr ""
+
+msgid "You do not have permission to manage templates."
+msgstr ""
+
+msgid "Scope category"
+msgstr ""
+
+msgid "— No scope —"
+msgstr ""
+
+msgid "Documents in this category (and subcategories) will be visible to this user."
+msgstr ""
