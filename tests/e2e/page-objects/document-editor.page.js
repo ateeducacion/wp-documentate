@@ -42,21 +42,21 @@ class DocumentEditorPage {
 	 * Document type metabox.
 	 */
 	get docTypeMetabox() {
-		return this.page.locator( '#documentate_doc_typediv' );
+		return this.page.locator( '#documentate_doc_type' );
 	}
 
 	/**
-	 * Document type checklist containing radio/checkbox inputs.
+	 * Document type select dropdown.
 	 */
-	get docTypeChecklist() {
-		return this.page.locator( '#documentate_doc_typechecklist' );
+	get docTypeSelect() {
+		return this.docTypeMetabox.locator( 'select[name="documentate_doc_type"]' );
 	}
 
 	/**
-	 * All document type options (radio buttons or checkboxes).
+	 * All document type options in the select (excluding the placeholder).
 	 */
 	get docTypeOptions() {
-		return this.docTypeChecklist.locator( 'input[type="checkbox"], input[type="radio"]' );
+		return this.docTypeSelect.locator( 'option:not([value=""])' );
 	}
 
 	/**
@@ -208,18 +208,7 @@ class DocumentEditorPage {
 	 * @param {string} typeName - Document type name
 	 */
 	async selectDocType( typeName ) {
-		const typeLabel = this.docTypeChecklist.getByText( typeName, { exact: false } );
-		const checkbox = typeLabel.locator( 'xpath=../input' ).or(
-			typeLabel.locator( 'xpath=preceding-sibling::input' )
-		);
-
-		if ( await checkbox.count() > 0 ) {
-			await checkbox.check();
-		} else {
-			// Try alternative: find input associated with label
-			const input = this.docTypeChecklist.locator( `label:has-text("${ typeName }") input` );
-			await input.check();
-		}
+		await this.docTypeSelect.selectOption( { label: new RegExp( typeName, 'i' ) } );
 	}
 
 	/**
@@ -230,7 +219,8 @@ class DocumentEditorPage {
 	async selectFirstDocType() {
 		const options = this.docTypeOptions;
 		if ( await options.count() > 0 ) {
-			await options.first().check();
+			const value = await options.first().getAttribute( 'value' );
+			await this.docTypeSelect.selectOption( value );
 			return true;
 		}
 		return false;
@@ -251,11 +241,7 @@ class DocumentEditorPage {
 	 * @return {Promise<boolean>} True if locked
 	 */
 	async isDocTypeLocked() {
-		const firstOption = this.docTypeOptions.first();
-		if ( await firstOption.count() > 0 ) {
-			return await firstOption.isDisabled();
-		}
-		return false;
+		return await this.docTypeSelect.isDisabled();
 	}
 
 	/**

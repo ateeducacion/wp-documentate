@@ -47,8 +47,8 @@ test.describe( 'Document CRUD Operations', () => {
 		// Save the document
 		await documentEditor.saveDraft();
 
-		// Verify the type is selected after save
-		await expect( documentEditor.docTypeOptions.first() ).toBeChecked();
+		// Verify a type is selected after save (select has a non-empty value)
+		await expect( documentEditor.docTypeSelect ).not.toHaveValue( '' );
 	} );
 
 	test( 'can edit existing document title', async ( {
