@@ -161,25 +161,24 @@ logs-test:
 	npx wp-env logs --environment=tests
 
 
-# Install PHP_CodeSniffer and WordPress Coding Standards in the container
-install-phpcs: check-docker start-if-not-running
-	@echo "Checking if PHP_CodeSniffer is installed..."
-	@if ! npx wp-env run cli bash -c '[ -x "$$HOME/.composer/vendor/bin/phpcs" ]' > /dev/null 2>&1; then \
-		echo "Installing PHP_CodeSniffer and WordPress Coding Standards..."; \
-		npx wp-env run cli composer global config --no-plugins allow-plugins.dealerdirect/phpcodesniffer-composer-installer true; \
-		npx wp-env run cli composer global require squizlabs/php_codesniffer wp-coding-standards/wpcs --no-interaction; \
+# Install Mago PHP toolchain via Composer
+install-mago:
+	@echo "Checking if Mago is installed..."
+	@if [ ! -x "./vendor/bin/mago" ]; then \
+		echo "Installing Mago..."; \
+		composer install --prefer-dist; \
 	else \
-		echo "PHP_CodeSniffer is already installed."; \
+		echo "Mago is already installed."; \
 	fi
 
 
-# Check code style with PHP Code Sniffer inside the container
-lint: install-phpcs
-	npx wp-env run cli phpcs --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Check code style with Mago linter
+lint: install-mago
+	./vendor/bin/mago lint
 
-# Automatically fix code style with PHP Code Beautifier inside the container
-fix: install-phpcs
-	npx wp-env run cli phpcbf --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Automatically fix code style with Mago formatter
+fix: install-mago
+	./vendor/bin/mago format
 
 # Run PHP Mess Detector ignoring vendor and node_modules
 phpmd:
@@ -195,27 +194,13 @@ cli-container:
 		exit 1 \
 	)
 
-# Fix wihout tty for use on git hooks
-fix-no-tty: cli-container start-if-not-running
-	@CONTAINER_CLI=$$( \
-		docker ps --format "{{.Names}}" \
-		| grep "\-cli\-" \
-		| grep -v "tests-cli" \
-	) && \
-	echo "Running PHPCBF (no TTY) inside $$CONTAINER_CLI..." && \
-	docker exec -i $$CONTAINER_CLI \
-		phpcbf --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Fix without tty for use on git hooks
+fix-no-tty: install-mago
+	./vendor/bin/mago format
 
-# Lint wihout tty for use on git hooks
-lint-no-tty: cli-container start-if-not-running
-	@CONTAINER_CLI=$$( \
-		docker ps --format "{{.Names}}" \
-		| grep "\-cli\-" \
-		| grep -v "tests-cli" \
-	) && \
-	echo "Running PHPCS (no TTY) inside $$CONTAINER_CLI..." && \
-	docker exec -i $$CONTAINER_CLI \
-		phpcs --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Lint without tty for use on git hooks
+lint-no-tty: install-mago
+	./vendor/bin/mago lint
 
 
 # Update Composer dependencies
@@ -281,8 +266,8 @@ help:
 	@echo "  css-clean             - Remove generated CSS and source map files"
 	@echo ""
 	@echo "Linting & Code Quality:"
-	@echo "  fix                - Automatically fix code style with PHP_CodeSniffer"
-	@echo "  lint               - Check code style with PHP_CodeSniffer"
+	@echo "  fix                - Automatically fix code style with Mago formatter"
+	@echo "  lint               - Check code style with Mago linter"
 	@echo "  fix-no-tty         - Same as 'fix' but without TTY (for git hooks)"
 	@echo "  lint-no-tty        - Same as 'lint' but without TTY (for git hooks)"
 	@echo "  check-plugin       - Run WordPress plugin-check tests"
