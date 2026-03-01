@@ -155,8 +155,8 @@ jobs:
       - name: Check untranslated strings
         run: make check-untranslated
 
-      - name: Run code linting (PHPCS)
-        run: ./vendor/bin/phpcs --standard=.phpcs.xml.dist -q .
+      - name: Run code linting (Mago)
+        run: ./vendor/bin/mago lint
 
       # === START ENVIRONMENT (with Xdebug for coverage) ===
       - name: Start wp-env with coverage
