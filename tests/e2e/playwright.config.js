@@ -56,7 +56,7 @@ module.exports = defineConfig( {
 		video: 'on-first-retry',
 	},
 	webServer: {
-		command: 'wp-env start --runtime=playground',
+		command: 'npx wp-env start --runtime=playground',
 		url: baseUrl,
 		timeout: 120_000,
 		reuseExistingServer: true,

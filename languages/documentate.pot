@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Área de Tecnología Educativa
+# Copyright (C) 2026 Área de Tecnología Educativa
 # This file is distributed under the GPL-3.0+.
 msgid ""
 msgstr ""
@@ -752,6 +752,9 @@ msgstr ""
 msgid "cp:coreProperties element not found."
 msgstr ""
 
+msgid "You do not have permission to manage templates."
+msgstr ""
+
 msgid "The selected template was not found."
 msgstr ""
 
@@ -762,6 +765,15 @@ msgid "ZipArchive is not available on the server."
 msgstr ""
 
 msgid "Could not open the template for analysis."
+msgstr ""
+
+msgid "Scope category"
+msgstr ""
+
+msgid "— No scope —"
+msgstr ""
+
+msgid "Documents in this category (and subcategories) will be visible to this user."
 msgstr ""
 
 msgid "Document saved as draft. You must select a document type before publishing."
@@ -1043,16 +1055,4 @@ msgid "Comma-separated list."
 msgstr ""
 
 msgid "Generated file not found."
-msgstr ""
-
-msgid "You do not have permission to manage templates."
-msgstr ""
-
-msgid "Scope category"
-msgstr ""
-
-msgid "— No scope —"
-msgstr ""
-
-msgid "Documents in this category (and subcategories) will be visible to this user."
 msgstr ""

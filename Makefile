@@ -7,6 +7,10 @@ else
   SED_INPLACE = sed -i
 endif
 
+# Use npx so CI (no global install) and local dev both work.
+# Override with: make up WP_ENV="wp-env"
+WP_ENV = npx wp-env
+
 # Docker test config used for all wp-env run commands
 DOCKER_CONFIG = --config=.wp-env.test.json
 
@@ -17,12 +21,13 @@ check-docker:
 install-requirements:
 	npm -g i @wordpress/env
 
+
 # ─── Playground (port 8888, no Docker) ───────────────────────────────────────
 
 start-if-not-running:
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
 		echo "Playground is NOT running. Starting..."; \
-		wp-env start --runtime=playground --update; \
+		$(WP_ENV) start --runtime=playground --update; \
 		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
 	else \
 		echo "Playground is already running on port 8888, skipping start."; \
@@ -33,15 +38,15 @@ up: start-if-not-running
 
 # Stop Playground
 down:
-	wp-env stop
+	$(WP_ENV) stop
 
 # ─── Docker (port 8889, requires Docker) ─────────────────────────────────────
 
 start-docker-if-not-running: check-docker
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
 		echo "Docker env is NOT running. Starting..."; \
-		wp-env start $(DOCKER_CONFIG) --update; \
-		wp-env run cli $(DOCKER_CONFIG) wp plugin activate documentate; \
+		$(WP_ENV) start $(DOCKER_CONFIG) --update; \
+		$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate; \
 		echo "Visit http://localhost:8889/wp-admin/ to access the Docker environment."; \
 	else \
 		echo "Docker env is already running on port 8889, skipping start."; \
@@ -52,20 +57,20 @@ up-docker: check-docker start-docker-if-not-running
 
 # Stop Docker containers
 down-docker: check-docker
-	wp-env stop $(DOCKER_CONFIG)
+	$(WP_ENV) stop $(DOCKER_CONFIG)
 
 # ─── Clean / Destroy ─────────────────────────────────────────────────────────
 
 # Clean the Docker environment (wp-env v11 replaced "clean" with "reset")
 clean: check-docker
-	wp-env reset $(DOCKER_CONFIG) development
-	wp-env reset $(DOCKER_CONFIG) tests
-	wp-env run cli $(DOCKER_CONFIG) wp plugin activate documentate
-	wp-env run cli $(DOCKER_CONFIG) wp language core install es_ES --activate
-	wp-env run cli $(DOCKER_CONFIG) wp site switch-language es_ES
+	$(WP_ENV) reset $(DOCKER_CONFIG) development
+	$(WP_ENV) reset $(DOCKER_CONFIG) tests
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp language core install es_ES --activate
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp site switch-language es_ES
 
 destroy:
-	wp-env destroy
+	$(WP_ENV) destroy
 
 # ─── PHPUnit tests (Docker, port 8889) ───────────────────────────────────────
 
@@ -76,18 +81,18 @@ test: start-docker-if-not-running
 	@CMD="./vendor/bin/phpunit"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	wp-env run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
 # Run document generation tests only
 test-generation: start-docker-if-not-running
-	wp-env run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
 
 # Run unit tests in verbose mode. Honor TEST filter if provided.
 test-verbose: start-docker-if-not-running
 	@CMD="./vendor/bin/phpunit"; \
 	if [ -n "$(TEST)" ]; then CMD="$$CMD --filter $(TEST)"; fi; \
 	CMD="$$CMD --debug --verbose"; \
-	wp-env run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
 # Run tests with code coverage report.
 # IMPORTANT: Requires wp-env started with Xdebug enabled:
@@ -98,7 +103,7 @@ test-coverage: start-docker-if-not-running
 	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	wp-env run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD; \
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD; \
 	EXIT_CODE=$$?; \
 	echo ""; \
 	echo "════════════════════════════════════════════════════════════"; \
@@ -115,17 +120,17 @@ test-coverage: start-docker-if-not-running
 # Ensure tests environment has admin user and plugin active (Docker)
 setup-tests-env:
 	@echo "Setting up tests environment..."
-	@wp-env run tests-cli $(DOCKER_CONFIG) wp core install \
+	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp core install \
 		--url=http://localhost:8889 \
 		--title="Documentate Tests" \
 		--admin_user=admin \
 		--admin_password=password \
 		--admin_email=admin@example.com \
 		--skip-email 2>/dev/null || true
-	@wp-env run tests-cli $(DOCKER_CONFIG) wp language core install es_ES --activate 2>/dev/null || true
-	@wp-env run tests-cli $(DOCKER_CONFIG) wp site switch-language es_ES 2>/dev/null || true
-	@wp-env run tests-cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
-	@wp-env run tests-cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
+	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp language core install es_ES --activate 2>/dev/null || true
+	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp site switch-language es_ES 2>/dev/null || true
+	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
+	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
 # Run E2E tests against Playground (port 8888, no Docker)
 test-e2e: start-if-not-running
@@ -142,7 +147,7 @@ test-e2e-docker: start-docker-if-not-running setup-tests-env
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
 flush-permalinks:
-	wp-env run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/'
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/'
 
 # Function to create a user only if it does not exist
 create-user:
@@ -150,13 +155,13 @@ create-user:
 		echo "Error: Please, specify USER, EMAIL, ROLE and PASSWORD. Usage: make create-user USER=test1 EMAIL=test1@example.org ROLE=editor PASSWORD=password"; \
 		exit 1; \
 	fi
-	wp-env run cli $(DOCKER_CONFIG) sh -c 'wp user list --field=user_login | grep -q "^$(USER)$$" || wp user create $(USER) $(EMAIL) --role=$(ROLE) --user_pass=$(PASSWORD)'
+	$(WP_ENV) run cli $(DOCKER_CONFIG) sh -c 'wp user list --field=user_login | grep -q "^$(USER)$$" || wp user create $(USER) $(EMAIL) --role=$(ROLE) --user_pass=$(PASSWORD)'
 
 logs:
-	wp-env logs $(DOCKER_CONFIG)
+	$(WP_ENV) logs $(DOCKER_CONFIG)
 
 logs-test:
-	wp-env logs $(DOCKER_CONFIG) --environment=tests
+	$(WP_ENV) logs $(DOCKER_CONFIG) --environment=tests
 
 # Finds the CLI container used by wp-env (Docker)
 cli-container:
@@ -173,11 +178,11 @@ cli-container:
 # Pass the wp plugin-check with proper error handling
 check-plugin: check-docker start-docker-if-not-running
 	# Install plugin-check if needed (don't fail if already active)
-	@wp-env run cli $(DOCKER_CONFIG) wp plugin install plugin-check --activate --color || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin install plugin-check --activate --color || true
 
 	# Run plugin check with colored output, capture exit code, and fail if needed
 	@echo "Running WordPress Plugin Check..."
-	@wp-env run cli $(DOCKER_CONFIG) wp plugin check documentate \
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \

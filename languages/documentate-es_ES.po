@@ -1037,15 +1037,6 @@ msgstr "El documento está archivado y es de solo lectura. Desarchiva para habil
 msgid "Document is archived. Contact an administrator to unarchive."
 msgstr "El documento está archivado. Contacta a un administrador para desarchivarlo."
 
-msgid "Export"
-msgstr "Exportar"
-
-msgid "Export Document"
-msgstr "Exportar documento"
-
-msgid "Choose a format to export the document."
-msgstr "Elige un formato para exportar el documento."
-
 msgid "Archive Document"
 msgstr "Archivar documento"
 
