@@ -236,11 +236,16 @@ class DocumentEditorPage {
 	}
 
 	/**
-	 * Check if the document type is locked (disabled).
+	 * Check if the document type is locked.
+	 * When locked, the select is replaced by a hidden input + text display.
 	 *
 	 * @return {Promise<boolean>} True if locked
 	 */
 	async isDocTypeLocked() {
+		// If the select is gone, the type is locked
+		if ( await this.docTypeSelect.count() === 0 ) {
+			return true;
+		}
 		return await this.docTypeSelect.isDisabled();
 	}
 
