@@ -10,17 +10,18 @@ php-version = "8.3"
 # Plugin source code to lint, format, and analyze
 paths = ["admin", "includes", "public", "documentate.php", "uninstall.php"]
 
-# Vendor dependencies parsed for type information only (not linted/formatted)
+# Vendor dependencies parsed for type context only (symbols, types, classes);
+# these files are NOT analyzed, linted, or formatted by any tool.
 includes = ["vendor"]
 
-# Completely excluded from all tools
+# Completely excluded from all tools (not even parsed)
 excludes = [
-    "vendor/**",
-    "assets/**",
-    "node_modules/**",
-    "tests/**",
-    "wp/**",
-    "admin/vendor/**",
+    "vendor/",
+    "assets/",
+    "node_modules/",
+    "tests/",
+    "wp/",
+    "admin/vendor/",
 ]
 
 extensions = ["php"]
@@ -57,7 +58,10 @@ separate-use-types = true
 remove-trailing-close-tag = true
 
 [linter]
-excludes = ["tests/**", "admin/vendor/**"]
+excludes = ["tests/", "admin/vendor/"]
+# Baseline file tracks existing issues so CI passes without regressions.
+# New code violations will still be caught. Regenerate with:
+#   ./vendor/bin/mago lint --generate-baseline --baseline linter-baseline.toml
 baseline = "linter-baseline.toml"
 
 [linter.rules]
@@ -116,4 +120,4 @@ braced-string-interpolation = { enabled = false }
 single-class-per-file = { enabled = false }
 
 [analyzer]
-excludes = ["tests/**", "admin/vendor/**"]
+excludes = ["tests/", "admin/vendor/"]
