@@ -1,5 +1,5 @@
 {
-    "testsEnvironment": false,
+    "port": 8889,
     "config": {
         "WP_DEBUG": true,
         "SCRIPT_DEBUG": true,
@@ -10,7 +10,7 @@
     "mappings": {
         "wp-content/plugins/documentate": "./"
     },
-    "plugins":  [ 
+    "plugins": [
         "https://downloads.wordpress.org/plugins/tinymce-advanced.zip",
         "https://downloads.wordpress.org/plugins/sql-buddy.zip"
     ]
