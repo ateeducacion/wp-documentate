@@ -86,9 +86,7 @@ class DocumentEditorPage {
 	 * Publish/Update button.
 	 */
 	get publishButton() {
-		return this.page.getByRole( 'button', { name: /publish|update/i } ).or(
-			this.page.locator( '#publish' )
-		);
+		return this.page.locator( '#publish' );
 	}
 
 	/**
