@@ -117,20 +117,20 @@ test-coverage: start-docker-if-not-running
 
 # ─── E2E tests ────────────────────────────────────────────────────────────────
 
-# Ensure tests environment has admin user and plugin active (Docker)
-setup-tests-env:
-	@echo "Setting up tests environment..."
-	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp core install \
+# Ensure dev environment (port 8889) has admin user and plugin active for E2E
+setup-e2e-env:
+	@echo "Setting up E2E environment..."
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp core install \
 		--url=http://localhost:8889 \
 		--title="Documentate Tests" \
 		--admin_user=admin \
 		--admin_password=password \
 		--admin_email=admin@example.com \
 		--skip-email 2>/dev/null || true
-	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp language core install es_ES --activate 2>/dev/null || true
-	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp site switch-language es_ES 2>/dev/null || true
-	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
-	@$(WP_ENV) run tests-cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp language core install es_ES --activate 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp site switch-language es_ES 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
 # Run E2E tests against Playground (port 8888, no Docker)
 test-e2e: start-if-not-running
@@ -141,7 +141,7 @@ test-e2e-visual: start-if-not-running
 	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- --ui
 
 # Run E2E tests against Docker (port 8889)
-test-e2e-docker: start-docker-if-not-running setup-tests-env
+test-e2e-docker: start-docker-if-not-running setup-e2e-env
 	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
 
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────

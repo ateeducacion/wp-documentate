@@ -62,15 +62,9 @@ const documentHelpers = {
 
 		// Save or publish based on status
 		if ( status === 'publish' ) {
-			const publishBtn = page.getByRole( 'button', { name: /publish|publicar/i } ).or(
-				page.locator( '#publish' )
-			);
-			await publishBtn.click();
+			await page.locator( '#publish' ).click();
 		} else {
-			const draftBtn = page.getByRole( 'button', { name: /save draft|guardar borrador/i } ).or(
-				page.locator( '#save-post' )
-			);
-			await draftBtn.click();
+			await page.locator( '#save-post' ).click();
 		}
 
 		// Wait for save to complete
