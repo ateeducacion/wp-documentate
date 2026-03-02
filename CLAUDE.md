@@ -15,28 +15,39 @@ Documentate is a WordPress plugin for generating official resolutions with struc
 ## Development Commands
 
 ### Environment Setup
+Two separate environments: Playground (dev, no Docker) and Docker (tests, WP-CLI).
+
 ```bash
-make up                    # Start wp-env Docker containers (http://localhost:8888, admin/password)
-make down                  # Stop containers
-make clean                 # Reset WordPress environment
+# Playground — port 8888, no Docker required
+make up                    # Start Playground (http://localhost:8888, admin/password)
+make down                  # Stop Playground
+
+# Docker — port 8889, requires Docker
+make up-docker             # Start Docker containers (http://localhost:8889)
+make down-docker           # Stop Docker containers
+make clean                 # Reset Docker WordPress environment
 make destroy               # Completely remove wp-env
 ```
 
 ### Testing
 ```bash
+# PHPUnit (Docker, port 8889)
 make test                              # Run all PHPUnit tests
 make test FILTER=MyTest                # Run tests matching pattern
 make test FILE=tests/unit/MyTest.php   # Run specific test file
+
+# E2E (Playground by default, port 8888)
 make test-e2e                          # Run Playwright E2E tests
 make test-e2e-visual                   # Run E2E tests with UI
+make test-e2e-docker                   # Run E2E tests against Docker (port 8889)
 ```
 
 ### Code Quality
 ```bash
-make fix                   # Auto-fix code style with PHPCBF
-make lint                  # Check code style with PHPCS
+make fix                   # Auto-fix code style with Mago formatter
+make lint                  # Check code style with Mago linter
 make check                 # Run all checks: fix, lint, plugin-check, tests, translations
-make check-plugin          # Run WordPress plugin-check
+make check-plugin          # Run WordPress plugin-check (Docker)
 ```
 
 ### Translations

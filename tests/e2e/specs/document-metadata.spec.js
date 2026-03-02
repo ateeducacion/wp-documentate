@@ -21,7 +21,7 @@ test.describe( 'Document Metadata', () => {
 
 		// Look for the metadata meta box or any documentate meta field
 		const metaBox = documentEditor.page.locator(
-			'#documentate-meta-box, #documentate_document_meta, [id*="documentate_meta"], input[name*="documentate_meta"]'
+			'#documentate-meta-box, #documentate_document_meta, [id*="documentate_meta"], input[name*="documentate_document_meta"]'
 		);
 
 		// The meta box or fields should exist
@@ -36,11 +36,8 @@ test.describe( 'Document Metadata', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Author Field Test' );
 
-		// Check if author field exists
-		if ( await documentEditor.authorField.count() === 0 ) {
-			test.skip();
-			return;
-		}
+		// Author field should exist
+		await expect( documentEditor.authorField ).toBeVisible();
 
 		// Fill author
 		await documentEditor.authorField.fill( 'Test Author Name' );
@@ -60,11 +57,8 @@ test.describe( 'Document Metadata', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Keywords Field Test' );
 
-		// Check if keywords field exists
-		if ( await documentEditor.keywordsField.count() === 0 ) {
-			test.skip();
-			return;
-		}
+		// Keywords field should exist
+		await expect( documentEditor.keywordsField ).toBeVisible();
 
 		// Fill keywords
 		await documentEditor.keywordsField.fill( 'keyword1, keyword2, keyword3' );
@@ -85,21 +79,9 @@ test.describe( 'Document Metadata', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Metadata Persistence Test' );
 
-		const hasAuthor = await documentEditor.authorField.count() > 0;
-		const hasKeywords = await documentEditor.keywordsField.count() > 0;
-
-		if ( ! hasAuthor && ! hasKeywords ) {
-			test.skip();
-			return;
-		}
-
 		// Fill metadata
-		if ( hasAuthor ) {
-			await documentEditor.authorField.fill( 'Persistent Author' );
-		}
-		if ( hasKeywords ) {
-			await documentEditor.keywordsField.fill( 'persistent, keywords, test' );
-		}
+		await documentEditor.authorField.fill( 'Persistent Author' );
+		await documentEditor.keywordsField.fill( 'persistent, keywords, test' );
 
 		// Save and publish
 		await documentEditor.publish();
@@ -109,12 +91,8 @@ test.describe( 'Document Metadata', () => {
 		await documentEditor.navigateToEdit( postId );
 
 		// Verify values persisted
-		if ( hasAuthor ) {
-			await expect( documentEditor.authorField ).toHaveValue( 'Persistent Author' );
-		}
-		if ( hasKeywords ) {
-			await expect( documentEditor.keywordsField ).toHaveValue( 'persistent, keywords, test' );
-		}
+		await expect( documentEditor.authorField ).toHaveValue( 'Persistent Author' );
+		await expect( documentEditor.keywordsField ).toHaveValue( 'persistent, keywords, test' );
 	} );
 
 	test( 'subject field shows document title', async ( {
@@ -131,7 +109,7 @@ test.describe( 'Document Metadata', () => {
 
 		// Look for subject field (might be read-only or disabled)
 		const subjectField = documentEditor.page.locator(
-			'#documentate_meta_subject, input[name="documentate_meta_subject"], input[name="_documentate_meta_subject"], .documentate-meta-subject'
+			'#documentate_document_meta_subject, input[name="documentate_document_meta_subject"], .documentate-meta-subject'
 		);
 
 		if ( await subjectField.count() > 0 ) {
@@ -164,12 +142,8 @@ test.describe( 'Document Metadata', () => {
 		const postId = await documentEditor.getPostId();
 		await documentEditor.navigateToEdit( postId );
 
-		// Check if fields were filled (they may not exist in test env)
-		if ( await documentEditor.authorField.count() > 0 ) {
-			await expect( documentEditor.authorField ).toHaveValue( 'Helper Test Author' );
-		}
-		if ( await documentEditor.keywordsField.count() > 0 ) {
-			await expect( documentEditor.keywordsField ).toHaveValue( 'helper, test, keywords' );
-		}
+		// Verify fields were filled
+		await expect( documentEditor.authorField ).toHaveValue( 'Helper Test Author' );
+		await expect( documentEditor.keywordsField ).toHaveValue( 'helper, test, keywords' );
 	} );
 } );

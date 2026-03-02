@@ -97,12 +97,6 @@ test.describe( 'Document Published State', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Published Lock Test' );
 
-		// Skip if no document types available
-		if ( ! await documentEditor.hasDocTypes() ) {
-			test.skip( 'No document types available' );
-			return;
-		}
-
 		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
@@ -113,10 +107,7 @@ test.describe( 'Document Published State', () => {
 
 		// Get post ID and reload
 		const postId = await documentEditor.getPostId();
-		if ( ! postId ) {
-			test.skip( 'Could not get post ID' );
-			return;
-		}
+		expect( postId ).toBeTruthy();
 
 		await documentEditor.navigateToEdit( postId );
 
@@ -136,12 +127,6 @@ test.describe( 'Document Published State', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Body Class Lock Test' );
 
-		// Skip if no document types available
-		if ( ! await documentEditor.hasDocTypes() ) {
-			test.skip( 'No document types available' );
-			return;
-		}
-
 		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
@@ -152,10 +137,7 @@ test.describe( 'Document Published State', () => {
 
 		// Get post ID and reload
 		const postId = await documentEditor.getPostId();
-		if ( ! postId ) {
-			test.skip( 'Could not get post ID' );
-			return;
-		}
+		expect( postId ).toBeTruthy();
 
 		await documentEditor.navigateToEdit( postId );
 
@@ -178,12 +160,6 @@ test.describe( 'Document Published State', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Disabled Fields Test' );
 
-		// Skip if no document types available
-		if ( ! await documentEditor.hasDocTypes() ) {
-			test.skip( 'No document types available' );
-			return;
-		}
-
 		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
@@ -194,10 +170,7 @@ test.describe( 'Document Published State', () => {
 
 		// Get post ID and reload
 		const postId = await documentEditor.getPostId();
-		if ( ! postId ) {
-			test.skip( 'Could not get post ID' );
-			return;
-		}
+		expect( postId ).toBeTruthy();
 
 		await documentEditor.navigateToEdit( postId );
 
@@ -220,12 +193,6 @@ test.describe( 'Document Published State', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Revert to Draft Test' );
 
-		// Skip if no document types available
-		if ( ! await documentEditor.hasDocTypes() ) {
-			test.skip( 'No document types available' );
-			return;
-		}
-
 		await documentEditor.selectFirstDocType();
 
 		// Save as draft first
@@ -236,10 +203,7 @@ test.describe( 'Document Published State', () => {
 
 		// Get post ID and reload
 		const postId = await documentEditor.getPostId();
-		if ( ! postId ) {
-			test.skip( 'Could not get post ID' );
-			return;
-		}
+		expect( postId ).toBeTruthy();
 
 		await documentEditor.navigateToEdit( postId );
 

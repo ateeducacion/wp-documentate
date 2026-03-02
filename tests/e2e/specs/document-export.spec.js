@@ -1,8 +1,11 @@
 /**
  * Document Export E2E Tests for Documentate plugin.
  *
- * Uses Page Object Model, REST API setup, and accessible selectors
- * following WordPress/Gutenberg E2E best practices.
+ * Tests the document actions metabox which provides download and preview
+ * buttons for various formats (DOCX, ODT, PDF).
+ *
+ * NOTE: The export functionality is provided through individual action buttons
+ * in the #documentate_actions metabox, not through an export modal.
  */
 const { test, expect } = require( '../fixtures' );
 
@@ -10,7 +13,7 @@ test.describe( 'Document Export', () => {
 	/**
 	 * Helper to create a document with a type (needed for export).
 	 */
-	async function createDocumentWithType( documentEditor, page ) {
+	async function createDocumentWithType( documentEditor ) {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Export Test Document' );
 
@@ -25,116 +28,79 @@ test.describe( 'Document Export', () => {
 		return await documentEditor.getPostId();
 	}
 
-	test( 'export button is visible on document edit page', async ( {
+	test( 'actions metabox is visible on published document', async ( {
 		documentEditor,
 	} ) => {
-		const postId = await createDocumentWithType( documentEditor, documentEditor.page );
-
-		// Reload the page
+		const postId = await createDocumentWithType( documentEditor );
 		await documentEditor.navigateToEdit( postId );
 
-		if ( ! await documentEditor.exportButton.first().isVisible() ) {
-			test.skip();
-			return;
-		}
-
-		// Export button should be visible
-		await expect( documentEditor.exportButton.first() ).toBeVisible();
+		const metabox = documentEditor.page.locator( '#documentate_actions' );
+		await expect( metabox ).toBeVisible();
 	} );
 
-	test( 'can open export modal from document edit screen', async ( {
+	test( 'actions metabox shows download format buttons', async ( {
 		documentEditor,
-		page,
 	} ) => {
-		const postId = await createDocumentWithType( documentEditor, page );
+		const postId = await createDocumentWithType( documentEditor );
 		await documentEditor.navigateToEdit( postId );
 
-		// Check if export button exists
-		if ( ! await documentEditor.exportButton.first().isVisible() ) {
-			test.skip();
-			return;
-		}
-
-		// Open export modal
-		await documentEditor.openExportModal();
-
-		// Verify modal is visible
-		await expect( documentEditor.exportModal.first() ).toBeVisible();
-	} );
-
-	test( 'export modal shows format options', async ( {
-		documentEditor,
-		page,
-	} ) => {
-		const postId = await createDocumentWithType( documentEditor, page );
-		await documentEditor.navigateToEdit( postId );
-
-		if ( ! await documentEditor.exportButton.first().isVisible() ) {
-			test.skip();
-			return;
-		}
-
-		await documentEditor.openExportModal();
-
-		// Look for format options (DOCX, ODT, PDF)
-		const docxOption = page.getByRole( 'button', { name: /docx/i } ).or(
-			page.locator( '[data-format="docx"]' )
-		);
-		const odtOption = page.getByRole( 'button', { name: /odt/i } ).or(
-			page.locator( '[data-format="odt"]' )
+		// Look for action buttons (both enabled <a> and disabled <button>)
+		const actionButtons = documentEditor.page.locator(
+			'#documentate_actions a[data-documentate-action], #documentate_actions button'
 		);
 
-		// At least one format should be available
-		const hasDocx = await docxOption.count() > 0;
-		const hasOdt = await odtOption.count() > 0;
-
-		expect( hasDocx || hasOdt ).toBe( true );
+		// There should be at least one format button available
+		const buttonCount = await actionButtons.count();
+		expect( buttonCount ).toBeGreaterThan( 0 );
 	} );
 
-	test( 'DOCX export option is clickable', async ( {
+	test( 'download buttons show available formats', async ( {
 		documentEditor,
-		page,
 	} ) => {
-		const postId = await createDocumentWithType( documentEditor, page );
+		const postId = await createDocumentWithType( documentEditor );
 		await documentEditor.navigateToEdit( postId );
 
-		if ( ! await documentEditor.exportButton.first().isVisible() ) {
-			test.skip();
-			return;
+		// Check for format buttons (DOCX, ODT, PDF)
+		const downloadButtons = documentEditor.page.locator(
+			'#documentate_actions a[data-documentate-action="download"]'
+		);
+
+		// At least one download format should be available
+		const downloadCount = await downloadButtons.count();
+		expect( downloadCount ).toBeGreaterThan( 0 );
+
+		// Verify each button has a format attribute
+		for ( let i = 0; i < downloadCount; i++ ) {
+			const format = await downloadButtons.nth( i ).getAttribute( 'data-documentate-format' );
+			expect( [ 'docx', 'odt', 'pdf' ] ).toContain( format );
 		}
+	} );
 
-		await documentEditor.openExportModal();
+	test( 'native format download button is clickable', async ( {
+		documentEditor,
+	} ) => {
+		const postId = await createDocumentWithType( documentEditor );
+		await documentEditor.navigateToEdit( postId );
 
-		// Find DOCX button
-		const docxButton = page.getByRole( 'button', { name: /docx/i } ).or(
-			page.locator( '[data-format="docx"]' )
+		// Find a direct download button (no CDN mode = native format)
+		const directButton = documentEditor.page.locator(
+			'#documentate_actions a[data-documentate-action="download"]:not([data-documentate-cdn-mode])'
 		).first();
 
-		if ( await docxButton.count() > 0 ) {
-			// Verify it's enabled/clickable
-			await expect( docxButton ).toBeEnabled();
-		}
+		await expect( directButton ).toBeVisible();
+
+		// Verify it's enabled and clickable (it's an <a> tag, so always enabled)
+		await expect( directButton ).toBeEnabled();
 	} );
 
-	test( 'can close export modal with Escape key', async ( {
+	test( 'conversion engine description is shown', async ( {
 		documentEditor,
-		page,
 	} ) => {
-		const postId = await createDocumentWithType( documentEditor, page );
+		const postId = await createDocumentWithType( documentEditor );
 		await documentEditor.navigateToEdit( postId );
 
-		if ( ! await documentEditor.exportButton.first().isVisible() ) {
-			test.skip();
-			return;
-		}
-
-		await documentEditor.openExportModal();
-		await expect( documentEditor.exportModal.first() ).toBeVisible();
-
-		// Close with Escape
-		await documentEditor.closeExportModal();
-
-		// Modal should be hidden
-		await expect( documentEditor.exportModal.first() ).toBeHidden();
+		// The metabox should show a description about the conversion engine
+		const description = documentEditor.page.locator( '#documentate_actions .description' );
+		await expect( description ).toBeVisible();
 	} );
 } );

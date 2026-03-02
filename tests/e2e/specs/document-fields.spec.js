@@ -12,19 +12,12 @@ test.describe( 'Document Fields', () => {
 	 *
 	 * @param {Object} documentEditor - DocumentEditorPage instance
 	 * @param {Object} page           - Playwright page
-	 * @return {Promise<boolean>} True if doc type was selected
 	 */
 	async function selectDocTypeAndWaitForFields( documentEditor, page ) {
-		if ( ! await documentEditor.hasDocTypes() ) {
-			return false;
-		}
-
 		await documentEditor.selectFirstDocType();
 
 		// Wait a moment for fields to potentially load via AJAX
 		await page.waitForTimeout( 500 );
-
-		return true;
 	}
 
 	test( 'fields appear when document type is selected', async ( {
@@ -34,11 +27,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Fields Test Document' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		// Save to trigger field rendering
 		await documentEditor.saveDraft();
@@ -55,11 +44,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Text Field Test' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		await documentEditor.saveDraft();
 		const postId = await documentEditor.getPostId();
@@ -87,11 +72,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Textarea Field Test' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		await documentEditor.saveDraft();
 		const postId = await documentEditor.getPostId();
@@ -119,11 +100,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Rich Field Test' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		await documentEditor.saveDraft();
 		const postId = await documentEditor.getPostId();
@@ -164,11 +141,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Array Field Test' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		await documentEditor.saveDraft();
 		const postId = await documentEditor.getPostId();
@@ -206,11 +179,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Remove Array Item Test' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		await documentEditor.saveDraft();
 		const postId = await documentEditor.getPostId();
@@ -248,14 +217,11 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.saveDraft();
 
 		const postId = await documentEditor.getPostId();
-		if ( ! postId ) {
-			test.skip( 'Could not create document' );
-			return;
-		}
+		expect( postId ).toBeTruthy();
 
 		await documentEditor.navigateToEdit( postId );
 
-		// Select doc type if available
+		// Select doc type
 		if ( await documentEditor.hasDocTypes() ) {
 			await documentEditor.selectFirstDocType();
 			await documentEditor.publish();
@@ -287,11 +253,7 @@ test.describe( 'Document Fields', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Max Items Test' );
 
-		const hasDocTypes = await selectDocTypeAndWaitForFields( documentEditor, page );
-		if ( ! hasDocTypes ) {
-			test.skip();
-			return;
-		}
+		await selectDocTypeAndWaitForFields( documentEditor, page );
 
 		await documentEditor.saveDraft();
 		const postId = await documentEditor.getPostId();
