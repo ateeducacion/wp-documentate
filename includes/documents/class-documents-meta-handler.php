@@ -160,7 +160,7 @@ class Documents_Meta_Handler {
 			if ( ! empty( $all_meta ) ) {
 				foreach ( $all_meta as $meta_key => $values ) {
 					unset( $values );
-					if ( 0 !== strpos( $meta_key, 'documentate_field_' ) ) {
+					if (  !str_starts_with( $meta_key, 'documentate_field_' ) ) {
 						continue;
 					}
 					if ( isset( $known[ $meta_key ] ) ) {

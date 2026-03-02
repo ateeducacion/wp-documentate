@@ -587,6 +587,14 @@ class Documentate_Admin {
 			$init['table_advtab']         = true;
 			$init['table_cell_advtab']    = true;
 			$init['table_row_advtab']     = true;
+
+			// Paste filtering
+			$init['paste_remove_styles'] = true;
+			$init['paste_remove_styles_if_webkit'] = true;
+			$init['paste_strip_class_attributes'] = 'all';
+			// Only allow the desired tags and strip all styles and alignment attributes
+			$init['valid_elements'] = 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]';
+			$init['invalid_elements'] = 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet';
 		}
 		return $init;
 	}
