@@ -11,9 +11,6 @@
  */
 const { test, expect } = require( '../fixtures' );
 
-// Extended timeout for WASM tests (2 minutes)
-const WASM_TIMEOUT = 120000;
-
 test.describe( 'WASM Conversion', () => {
 	/**
 	 * Helper to create a document with a type (needed for export/preview).
@@ -250,106 +247,9 @@ test.describe( 'WASM Conversion', () => {
 		} );
 	} );
 
-	test.describe( 'Full WASM Conversion', () => {
-		// These tests require WASM download and are slow (~50MB)
-		// Only run when DOCUMENTATE_TEST_WASM=1 is set
-		test.beforeEach( async () => {
-			if ( ! process.env.DOCUMENTATE_TEST_WASM ) {
-				test.skip();
-			}
-		} );
-
-		test( 'preview conversion completes and shows PDF in popup', async ( {
-			documentEditor,
-			context,
-		} ) => {
-			test.setTimeout( WASM_TIMEOUT );
-
-			const postId = await createDocumentWithType( documentEditor );
-			await documentEditor.navigateToEdit( postId );
-
-			const buttons = getActionButtons( documentEditor.page );
-			const previewButton = buttons.preview.first();
-
-			await expect( previewButton ).toBeVisible();
-
-			// Listen for popup
-			const popupPromise = context.waitForEvent( 'page', { timeout: 10000 } );
-
-			// Click preview button
-			await previewButton.click();
-
-			// Loading modal should appear
-			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
-			await expect( modal ).toBeVisible( { timeout: 2000 } );
-
-			// Wait for popup
-			const popup = await popupPromise;
-
-			// Wait for conversion to complete (popup will navigate to PDF blob URL)
-			// This can take 1-2 minutes for first-time WASM download
-			await popup.waitForFunction(
-				() => {
-					const url = window.location.href;
-					return url.startsWith( 'blob:' ) || url.includes( '.pdf' );
-				},
-				{ timeout: WASM_TIMEOUT }
-			);
-
-			// Popup should now be showing the PDF
-			const popupUrl = popup.url();
-			expect( popupUrl ).toMatch( /^blob:|\.pdf/ );
-
-			// Loading modal should be hidden
-			await expect( modal ).not.toHaveClass( /is-visible/, { timeout: 5000 } );
-
-			await popup.close();
-		} );
-
-		test( 'download conversion completes and triggers download', async ( {
-			documentEditor,
-			context,
-		} ) => {
-			test.setTimeout( WASM_TIMEOUT );
-
-			const postId = await createDocumentWithType( documentEditor );
-			await documentEditor.navigateToEdit( postId );
-
-			const buttons = getActionButtons( documentEditor.page );
-			const pdfButton = buttons.pdfDownload.first();
-
-			await expect( pdfButton ).toBeVisible();
-
-			// Listen for popup (converter)
-			const popupPromise = context.waitForEvent( 'page', { timeout: 10000 } );
-
-			// Listen for download
-			const downloadPromise = documentEditor.page.waitForEvent( 'download', { timeout: WASM_TIMEOUT } );
-
-			// Click download button
-			await pdfButton.click();
-
-			// Loading modal should appear
-			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
-			await expect( modal ).toBeVisible( { timeout: 2000 } );
-
-			// Wait for popup (but it will close after conversion)
-			const popup = await popupPromise;
-
-			// Wait for download to complete
-			const download = await downloadPromise;
-
-			// Verify filename
-			const filename = download.suggestedFilename();
-			expect( filename ).toMatch( /\.pdf$/i );
-
-			// Loading modal should be hidden
-			await expect( modal ).not.toHaveClass( /is-visible/, { timeout: 5000 } );
-
-			// Popup should be closed
-			expect( popup.isClosed() ).toBe( true );
-		} );
-	} );
+	// NOTE: Full WASM conversion tests (actual file conversion) are in a separate
+	// test file that is only run when DOCUMENTATE_TEST_WASM=1 is set, as they
+	// require downloading ~50MB of WASM binaries and take 1-2 minutes each.
 
 	test.describe( 'BroadcastChannel Communication', () => {
 		test( 'BroadcastChannel is initialized when clicking CDN mode button', async ( {

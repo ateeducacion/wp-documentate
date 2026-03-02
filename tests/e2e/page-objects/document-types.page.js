@@ -189,14 +189,21 @@ class DocumentTypesPage {
 			await this.descriptionField.fill( description );
 		}
 
+		// Set up AJAX response listener before clicking
+		const responsePromise = this.page.waitForResponse(
+			( response ) =>
+				response.url().includes( 'admin-ajax.php' ) &&
+				response.status() === 200
+		);
+
 		await this.submitButton.click();
 
 		// Wait for AJAX response
-		await this.page.waitForResponse(
-			( response ) =>
-				response.url().includes( 'admin-ajax.php' ) ||
-				response.url().includes( 'edit-tags.php' )
-		);
+		await responsePromise;
+
+		// Wait for WP to inject the new row via AJAX into #the-list
+		await this.page.locator( `#the-list a.row-title:has-text("${ name }")` )
+			.waitFor( { state: 'visible', timeout: 5000 } );
 	}
 
 	/**

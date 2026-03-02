@@ -19,12 +19,27 @@ test.describe( 'Document Types Management', () => {
 
 		const typeName = `Test Type ${ Date.now() }`;
 
-		// Create the document type
-		await documentTypes.create( { name: typeName } );
+		// Create the document type and capture the AJAX response
+		const responsePromise = page.waitForResponse(
+			( response ) =>
+				response.url().includes( 'admin-ajax.php' ) &&
+				response.status() === 200
+		);
 
-		// Reload and verify the new type appears in the list
-		await page.reload();
+		await documentTypes.nameField.fill( typeName );
+		await documentTypes.submitButton.click();
 
+		const response = await responsePromise;
+		const responseBody = await response.text();
+
+		// WordPress AJAX returns XML with the new term; verify it succeeded
+		expect( responseBody ).toContain( typeName );
+
+		// Wait for WP to inject the new row via AJAX into #the-list
+		await page.locator( `#the-list a.row-title:has-text("${ typeName }")` )
+			.waitFor( { state: 'visible', timeout: 5000 } );
+
+		// Verify term exists in the list
 		await documentTypes.expectTermExists( expect, typeName );
 	} );
 
