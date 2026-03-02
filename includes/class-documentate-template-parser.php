@@ -204,6 +204,7 @@ class Documentate_Template_Parser {
 							'label'     => $label,
 							'type'      => self::infer_array_item_type( $key, $item_data_type ),
 							'data_type' => $item_data_type,
+							'parameters' => $parameters,
 						);
 				}
 
@@ -270,6 +271,7 @@ class Documentate_Template_Parser {
 							'label'     => ( '' !== $label ) ? $label : self::humanize_key( $dot_match['raw_key'] ),
 							'type'      => self::infer_array_item_type( $key, $item_data_type ),
 							'data_type' => $item_data_type,
+							'parameters' => $parameters,
 						);
 				}
 
@@ -311,6 +313,7 @@ class Documentate_Template_Parser {
 					'label'       => $label,
 					'placeholder' => $normalized_placeholder,
 					'data_type'   => $data_type,
+					'parameters'  => $parameters,
 					'_order'      => $entry['index'],
 				);
 		}
