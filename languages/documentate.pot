@@ -1503,3 +1503,19 @@ msgstr ""
 #: includes/export/class-export-handler.php:130
 msgid "Generated file not found."
 msgstr ""
+
+msgid "You do not have permission to manage templates."
+msgstr ""
+
+msgid "Scope category"
+msgstr ""
+
+msgid "— No scope —"
+msgstr ""
+
+msgid "Documents in this category (and subcategories) will be visible to this user."
+msgstr ""
+
+#: includes/class-documentate-admin-helper.php:1005
+msgid "You have unsaved changes. Do you want to generate the document with the last saved version?"
+msgstr ""

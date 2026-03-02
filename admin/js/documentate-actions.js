@@ -582,6 +582,35 @@
 
 		e.preventDefault();
 
+		// Check for unsaved changes
+		let hasUnsavedChanges = false;
+
+		// Check WP core editor dirty state if available
+		if (window.wp && wp.data && wp.data.select && wp.data.select('core/editor')) {
+			hasUnsavedChanges = wp.data.select('core/editor').isEditedPostDirty();
+		}
+		// Fallback for classic editor / meta boxes
+		else if (typeof window.wp !== 'undefined' && window.wp.autosave && typeof window.wp.autosave.server !== 'undefined' && typeof window.wp.autosave.server.isDirty === 'function') {
+			hasUnsavedChanges = window.wp.autosave.server.isDirty();
+		}
+		// Extra fallback: TinyMCE
+		else if (typeof window.tinymce !== 'undefined') {
+			const editors = window.tinymce.editors;
+			for (let i = 0; i < editors.length; i++) {
+				if (editors[i].isDirty()) {
+					hasUnsavedChanges = true;
+					break;
+				}
+			}
+		}
+
+		if (hasUnsavedChanges) {
+			const warningMsg = strings.unsavedChanges || 'Tienes cambios sin guardar. ¿Quieres generar el documento con la última versión guardada?';
+			if (!window.confirm(warningMsg)) {
+				return; // User cancelled
+			}
+		}
+
 		// Determine title based on action
 		let title = strings.generating || 'Generando documento...';
 		if (action === 'preview') {
