@@ -46,7 +46,7 @@ class Documents_Revision_Handler {
 			if ( is_array( $all_meta ) ) {
 				foreach ( $all_meta as $meta_key => $unused ) {
 					unset( $unused );
-					if ( is_string( $meta_key ) && 0 === strpos( $meta_key, 'documentate_field_' ) ) {
+					if ( is_string( $meta_key ) &&  str_starts_with( $meta_key, 'documentate_field_' ) ) {
 						$keys[] = $meta_key;
 					}
 				}

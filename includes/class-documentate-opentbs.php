@@ -155,6 +155,12 @@ class Documentate_OpenTBS {
 			return $rich_result;
 		}
 
+		// Final safety net to strip any remaining raw HTML tags
+		$clean_result = self::strip_unprocessed_html_from_archive( $dest_path, array( 'content.xml', 'styles.xml' ) );
+		if ( is_wp_error( $clean_result ) ) {
+			return $clean_result;
+		}
+
 		$meta_result = self::apply_odt_metadata( $dest_path, $metadata );
 		if ( is_wp_error( $meta_result ) ) {
 			return $meta_result;
@@ -183,12 +189,65 @@ class Documentate_OpenTBS {
 			return $rich_result;
 		}
 
+		// Determine targets for DOCX HTML cleaning
+		$targets = array();
+		$zip = new ZipArchive();
+		if ( true === $zip->open( $dest_path ) ) {
+			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+				$name = $zip->getNameIndex( $i );
+				if ( preg_match( '/^word\/(document|header[0-9]*|footer[0-9]*)\.xml$/', $name ) ) {
+					$targets[] = $name;
+				}
+			}
+			$zip->close();
+			self::strip_unprocessed_html_from_archive( $dest_path, $targets );
+		}
+
 		$meta_result = self::apply_docx_metadata( $dest_path, $metadata );
 		if ( is_wp_error( $meta_result ) ) {
 			return $meta_result;
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Final safety net: open the archive and strip HTML tags from text nodes
+	 * to ensure raw HTML code like &lt;p&gt; does not appear in the generated document.
+	 *
+	 * @param string   $archive_path Path to the ZIP/ODT/DOCX file.
+	 * @param string[] $targets      Array of XML files inside the archive to process.
+	 * @return true|WP_Error
+	 */
+	private static function strip_unprocessed_html_from_archive( $archive_path, $targets ) {
+		if ( empty( $targets ) || ! class_exists( 'ZipArchive' ) ) {
+			return true;
+		}
+
+		$zip = new ZipArchive();
+		if ( true !== $zip->open( $archive_path ) ) {
+			return new WP_Error( 'documentate_zip_open_failed', __( 'Could not open the archive to sanitize HTML.', 'documentate' ) );
+		}
+
+		$changed = false;
+		foreach ( $targets as $target ) {
+			$xml = $zip->getFromName( $target );
+			if ( false === $xml ) {
+				continue;
+			}
+
+			// Just regex replace encoded HTML tags in text
+			$updated = preg_replace( '/&lt;\/?(?:p|div|span|a|ul|ol|li|table|thead|tbody|tfoot|tr|th|td|h[1-6]|strong|b|em|i|u|br|blockquote|pre)[^&]*&gt;/i', '', $xml );
+			$updated = preg_replace( '/&lt;!--\[.*?\]--&gt;/i', '', (string) $updated );
+
+			if ( $updated !== $xml && null !== $updated ) {
+				$zip->addFromString( $target, $updated );
+				$changed = true;
+			}
+		}
+
+		$zip->close();
+		return true;
 	}
 
 	/**

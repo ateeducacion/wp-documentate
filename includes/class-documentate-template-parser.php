@@ -40,7 +40,7 @@ class Documentate_Template_Parser {
 		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive exposes camelCase properties.
 			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
 				$name = $zip->getNameIndex( $i );
-				if ( 0 === strpos( $name, 'word/' ) && self::ends_with( $name, '.xml' ) ) {
+				if (  str_starts_with( $name, 'word/' ) && self::ends_with( $name, '.xml' ) ) {
 					$targets[] = $name;
 				}
 			}
