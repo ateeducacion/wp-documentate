@@ -73,7 +73,7 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= '<li><strong>' . esc_html__( 'Types', 'documentate' ) . '</strong>: ';
 		$markup .= esc_html__( 'if you omit', 'documentate' ) . ' <code>type</code> &rarr; <em>' . esc_html__( 'textarea', 'documentate' ) . '</em>. ';
 		$markup .= esc_html__( 'Supported:', 'documentate' ) . ' <code>text</code>, <code>textarea</code>, <code>html</code> ';
-		$markup .= '(' . esc_html__( 'TinyMCE', 'documentate' ) . '), <code>number</code>, <code>date</code>, <code>email</code>, <code>url</code>.</li>';
+		$markup .= '(' . esc_html__( 'TinyMCE', 'documentate' ) . '), <code>number</code>, <code>date</code>, <code>email</code>, <code>url</code>, <code>select</code>.</li>';
 
 		$markup .= '<li><strong>' . esc_html__( 'Validation', 'documentate' ) . '</strong>: ';
 		$markup .= '<code>pattern</code> ' . esc_html__( '(regex) and', 'documentate' ) . ' <code>patternmsg</code>. ';
@@ -112,6 +112,7 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= '<pre style="white-space:pre-wrap;">';
 		$markup .= esc_html( "[Email;type='email';title='Email';placeholder='you@domain.com']\n" );
 		$markup .= esc_html( "[fecha;type='date';frm='d mmmm yyyy']\n" );
+		$markup .= esc_html( "[persona;type='select';values='COORDINADOR|PROVEEDOR/A|EMPRESA';description='Elegir un tipo de persona']\n" );
 		$markup .= esc_html( "[items;block=begin][items.title;type='text'] [items.content;type='html'][items;block=end]\n" );
 		$markup .= esc_html__( '-- Table row:', 'documentate' ) . "\n";
 		$markup .= esc_html( "| [items.name;block=tbs:row;type='text'] | [items.qty;type='number'] |" );
