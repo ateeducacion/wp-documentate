@@ -1066,3 +1066,7 @@ msgstr "— Sin ámbito —"
 
 msgid "Documents in this category (and subcategories) will be visible to this user."
 msgstr "Los documentos en esta categoría (y subcategorías) serán visibles para este usuario."
+
+#: includes/class-documentate-admin-helper.php:1005
+msgid "You have unsaved changes. Do you want to generate the document with the last saved version?"
+msgstr "Tienes cambios sin guardar. ¿Quieres generar el documento con la última versión guardada?"
