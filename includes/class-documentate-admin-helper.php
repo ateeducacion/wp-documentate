@@ -1002,6 +1002,7 @@ class Documentate_Admin_Helper {
 			'loadingWasm'       => __( 'Loading LibreOffice...', 'documentate' ),
 			'convertingBrowser' => __( 'Converting in browser...', 'documentate' ),
 			'wasmError'         => __( 'Error loading LibreOffice.', 'documentate' ),
+			'unsavedChanges'    => __( 'You have unsaved changes. Do you want to generate the document with the last saved version?', 'documentate' ),
 		);
 	}
 
