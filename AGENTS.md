@@ -92,3 +92,7 @@ These are natural-language guidelines for agents to follow when developing the D
 - After planning, say “go ahead” to proceed.
 - Avoid adding unnecessary files to the chat—add only those being modified.
 
+
+## Architecture Reference
+
+- **Before implementing new features or making significant changes**, please read `ARCHITECTURE.md` to understand the plugin's data flow, custom post types (`documentate_document`), taxonomy (`documentate_doc_type`), OpenTBS integration, and access control scopes.
