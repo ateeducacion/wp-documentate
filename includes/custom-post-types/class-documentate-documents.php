@@ -656,7 +656,7 @@ class Documentate_Documents {
 
 			$type       = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
 			$raw_field  = isset( $raw_fields[ $slug ] ) ? $raw_fields[ $slug ] : array();
-			$field_type = isset( $raw_field['type'] ) ? sanitize_key( $raw_field['type'] ) : '';
+			$field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
 			$data_type  = isset( $row['data_type'] ) ? sanitize_key( $row['data_type'] ) : '';
 			$type       = $this->resolve_field_control_type( $type, $raw_field );
 			$field_title = $this->get_field_title( $raw_field );
@@ -1310,7 +1310,7 @@ class Documentate_Documents {
 			echo '>' . esc_html( $label ) . '</label>';
 
 			if ( 'single' === $type ) {
-				$raw_field_type   = isset( $raw_field['type'] ) ? sanitize_key( $raw_field['type'] ) : '';
+				$raw_field_type   = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
 				$raw_data_type    = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : '';
 				$input_type       = $this->map_single_input_type( $raw_field_type, $raw_data_type );
 				$normalized_value = $this->normalize_scalar_value( $value, $input_type );
