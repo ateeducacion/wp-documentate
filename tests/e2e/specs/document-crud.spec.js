@@ -29,17 +29,12 @@ test.describe( 'Document CRUD Operations', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Document With Type' );
 
-		// Check if document type meta box exists
-		if ( ! await documentEditor.docTypeMetabox.isVisible().catch( () => false ) ) {
-			test.skip();
-			return;
-		}
+		// Document type meta box should be visible
+		await expect( documentEditor.docTypeMetabox ).toBeVisible();
 
-		// Skip if no document types available
-		if ( ! await documentEditor.hasDocTypes() ) {
-			test.skip();
-			return;
-		}
+		// Document types should be available
+		const hasDocTypes = await documentEditor.hasDocTypes();
+		expect( hasDocTypes ).toBe( true );
 
 		// Select first document type
 		await documentEditor.selectFirstDocType();
@@ -148,11 +143,9 @@ test.describe( 'Document CRUD Operations', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Type Lock Test' );
 
-		// Skip if no document types available
-		if ( ! await documentEditor.hasDocTypes() ) {
-			test.skip();
-			return;
-		}
+		// Document types should be available
+		const hasDocTypes = await documentEditor.hasDocTypes();
+		expect( hasDocTypes ).toBe( true );
 
 		// Select a document type
 		await documentEditor.selectFirstDocType();

@@ -116,18 +116,14 @@ class DocumentEditorPage {
 	 * Author input field in metadata.
 	 */
 	get authorField() {
-		return this.page.locator( '#documentate_meta_author' ).or(
-			this.page.locator( 'input[name="documentate_meta_author"]' )
-		);
+		return this.page.locator( '#documentate_document_meta_author' );
 	}
 
 	/**
 	 * Keywords input field in metadata.
 	 */
 	get keywordsField() {
-		return this.page.locator( '#documentate_meta_keywords' ).or(
-			this.page.locator( 'input[name="documentate_meta_keywords"], textarea[name="documentate_meta_keywords"]' )
-		);
+		return this.page.locator( '#documentate_document_meta_keywords' );
 	}
 
 	/**

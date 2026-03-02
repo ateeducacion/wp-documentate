@@ -132,7 +132,7 @@ setup-e2e-env:
 	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
 	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp option update documentate_settings \
-		'{"conversion_engine":"collabora","collabora_base_url":"","collabora_lang":"en-US","collaborative_signaling":"wss://signaling.yjs.dev","collabora_disable_ssl":"0","collaborative_enabled":"0"}' \
+		'{"conversion_engine":"wasm","collabora_base_url":"","collabora_lang":"en-US","collaborative_signaling":"wss://signaling.yjs.dev","collabora_disable_ssl":"0","collaborative_enabled":"0"}' \
 		--format=json 2>/dev/null || true
 
 # Run E2E tests against Playground (port 8888, no Docker)

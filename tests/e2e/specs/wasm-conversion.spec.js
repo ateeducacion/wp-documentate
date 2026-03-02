@@ -1,14 +1,13 @@
 /**
  * WASM Conversion E2E Tests for Documentate plugin.
  *
- * Uses Page Object Model, REST API setup, and accessible selectors
- * following WordPress/Gutenberg E2E best practices.
- *
  * Tests the ZetaJS WASM-based document conversion functionality.
  * This includes the loading modal, popup converter, and BroadcastChannel communication.
  *
- * Note: Full WASM conversion tests are slow (requires ~50MB download) and may be skipped
- * in CI environments. Set DOCUMENTATE_TEST_WASM=1 to run full conversion tests.
+ * NOTE: The E2E environment uses WASM/CDN conversion engine, so all buttons
+ * that require conversion (PDF, preview, cross-format) use CDN popup mode.
+ * Full WASM conversion tests (actual file conversion) are only run when
+ * DOCUMENTATE_TEST_WASM=1 is set, as they require downloading ~50MB.
  */
 const { test, expect } = require( '../fixtures' );
 
@@ -45,14 +44,6 @@ test.describe( 'WASM Conversion', () => {
 		};
 	}
 
-	/**
-	 * Check if a button is in CDN mode.
-	 */
-	async function isCdnMode( button ) {
-		const cdnMode = await button.getAttribute( 'data-documentate-cdn-mode' );
-		return cdnMode === '1';
-	}
-
 	test.describe( 'Loading Modal', () => {
 		test( 'shows loading modal when clicking action button', async ( {
 			documentEditor,
@@ -63,10 +54,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Click the button
 			await previewButton.click();
@@ -96,15 +84,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( previewButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Click the button
 			await previewButton.click();
@@ -113,10 +93,8 @@ test.describe( 'WASM Conversion', () => {
 			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
-			// Title should update with progress (wait up to 30 seconds for WASM to start loading)
+			// Title should be visible (will update with progress as conversion progresses)
 			const title = modal.locator( '.documentate-loading-modal__title' );
-
-			// Initial title might be generic, but should change as conversion progresses
 			await expect( title ).toBeVisible();
 		} );
 
@@ -166,10 +144,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Check for data attributes
 			const action = await previewButton.getAttribute( 'data-documentate-action' );
@@ -178,15 +153,13 @@ test.describe( 'WASM Conversion', () => {
 			expect( action ).toBe( 'preview' );
 			expect( format ).toBe( 'pdf' );
 
-			// Check if CDN mode is enabled (optional - depends on configuration)
+			// CDN mode should be enabled (WASM engine)
 			const cdnMode = await previewButton.getAttribute( 'data-documentate-cdn-mode' );
 			const sourceFormat = await previewButton.getAttribute( 'data-documentate-source-format' );
 
-			// If CDN mode is enabled, source format should be set
-			if ( cdnMode === '1' ) {
-				expect( sourceFormat ).toBeTruthy();
-				expect( [ 'docx', 'odt' ] ).toContain( sourceFormat );
-			}
+			expect( cdnMode ).toBe( '1' );
+			expect( sourceFormat ).toBeTruthy();
+			expect( [ 'docx', 'odt' ] ).toContain( sourceFormat );
 		} );
 
 		test( 'download buttons have correct format attributes', async ( {
@@ -199,23 +172,17 @@ test.describe( 'WASM Conversion', () => {
 
 			// Check PDF download button
 			const pdfButton = buttons.pdfDownload.first();
-			if ( await pdfButton.isVisible() ) {
-				const action = await pdfButton.getAttribute( 'data-documentate-action' );
-				const format = await pdfButton.getAttribute( 'data-documentate-format' );
+			await expect( pdfButton ).toBeVisible();
 
-				expect( action ).toBe( 'download' );
-				expect( format ).toBe( 'pdf' );
-			}
+			const pdfAction = await pdfButton.getAttribute( 'data-documentate-action' );
+			const pdfFormat = await pdfButton.getAttribute( 'data-documentate-format' );
 
-			// Check ODT download button
-			const odtButton = buttons.odtDownload.first();
-			if ( await odtButton.isVisible() ) {
-				const action = await odtButton.getAttribute( 'data-documentate-action' );
-				const format = await odtButton.getAttribute( 'data-documentate-format' );
+			expect( pdfAction ).toBe( 'download' );
+			expect( pdfFormat ).toBe( 'pdf' );
 
-				expect( action ).toBe( 'download' );
-				expect( format ).toBe( 'odt' );
-			}
+			// PDF should use CDN mode (always needs conversion)
+			const pdfCdnMode = await pdfButton.getAttribute( 'data-documentate-cdn-mode' );
+			expect( pdfCdnMode ).toBe( '1' );
 		} );
 	} );
 
@@ -227,33 +194,17 @@ test.describe( 'WASM Conversion', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
-			const previewButton = buttons.preview.first();
-
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( previewButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
-
 			// Get the converter URL from the config
 			const converterUrl = await documentEditor.page.evaluate( () => {
 				return window.documentateActionsConfig?.converterUrl;
 			} );
 
-			if ( ! converterUrl ) {
-				test.skip( 'Converter URL not configured' );
-				return;
-			}
+			expect( converterUrl ).toBeTruthy();
 
 			// Make a request to the converter URL and check headers
 			const response = await request.get( converterUrl + '&post_id=' + postId + '&format=pdf&source=docx&output=preview&_wpnonce=test' );
 
-			// Should return 200 OK (or redirect)
+			// Should return 200 OK (or redirect, or forbidden with bad nonce)
 			expect( [ 200, 302, 403 ] ).toContain( response.status() );
 
 			if ( response.status() === 200 ) {
@@ -268,7 +219,7 @@ test.describe( 'WASM Conversion', () => {
 			}
 		} );
 
-		test( 'clicking preview opens converter popup in CDN mode', async ( {
+		test( 'clicking preview opens converter popup', async ( {
 			documentEditor,
 			context,
 		} ) => {
@@ -278,15 +229,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( previewButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Listen for new popup
 			const popupPromise = context.waitForEvent( 'page', { timeout: 10000 } );
@@ -308,10 +251,10 @@ test.describe( 'WASM Conversion', () => {
 	} );
 
 	test.describe( 'Full WASM Conversion', () => {
-		// These tests require WASM download and are slow
-		// Skip in CI unless DOCUMENTATE_TEST_WASM=1 is set
+		// These tests require WASM download and are slow (~50MB)
+		// Only run when DOCUMENTATE_TEST_WASM=1 is set
 		test.beforeEach( async () => {
-			if ( process.env.CI && ! process.env.DOCUMENTATE_TEST_WASM ) {
+			if ( ! process.env.DOCUMENTATE_TEST_WASM ) {
 				test.skip();
 			}
 		} );
@@ -328,15 +271,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( previewButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Listen for popup
 			const popupPromise = context.waitForEvent( 'page', { timeout: 10000 } );
@@ -383,15 +318,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const pdfButton = buttons.pdfDownload.first();
 
-			if ( ! await pdfButton.isVisible() ) {
-				test.skip( 'PDF download button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( pdfButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
+			await expect( pdfButton ).toBeVisible();
 
 			// Listen for popup (converter)
 			const popupPromise = context.waitForEvent( 'page', { timeout: 10000 } );
@@ -434,15 +361,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( previewButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Click the button to initialize BroadcastChannel
 			await previewButton.click();
@@ -468,15 +387,7 @@ test.describe( 'WASM Conversion', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			if ( ! await isCdnMode( previewButton ) ) {
-				test.skip( 'CDN mode not enabled' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
 			// Set up a listener for modal title changes
 			const titleChanges = [];

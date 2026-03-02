@@ -3,6 +3,11 @@
  *
  * Uses Page Object Model, REST API setup, and accessible selectors
  * following WordPress/Gutenberg E2E best practices.
+ *
+ * NOTE: The E2E environment uses WASM/CDN conversion engine, so:
+ * - Preview always opens a converter popup (CDN mode)
+ * - PDF download opens a converter popup (needs conversion)
+ * - DOCX/ODT download is direct when the template format matches
  */
 const { test, expect } = require( '../fixtures' );
 
@@ -26,19 +31,19 @@ test.describe( 'Document Preview and Download', () => {
 	}
 
 	/**
-	 * Get the actions metabox buttons.
+	 * Get the actions metabox buttons (enabled <a> elements only).
 	 */
 	function getActionButtons( page ) {
 		return {
-			preview: page.locator( '#documentate_actions a:has-text("Previsualizar")' ),
-			docx: page.locator( '#documentate_actions a:has-text("DOCX")' ),
-			odt: page.locator( '#documentate_actions a:has-text("ODT")' ),
-			pdf: page.locator( '#documentate_actions a:has-text("PDF")' ),
+			preview: page.locator( '#documentate_actions a[data-documentate-action="preview"]' ),
+			docx: page.locator( '#documentate_actions a[data-documentate-action="download"][data-documentate-format="docx"]' ),
+			odt: page.locator( '#documentate_actions a[data-documentate-action="download"][data-documentate-format="odt"]' ),
+			pdf: page.locator( '#documentate_actions a[data-documentate-action="download"][data-documentate-format="pdf"]' ),
 		};
 	}
 
 	test.describe( 'PDF Preview', () => {
-		test( 'preview button opens PDF directly in browser', async ( {
+		test( 'preview button opens converter popup in CDN mode', async ( {
 			documentEditor,
 			context,
 		} ) => {
@@ -48,42 +53,27 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available (no conversion engine)' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
-			const isDisabled = await previewButton.evaluate( ( el ) =>
-				el.hasAttribute( 'disabled' ) || el.classList.contains( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'Preview button is disabled (conversion not configured)' );
-				return;
-			}
+			// Preview button should have CDN mode attributes
+			const cdnMode = await previewButton.getAttribute( 'data-documentate-cdn-mode' );
+			expect( cdnMode ).toBe( '1' );
 
-			// Listen for new page/tab
-			const [ newPage ] = await Promise.all( [
-				context.waitForEvent( 'page' ),
+			// Listen for new popup
+			const [ popup ] = await Promise.all( [
+				context.waitForEvent( 'page', { timeout: 10000 } ),
 				previewButton.click(),
 			] );
 
-			// Wait for the new page to load
-			await newPage.waitForLoadState( 'domcontentloaded' );
+			// Popup URL should contain the converter action
+			const popupUrl = popup.url();
+			expect( popupUrl ).toContain( 'action=documentate_converter' );
+			expect( popupUrl ).toContain( 'use_channel=1' );
 
-			// The URL should include the preview action
-			const url = newPage.url();
-			const isPdfUrl = url.includes( 'action=documentate_preview' );
-
-			expect( isPdfUrl ).toBe( true );
-
-			// Verify there's no HTML wrapper (old iframe-based preview)
-			const hasIframe = await newPage.locator( 'iframe#documentate-pdf-frame' ).count();
-			expect( hasIframe ).toBe( 0 );
-
-			await newPage.close();
+			await popup.close();
 		} );
 
-		test( 'preview returns correct Content-Type header', async ( {
+		test( 'preview button has correct data attributes', async ( {
 			documentEditor,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
@@ -92,169 +82,86 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
+			await expect( previewButton ).toBeVisible();
 
-			const isDisabled = await previewButton.evaluate( ( el ) =>
-				el.hasAttribute( 'disabled' ) || el.classList.contains( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'Preview button is disabled' );
-				return;
-			}
+			const action = await previewButton.getAttribute( 'data-documentate-action' );
+			const format = await previewButton.getAttribute( 'data-documentate-format' );
+			const cdnMode = await previewButton.getAttribute( 'data-documentate-cdn-mode' );
+			const sourceFormat = await previewButton.getAttribute( 'data-documentate-source-format' );
 
-			// Intercept the response to check headers
-			const responsePromise = documentEditor.page.waitForResponse(
-				( res ) => res.url().includes( 'documentate' ) && res.status() === 200
-			);
-			const [ newPage ] = await Promise.all( [
-				documentEditor.page.context().waitForEvent( 'page' ),
-				previewButton.click(),
-			] );
-			await newPage.waitForLoadState( 'domcontentloaded' );
-
-			const response = await responsePromise;
-			const contentType = response.headers()[ 'content-type' ];
-			expect( contentType ).toContain( 'application/pdf' );
-
-			await newPage.close();
+			expect( action ).toBe( 'preview' );
+			expect( format ).toBe( 'pdf' );
+			expect( cdnMode ).toBe( '1' );
+			expect( [ 'docx', 'odt' ] ).toContain( sourceFormat );
 		} );
 	} );
 
-	test.describe( 'DOCX Download', () => {
-		test( 'DOCX button triggers file download', async ( {
+	test.describe( 'Native Format Download', () => {
+		test( 'native format button triggers direct file download', async ( {
 			documentEditor,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
 			const buttons = getActionButtons( documentEditor.page );
-			const docxButton = buttons.docx.first();
 
-			if ( ! await docxButton.isVisible() ) {
-				test.skip( 'DOCX button not available' );
-				return;
-			}
-
-			const isDisabled = await docxButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
+			// Find a download button that does NOT use CDN mode (direct download)
+			const allDownloadButtons = documentEditor.page.locator(
+				'#documentate_actions a[data-documentate-action="download"]'
 			);
-			if ( isDisabled ) {
-				test.skip( 'DOCX button is disabled' );
-				return;
+			let directButton = null;
+
+			const count = await allDownloadButtons.count();
+			for ( let i = 0; i < count; i++ ) {
+				const btn = allDownloadButtons.nth( i );
+				const cdnMode = await btn.getAttribute( 'data-documentate-cdn-mode' );
+				if ( ! cdnMode ) {
+					directButton = btn;
+					break;
+				}
 			}
+
+			expect( directButton ).not.toBeNull();
 
 			// Start waiting for download before clicking
 			const downloadPromise = documentEditor.page.waitForEvent( 'download' );
-			await docxButton.click();
+			await directButton.click();
 
 			const download = await downloadPromise;
 
-			// Verify filename ends with .docx
+			// Verify filename ends with the expected format
 			const filename = download.suggestedFilename();
-			expect( filename ).toMatch( /\.docx$/i );
+			expect( filename ).toMatch( /\.(docx|odt)$/i );
 		} );
 
-		test( 'DOCX download returns correct Content-Type', async ( {
+		test( 'native format download produces valid file', async ( {
 			documentEditor,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
-			const docxButton = buttons.docx.first();
-
-			if ( ! await docxButton.isVisible() ) {
-				test.skip( 'DOCX button not available' );
-				return;
-			}
-
-			const isDisabled = await docxButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
+			// Find a direct download button (no CDN mode)
+			const allDownloadButtons = documentEditor.page.locator(
+				'#documentate_actions a[data-documentate-action="download"]:not([data-documentate-cdn-mode])'
 			);
-			if ( isDisabled ) {
-				test.skip( 'DOCX button is disabled' );
-				return;
-			}
 
-			// Verify Content-Type via download event response
+			await expect( allDownloadButtons.first() ).toBeVisible();
+
+			const format = await allDownloadButtons.first().getAttribute( 'data-documentate-format' );
+
 			const [ download ] = await Promise.all( [
 				documentEditor.page.waitForEvent( 'download' ),
-				docxButton.click(),
+				allDownloadButtons.first().click(),
 			] );
 
-			expect( download.suggestedFilename() ).toMatch( /\.docx$/i );
+			const filename = download.suggestedFilename();
+			const expectedExt = new RegExp( `\\.${ format }$`, 'i' );
+			expect( filename ).toMatch( expectedExt );
 		} );
 	} );
 
-	test.describe( 'ODT Download', () => {
-		test( 'ODT button triggers file download', async ( {
-			documentEditor,
-		} ) => {
-			const postId = await createDocumentWithType( documentEditor );
-			await documentEditor.navigateToEdit( postId );
-
-			const buttons = getActionButtons( documentEditor.page );
-			const odtButton = buttons.odt.first();
-
-			if ( ! await odtButton.isVisible() ) {
-				test.skip( 'ODT button not available' );
-				return;
-			}
-
-			const isDisabled = await odtButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'ODT button is disabled' );
-				return;
-			}
-
-			const downloadPromise = documentEditor.page.waitForEvent( 'download' );
-			await odtButton.click();
-
-			const download = await downloadPromise;
-
-			const filename = download.suggestedFilename();
-			expect( filename ).toMatch( /\.odt$/i );
-		} );
-
-		test( 'ODT download returns correct Content-Type', async ( {
-			documentEditor,
-		} ) => {
-			const postId = await createDocumentWithType( documentEditor );
-			await documentEditor.navigateToEdit( postId );
-
-			const buttons = getActionButtons( documentEditor.page );
-			const odtButton = buttons.odt.first();
-
-			if ( ! await odtButton.isVisible() ) {
-				test.skip( 'ODT button not available' );
-				return;
-			}
-
-			const isDisabled = await odtButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'ODT button is disabled' );
-				return;
-			}
-
-			// Verify Content-Type via download event response
-			const [ download ] = await Promise.all( [
-				documentEditor.page.waitForEvent( 'download' ),
-				odtButton.click(),
-			] );
-
-			expect( download.suggestedFilename() ).toMatch( /\.odt$/i );
-		} );
-	} );
-
-	test.describe( 'PDF Download', () => {
-		test( 'PDF button triggers file download', async ( {
+	test.describe( 'Conversion Download (CDN Mode)', () => {
+		test( 'PDF button uses CDN mode for conversion', async ( {
 			documentEditor,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
@@ -263,30 +170,21 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const pdfButton = buttons.pdf.first();
 
-			if ( ! await pdfButton.isVisible() ) {
-				test.skip( 'PDF button not available' );
-				return;
-			}
+			await expect( pdfButton ).toBeVisible();
 
-			const isDisabled = await pdfButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'PDF button is disabled (conversion not configured)' );
-				return;
-			}
+			// PDF always requires conversion, so CDN mode should be set
+			const cdnMode = await pdfButton.getAttribute( 'data-documentate-cdn-mode' );
+			expect( cdnMode ).toBe( '1' );
 
-			const downloadPromise = documentEditor.page.waitForEvent( 'download' );
-			await pdfButton.click();
-
-			const download = await downloadPromise;
-
-			const filename = download.suggestedFilename();
-			expect( filename ).toMatch( /\.pdf$/i );
+			const action = await pdfButton.getAttribute( 'data-documentate-action' );
+			const format = await pdfButton.getAttribute( 'data-documentate-format' );
+			expect( action ).toBe( 'download' );
+			expect( format ).toBe( 'pdf' );
 		} );
 
-		test( 'PDF download returns correct Content-Type', async ( {
+		test( 'clicking PDF button opens converter popup', async ( {
 			documentEditor,
+			context,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
@@ -294,26 +192,35 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const pdfButton = buttons.pdf.first();
 
-			if ( ! await pdfButton.isVisible() ) {
-				test.skip( 'PDF button not available' );
-				return;
-			}
+			await expect( pdfButton ).toBeVisible();
 
-			const isDisabled = await pdfButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'PDF button is disabled' );
-				return;
-			}
-
-			// Verify Content-Type via download event response
-			const [ download ] = await Promise.all( [
-				documentEditor.page.waitForEvent( 'download' ),
+			// Listen for converter popup
+			const [ popup ] = await Promise.all( [
+				context.waitForEvent( 'page', { timeout: 10000 } ),
 				pdfButton.click(),
 			] );
 
-			expect( download.suggestedFilename() ).toMatch( /\.pdf$/i );
+			const popupUrl = popup.url();
+			expect( popupUrl ).toContain( 'action=documentate_converter' );
+
+			await popup.close();
+		} );
+
+		test( 'cross-format download button uses CDN mode', async ( {
+			documentEditor,
+		} ) => {
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
+
+			// Find a download button that DOES use CDN mode (cross-format conversion)
+			const cdnButtons = documentEditor.page.locator(
+				'#documentate_actions a[data-documentate-action="download"][data-documentate-cdn-mode="1"]'
+			);
+
+			await expect( cdnButtons.first() ).toBeVisible();
+
+			const sourceFormat = await cdnButtons.first().getAttribute( 'data-documentate-source-format' );
+			expect( [ 'docx', 'odt' ] ).toContain( sourceFormat );
 		} );
 	} );
 
@@ -337,13 +244,13 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( await previewButton.isVisible() ) {
-				// New AJAX-based buttons have data attributes instead of direct URLs
-				const action = await previewButton.getAttribute( 'data-documentate-action' );
-				const format = await previewButton.getAttribute( 'data-documentate-format' );
-				expect( action ).toBe( 'preview' );
-				expect( format ).toBe( 'pdf' );
-			}
+			await expect( previewButton ).toBeVisible();
+
+			// AJAX-based buttons have data attributes
+			const action = await previewButton.getAttribute( 'data-documentate-action' );
+			const format = await previewButton.getAttribute( 'data-documentate-format' );
+			expect( action ).toBe( 'preview' );
+			expect( format ).toBe( 'pdf' );
 		} );
 
 		test( 'disabled buttons show tooltip with reason', async ( {
@@ -357,7 +264,7 @@ test.describe( 'Document Preview and Download', () => {
 				'#documentate_actions button[disabled]'
 			).first();
 
-			if ( await disabledButton.isVisible() ) {
+			if ( await disabledButton.count() > 0 && await disabledButton.isVisible() ) {
 				const title = await disabledButton.getAttribute( 'title' );
 				// Disabled buttons should have a title explaining why
 				expect( title ).toBeTruthy();
@@ -376,10 +283,7 @@ test.describe( 'Document Preview and Download', () => {
 				'#documentate_actions a[data-documentate-action]'
 			).first();
 
-			if ( ! await actionButton.isVisible() ) {
-				test.skip( 'No action buttons available' );
-				return;
-			}
+			await expect( actionButton ).toBeVisible();
 
 			// Click the button
 			await actionButton.click();
