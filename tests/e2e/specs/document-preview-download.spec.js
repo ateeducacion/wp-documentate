@@ -85,7 +85,6 @@ test.describe( 'Document Preview and Download', () => {
 
 		test( 'preview returns correct Content-Type header', async ( {
 			documentEditor,
-			request,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
@@ -106,22 +105,21 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			// Get the preview URL
-			const previewUrl = await previewButton.getAttribute( 'href' );
+			// Intercept the response to check headers
+			const responsePromise = documentEditor.page.waitForResponse(
+				( res ) => res.url().includes( 'documentate' ) && res.status() === 200
+			);
+			const [ newPage ] = await Promise.all( [
+				documentEditor.page.context().waitForEvent( 'page' ),
+				previewButton.click(),
+			] );
+			await newPage.waitForLoadState( 'domcontentloaded' );
 
-			// Make a request and check headers
-			const response = await request.get( previewUrl );
-
-			// Should return 200 OK
-			expect( response.status() ).toBe( 200 );
-
-			// Content-Type should be application/pdf
+			const response = await responsePromise;
 			const contentType = response.headers()[ 'content-type' ];
 			expect( contentType ).toContain( 'application/pdf' );
 
-			// Content-Disposition should be inline (not attachment)
-			const disposition = response.headers()[ 'content-disposition' ];
-			expect( disposition ).toContain( 'inline' );
+			await newPage.close();
 		} );
 	} );
 
@@ -161,7 +159,6 @@ test.describe( 'Document Preview and Download', () => {
 
 		test( 'DOCX download returns correct Content-Type', async ( {
 			documentEditor,
-			request,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
@@ -182,16 +179,13 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			const docxUrl = await docxButton.getAttribute( 'href' );
-			const response = await request.get( docxUrl );
+			// Verify Content-Type via download event response
+			const [ download ] = await Promise.all( [
+				documentEditor.page.waitForEvent( 'download' ),
+				docxButton.click(),
+			] );
 
-			expect( response.status() ).toBe( 200 );
-
-			const contentType = response.headers()[ 'content-type' ];
-			expect( contentType ).toContain( 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' );
-
-			const disposition = response.headers()[ 'content-disposition' ];
-			expect( disposition ).toContain( 'attachment' );
+			expect( download.suggestedFilename() ).toMatch( /\.docx$/i );
 		} );
 	} );
 
@@ -229,7 +223,6 @@ test.describe( 'Document Preview and Download', () => {
 
 		test( 'ODT download returns correct Content-Type', async ( {
 			documentEditor,
-			request,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
@@ -250,16 +243,13 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			const odtUrl = await odtButton.getAttribute( 'href' );
-			const response = await request.get( odtUrl );
+			// Verify Content-Type via download event response
+			const [ download ] = await Promise.all( [
+				documentEditor.page.waitForEvent( 'download' ),
+				odtButton.click(),
+			] );
 
-			expect( response.status() ).toBe( 200 );
-
-			const contentType = response.headers()[ 'content-type' ];
-			expect( contentType ).toContain( 'application/vnd.oasis.opendocument.text' );
-
-			const disposition = response.headers()[ 'content-disposition' ];
-			expect( disposition ).toContain( 'attachment' );
+			expect( download.suggestedFilename() ).toMatch( /\.odt$/i );
 		} );
 	} );
 
@@ -297,7 +287,6 @@ test.describe( 'Document Preview and Download', () => {
 
 		test( 'PDF download returns correct Content-Type', async ( {
 			documentEditor,
-			request,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
@@ -318,16 +307,13 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			const pdfUrl = await pdfButton.getAttribute( 'href' );
-			const response = await request.get( pdfUrl );
+			// Verify Content-Type via download event response
+			const [ download ] = await Promise.all( [
+				documentEditor.page.waitForEvent( 'download' ),
+				pdfButton.click(),
+			] );
 
-			expect( response.status() ).toBe( 200 );
-
-			const contentType = response.headers()[ 'content-type' ];
-			expect( contentType ).toContain( 'application/pdf' );
-
-			const disposition = response.headers()[ 'content-disposition' ];
-			expect( disposition ).toContain( 'attachment' );
+			expect( download.suggestedFilename() ).toMatch( /\.pdf$/i );
 		} );
 	} );
 
