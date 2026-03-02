@@ -132,7 +132,7 @@ class Documentate_REST_Comment_Protection {
 		$method = strtoupper( $request->get_method() );
 
 		// Block unauthenticated creation on protected post types.
-		if ( 0 === strpos( $route, '/wp/v2/comments' ) && 'POST' === $method ) {
+		if (  str_starts_with( $route, '/wp/v2/comments' ) && 'POST' === $method ) {
 			$post_id = (int) $request->get_param( 'post' );
 			if ( $post_id && in_array( get_post_type( $post_id ), $this->protected_post_types, true ) ) {
 				return new WP_Error(

@@ -203,7 +203,7 @@ class Documentate_Documents {
 			if ( ! empty( $all_meta ) ) {
 				foreach ( $all_meta as $meta_key => $values ) {
 					unset( $values );
-					if ( 0 !== strpos( $meta_key, 'documentate_field_' ) ) {
+					if (  !str_starts_with( $meta_key, 'documentate_field_' ) ) {
 						continue;
 					}
 					if ( isset( $known[ $meta_key ] ) ) {
@@ -237,7 +237,7 @@ class Documentate_Documents {
 			if ( is_array( $all_meta ) ) {
 				foreach ( $all_meta as $meta_key => $unused ) { // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
 					unset( $unused );
-					if ( is_string( $meta_key ) && 0 === strpos( $meta_key, 'documentate_field_' ) ) {
+					if ( is_string( $meta_key ) &&  str_starts_with( $meta_key, 'documentate_field_' ) ) {
 						$keys[] = $meta_key;
 					}
 				}
@@ -869,10 +869,13 @@ class Documentate_Documents {
 			echo '</div>';
 		} else {
 			$tinymce_config = array(
-				'toolbar1'        => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
+				'toolbar1'        => 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,searchreplace,removeformat',
 				'content_style'   => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
 				// TinyMCE content filtering: remove elements not supported by OpenTBS.
 				'invalid_elements' => 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
+				'valid_elements'   => 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
+				'paste_remove_styles' => true,
+				'paste_strip_class_attributes' => 'all',
 			);
 
 			if ( $is_locked ) {
@@ -1805,7 +1808,7 @@ class Documentate_Documents {
 		// Persist unknown dynamic fields posted that are not part of the schema
 		// (or when no schema is currently available for the post's type).
 		foreach ( $post_values as $key => $value ) {
-			if ( ! is_string( $key ) || 0 !== strpos( $key, 'documentate_field_' ) ) {
+			if ( ! is_string( $key ) ||  !str_starts_with( $key, 'documentate_field_' ) ) {
 				continue;
 			}
 			if ( isset( $known_meta_keys[ $key ] ) ) {
@@ -1932,7 +1935,7 @@ class Documentate_Documents {
 		}
 
 		foreach ( $_POST as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			if ( ! is_string( $key ) || 0 !== strpos( $key, 'documentate_field_' ) ) {
+			if ( ! is_string( $key ) ||  !str_starts_with( $key, 'documentate_field_' ) ) {
 				continue;
 			}
 			$slug = sanitize_key( substr( $key, strlen( 'documentate_field_' ) ) );
@@ -2232,7 +2235,7 @@ class Documentate_Documents {
 		$prefix  = 'documentate_field_';
 
 		foreach ( $_POST as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			if ( ! is_string( $key ) || 0 !== strpos( $key, $prefix ) ) {
+			if ( ! is_string( $key ) ||  !str_starts_with( $key, $prefix ) ) {
 				continue;
 			}
 			if ( isset( $known_lookup[ $key ] ) ) {

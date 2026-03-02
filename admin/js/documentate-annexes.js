@@ -77,15 +77,17 @@ function initializeRichEditors(container) {
 			return;
 		}
 		var tinymceConfig = {
-			toolbar1: 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,removeformat',
+			toolbar1: 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,removeformat',
 			wpautop: false,
 			table_toolbar: false,
 
 
 			invalid_elements: 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-		    valid_elements: 'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,' +
+		    valid_elements: 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,' +
             					  'h1,h2,h3,h4,h5,h6,blockquote,code,pre,' +
-             					  'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
+						  'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
+			paste_remove_styles: true,
+			paste_strip_class_attributes: 'all',
 
 
 			table_responsive_width: true,
