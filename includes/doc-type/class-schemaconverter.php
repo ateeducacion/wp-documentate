@@ -156,6 +156,7 @@ class SchemaConverter {
 		'text'     => 'text',
 		'html'     => 'text',
 		'textarea' => 'text',
+		'select'   => 'text',
 	);
 
 	/**
@@ -192,7 +193,7 @@ class SchemaConverter {
 		$placeholder = strtolower( (string) $placeholder );
 		$haystack    = trim( $slug . ' ' . $label . ' ' . $placeholder );
 
-		if ( in_array( $field_type, array( 'number', 'date', 'boolean', 'email', 'url', 'text' ), true ) ) {
+		if ( in_array( $field_type, array( 'number', 'date', 'boolean', 'email', 'url', 'text', 'select' ), true ) ) {
 			return 'single';
 		}
 
@@ -226,7 +227,7 @@ class SchemaConverter {
 		$slug       = strtolower( (string) $slug );
 		$label      = strtolower( (string) $label );
 
-		if ( in_array( $field_type, array( 'number', 'date', 'boolean', 'email', 'url', 'text' ), true ) ) {
+		if ( in_array( $field_type, array( 'number', 'date', 'boolean', 'email', 'url', 'text', 'select' ), true ) ) {
 			return 'single';
 		}
 

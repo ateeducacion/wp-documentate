@@ -733,13 +733,15 @@ class SchemaExtractor {
 			'decimal'     => 'number',
 			'bool'        => 'boolean',
 			'checkbox'    => 'boolean',
+			'dropdown'    => 'select',
+			'choice'      => 'select',
 		);
 
 		if ( isset( $aliases[ $type ] ) ) {
 			$type = $aliases[ $type ];
 		}
 
-		$valid = array( 'text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean' );
+		$valid = array( 'text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean', 'select' );
 		if ( in_array( $type, $valid, true ) ) {
 			return $type;
 		}
@@ -760,7 +762,7 @@ class SchemaExtractor {
 			return 'text';
 		}
 
-		$valid = array( 'text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean' );
+		$valid = array( 'text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean', 'select' );
 
 		if ( in_array( $type, $valid, true ) ) {
 			return $type;
@@ -872,7 +874,7 @@ class SchemaExtractor {
 					if ( '' !== $field_name ) {
 						// Extract field type from parameters.
 						$field_type  = isset( $parameters['type'] ) ? strtolower( trim( (string) $parameters['type'] ) ) : 'text';
-						$valid_types = array( 'text', 'textarea', 'html', 'number', 'date', 'email', 'url' );
+						$valid_types = array( 'text', 'textarea', 'html', 'number', 'date', 'email', 'url', 'select' );
 						if ( ! in_array( $field_type, $valid_types, true ) ) {
 							$field_type = 'text';
 						}
