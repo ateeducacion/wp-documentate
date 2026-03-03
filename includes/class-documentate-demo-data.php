@@ -137,6 +137,8 @@ class Documentate_Demo_Data {
 		self::import_fixture_file( 'gastossuplidos.odt' );
 		self::import_fixture_file( 'propuestagasto.odt' );
 		self::import_fixture_file( 'convocatoriareunion.odt' );
+		self::import_fixture_file( 'memoria_pago.odt' );
+		self::import_fixture_file( 'respuesta_escrito.odt' );
 	}
 
 	/**
@@ -324,6 +326,30 @@ class Documentate_Demo_Data {
 			);
 		}
 
+		$memoria_pago_id = self::import_fixture_file( 'memoria_pago.odt' );
+		if ( $memoria_pago_id > 0 ) {
+			$definitions[] = array(
+				'slug'        => 'memoria-pago',
+				'name'        => 'Memoria justificativa de pago',
+				'description' => 'Plantilla para memorias justificativas de pago con listado de facturas y datos del CEP.',
+				'color'       => '#d35400',
+				'template_id' => $memoria_pago_id,
+				'fixture_key' => 'memoria-pago',
+			);
+		}
+
+		$respuesta_escrito_id = self::import_fixture_file( 'respuesta_escrito.odt' );
+		if ( $respuesta_escrito_id > 0 ) {
+			$definitions[] = array(
+				'slug'        => 'respuesta-escrito',
+				'name'        => 'Respuesta a escrito',
+				'description' => 'Plantilla para respuestas a escritos y solicitudes con destinatario, asunto y texto de respuesta.',
+				'color'       => '#2c3e50',
+				'template_id' => $respuesta_escrito_id,
+				'fixture_key' => 'respuesta-escrito',
+			);
+		}
+
 		return $definitions;
 	}
 
@@ -401,6 +427,18 @@ class Documentate_Demo_Data {
 			self::create_specific_demo_documents( $convocatoria_term, self::get_convocatoria_reunion_demo() );
 		}
 
+		// Create specific demo document for Memoria justificativa de pago.
+		$memoria_pago_term = get_term_by( 'slug', 'memoria-pago', 'documentate_doc_type' );
+		if ( $memoria_pago_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $memoria_pago_term, self::get_memoria_pago_demo() );
+		}
+
+		// Create specific demo document for Respuesta a escrito.
+		$respuesta_escrito_term = get_term_by( 'slug', 'respuesta-escrito', 'documentate_doc_type' );
+		if ( $respuesta_escrito_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $respuesta_escrito_term, self::get_respuesta_escrito_demo() );
+		}
+
 		// Also create demo documents for other document types (advanced demos).
 		$exclude_ids = array();
 		if ( $term instanceof WP_Term ) {
@@ -417,6 +455,12 @@ class Documentate_Demo_Data {
 		}
 		if ( $convocatoria_term instanceof WP_Term ) {
 			$exclude_ids[] = $convocatoria_term->term_id;
+		}
+		if ( $memoria_pago_term instanceof WP_Term ) {
+			$exclude_ids[] = $memoria_pago_term->term_id;
+		}
+		if ( $respuesta_escrito_term instanceof WP_Term ) {
+			$exclude_ids[] = $respuesta_escrito_term->term_id;
 		}
 
 		$terms = get_terms(
@@ -1160,6 +1204,107 @@ class Documentate_Demo_Data {
 <li>Planificación de las jornadas de formación del profesorado.</li>
 <li>Ruegos y preguntas.</li>
 </ul>',
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Get demo data for "Memoria justificativa de pago".
+	 *
+	 * @return array
+	 */
+	private static function get_memoria_pago_demo() {
+		return array(
+			'memoria-pago-prueba' => array(
+				'title'    => 'Ejemplo: Memoria justificativa de pago de jornadas formativas',
+				'author'   => 'CEP de Santa Cruz de Tenerife',
+				'keywords' => 'memoria, pago, facturas, CEP, jornadas',
+				'fields'   => array(
+					'cep'               => array(
+						'type'  => 'single',
+						'value' => 'CEP DE SANTA CRUZ DE TENERIFE',
+					),
+					'concepto'          => array(
+						'type'  => 'single',
+						'value' => 'DE VARIAS FACTURAS PARA SUFRAGAR LOS GASTOS DERIVADOS DE LA ASISTENCIA A LAS JORNADAS DE INNOVACIÓN PEDAGÓGICA 2025',
+					),
+					'parrafo_jornadas'  => array(
+						'type'  => 'textarea',
+						'value' => 'Las jornadas de innovación pedagógica tienen como objetivo principal la formación del profesorado en metodologías activas de aprendizaje, incluyendo aprendizaje basado en proyectos, gamificación y uso de herramientas digitales en el aula. Están dirigidas a docentes de educación primaria y secundaria de la provincia de Santa Cruz de Tenerife.',
+					),
+					'resolucion_num'    => array(
+						'type'  => 'single',
+						'value' => '1539/2025',
+					),
+					'resolucion_fecha'  => array(
+						'type'  => 'single',
+						'value' => '2025-02-15',
+					),
+					'año'               => array(
+						'type'  => 'single',
+						'value' => '2025',
+					),
+					'tipo_persona'      => array(
+						'type'  => 'single',
+						'value' => 'COORDINADOR/A',
+					),
+					'items'             => array(
+						'type'  => 'array',
+						'value' => array(
+							array(
+								'nombre'      => 'María García López',
+								'concepto'    => 'Material didáctico para talleres',
+								'num_factura' => 'FAC-2025-0112',
+								'importe'     => '245.80',
+							),
+							array(
+								'nombre'      => 'Suministros Educativos S.L.',
+								'concepto'    => 'Equipamiento audiovisual',
+								'num_factura' => 'SE-2025-0034',
+								'importe'     => '890.00',
+							),
+							array(
+								'nombre'      => 'Catering Insular S.A.',
+								'concepto'    => 'Servicio de catering para jornadas',
+								'num_factura' => 'CI-2025-0567',
+								'importe'     => '420.50',
+							),
+						),
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Get demo data for "Respuesta a escrito".
+	 *
+	 * @return array
+	 */
+	private static function get_respuesta_escrito_demo() {
+		return array(
+			'respuesta-escrito-prueba' => array(
+				'title'    => 'Ejemplo: Respuesta a solicitud de información',
+				'author'   => 'Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación',
+				'keywords' => 'respuesta, escrito, solicitud, información',
+				'fields'   => array(
+					'destinatario'      => array(
+						'type'  => 'single',
+						'value' => 'D./D.ª Juan Rodríguez Martín',
+					),
+					'asunto'            => array(
+						'type'  => 'single',
+						'value' => 'Remisión de informe solicitado con referencia de expediente 2025/00123',
+					),
+					'numero_solicitud'  => array(
+						'type'  => 'single',
+						'value' => '2025/00123',
+					),
+					'respuesta'         => array(
+						'type'  => 'single',
+						'value' => 'se hace constar que la Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación no dispone de antecedentes, datos ni información en relación con el caso referido.',
 					),
 				),
 			),
