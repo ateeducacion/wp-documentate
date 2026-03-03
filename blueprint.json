@@ -14,15 +14,25 @@
     },
     {
       "step": "runPHP",
-      "code": "<?php require_once('/wordpress/wp-load.php'); wp_insert_user(array('user_login' => 'test_user_1', 'user_email' => 'test1@example.com', 'user_pass' => wp_generate_password(), 'role' => 'editor')); ?>"
+      "code": "<?php require_once('/wordpress/wp-load.php'); wp_insert_user(array('user_login' => 'editor1', 'user_email' => 'editor1@example.com', 'user_pass' => 'password', 'role' => 'editor', 'display_name' => 'María García', 'first_name' => 'María', 'last_name' => 'García')); ?>"
     },
     {
       "step": "runPHP",
-      "code": "<?php require_once('/wordpress/wp-load.php'); wp_insert_user(array('user_login' => 'test_user_2', 'user_email' => 'test2@example.com', 'user_pass' => wp_generate_password(), 'role' => 'editor')); ?>"
+      "code": "<?php require_once('/wordpress/wp-load.php'); wp_insert_user(array('user_login' => 'author1', 'user_email' => 'author1@example.com', 'user_pass' => 'password', 'role' => 'author', 'display_name' => 'Carlos López', 'first_name' => 'Carlos', 'last_name' => 'López')); ?>"
     },
     {
       "step": "runPHP",
-      "code": "<?php require_once('/wordpress/wp-load.php'); wp_insert_post(array( 'post_title' => 'Created by a Blueprint', 'post_content' => '<!-- wp:paragraph --><p>How do you update the meta fields?</p><!-- /wp:paragraph --><!-- wp:list --><ol><!-- wp:list-item --><li>Open the <strong>Settings</strong> sidebar by clicking the window icon next to the blue <strong>Update</strong> button.</li><!-- /wp:list-item --><!-- wp:list-item --><li>Click the <strong>Meta Block Sidebar</strong> menu (below the <strong>Summary</strong> menu).</li><!-- /wp:list-item --><!-- wp:list-item --><li>Type the <strong>Team name</strong> and the <strong>date</strong> the person joined the company in the respective fields.</li><!-- /wp:list-item --><!-- wp:list-item --><li>Click the blue <strong>Update</strong> button.</li><!-- /wp:list-item --></ol><!-- /wp:list -->','post_status' => 'publish' ));"
+      "code": "<?php require_once('/wordpress/wp-load.php'); wp_insert_user(array('user_login' => 'subscriber1', 'user_email' => 'subscriber1@example.com', 'user_pass' => 'password', 'role' => 'subscriber', 'display_name' => 'Ana Martínez', 'first_name' => 'Ana', 'last_name' => 'Martínez')); ?>"
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "user-switching"
+      },
+      "options": {
+        "activate": true
+      }
     },
     {
       "step": "installPlugin",
