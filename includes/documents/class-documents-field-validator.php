@@ -154,7 +154,7 @@ class Documents_Field_Validator {
 	 * @param array|null $raw_field Raw field definition.
 	 * @return string
 	 */
-	private static function extract_raw_type( $raw_field ) {
+	public static function extract_raw_type( $raw_field ) {
 		if ( ! is_array( $raw_field ) ) {
 			return '';
 		}
