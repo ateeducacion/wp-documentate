@@ -9,8 +9,9 @@
     "mappings": {
         "wp-content/plugins/documentate": "./"
     },
-    "plugins":  [ 
+    "plugins":  [
         "https://downloads.wordpress.org/plugins/tinymce-advanced.zip",
-        "https://downloads.wordpress.org/plugins/sql-buddy.zip"
+        "https://downloads.wordpress.org/plugins/sql-buddy.zip",
+        "https://downloads.wordpress.org/plugins/user-switching.zip"
     ]
 }

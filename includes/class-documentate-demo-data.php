@@ -35,6 +35,8 @@ class Documentate_Demo_Data {
 		self::$plugin_dir = plugin_dir_path( $plugin_file );
 
 		add_action( 'init', array( __CLASS__, 'maybe_seed_default_doc_types' ), 40 );
+		add_action( 'init', array( __CLASS__, 'maybe_seed_demo_categories' ), 45 );
+		add_action( 'init', array( __CLASS__, 'maybe_seed_demo_users' ), 50 );
 		add_action( 'init', array( __CLASS__, 'maybe_seed_demo_documents' ), 60 );
 	}
 
@@ -480,7 +482,217 @@ class Documentate_Demo_Data {
 			}
 		}
 
+		self::assign_demo_document_metadata();
+
 		delete_option( 'documentate_seed_demo_documents' );
+	}
+
+	/**
+	 * Seed a hierarchical category structure for scope filtering demo.
+	 *
+	 * @return void
+	 */
+	public static function maybe_seed_demo_categories() {
+		$should_seed = (bool) get_option( 'documentate_seed_demo_documents', false );
+		if ( ! $should_seed ) {
+			return;
+		}
+
+		if ( term_exists( 'Organización', 'category' ) ) {
+			return;
+		}
+
+		$tree = array(
+			'Organización' => array(
+				'Dirección General'                => array(
+					'Secretaría General' => array(),
+					'Gabinete'           => array(),
+				),
+				'Subdirección de Administración'   => array(
+					'Departamento de Personal'     => array(),
+					'Departamento de Contabilidad' => array(),
+				),
+				'Subdirección Técnica'             => array(
+					'Departamento de Proyectos' => array(),
+					'Departamento de Sistemas'  => array(),
+				),
+			),
+		);
+
+		self::create_category_tree( $tree, 0 );
+	}
+
+	/**
+	 * Recursively create categories from a nested array.
+	 *
+	 * @param array $tree     Associative array of name => children.
+	 * @param int   $parent_id Parent term ID (0 for top-level).
+	 * @return void
+	 */
+	private static function create_category_tree( $tree, $parent_id = 0 ) {
+		foreach ( $tree as $name => $children ) {
+			$result = wp_insert_term(
+				$name,
+				'category',
+				array( 'parent' => $parent_id )
+			);
+
+			if ( is_wp_error( $result ) ) {
+				continue;
+			}
+
+			$term_id = intval( $result['term_id'] );
+
+			if ( ! empty( $children ) ) {
+				self::create_category_tree( $children, $term_id );
+			}
+		}
+	}
+
+	/**
+	 * Seed demo users with scope category assignments.
+	 *
+	 * @return void
+	 */
+	public static function maybe_seed_demo_users() {
+		$should_seed = (bool) get_option( 'documentate_seed_demo_documents', false );
+		if ( ! $should_seed ) {
+			return;
+		}
+
+		$users = array(
+			array(
+				'user_login'   => 'editor1',
+				'user_email'   => 'editor1@example.com',
+				'user_pass'    => 'password',
+				'role'         => 'editor',
+				'display_name' => 'María García',
+				'first_name'   => 'María',
+				'last_name'    => 'García',
+				'scope'        => 'Subdirección de Administración',
+			),
+			array(
+				'user_login'   => 'author1',
+				'user_email'   => 'author1@example.com',
+				'user_pass'    => 'password',
+				'role'         => 'author',
+				'display_name' => 'Carlos López',
+				'first_name'   => 'Carlos',
+				'last_name'    => 'López',
+				'scope'        => 'Departamento de Proyectos',
+			),
+			array(
+				'user_login'   => 'subscriber1',
+				'user_email'   => 'subscriber1@example.com',
+				'user_pass'    => 'password',
+				'role'         => 'subscriber',
+				'display_name' => 'Ana Martínez',
+				'first_name'   => 'Ana',
+				'last_name'    => 'Martínez',
+				'scope'        => 'Departamento de Personal',
+			),
+		);
+
+		foreach ( $users as $user_data ) {
+			$scope_name = $user_data['scope'];
+			unset( $user_data['scope'] );
+
+			// Skip if user already exists.
+			if ( username_exists( $user_data['user_login'] ) ) {
+				continue;
+			}
+
+			$user_id = wp_insert_user( $user_data );
+			if ( is_wp_error( $user_id ) ) {
+				continue;
+			}
+
+			// Assign scope category.
+			$scope_term = get_term_by( 'name', $scope_name, 'category' );
+			if ( $scope_term instanceof WP_Term ) {
+				update_user_meta( $user_id, Documentate_User_Scope::META_KEY, $scope_term->term_id );
+			}
+		}
+	}
+
+	/**
+	 * Assign categories and authors to demo documents for scope filtering.
+	 *
+	 * @return void
+	 */
+	private static function assign_demo_document_metadata() {
+		// Get the root "Organización" term.
+		$root = get_term_by( 'name', 'Organización', 'category' );
+		if ( ! $root instanceof WP_Term ) {
+			return;
+		}
+
+		// Get all descendant categories (excluding root and Uncategorized).
+		$all_cats = get_terms(
+			array(
+				'taxonomy'   => 'category',
+				'child_of'   => $root->term_id,
+				'hide_empty' => false,
+				'fields'     => 'ids',
+			)
+		);
+
+		if ( is_wp_error( $all_cats ) || empty( $all_cats ) ) {
+			return;
+		}
+
+		// Get all demo documents.
+		$demo_docs = get_posts(
+			array(
+				'post_type'      => 'documentate_document',
+				'post_status'    => 'any',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'meta_query'     => array(
+					'relation' => 'OR',
+					array(
+						'key'     => '_documentate_demo_key',
+						'compare' => 'EXISTS',
+					),
+					array(
+						'key'     => '_documentate_demo_type_id',
+						'compare' => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		if ( empty( $demo_docs ) ) {
+			return;
+		}
+
+		// Build list of authors to round-robin: admin + editor1 + author1.
+		$author_ids   = array( get_current_user_id() );
+		$editor_user  = get_user_by( 'login', 'editor1' );
+		$author_user  = get_user_by( 'login', 'author1' );
+		if ( $editor_user ) {
+			$author_ids[] = $editor_user->ID;
+		}
+		if ( $author_user ) {
+			$author_ids[] = $author_user->ID;
+		}
+
+		$cat_count    = count( $all_cats );
+		$author_count = count( $author_ids );
+
+		foreach ( $demo_docs as $index => $post_id ) {
+			// Round-robin category assignment.
+			$cat_id = $all_cats[ $index % $cat_count ];
+			wp_set_post_terms( $post_id, array( $cat_id ), 'category', false );
+
+			// Round-robin author assignment.
+			wp_update_post(
+				array(
+					'ID'          => $post_id,
+					'post_author' => $author_ids[ $index % $author_count ],
+				)
+			);
+		}
 	}
 
 	/**
