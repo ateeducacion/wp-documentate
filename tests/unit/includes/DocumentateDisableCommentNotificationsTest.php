@@ -32,9 +32,9 @@ class DocumentateDisableCommentNotificationsTest extends WP_UnitTestCase {
 
 		$this->admin_user_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
 
-		// Register the task post type.
+		// Register the document post type.
 		register_post_type(
-			'documentate_task',
+			'documentate_document',
 			array(
 				'public'   => false,
 				'supports' => array( 'comments' ),
@@ -58,16 +58,16 @@ class DocumentateDisableCommentNotificationsTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test disables notifications for documentate_task.
+	 * Test disables notifications for documentate_document.
 	 */
 	public function test_disable_notifications_for_task() {
 		wp_set_current_user( $this->admin_user_id );
 
-		// Create a task post.
+		// Create a document post.
 		$post_id = wp_insert_post(
 			array(
-				'post_type'   => 'documentate_task',
-				'post_title'  => 'Test Task',
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Test Document',
 				'post_status' => 'publish',
 			)
 		);
