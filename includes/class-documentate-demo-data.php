@@ -1567,11 +1567,12 @@ class Documentate_Demo_Data {
 					),
 					'respuesta' => array(
 						'type' => 'rich',
-						'value' => '<p>En relación con el asunto indicado en el encabezamiento, y tras el análisis realizado por esta Dirección General, se informa lo siguiente:</p>'
-							. '<p><strong>PRIMERO.</strong> De conformidad con lo establecido en el artículo 71 de la Ley Orgánica 2/2006, de 3 de mayo, de Educación, las Administraciones educativas dispondrán los medios necesarios para que todo el alumnado alcance el máximo desarrollo personal, intelectual, social y emocional.</p>'
-							. '<p><strong>SEGUNDO.</strong> Examinados los datos recabados de los centros educativos durante el curso 2024-2025, se constata que un total de 342 centros de educación secundaria obligatoria han implementado adaptaciones curriculares significativas, atendiendo a 4.127 alumnos y alumnas con necesidades específicas de apoyo educativo.</p>'
-							. '<p><strong>TERCERO.</strong> Los equipos de orientación educativa han valorado positivamente la implementación de dichas adaptaciones, destacando la mejora en los indicadores de rendimiento académico y bienestar del alumnado beneficiario.</p>'
-							. '<p>Es cuanto se informa a los efectos oportunos.</p>',
+						'value' =>
+							'<p>En relación con el asunto indicado en el encabezamiento, y tras el análisis realizado por esta Dirección General, se informa lo siguiente:</p>'
+								. '<p><strong>PRIMERO.</strong> De conformidad con lo establecido en el artículo 71 de la Ley Orgánica 2/2006, de 3 de mayo, de Educación, las Administraciones educativas dispondrán los medios necesarios para que todo el alumnado alcance el máximo desarrollo personal, intelectual, social y emocional.</p>'
+								. '<p><strong>SEGUNDO.</strong> Examinados los datos recabados de los centros educativos durante el curso 2024-2025, se constata que un total de 342 centros de educación secundaria obligatoria han implementado adaptaciones curriculares significativas, atendiendo a 4.127 alumnos y alumnas con necesidades específicas de apoyo educativo.</p>'
+								. '<p><strong>TERCERO.</strong> Los equipos de orientación educativa han valorado positivamente la implementación de dichas adaptaciones, destacando la mejora en los indicadores de rendimiento académico y bienestar del alumnado beneficiario.</p>'
+								. '<p>Es cuanto se informa a los efectos oportunos.</p>',
 					),
 					'firma_cargo' => array(
 						'type' => 'single',

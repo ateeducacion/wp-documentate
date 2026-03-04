@@ -87,6 +87,7 @@ class Documentate_Doctype_Help_Notice {
 			. '), <code>number</code>, <code>date</code>, <code>email</code>, <code>url</code>, <code>select</code>.</li>';
 
 		$markup .= '<li><strong>' . esc_html__('Validation', 'documentate') . '</strong>: ';
+		$markup .= '<code>required</code> ' . esc_html__('(mandatory field)', 'documentate') . ', ';
 		$markup .= '<code>pattern</code> ' . esc_html__('(regex) and', 'documentate') . ' <code>patternmsg</code>. ';
 		$markup .= esc_html__('Limits with', 'documentate') . ' <code>minvalue</code>/<code>maxvalue</code>. ';
 		$markup .= esc_html__('Length with', 'documentate') . ' <code>length</code>.</li>';
@@ -129,6 +130,7 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= '<p><strong>' . esc_html__('Quick examples:', 'documentate') . '</strong></p>';
 
 		$markup .= '<pre style="white-space:pre-wrap;">';
+		$markup .= esc_html("[nombre;type='text';required='true';title='Nombre completo']\n");
 		$markup .= esc_html("[Email;type='email';title='Email';placeholder='you@domain.com']\n");
 		$markup .= esc_html("[fecha;type='date';frm='d mmmm yyyy']\n");
 		$markup .= esc_html(
