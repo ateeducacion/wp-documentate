@@ -627,4 +627,48 @@ class Documentate_Admin {
 		}
 		return $init;
 	}
+
+	/**
+	 * Enqueue assets for the document attachments meta box.
+	 *
+	 * @param string $hook_suffix The current admin page.
+	 */
+	public function enqueue_attachments_assets($hook_suffix) {
+		if (!in_array($hook_suffix, array('post.php', 'post-new.php'), true)) {
+			return;
+		}
+
+		$screen = get_current_screen();
+		if (!$screen || 'documentate_document' !== $screen->post_type) {
+			return;
+		}
+
+		wp_enqueue_media();
+
+		wp_enqueue_style(
+			'documentate-attachments',
+			plugin_dir_url(__FILE__) . 'css/documentate-attachments.css',
+			array('dashicons'),
+			$this->version,
+		);
+
+		wp_enqueue_script(
+			'documentate-attachments',
+			plugin_dir_url(__FILE__) . 'js/documentate-attachments-metabox.js',
+			array('jquery', 'jquery-ui-sortable'),
+			$this->version,
+			true,
+		);
+
+		wp_localize_script('documentate-attachments', 'documentateAttachments', array(
+			'i18n' => array(
+				/* translators: Title of the WordPress Media Library frame for selecting attachment files */
+				'title' => __('Select files', 'documentate'),
+				/* translators: Button label in the Media Library to confirm selection of attachment files */
+				'button' => __('Add to document', 'documentate'),
+				/* translators: Tooltip for the remove attachment button */
+				'remove' => __('Remove', 'documentate'),
+			),
+		));
+	}
 }
