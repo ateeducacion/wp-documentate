@@ -8,10 +8,8 @@ on:
       - 'docs/**'
       - '.github/*.md'
   push:
-    tags:
-      - '*'
     branches:
-      - '*'
+      - 'main'
     paths-ignore:
       - '**.md'
       - 'docs/**'

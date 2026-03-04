@@ -8,39 +8,47 @@ const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Preview and Download', () => {
 	/**
-	 * Click a download button and intercept the AJAX response to get the
-	 * real download URL. Buttons use href="#" with data-documentate-action
-	 * attributes; the actual download URL is returned by an AJAX call.
+	 * Call the document generation AJAX endpoint directly from the page
+	 * context and return the download URL. Buttons use href="#" with
+	 * data-documentate-action attributes; the actual download URL is
+	 * returned by the AJAX endpoint.
 	 *
-	 * @param {import('@playwright/test').Page} page      - Playwright page
-	 * @param {import('@playwright/test').Locator} button - Button locator
+	 * @param {import('@playwright/test').Page} page   - Playwright page
+	 * @param {string} format                          - 'docx', 'odt', or 'pdf'
+	 * @param {string} [output='download']             - 'download' or 'preview'
 	 * @return {Promise<string|null>} Download URL or null on failure
 	 */
-	async function getDownloadUrlViaAjax( page, button ) {
-		// Prevent the JS from navigating away after receiving the URL.
-		const abortHandler = ( route ) => route.abort();
-		await page.route( '**/admin-post.php**', abortHandler );
+	async function getDownloadUrlViaAjax( page, format, output = 'download' ) {
+		return await page.evaluate(
+			async ( { fmt, out } ) => {
+				const cfg = window.documentateActionsConfig;
+				if ( ! cfg || ! cfg.ajaxUrl || ! cfg.postId ) {
+					return null;
+				}
 
-		const ajaxPromise = page.waitForResponse(
-			( r ) =>
-				r.url().includes( 'admin-ajax.php' ) &&
-				r.request().method() === 'POST',
-			{ timeout: 30000 }
+				const body = new URLSearchParams( {
+					action: 'documentate_generate_document',
+					post_id: cfg.postId,
+					format: fmt,
+					output: out,
+					_wpnonce: cfg.nonce,
+				} );
+
+				const resp = await fetch( cfg.ajaxUrl, {
+					method: 'POST',
+					credentials: 'same-origin',
+					body,
+				} );
+
+				if ( ! resp.ok ) {
+					return null;
+				}
+
+				const json = await resp.json();
+				return json.success && json.data?.url ? json.data.url : null;
+			},
+			{ fmt: format, out: output }
 		);
-
-		await button.click();
-
-		const ajaxResp = await ajaxPromise;
-		const json = await ajaxResp.json();
-
-		// Clean up the route interception.
-		await page.unroute( '**/admin-post.php**', abortHandler );
-
-		if ( ! json.success || ! json.data?.url ) {
-			return null;
-		}
-
-		return json.data.url;
 	}
 
 	/**
@@ -143,9 +151,9 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			// Buttons use AJAX (href="#"), so intercept the AJAX response
-			// to get the real preview URL.
-			const previewUrl = await getDownloadUrlViaAjax( page, previewButton );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real preview URL.
+			const previewUrl = await getDownloadUrlViaAjax( page, 'pdf', 'preview' );
 
 			if ( ! previewUrl ) {
 				test.skip( 'Preview generation failed via AJAX' );
@@ -210,17 +218,10 @@ test.describe( 'Document Preview and Download', () => {
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
-			const buttons = getActionButtons( page );
-			const docxButton = buttons.docx.first();
 
-			if ( ! await docxButton.isVisible() ) {
-				test.skip( 'DOCX button not available' );
-				return;
-			}
-
-			// Buttons use AJAX (href="#"), so intercept the AJAX response
-			// to get the real download URL.
-			const downloadUrl = await getDownloadUrlViaAjax( page, docxButton );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
 
 			if ( ! downloadUrl ) {
 				test.skip( 'Document generation failed via AJAX' );
@@ -279,17 +280,10 @@ test.describe( 'Document Preview and Download', () => {
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
-			const buttons = getActionButtons( page );
-			const odtButton = buttons.odt.first();
 
-			if ( ! await odtButton.isVisible() ) {
-				test.skip( 'ODT button not available' );
-				return;
-			}
-
-			// Buttons use AJAX (href="#"), so intercept the AJAX response
-			// to get the real download URL.
-			const downloadUrl = await getDownloadUrlViaAjax( page, odtButton );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
 
 			if ( ! downloadUrl ) {
 				test.skip( 'Document generation failed via AJAX' );
@@ -348,17 +342,10 @@ test.describe( 'Document Preview and Download', () => {
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
-			const buttons = getActionButtons( page );
-			const pdfButton = buttons.pdf.first();
 
-			if ( ! await pdfButton.isVisible() ) {
-				test.skip( 'PDF button not available' );
-				return;
-			}
-
-			// Buttons use AJAX (href="#"), so intercept the AJAX response
-			// to get the real download URL.
-			const downloadUrl = await getDownloadUrlViaAjax( page, pdfButton );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
 
 			if ( ! downloadUrl ) {
 				test.skip( 'Document generation failed via AJAX' );
