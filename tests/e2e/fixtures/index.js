@@ -62,10 +62,19 @@ const documentHelpers = {
 
 		// Save or publish based on status
 		if ( status === 'publish' ) {
-			const publishBtn = page.getByRole( 'button', { name: /publish|publicar/i } ).or(
-				page.locator( '#publish' )
-			);
-			await publishBtn.click();
+			// Follow the workflow: Send to Review → Approve & Publish.
+			const sendReviewBtn = page.locator( '#documentate-send-review' );
+			const approveBtn = page.locator( '#documentate-approve-publish' );
+
+			if ( await approveBtn.isVisible().catch( () => false ) ) {
+				await approveBtn.click();
+			} else if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+				await sendReviewBtn.click();
+				await page.waitForSelector( '#message.updated, .notice-success', {
+					timeout: 10000,
+				} ).catch( () => {} );
+				await approveBtn.click();
+			}
 		} else {
 			const draftBtn = page.locator( '#documentate-save-draft' ).or(
 				page.getByRole( 'button', { name: /save draft|guardar borrador/i } )

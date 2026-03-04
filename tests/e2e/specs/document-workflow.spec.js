@@ -26,15 +26,16 @@ test.describe( 'Document Workflow States', () => {
 		await expect( documentEditor.successNotice ).toBeVisible();
 	} );
 
-	test( 'document without doc_type shows warning when publishing', async ( {
+	test( 'document without doc_type shows warning when sending to review', async ( {
 		documentEditor,
 		page,
 	} ) => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Publish Attempt Without Type' );
 
-		// Try to publish
-		await documentEditor.publish();
+		// Try to send to review without doc type — backend forces draft with warning
+		await documentEditor.sendToReviewButton.click();
+		await documentEditor.waitForSave();
 
 		// Wait for the specific doctype warning notice to appear
 		const warningNotice = page.locator( '.notice-warning.documentate-doctype-warning' );

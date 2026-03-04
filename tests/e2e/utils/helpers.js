@@ -90,11 +90,17 @@ async function selectDocumentType( page, typeName ) {
  */
 async function saveDocument( page, status = 'draft' ) {
 	if ( status === 'publish' ) {
-		// Use accessible selector first, fall back to ID
-		const publishBtn = page.getByRole( 'button', { name: /publish|update/i } ).or(
-			page.locator( '#publish' )
-		);
-		await publishBtn.click();
+		// Follow the workflow: Send to Review → Approve & Publish.
+		const sendReviewBtn = page.locator( '#documentate-send-review' );
+		const approveBtn = page.locator( '#documentate-approve-publish' );
+
+		if ( await approveBtn.isVisible().catch( () => false ) ) {
+			await approveBtn.click();
+		} else if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+			await sendReviewBtn.click();
+			await page.waitForSelector( '#message.updated, .notice-success', { timeout: 10000 } );
+			await approveBtn.click();
+		}
 	} else {
 		const draftBtn = page.locator( '#documentate-save-draft' ).or(
 			page.getByRole( 'button', { name: /save draft/i } )

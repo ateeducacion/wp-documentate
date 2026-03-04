@@ -358,9 +358,35 @@ class DocumentEditorPage {
 	}
 
 	/**
-	 * Publish or update the document.
+	 * Publish the document following the full workflow.
+	 *
+	 * From draft: Send to Review → page reloads → Approve & Publish → page reloads.
+	 * From pending: Approve & Publish → page reloads.
+	 * If already on a page with a visible Approve & Publish button, click it directly.
 	 */
 	async publish() {
+		const approveBtn = this.page.locator( '#documentate-approve-publish' );
+		const sendReviewBtn = this.page.locator( '#documentate-send-review' );
+
+		// If "Approve & Publish" is visible, we're already in pending — just approve.
+		if ( await approveBtn.isVisible().catch( () => false ) ) {
+			await approveBtn.click();
+			await this.waitForSave();
+			return;
+		}
+
+		// Otherwise, send to review first, then approve.
+		if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+			await sendReviewBtn.click();
+			await this.waitForSave();
+
+			// Page reloaded — now in pending state, click Approve & Publish.
+			await this.page.locator( '#documentate-approve-publish' ).click();
+			await this.waitForSave();
+			return;
+		}
+
+		// Fallback: try the legacy publish button.
 		await this.publishButton.click();
 		await this.waitForSave();
 	}
