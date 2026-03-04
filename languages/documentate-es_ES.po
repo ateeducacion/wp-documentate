@@ -166,6 +166,8 @@ msgstr "Despedida"
 msgid "Select file"
 msgstr "Seleccionar archivo"
 
+#: includes/document/meta/class-document-attachments-meta-box.php
+#: admin/class-documentate-admin.php
 msgid "Remove"
 msgstr "Eliminar"
 
@@ -1095,11 +1097,6 @@ msgstr "Adjuntos"
 msgid "Add files"
 msgstr "Añadir archivos"
 
-#: includes/document/meta/class-document-attachments-meta-box.php
-#: admin/class-documentate-admin.php
-msgid "Remove"
-msgstr "Eliminar"
-
 #: admin/class-documentate-admin.php
 msgid "Select files"
 msgstr "Seleccionar archivos"
@@ -1107,5 +1104,7 @@ msgstr "Seleccionar archivos"
 #: admin/class-documentate-admin.php
 msgid "Add to document"
 msgstr "Añadir al documento"
+
+#: includes/document/meta/class-document-meta-box.php
 msgid "(mandatory field)"
 msgstr "(campo obligatorio)"

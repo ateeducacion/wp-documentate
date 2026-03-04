@@ -165,6 +165,8 @@ msgstr ""
 msgid "Select file"
 msgstr ""
 
+#: includes/document/meta/class-document-attachments-meta-box.php
+#: admin/class-documentate-admin.php
 msgid "Remove"
 msgstr ""
 
@@ -1087,4 +1089,20 @@ msgid "Comma-separated list."
 msgstr ""
 
 msgid "Generated file not found."
+msgstr ""
+
+#: includes/document/meta/class-document-attachments-meta-box.php
+msgid "Attachments"
+msgstr ""
+
+#: includes/document/meta/class-document-attachments-meta-box.php
+msgid "Add files"
+msgstr ""
+
+#: admin/class-documentate-admin.php
+msgid "Select files"
+msgstr ""
+
+#: admin/class-documentate-admin.php
+msgid "Add to document"
 msgstr ""
