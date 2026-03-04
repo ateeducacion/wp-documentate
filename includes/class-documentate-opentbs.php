@@ -16,6 +16,13 @@ use Documentate\OpenTBS\OpenTBS_HTML_Parser;
  */
 class Documentate_OpenTBS {
 
+	/**
+	 * Locale to be used for date formatting in OpenTBS.
+	 *
+	 * @var string
+	 */
+	public static $tbs_locale = 'es_ES';
+
 
 
 	/**
@@ -267,9 +274,10 @@ class Documentate_OpenTBS {
 		}
 		try {
 			// Set locale for TBS date formatting (month/day names in local language).
-			$wp_locale = get_locale();
+
 			$old_locale = setlocale( LC_TIME, 0 );
-			setlocale( LC_TIME, $wp_locale . '.UTF-8', $wp_locale . '.utf8', $wp_locale, 0 );
+			$tbs_locale = self::$tbs_locale;
+			setlocale( LC_TIME, $tbs_locale . '.UTF-8', $tbs_locale . '.utf8', $tbs_locale, substr( $tbs_locale, 0, 2 ), 0 );
 
 			$tbs_engine = new clsTinyButStrong();
 			$tbs_engine->Plugin( TBS_INSTALL, OPENTBS_PLUGIN );
