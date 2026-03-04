@@ -447,8 +447,10 @@ test.describe( 'WASM Conversion', () => {
 			// Click the button to initialize BroadcastChannel
 			await previewButton.click();
 
-			// Wait a moment for initialization
-			await documentEditor.page.waitForTimeout( 500 );
+			// Wait for the loading modal to appear (indicates channel initialization)
+			await documentEditor.page.locator( '#documentate-loading-modal' )
+				.waitFor( { state: 'visible', timeout: 3000 } )
+				.catch( () => {} );
 
 			// Check that BroadcastChannel was created
 			const hasChannel = await documentEditor.page.evaluate( () => {
@@ -516,8 +518,15 @@ test.describe( 'WASM Conversion', () => {
 			// Wait for popup
 			await popupPromise;
 
-			// Wait a few seconds for some progress messages
-			await documentEditor.page.waitForTimeout( 5000 );
+			// Wait for at least one title change (or timeout)
+			await documentEditor.page.waitForFunction(
+				() => {
+					const title = document.querySelector( '.documentate-loading-modal__title' );
+					return title && title.textContent.length > 0;
+				},
+				null,
+				{ timeout: 5000 }
+			).catch( () => {} );
 
 			// Should have received at least one title update
 			// (The initial title or progress messages from BroadcastChannel)
@@ -561,8 +570,10 @@ test.describe( 'WASM Conversion', () => {
 				} );
 			} );
 
-			// Wait for error state
-			await documentEditor.page.waitForTimeout( 500 );
+			// Wait for error state to be reflected in the modal
+			await documentEditor.page.locator( '#documentate-loading-modal.is-error' )
+				.waitFor( { state: 'visible', timeout: 3000 } )
+				.catch( () => {} );
 
 			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 

@@ -45,10 +45,9 @@ const documentHelpers = {
 		await page.waitForLoadState( 'domcontentloaded' );
 
 		// Wait for custom title textarea
-		await page.waitForSelector( '#documentate_title_textarea', {
-			state: 'visible',
-			timeout: 5000,
-		} ).catch( () => {} );
+		await page.locator( '#documentate_title_textarea' )
+			.waitFor( { state: 'visible', timeout: 5000 } )
+			.catch( () => {} );
 
 		// Fill title
 		const customTitle = page.locator( '#documentate_title_textarea' );
@@ -70,9 +69,10 @@ const documentHelpers = {
 				await approveBtn.click();
 			} else if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
 				await sendReviewBtn.click();
-				await page.waitForSelector( '#message.updated, .notice-success', {
-					timeout: 10000,
-				} ).catch( () => {} );
+				await page.locator( '#message.updated, .notice-success' )
+					.first()
+					.waitFor( { state: 'visible', timeout: 10000 } )
+					.catch( () => {} );
 				await approveBtn.click();
 			}
 		} else {
@@ -83,9 +83,10 @@ const documentHelpers = {
 		}
 
 		// Wait for save to complete
-		await page.waitForSelector( '#message.updated, .notice-success', {
-			timeout: 10000,
-		} ).catch( () => {} );
+		await page.locator( '#message.updated, .notice-success' )
+			.first()
+			.waitFor( { state: 'visible', timeout: 10000 } )
+			.catch( () => {} );
 
 		// Get post ID from URL
 		const url = page.url();
