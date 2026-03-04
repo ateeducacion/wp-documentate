@@ -294,14 +294,20 @@ class Documentate_OpenTBS {
 
 			// Pre-process visibility blocks [onshow;block=begin;bloc=FIELD]...[onshow;block=end].
 			$tbs_engine->Source = self::process_visibility_blocks($tbs_engine->Source, $fields);
-			if ( null === $tbs_engine->Source ) {
-				return new \WP_Error( 'documentate_regex_error', __( 'Template pre-processing failed (visibility blocks).', 'documentate' ) );
+			if (null === $tbs_engine->Source) {
+				return new \WP_Error('documentate_regex_error', __(
+					'Template pre-processing failed (visibility blocks).',
+					'documentate',
+				));
 			}
 
 			// Collapse fragmented XML spans so TBS can match placeholders split across tags.
 			$tbs_engine->Source = self::normalize_template_placeholders($tbs_engine->Source, $template_path);
-			if ( null === $tbs_engine->Source ) {
-				return new \WP_Error( 'documentate_regex_error', __( 'Template pre-processing failed (placeholder normalization).', 'documentate' ) );
+			if (null === $tbs_engine->Source) {
+				return new \WP_Error('documentate_regex_error', __(
+					'Template pre-processing failed (placeholder normalization).',
+					'documentate',
+				));
 			}
 
 			$tbs_engine->ResetVarRef(false);
