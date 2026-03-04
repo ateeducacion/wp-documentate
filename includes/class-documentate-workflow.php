@@ -116,6 +116,9 @@ class Documentate_Workflow {
 		// Add unified document management meta box (replaces submitdiv).
 		add_action( 'add_meta_boxes', array( $this, 'add_workflow_metabox' ) );
 
+		// Enforce sidebar metabox order: management first, then actions.
+		add_filter( 'get_user_option_meta-box-order_' . $this->post_type, array( $this, 'enforce_sidebar_metabox_order' ) );
+
 		// Prevent editors from setting publish status via quick edit.
 		add_filter( 'wp_insert_post_empty_content', array( $this, 'check_publish_capability' ), 10, 2 );
 
@@ -463,6 +466,21 @@ class Documentate_Workflow {
 			'side',
 			'high'
 		);
+	}
+
+	/**
+	 * Enforce sidebar metabox order so Document Actions always follows Document Management.
+	 *
+	 * @param array|false $order Saved metabox order or false.
+	 * @return array Metabox order with side column enforced.
+	 */
+	public function enforce_sidebar_metabox_order( $order ) {
+		if ( ! is_array( $order ) ) {
+			$order = array();
+		}
+		// Place management and actions first; everything else follows.
+		$order['side'] = 'documentate_document_management,documentate_actions';
+		return $order;
 	}
 
 	/**

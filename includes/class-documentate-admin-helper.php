@@ -630,7 +630,7 @@ class Documentate_Admin_Helper {
 			array( $this, 'render_actions_metabox' ),
 			'documentate_document',
 			'side',
-			'core'
+			'high'
 		);
 	}
 
