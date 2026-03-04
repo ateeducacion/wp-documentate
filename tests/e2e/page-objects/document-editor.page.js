@@ -520,17 +520,12 @@ class DocumentEditorPage {
 	async waitForSave() {
 		// Wait for spinner to appear and disappear, or success notice.
 		// Supports both the Document Management meta box spinner and the legacy publishing-action spinner.
-		const spinnerSelector = '#documentate_document_management .spinner.is-active, #publishing-action .spinner.is-active';
+		const spinner = this.page.locator(
+			'#documentate_document_management .spinner.is-active, #publishing-action .spinner.is-active'
+		).first();
 
-		await this.page.waitForSelector( spinnerSelector, {
-			state: 'visible',
-			timeout: 5000,
-		} ).catch( () => {} );
-
-		await this.page.waitForSelector( spinnerSelector, {
-			state: 'hidden',
-			timeout: 10000,
-		} ).catch( () => {} );
+		await spinner.waitFor( { state: 'visible', timeout: 5000 } ).catch( () => {} );
+		await spinner.waitFor( { state: 'hidden', timeout: 10000 } ).catch( () => {} );
 
 		// Also wait for success notice as backup
 		await this.successNotice.waitFor( { state: 'visible', timeout: 10000 } ).catch( () => {} );

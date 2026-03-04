@@ -51,7 +51,7 @@ test.describe( 'Document Workflow States', () => {
 		await documentEditor.fillTitle( 'Check Submitdiv Removed' );
 
 		// Wait for page to fully load
-		await page.waitForLoadState( 'networkidle' );
+		await page.waitForLoadState( 'domcontentloaded' );
 
 		// The default WordPress submitdiv should not exist
 		const submitDiv = page.locator( '#submitdiv' );
@@ -143,8 +143,12 @@ test.describe( 'Document Published State', () => {
 
 		await documentEditor.navigateToEdit( postId );
 
-		// Wait a bit for JS to execute
-		await page.waitForTimeout( 500 );
+		// Wait for JS to add the locked class to body
+		await page.waitForFunction(
+			() => document.body.classList.contains( 'documentate-document-locked' ),
+			null,
+			{ timeout: 5000 }
+		).catch( () => {} );
 
 		// Check that body has locked class
 		const hasLockedClass = await page.evaluate( () => {
@@ -185,8 +189,15 @@ test.describe( 'Document Published State', () => {
 
 		await documentEditor.navigateToEdit( postId );
 
-		// Wait a bit for JS to execute
-		await page.waitForTimeout( 500 );
+		// Wait for JS to disable the form fields
+		await page.waitForFunction(
+			() => {
+				const title = document.getElementById( 'title' );
+				return title && title.disabled;
+			},
+			null,
+			{ timeout: 5000 }
+		).catch( () => {} );
 
 		// Check that title field is disabled
 		const titleInput = documentEditor.titleInput;

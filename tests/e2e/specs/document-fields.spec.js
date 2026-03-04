@@ -21,8 +21,11 @@ test.describe( 'Document Fields', () => {
 
 		await documentEditor.selectFirstDocType();
 
-		// Wait a moment for fields to potentially load via AJAX
-		await page.waitForTimeout( 500 );
+		// Wait for fields to load via AJAX by checking for field inputs or the fields container
+		await page.locator( '#documentate-fields-metabox, #documentate_fields, input[name^="documentate_field_"]' )
+			.first()
+			.waitFor( { state: 'visible', timeout: 5000 } )
+			.catch( () => {} );
 
 		return true;
 	}
@@ -187,8 +190,11 @@ test.describe( 'Document Fields', () => {
 			// Click add
 			await addButton.click();
 
-			// Wait for new item
-			await page.waitForTimeout( 300 );
+			// Wait for new item to appear
+			await page.locator( '.documentate-repeater-item, .repeater-item' )
+				.nth( itemsBefore )
+				.waitFor( { state: 'visible', timeout: 3000 } )
+				.catch( () => {} );
 
 			// Count items after
 			const itemsAfter = await page.locator(
@@ -227,7 +233,16 @@ test.describe( 'Document Fields', () => {
 
 			if ( itemsBefore > 0 ) {
 				await removeButton.click();
-				await page.waitForTimeout( 300 );
+
+				// Wait for item count to decrease
+				await page.waitForFunction(
+					( expected ) => {
+						const items = document.querySelectorAll( '.documentate-repeater-item, .repeater-item' );
+						return items.length < expected;
+					},
+					itemsBefore,
+					{ timeout: 3000 }
+				).catch( () => {} );
 
 				const itemsAfter = await page.locator(
 					'.documentate-repeater-item, .repeater-item'
@@ -304,8 +319,21 @@ test.describe( 'Document Fields', () => {
 			// Try to add items up to a reasonable number
 			for ( let i = 0; i < 5; i++ ) {
 				if ( await addButton.isEnabled() ) {
+					const countBefore = await page.locator(
+						'.documentate-repeater-item, .repeater-item'
+					).count();
+
 					await addButton.click();
-					await page.waitForTimeout( 100 );
+
+					// Wait for item count to change
+					await page.waitForFunction(
+						( expected ) => {
+							const items = document.querySelectorAll( '.documentate-repeater-item, .repeater-item' );
+							return items.length > expected;
+						},
+						countBefore,
+						{ timeout: 2000 }
+					).catch( () => {} );
 				}
 			}
 

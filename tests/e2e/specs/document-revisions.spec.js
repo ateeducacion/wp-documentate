@@ -75,6 +75,9 @@ test.describe( 'Document Revisions', () => {
 		documentEditor,
 		page,
 	} ) => {
+		// Three full publish cycles (initial + 2 edits) with 5+ navigations each.
+		test.slow();
+
 		// Create document with multiple revisions.
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Compare Revisions Test' );
@@ -108,6 +111,9 @@ test.describe( 'Document Revisions', () => {
 		documentEditor,
 		page,
 	} ) => {
+		// Two publish cycles plus revisions UI interaction.
+		test.slow();
+
 		const originalTitle = 'Restore Revision Test - Original';
 		const updatedTitle = 'Restore Revision Test - Updated';
 
@@ -137,7 +143,7 @@ test.describe( 'Document Revisions', () => {
 		await revisionsLink.click();
 
 		// Wait for revisions page to load.
-		await page.waitForSelector( '.revisions, #revisions', { timeout: 5000 } );
+		await page.locator( '.revisions, #revisions' ).first().waitFor( { state: 'visible', timeout: 5000 } );
 
 		// Look for restore button.
 		const restoreButton = page.getByRole( 'button', { name: /restore/i } ).or(
@@ -163,7 +169,15 @@ test.describe( 'Document Revisions', () => {
 				await page.keyboard.press( 'ArrowLeft' );
 			}
 
-			await page.waitForTimeout( 500 );
+			// Wait for the restore button to become enabled
+			await page.waitForFunction(
+				() => {
+					const btn = document.querySelector( 'input[value*="Restore"], input[value*="Restaurar"]' );
+					return btn && ! btn.disabled;
+				},
+				null,
+				{ timeout: 3000 }
+			).catch( () => {} );
 		}
 
 		if ( await restoreButton.isDisabled() ) {
