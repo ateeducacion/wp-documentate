@@ -124,6 +124,7 @@ class Documentate {
 		require_once plugin_dir_path(__DIR__) . 'includes/custom-post-types/class-documentate-documents.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-meta-box.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-meta.php';
+		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-attachments-meta-box.php';
 
 		// Schema extraction/storage services.
 		require_once plugin_dir_path(__DIR__) . 'includes/doc-type/class-schemaextractor.php';
@@ -138,6 +139,11 @@ class Documentate {
 		if (class_exists('\Documentate\Document\Meta\Document_Meta_Box')) {
 			$document_meta_box = new \Documentate\Document\Meta\Document_Meta_Box();
 			$document_meta_box->register();
+		}
+
+		if (class_exists('\Documentate\Document\Meta\Document_Attachments_Meta_Box')) {
+			$attachments_meta_box = new \Documentate\Document\Meta\Document_Attachments_Meta_Box();
+			$attachments_meta_box->register();
 		}
 
 		// Removed email-to-post, mailer/notification, and calendar modules.
@@ -212,6 +218,7 @@ class Documentate {
 		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts', 10, 1);
 		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_collaborative_editor', 10, 1);
 		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_revisions_assets', 10, 1);
+		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_attachments_assets', 10, 1);
 		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'deregister_heartbeat_for_collaborative', 1, 1);
 		$this->loader->add_action('admin_init', $plugin_admin, 'remove_post_lock_for_collaborative', 1);
 		$this->loader->add_action(

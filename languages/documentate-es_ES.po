@@ -1544,3 +1544,24 @@ msgstr "Otros formatos de descarga:"
 #: includes/class-documentate-workflow.php:408
 msgid "Are you sure you want to send this document to review? Once submitted, you will not be able to edit it until an administrator returns it to draft."
 msgstr "¿Estás seguro de que quieres enviar este documento a revisión? Una vez enviado, no podrás editarlo hasta que un administrador lo devuelva a borrador."
+
+#: includes/document/meta/class-document-attachments-meta-box.php
+msgid "Attachments"
+msgstr "Adjuntos"
+
+#: includes/document/meta/class-document-attachments-meta-box.php
+msgid "Add files"
+msgstr "Añadir archivos"
+
+#: includes/document/meta/class-document-attachments-meta-box.php
+#: admin/class-documentate-admin.php
+msgid "Remove"
+msgstr "Eliminar"
+
+#: admin/class-documentate-admin.php
+msgid "Select files"
+msgstr "Seleccionar archivos"
+
+#: admin/class-documentate-admin.php
+msgid "Add to document"
+msgstr "Añadir al documento"

@@ -1,0 +1,53 @@
+.documentate-attachments-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.documentate-attachment-item {
+	display: flex;
+	align-items: center;
+	padding: 6px 8px;
+	margin-bottom: 4px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+	gap: 8px;
+}
+
+.documentate-attachment-handle {
+	cursor: move;
+	color: #787c82;
+}
+
+.documentate-attachment-icon {
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+}
+
+.documentate-attachment-filename {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-decoration: none;
+}
+
+.documentate-attachment-remove {
+	color: #b32d2e;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.documentate-attachment-remove:hover {
+	color: #a00;
+}
+
+.documentate-attachment-placeholder {
+	height: 36px;
+	margin-bottom: 4px;
+	border: 2px dashed #c3c4c7;
+	border-radius: 2px;
+	background: #f0f0f1;
+}
