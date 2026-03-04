@@ -162,12 +162,19 @@ msgstr ""
 msgid "Closing"
 msgstr ""
 
-msgid "Select file"
+#. translators: Title of the WordPress Media Library frame for selecting attachment files
+msgid "Select files"
 msgstr ""
 
-#: includes/document/meta/class-document-attachments-meta-box.php
-#: admin/class-documentate-admin.php
+#. translators: Button label in the Media Library to confirm selection of attachment files
+msgid "Add to document"
+msgstr ""
+
+#. translators: Tooltip for the remove attachment button
 msgid "Remove"
+msgstr ""
+
+msgid "Select file"
 msgstr ""
 
 msgid "Detected fields"
@@ -724,6 +731,12 @@ msgstr ""
 msgid "Template not found."
 msgstr ""
 
+msgid "Template pre-processing failed (visibility blocks)."
+msgstr ""
+
+msgid "Template pre-processing failed (placeholder normalization)."
+msgstr ""
+
 msgid "ZipArchive is not available for rich text formatting."
 msgstr ""
 
@@ -1067,6 +1080,12 @@ msgstr ""
 msgid "The template file could not be opened."
 msgstr ""
 
+msgid "Attachments"
+msgstr ""
+
+msgid "Add files"
+msgstr ""
+
 msgid "Document Metadata"
 msgstr ""
 
@@ -1089,20 +1108,4 @@ msgid "Comma-separated list."
 msgstr ""
 
 msgid "Generated file not found."
-msgstr ""
-
-#: includes/document/meta/class-document-attachments-meta-box.php
-msgid "Attachments"
-msgstr ""
-
-#: includes/document/meta/class-document-attachments-meta-box.php
-msgid "Add files"
-msgstr ""
-
-#: admin/class-documentate-admin.php
-msgid "Select files"
-msgstr ""
-
-#: admin/class-documentate-admin.php
-msgid "Add to document"
 msgstr ""

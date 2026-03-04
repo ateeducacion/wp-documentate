@@ -166,8 +166,7 @@ msgstr "Despedida"
 msgid "Select file"
 msgstr "Seleccionar archivo"
 
-#: includes/document/meta/class-document-attachments-meta-box.php
-#: admin/class-documentate-admin.php
+#. translators: Tooltip for the remove attachment button
 msgid "Remove"
 msgstr "Eliminar"
 
@@ -1089,22 +1088,25 @@ msgstr "Otros formatos de descarga:"
 msgid "Are you sure you want to send this document to review? Once submitted, you will not be able to edit it until an administrator returns it to draft."
 msgstr "¿Estás seguro de que quieres enviar este documento a revisión? Una vez enviado, no podrás editarlo hasta que un administrador lo devuelva a borrador."
 
-#: includes/document/meta/class-document-attachments-meta-box.php
 msgid "Attachments"
 msgstr "Adjuntos"
 
-#: includes/document/meta/class-document-attachments-meta-box.php
 msgid "Add files"
 msgstr "Añadir archivos"
 
-#: admin/class-documentate-admin.php
+#. translators: Title of the WordPress Media Library frame for selecting attachment files
 msgid "Select files"
 msgstr "Seleccionar archivos"
 
-#: admin/class-documentate-admin.php
+#. translators: Button label in the Media Library to confirm selection of attachment files
 msgid "Add to document"
 msgstr "Añadir al documento"
 
-#: includes/document/meta/class-document-meta-box.php
 msgid "(mandatory field)"
 msgstr "(campo obligatorio)"
+
+msgid "Template pre-processing failed (visibility blocks)."
+msgstr "Falló el preprocesamiento de la plantilla (bloques de visibilidad)."
+
+msgid "Template pre-processing failed (placeholder normalization)."
+msgstr "Falló el preprocesamiento de la plantilla (normalización de marcadores)."
