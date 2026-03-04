@@ -89,7 +89,7 @@ class Documentate_Admin {
 	 * @param string $hook_suffix The current admin page.
 	 */
 	public function enqueue_styles($hook_suffix) {
-		if ('settings_page_documentate_settings' !== $hook_suffix) {
+		if (!$this->is_documentate_screen($hook_suffix)) {
 			return;
 		}
 		wp_enqueue_style(
@@ -107,10 +107,12 @@ class Documentate_Admin {
 	 * @param string $hook_suffix The current admin page.
 	 */
 	public function enqueue_scripts($hook_suffix) {
-		if ('settings_page_documentate_settings' !== $hook_suffix) {
+		if (!$this->is_documentate_screen($hook_suffix)) {
 			return;
 		}
-		wp_enqueue_media();
+		if ('settings_page_documentate_settings' === $hook_suffix) {
+			wp_enqueue_media();
+		}
 		wp_enqueue_script(
 			$this->plugin_name,
 			plugin_dir_url(__FILE__) . 'js/documentate-admin.js',
@@ -118,6 +120,27 @@ class Documentate_Admin {
 			$this->version,
 			true,
 		);
+	}
+
+	/**
+	 * Check if the current screen is a documentate admin page.
+	 *
+	 * @param string $hook_suffix The current admin page hook.
+	 * @return bool
+	 */
+	private function is_documentate_screen($hook_suffix) {
+		if ('settings_page_documentate_settings' === $hook_suffix) {
+			return true;
+		}
+
+		if (in_array($hook_suffix, array('post.php', 'post-new.php'), true)) {
+			$screen = get_current_screen();
+			if ($screen && 'documentate_document' === $screen->post_type) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

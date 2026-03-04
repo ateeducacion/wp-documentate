@@ -472,4 +472,25 @@ class Documents_Field_Validator {
 		}
 		return false;
 	}
+
+	/**
+	 * Check whether a raw field definition has required set.
+	 *
+	 * @param array<string,mixed> $raw_field Raw field definition.
+	 * @return bool
+	 */
+	public static function is_field_required($raw_field) {
+		if (!is_array($raw_field) || !isset($raw_field['parameters']) || !is_array($raw_field['parameters'])) {
+			return false;
+		}
+
+		$params = $raw_field['parameters'];
+		$required_keys = array('required', 'is_required');
+		foreach ($required_keys as $key) {
+			if (isset($params[$key]) && self::is_truthy($params[$key])) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

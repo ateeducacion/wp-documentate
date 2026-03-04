@@ -1,1 +1,6 @@
 /* All of the CSS for your admin-specific functionality should be included in this file. */
+
+.documentate-rich-required-error {
+	border: 2px solid #d63638;
+	border-radius: 4px;
+}

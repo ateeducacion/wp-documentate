@@ -748,7 +748,7 @@ class Documentate_Documents {
 				);
 			} elseif ('rich' === $type) {
 				$is_locked = in_array($post->post_status, array('publish', 'archived'), true);
-				$this->render_rich_editor_control($meta_key, $value, $is_locked);
+				$this->render_rich_editor_control($meta_key, $value, $is_locked, $raw_field);
 			} else {
 				$this->render_textarea_control($meta_key, $value, $raw_field, $describedby, $validation);
 			}
@@ -898,12 +898,14 @@ class Documentate_Documents {
 	/**
 	 * Render a rich text editor control.
 	 *
-	 * @param string $meta_key  The meta key for the field.
-	 * @param string $value     The current field value.
-	 * @param bool   $is_locked Whether the editor should be readonly (default false).
+	 * @param string              $meta_key  The meta key for the field.
+	 * @param string              $value     The current field value.
+	 * @param bool                $is_locked Whether the editor should be readonly (default false).
+	 * @param array<string,mixed> $raw_field Raw field definition (default empty).
 	 */
-	private function render_rich_editor_control($meta_key, $value, $is_locked = false) {
+	private function render_rich_editor_control($meta_key, $value, $is_locked = false, $raw_field = array()) {
 		$is_collaborative = $this->is_collaborative_editing_enabled();
+		$is_required = \Documentate\Documents\Documents_Field_Validator::is_field_required($raw_field);
 
 		if ($is_collaborative) {
 			echo '<div class="documentate-collab-container">';
@@ -912,7 +914,9 @@ class Documentate_Documents {
 					. esc_attr($meta_key)
 					. '" name="'
 					. esc_attr($meta_key)
-					. '" class="documentate-collab-textarea" rows="8">'
+					. '" class="documentate-collab-textarea" rows="8"'
+					. ($is_required ? ' data-required="true"' : '')
+					. '>'
 					. esc_textarea($value)
 					. '</textarea>'
 			;
@@ -932,6 +936,10 @@ class Documentate_Documents {
 				$tinymce_config['readonly'] = 1;
 			}
 
+			if ($is_required) {
+				echo '<div class="documentate-rich-editor-wrap" data-required="true">';
+			}
+
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles output escaping.
 			wp_editor($value, $meta_key, array(
 				'textarea_name' => $meta_key,
@@ -943,6 +951,10 @@ class Documentate_Documents {
 				'quicktags' => true,
 				'editor_height' => 220,
 			));
+
+			if ($is_required) {
+				echo '</div>';
+			}
 		}
 	}
 
