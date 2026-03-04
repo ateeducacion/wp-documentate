@@ -149,8 +149,8 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		// Check that the metabox is registered.
 		$this->assertArrayHasKey( 'documentate_document', $wp_meta_boxes );
 		$this->assertArrayHasKey( 'side', $wp_meta_boxes['documentate_document'] );
-		$this->assertArrayHasKey( 'core', $wp_meta_boxes['documentate_document']['side'] );
-		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['core'] );
+		$this->assertArrayHasKey( 'high', $wp_meta_boxes['documentate_document']['side'] );
+		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['high'] );
 	}
 
 	/**
@@ -1652,9 +1652,9 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$this->helper->add_actions_metabox();
 
-		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['core'] );
+		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['high'] );
 
-		$metabox = $wp_meta_boxes['documentate_document']['side']['core']['documentate_actions'];
+		$metabox = $wp_meta_boxes['documentate_document']['side']['high']['documentate_actions'];
 		$this->assertSame( __( 'Document Actions', 'documentate' ), $metabox['title'] );
 	}
 

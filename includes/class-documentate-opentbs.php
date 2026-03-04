@@ -386,30 +386,23 @@ class Documentate_OpenTBS {
 	 * @return string Normalized XML content.
 	 */
 	public static function normalize_template_placeholders( $source, $template_path ) {
-		$ext = strtolower( pathinfo( $template_path, PATHINFO_EXTENSION ) );
-
-		if ( 'docx' === $ext ) {
-			$patterns = array(
-				'#</w:t>\s*</w:r>\s*<w:r[^>]*>\s*<w:t[^>]*>#i',
-				'#</w:t>\s*<w:r[^>]*>\s*<w:t[^>]*>#i',
-				'#</w:t>\s*<w:t[^>]*>#i',
-			);
-			$source = preg_replace( $patterns, '', $source );
-		} else {
-			// ODT: collapse </text:span>...<text:span> sequences.
-			// Loop to handle nested structures like </span></span><span><span>.
-			$prev = '';
-			while ( $prev !== $source ) {
-				$prev   = $source;
-				$source = preg_replace(
-					'#(</text:span>\s*)+(<text:span[^>]*>\s*)+#i',
-					'',
-					$source
-				);
-			}
-		}
-
-		return $source;
+		// Match TBS placeholders [name;params] that may be fragmented across
+		// formatting spans in ODT/DOCX. Only touches regions between [ and ]
+		// that actually contain XML tags (fragmented). The regex requires at
+		// least one XML tag inside the brackets to avoid matching normal text
+		// or XML attributes that contain [ ] characters.
+		return preg_replace_callback(
+			'/\[(?=[^<\[\]]*<)(?:[^<\[\]]*|<[^>]*>)*\]/',
+			function ( $match ) {
+				$placeholder = $match[0];
+				// Strip all XML tags within the placeholder.
+				$clean = preg_replace( '#<[^>]+>#', '', $placeholder );
+				// Remove XML formatting whitespace (newlines, tabs) between tags.
+				$clean = preg_replace( '/[\r\n\t]+/', '', $clean );
+				return $clean;
+			},
+			$source
+		);
 	}
 
 	/**

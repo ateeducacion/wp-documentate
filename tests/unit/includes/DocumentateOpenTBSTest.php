@@ -733,6 +733,19 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * It should not alter normal text spans (only placeholders).
+	 */
+	public function test_normalize_template_placeholders_leaves_normal_text_intact() {
+		$source = '<text:span text:style-name="T1">Es por ello</text:span>'
+			. '<text:span text:style-name="T2"> que se considera</text:span>'
+			. '<text:span text:style-name="T1"> de sumo interés</text:span>';
+
+		$result = Documentate_OpenTBS::normalize_template_placeholders( $source, '/tmp/test.odt' );
+
+		$this->assertSame( $source, $result );
+	}
+
+	/**
 	 * Helper to call private process_visibility_blocks method.
 	 *
 	 * @param string $content Template content.
