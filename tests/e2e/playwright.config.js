@@ -19,7 +19,9 @@ module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'github' ] ] : [ [ 'list' ] ],
 	forbidOnly: !! process.env.CI,
 	fullyParallel: false,
-	workers: parseInt( process.env.PLAYWRIGHT_WORKERS || '', 10 ) || 2,
+	workers: process.env.CI
+		? '100%'
+		: parseInt( process.env.PLAYWRIGHT_WORKERS || '', 10 ) || 2,
 	retries: process.env.CI ? 2 : 0,
 	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 60_000,
 	reportSlowTests: { max: 5, threshold: 15_000 },
