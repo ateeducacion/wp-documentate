@@ -39,24 +39,24 @@ class DocumentEditorPage {
 	}
 
 	/**
-	 * Document type metabox.
+	 * Document type metabox (now part of the unified management metabox).
 	 */
 	get docTypeMetabox() {
-		return this.page.locator( '#documentate_doc_typediv' );
+		return this.page.locator( '#documentate_document_management .documentate-doc-type-section' );
 	}
 
 	/**
-	 * Document type checklist containing radio/checkbox inputs.
+	 * Document type select dropdown.
 	 */
-	get docTypeChecklist() {
-		return this.page.locator( '#documentate_doc_typechecklist' );
+	get docTypeSelect() {
+		return this.page.locator( 'select[name="documentate_doc_type"]' );
 	}
 
 	/**
-	 * All document type options (radio buttons or checkboxes).
+	 * All document type options in the select (excluding the placeholder).
 	 */
 	get docTypeOptions() {
-		return this.docTypeChecklist.locator( 'input[type="checkbox"], input[type="radio"]' );
+		return this.docTypeSelect.locator( 'option:not([value=""])' );
 	}
 
 	/**
@@ -248,18 +248,7 @@ class DocumentEditorPage {
 	 * @param {string} typeName - Document type name
 	 */
 	async selectDocType( typeName ) {
-		const typeLabel = this.docTypeChecklist.getByText( typeName, { exact: false } );
-		const checkbox = typeLabel.locator( 'xpath=../input' ).or(
-			typeLabel.locator( 'xpath=preceding-sibling::input' )
-		);
-
-		if ( await checkbox.count() > 0 ) {
-			await checkbox.check();
-		} else {
-			// Try alternative: find input associated with label
-			const input = this.docTypeChecklist.locator( `label:has-text("${ typeName }") input` );
-			await input.check();
-		}
+		await this.docTypeSelect.selectOption( { label: typeName } );
 	}
 
 	/**
@@ -270,7 +259,8 @@ class DocumentEditorPage {
 	async selectFirstDocType() {
 		const options = this.docTypeOptions;
 		if ( await options.count() > 0 ) {
-			await options.first().check();
+			const value = await options.first().getAttribute( 'value' );
+			await this.docTypeSelect.selectOption( value );
 			return true;
 		}
 		return false;
@@ -282,20 +272,21 @@ class DocumentEditorPage {
 	 * @return {Promise<boolean>} True if types exist
 	 */
 	async hasDocTypes() {
+		const select = this.docTypeSelect;
+		if ( await select.count() === 0 ) {
+			return false;
+		}
 		return ( await this.docTypeOptions.count() ) > 0;
 	}
 
 	/**
-	 * Check if the document type is locked (disabled).
+	 * Check if the document type is locked (shown as text, not a select).
 	 *
 	 * @return {Promise<boolean>} True if locked
 	 */
 	async isDocTypeLocked() {
-		const firstOption = this.docTypeOptions.first();
-		if ( await firstOption.count() > 0 ) {
-			return await firstOption.isDisabled();
-		}
-		return false;
+		// When locked, the select is replaced with a hidden input + text display.
+		return ( await this.docTypeSelect.count() ) === 0;
 	}
 
 	/**
@@ -358,6 +349,28 @@ class DocumentEditorPage {
 	}
 
 	/**
+	 * Return a published document to review (unlocking it for editing).
+	 */
+	async returnToReview() {
+		await Promise.all( [
+			this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
+			this.returnToReviewButton.click(),
+		] );
+		await this.waitForSave();
+	}
+
+	/**
+	 * Return a pending document to draft.
+	 */
+	async returnToDraft() {
+		await Promise.all( [
+			this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
+			this.returnToDraftButton.click(),
+		] );
+		await this.waitForSave();
+	}
+
+	/**
 	 * Publish the document following the full workflow.
 	 *
 	 * From draft: Send to Review → page reloads → Approve & Publish → page reloads.
@@ -370,16 +383,31 @@ class DocumentEditorPage {
 
 		// If "Approve & Publish" is visible, we're already in pending — just approve.
 		if ( await approveBtn.isVisible().catch( () => false ) ) {
-			await approveBtn.click();
+			await Promise.all( [
+				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
+				approveBtn.click(),
+			] );
 			await this.waitForSave();
 			return;
 		}
 
 		// Otherwise, send to review first, then approve.
 		if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+			// Ensure a doc type is selected (required to transition beyond draft).
+			if ( await this.hasDocTypes() ) {
+				const currentValue = await this.docTypeSelect.inputValue();
+				if ( ! currentValue ) {
+					await this.selectFirstDocType();
+				}
+			}
+
+			// Save draft first to persist the doc type (control_post_status forces
+			// draft when doc_type hasn't been saved yet via save_post).
+			await this.saveDraft();
+
 			await Promise.all( [
 				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
-				sendReviewBtn.click(),
+				this.page.locator( '#documentate-send-review' ).click(),
 			] );
 
 			// Page reloaded — now in pending state, click Approve & Publish.

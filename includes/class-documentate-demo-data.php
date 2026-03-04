@@ -361,6 +361,18 @@ class Documentate_Demo_Data {
 			);
 		}
 
+		$modelo_informe_id = self::import_fixture_file('modelo_informe.odt');
+		if ($modelo_informe_id > 0) {
+			$definitions[] = array(
+				'slug' => 'modelo-informe',
+				'name' => 'Modelo de informe',
+				'description' => 'Plantilla para informes con asunto, texto del informe y cargo firmante.',
+				'color' => '#16a085',
+				'template_id' => $modelo_informe_id,
+				'fixture_key' => 'modelo-informe',
+			);
+		}
+
 		return $definitions;
 	}
 
@@ -448,6 +460,12 @@ class Documentate_Demo_Data {
 			self::create_specific_demo_documents($respuesta_escrito_term, self::get_respuesta_escrito_demo());
 		}
 
+		// Create specific demo document for Modelo de informe.
+		$modelo_informe_term = get_term_by('slug', 'modelo-informe', 'documentate_doc_type');
+		if ($modelo_informe_term instanceof WP_Term) {
+			self::create_specific_demo_documents($modelo_informe_term, self::get_modelo_informe_demo());
+		}
+
 		// Also create demo documents for other document types (advanced demos).
 		$exclude_ids = array();
 		if ($term instanceof WP_Term) {
@@ -470,6 +488,9 @@ class Documentate_Demo_Data {
 		}
 		if ($respuesta_escrito_term instanceof WP_Term) {
 			$exclude_ids[] = $respuesta_escrito_term->term_id;
+		}
+		if ($modelo_informe_term instanceof WP_Term) {
+			$exclude_ids[] = $modelo_informe_term->term_id;
 		}
 
 		$terms = get_terms(array(
@@ -1522,6 +1543,39 @@ class Documentate_Demo_Data {
 					'respuesta' => array(
 						'type' => 'single',
 						'value' => 'se hace constar que la Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación no dispone de antecedentes, datos ni información en relación con el caso referido.',
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Get demo data for Modelo de informe.
+	 *
+	 * @return array
+	 */
+	private static function get_modelo_informe_demo() {
+		return array(
+			'modelo-informe-prueba' => array(
+				'title' => 'Ejemplo: Informe sobre adaptaciones curriculares en centros de educación secundaria',
+				'author' => 'Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación',
+				'keywords' => 'informe, adaptaciones curriculares, educación secundaria',
+				'fields' => array(
+					'asunto' => array(
+						'type' => 'single',
+						'value' => 'Remisión de informe sobre adaptaciones curriculares en centros de educación secundaria obligatoria',
+					),
+					'respuesta' => array(
+						'type' => 'rich',
+						'value' => '<p>En relación con el asunto indicado en el encabezamiento, y tras el análisis realizado por esta Dirección General, se informa lo siguiente:</p>'
+							. '<p><strong>PRIMERO.</strong> De conformidad con lo establecido en el artículo 71 de la Ley Orgánica 2/2006, de 3 de mayo, de Educación, las Administraciones educativas dispondrán los medios necesarios para que todo el alumnado alcance el máximo desarrollo personal, intelectual, social y emocional.</p>'
+							. '<p><strong>SEGUNDO.</strong> Examinados los datos recabados de los centros educativos durante el curso 2024-2025, se constata que un total de 342 centros de educación secundaria obligatoria han implementado adaptaciones curriculares significativas, atendiendo a 4.127 alumnos y alumnas con necesidades específicas de apoyo educativo.</p>'
+							. '<p><strong>TERCERO.</strong> Los equipos de orientación educativa han valorado positivamente la implementación de dichas adaptaciones, destacando la mejora en los indicadores de rendimiento académico y bienestar del alumnado beneficiario.</p>'
+							. '<p>Es cuanto se informa a los efectos oportunos.</p>',
+					),
+					'firma_cargo' => array(
+						'type' => 'single',
+						'value' => 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS, INCLUSIÓN E INNOVACIÓN',
 					),
 				),
 			),

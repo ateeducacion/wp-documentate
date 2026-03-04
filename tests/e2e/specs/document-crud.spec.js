@@ -47,8 +47,9 @@ test.describe( 'Document CRUD Operations', () => {
 		// Save the document
 		await documentEditor.saveDraft();
 
-		// Verify the type is selected after save
-		await expect( documentEditor.docTypeOptions.first() ).toBeChecked();
+		// After save, the type is locked — shown as text + hidden input, not a select.
+		const isLocked = await documentEditor.isDocTypeLocked();
+		expect( isLocked ).toBe( true );
 	} );
 
 	test( 'can edit existing document title', async ( {

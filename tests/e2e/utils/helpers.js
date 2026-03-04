@@ -65,20 +65,8 @@ async function createDocument( admin, page, { title, docType } = {} ) {
  * @param {string} typeName - Document type name or slug
  */
 async function selectDocumentType( page, typeName ) {
-	// Look for the document type checkbox or radio in the meta box
-	const typeCheckbox = page.locator(
-		`#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]`
-	).filter( { has: page.locator( `xpath=../label[contains(text(), "${ typeName }")]` ) } );
-
-	// If not found by label, try by value/id
-	if ( await typeCheckbox.count() === 0 ) {
-		const typeInput = page.locator(
-			`#documentate_doc_typechecklist label:has-text("${ typeName }") input`
-		);
-		await typeInput.check();
-	} else {
-		await typeCheckbox.first().check();
-	}
+	const select = page.locator( 'select[name="documentate_doc_type"]' );
+	await select.selectOption( { label: typeName } );
 }
 
 /**
