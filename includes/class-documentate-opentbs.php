@@ -294,9 +294,15 @@ class Documentate_OpenTBS {
 
 			// Pre-process visibility blocks [onshow;block=begin;bloc=FIELD]...[onshow;block=end].
 			$tbs_engine->Source = self::process_visibility_blocks($tbs_engine->Source, $fields);
+			if ( null === $tbs_engine->Source ) {
+				return new \WP_Error( 'documentate_regex_error', __( 'Template pre-processing failed (visibility blocks).', 'documentate' ) );
+			}
 
 			// Collapse fragmented XML spans so TBS can match placeholders split across tags.
 			$tbs_engine->Source = self::normalize_template_placeholders($tbs_engine->Source, $template_path);
+			if ( null === $tbs_engine->Source ) {
+				return new \WP_Error( 'documentate_regex_error', __( 'Template pre-processing failed (placeholder normalization).', 'documentate' ) );
+			}
 
 			$tbs_engine->ResetVarRef(false);
 
@@ -392,12 +398,11 @@ class Documentate_OpenTBS {
 	 */
 	public static function normalize_template_placeholders($source, $template_path) {
 		// Match TBS placeholders [name;params] that may be fragmented across
-		// formatting spans in ODT/DOCX. Only touches regions between [ and ]
-		// that actually contain XML tags (fragmented). The regex requires at
-		// least one XML tag inside the brackets to avoid matching normal text
-		// or XML attributes that contain [ ] characters.
+		// formatting spans in ODT/DOCX. Strips XML tags from within brackets.
+		// Uses possessive quantifiers on inner character classes to prevent
+		// catastrophic backtracking on large content.xml files.
 		return preg_replace_callback(
-			'/\[(?=[^<\[\]]*<)(?:[^<\[\]]*|<[^>]*>)*\]/',
+			'/\[(?:[^<\[\]]*+|<[^>]*+>)*\]/',
 			function ($match) {
 				$placeholder = $match[0];
 				// Strip all XML tags within the placeholder.
