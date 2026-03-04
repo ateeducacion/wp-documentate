@@ -377,11 +377,17 @@ class DocumentEditorPage {
 
 		// Otherwise, send to review first, then approve.
 		if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
-			await sendReviewBtn.click();
-			await this.waitForSave();
+			await Promise.all( [
+				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
+				sendReviewBtn.click(),
+			] );
 
 			// Page reloaded — now in pending state, click Approve & Publish.
-			await this.page.locator( '#documentate-approve-publish' ).click();
+			await this.page.locator( '#documentate-approve-publish' ).waitFor( { state: 'visible', timeout: 10000 } );
+			await Promise.all( [
+				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
+				this.page.locator( '#documentate-approve-publish' ).click(),
+			] );
 			await this.waitForSave();
 			return;
 		}
