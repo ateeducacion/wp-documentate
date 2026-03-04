@@ -182,10 +182,11 @@ class Document_Attachments_Meta_Box {
 		$ids = array();
 
 		foreach ( $parts as $part ) {
-			$id = absint( trim( $part ) );
-			if ( $id > 0 ) {
-				$ids[] = $id;
+			$trimmed = trim( $part );
+			if ( ! is_numeric( $trimmed ) || (int) $trimmed <= 0 ) {
+				continue;
 			}
+			$ids[] = absint( $trimmed );
 		}
 
 		return $ids;
