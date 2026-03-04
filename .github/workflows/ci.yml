@@ -32,13 +32,12 @@ env:
   COMPOSER_NO_AUDIT: 1
 
 jobs:
-  lint_and_test:
+  playground:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
 
-      # === BLUEPRINT / PLAYGROUND SETUP (runs first, no dependencies) ===
       - name: Set branch name for blueprint URL
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
@@ -97,7 +96,12 @@ jobs:
               });
             }
 
-      # === PHP SETUP ===
+  lint_and_test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -106,7 +110,6 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      # === CACHING ===
       - name: Get Composer cache directory
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
@@ -118,52 +121,26 @@ jobs:
           key: composer-${{ hashFiles('composer.lock') }}
           restore-keys: composer-
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: npm-${{ hashFiles('package-lock.json') }}
-          restore-keys: npm-
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('package-lock.json') }}
-
-      # === INSTALL DEPENDENCIES ===
       - name: Install Composer dependencies
         run: composer install --prefer-dist
-
-      - name: Install npm dependencies
-        run: npm ci
 
       - name: Install gettext
         run: sudo apt-get install -y gettext
 
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium
-
-      - name: Install Playwright system deps
-        run: npx playwright install-deps chromium
-
-      # === LINT (fail fast before slow tests) ===
       - name: Check untranslated strings
         run: make check-untranslated
 
       - name: Run code linting (Mago)
         run: ./vendor/bin/mago lint
 
-      # === START ENVIRONMENT (with Xdebug for coverage) ===
       - name: Start wp-env with coverage
-        run: npx wp-env start --xdebug=coverage
+        run: |
+          npm ci
+          npx wp-env start --xdebug=coverage
 
       - name: Run plugin check
         run: make check-plugin
 
-      # === TESTS WITH COVERAGE ===
       - name: Run unit tests with coverage
         run: make test-coverage
 
@@ -202,13 +179,6 @@ jobs:
             echo "⚠️ Coverage report not generated" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Run E2E tests
-        run: make test-e2e
-        env:
-          CI: true
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-
-      # === ARTIFACTS ===
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
         if: always()
@@ -217,6 +187,52 @@ jobs:
           path: artifacts/coverage/html/
           retention-days: 30
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: artifacts/coverage/clover.xml
+          fail_ci_if_error: false
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Install Playwright system deps
+        run: npx playwright install-deps chromium
+
+      - name: Start wp-env
+        run: npx wp-env start
+
+      - name: Run E2E tests
+        run: make test-e2e
+        env:
+          CI: true
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+
       - name: Upload E2E artifacts on failure
         uses: actions/upload-artifact@v7
         if: failure()
@@ -224,11 +240,3 @@ jobs:
           name: playwright-report
           path: artifacts/
           retention-days: 7
-
-      # === UPLOAD COVERAGE TO CODECOV ===
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: artifacts/coverage/clover.xml
-          fail_ci_if_error: false
