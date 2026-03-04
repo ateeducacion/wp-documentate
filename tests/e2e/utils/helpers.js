@@ -96,8 +96,8 @@ async function saveDocument( page, status = 'draft' ) {
 		);
 		await publishBtn.click();
 	} else {
-		const draftBtn = page.getByRole( 'button', { name: /save draft/i } ).or(
-			page.locator( '#save-post' )
+		const draftBtn = page.locator( '#documentate-save-draft' ).or(
+			page.getByRole( 'button', { name: /save draft/i } )
 		);
 		await draftBtn.click();
 	}

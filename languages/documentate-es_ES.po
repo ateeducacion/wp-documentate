@@ -155,7 +155,7 @@ msgid "Document Title"
 msgstr "Título del documento"
 
 #: admin/class-documentate-admin.php:475
-#: includes/custom-post-types/class-documentate-documents.php:1197
+#: includes/custom-post-types/class-documentate-documents.php:1157
 msgid "Content"
 msgstr "Contenido"
 
@@ -327,7 +327,7 @@ msgstr "No se pudo localizar el archivo de plantilla seleccionado."
 #: includes/class-documentate-admin-helper.php:394
 #: includes/class-documentate-admin-helper.php:420
 #: includes/class-documentate-admin-helper.php:645
-#: includes/class-documentate-admin-helper.php:1047
+#: includes/class-documentate-admin-helper.php:1046
 #: includes/export/class-export-handler.php:86
 msgid "Insufficient permissions."
 msgstr "Permisos insuficientes."
@@ -452,7 +452,7 @@ msgid "Preparing document converter."
 msgstr "Preparando el conversor de documentos."
 
 #: admin/documentate-converter-template.php:158
-#: includes/class-documentate-admin-helper.php:1002
+#: includes/class-documentate-admin-helper.php:1000
 msgid "Loading LibreOffice..."
 msgstr "Cargando LibreOffice..."
 
@@ -462,7 +462,7 @@ msgstr "Descargando componentes WASM (~50MB). Esto puede tardar la primera vez."
 
 #: admin/documentate-collabora-playground-template.php:151
 #: admin/documentate-converter-template.php:220
-#: includes/class-documentate-admin-helper.php:994
+#: includes/class-documentate-admin-helper.php:992
 msgid "Generating document..."
 msgstr "Generando documento..."
 
@@ -534,7 +534,7 @@ msgstr "Exportar DOCX"
 #: includes/class-documentate-admin-helper.php:336
 #: includes/class-documentate-admin-helper.php:398
 #: includes/class-documentate-admin-helper.php:424
-#: includes/class-documentate-admin-helper.php:1051
+#: includes/class-documentate-admin-helper.php:1050
 #: includes/export/class-export-handler.php:92
 msgid "Invalid nonce."
 msgstr "Nonce no válido."
@@ -590,55 +590,49 @@ msgstr "Configura una plantilla DOCX u ODT en el tipo de documento antes de gene
 msgid "Preview"
 msgstr "Vista previa"
 
-#. translators: %s: converter engine label.
-#: includes/class-documentate-admin-helper.php:823
-#, php-format
-msgid "Additional conversions are performed with %s."
-msgstr "Las conversiones adicionales se realizan con %s."
-
-#: includes/class-documentate-admin-helper.php:859
+#: includes/class-documentate-admin-helper.php:857
 msgid "Could not determine the generated file."
 msgstr "No se pudo determinar el archivo generado."
 
-#: includes/class-documentate-admin-helper.php:868
+#: includes/class-documentate-admin-helper.php:866
 msgid "Could not access the generated file."
 msgstr "No se pudo acceder al archivo generado."
 
-#: includes/class-documentate-admin-helper.php:889
+#: includes/class-documentate-admin-helper.php:887
 msgid "Could not read the generated file."
 msgstr "No se pudo leer el archivo generado."
 
-#: includes/class-documentate-admin-helper.php:995
+#: includes/class-documentate-admin-helper.php:993
 msgid "Generating preview..."
 msgstr "Generando vista previa..."
 
 #. translators: %s: document format (DOCX, ODT, PDF).
-#: includes/class-documentate-admin-helper.php:997
+#: includes/class-documentate-admin-helper.php:995
 #, php-format
 msgid "Generating %s..."
 msgstr "Generando %s..."
 
-#: includes/class-documentate-admin-helper.php:998
+#: includes/class-documentate-admin-helper.php:996
 msgid "Please wait while the document is being generated."
 msgstr "Por favor espera mientras se genera el documento."
 
-#: includes/class-documentate-admin-helper.php:999
+#: includes/class-documentate-admin-helper.php:997
 msgid "Close"
 msgstr "Cerrar"
 
-#: includes/class-documentate-admin-helper.php:1000
+#: includes/class-documentate-admin-helper.php:998
 msgid "Error generating the document."
 msgstr "Error al generar el documento."
 
-#: includes/class-documentate-admin-helper.php:1001
+#: includes/class-documentate-admin-helper.php:999
 msgid "Connection error. Please try again."
 msgstr "Error de conexión. Por favor, inténtalo de nuevo."
 
-#: includes/class-documentate-admin-helper.php:1003
+#: includes/class-documentate-admin-helper.php:1001
 msgid "Converting in browser..."
 msgstr "Convirtiendo en el navegador..."
 
-#: includes/class-documentate-admin-helper.php:1004
+#: includes/class-documentate-admin-helper.php:1002
 msgid "Error loading LibreOffice."
 msgstr "Error al cargar LibreOffice."
 
@@ -711,11 +705,11 @@ msgstr "Requerido para convertir %1$s a %2$s."
 msgid "Required to generate %s."
 msgstr "Requerido para generar %s."
 
-#: includes/class-documentate-demo-data.php:1642
+#: includes/class-documentate-demo-data.php:1999
 msgid "Warning"
 msgstr "Advertencia"
 
-#: includes/class-documentate-demo-data.php:1642
+#: includes/class-documentate-demo-data.php:1999
 msgid "You are running this site with demo data."
 msgstr "Estás ejecutando este sitio con datos de demostración."
 
@@ -787,101 +781,53 @@ msgstr "ZipArchive no está disponible en el servidor."
 msgid "Could not open the template for analysis."
 msgstr "No se pudo abrir la plantilla para su análisis."
 
-#: includes/class-documentate-workflow.php:56
+#: includes/class-documentate-workflow.php:57
 msgid "Document saved as draft. You must select a document type before publishing."
 msgstr "Documento guardado como borrador. Debes seleccionar un tipo de documento antes de publicar."
 
-#: includes/class-documentate-workflow.php:60
+#: includes/class-documentate-workflow.php:61
 msgid "Document set to pending review. Only administrators can publish documents."
 msgstr "Documento establecido como pendiente de revisión. Solo los administradores pueden publicar documentos."
 
-#: includes/class-documentate-workflow.php:64
+#: includes/class-documentate-workflow.php:65
 msgid "Published documents can only be modified by administrators."
 msgstr "Los documentos publicados solo pueden ser modificados por administradores."
 
-#: includes/class-documentate-workflow.php:401
+#: includes/class-documentate-workflow.php:398
 msgid "Document Locked"
 msgstr "Documento bloqueado"
 
-#: includes/class-documentate-workflow.php:402
+#: includes/class-documentate-workflow.php:399
 msgid "This document is published and read-only. Only an administrator can unlock it by reverting to draft."
 msgstr "Este documento está publicado y es de solo lectura. Solo un administrador puede desbloquearlo revirtiendo a borrador."
 
-#: includes/class-documentate-workflow.php:404
+#: includes/class-documentate-workflow.php:402
 msgid "Change status to Draft to enable editing."
 msgstr "Cambia el estado a Borrador para habilitar la edición."
 
-#: includes/class-documentate-workflow.php:406
+#: includes/class-documentate-workflow.php:404
 msgid "Select a document type before publishing."
 msgstr "Selecciona un tipo de documento antes de publicar."
 
-#: includes/class-documentate-workflow.php:407
+#: includes/class-documentate-workflow.php:405
 msgid "Editors can only save as Draft or Pending Review."
 msgstr "Los editores solo pueden guardar como Borrador o Pendiente de revisión."
 
-#: includes/class-documentate-workflow.php:471
-msgid "Editors can save as Draft or submit for Pending Review."
-msgstr "Los editores pueden guardar como Borrador o enviar a Pendiente de revisión."
-
-#: includes/class-documentate-workflow.php:481
-msgid "Document is published. Change to Draft to enable editing."
-msgstr "El documento está publicado. Cambia a Borrador para habilitar la edición."
-
-#: includes/class-documentate-workflow.php:483
-msgid "Document is published and locked. Contact an administrator to edit."
-msgstr "El documento está publicado y bloqueado. Contacta a un administrador para editar."
-
-#: includes/class-documentate-workflow.php:496
-msgid "Workflow Status"
-msgstr "Estado del flujo"
-
-#: includes/class-documentate-workflow.php:515
-msgid "New"
-msgstr "Nuevo"
-
-#: includes/class-documentate-workflow.php:516
+#: includes/class-documentate-workflow.php:584
 msgid "Draft"
 msgstr "Borrador"
 
-#: includes/class-documentate-workflow.php:517
-msgid "Pending Review"
-msgstr "Pendiente de revisión"
-
-#: includes/class-documentate-workflow.php:518
-msgid "Published"
-msgstr "Publicado"
-
-#: includes/class-documentate-workflow.php:542
+#: includes/class-documentate-workflow.php:630
 msgid "No document type selected. Must assign a type before publishing."
 msgstr "No hay tipo de documento seleccionado. Debes asignar un tipo antes de publicar."
 
-#: includes/class-documentate-workflow.php:550
-msgid "Document is read-only. Change status to Draft to edit."
-msgstr "El documento es de solo lectura. Cambia el estado a Borrador para editar."
-
-#: includes/class-documentate-workflow.php:552
+#: includes/class-documentate-workflow.php:640
 msgid "Document is locked. Contact an administrator."
 msgstr "El documento está bloqueado. Contacta a un administrador."
 
-#: includes/class-documentate-workflow.php:571
+#: includes/class-documentate-workflow.php:670
 msgid "Submit for Pending Review when ready. An administrator will publish."
 msgstr "Envía a Pendiente de revisión cuando esté listo. Un administrador lo publicará."
-
-#: includes/class-documentate-workflow.php:594
-msgid "Workflow:"
-msgstr "Flujo de trabajo:"
-
-#: includes/class-documentate-workflow.php:596
-msgid "Draft - Work in progress"
-msgstr "Borrador - Trabajo en progreso"
-
-#: includes/class-documentate-workflow.php:597
-msgid "Pending - Ready for review"
-msgstr "Pendiente - Listo para revisión"
-
-#: includes/class-documentate-workflow.php:598
-msgid "Published - Final (locked)"
-msgstr "Publicado - Final (bloqueado)"
 
 #: includes/class-documentate-zetajs-converter.php:101
 msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
@@ -907,161 +853,164 @@ msgstr "La conversión finalizó pero no se generó el archivo de salida. Detall
 msgid "PDF conversion is performed in the browser using ZetaJS loaded from the official CDN."
 msgstr "La conversión a PDF se realiza en el navegador usando ZetaJS cargado desde la CDN oficial."
 
+#: includes/custom-post-types/class-documentate-documents.php:408
 #: includes/custom-post-types/class-documentate-documents.php:410
-#: includes/custom-post-types/class-documentate-documents.php:412
 #: includes/documents/class-documents-cpt-registration.php:33
 #: includes/documents/class-documents-cpt-registration.php:35
 msgid "Documents"
 msgstr "Documentos"
 
+#: includes/custom-post-types/class-documentate-documents.php:409
 #: includes/custom-post-types/class-documentate-documents.php:411
-#: includes/custom-post-types/class-documentate-documents.php:413
 #: includes/documents/class-documents-cpt-registration.php:34
 #: includes/documents/class-documents-cpt-registration.php:36
 msgid "Document"
 msgstr "Documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:414
+#: includes/custom-post-types/class-documentate-documents.php:412
 #: includes/documents/class-documents-cpt-registration.php:37
 msgid "Add New"
 msgstr "Añadir nuevo"
 
-#: includes/custom-post-types/class-documentate-documents.php:415
+#: includes/custom-post-types/class-documentate-documents.php:413
 #: includes/documents/class-documents-cpt-registration.php:38
 msgid "Add New Document"
 msgstr "Añadir nuevo documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:416
+#: includes/custom-post-types/class-documentate-documents.php:414
 #: includes/documents/class-documents-cpt-registration.php:39
 msgid "New Document"
 msgstr "Nuevo documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:417
+#: includes/custom-post-types/class-documentate-documents.php:415
 #: includes/documents/class-documents-cpt-registration.php:40
 msgid "Edit Document"
 msgstr "Editar documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:418
+#: includes/custom-post-types/class-documentate-documents.php:416
 #: includes/documents/class-documents-cpt-registration.php:41
 msgid "View Document"
 msgstr "Ver documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:419
+#: includes/custom-post-types/class-documentate-documents.php:417
 #: includes/documents/class-documents-cpt-registration.php:42
 msgid "All Documents"
 msgstr "Todos los documentos"
 
-#: includes/custom-post-types/class-documentate-documents.php:420
+#: includes/custom-post-types/class-documentate-documents.php:418
 #: includes/documents/class-documents-cpt-registration.php:43
 msgid "Search Documents"
 msgstr "Buscar documentos"
 
-#: includes/custom-post-types/class-documentate-documents.php:421
+#: includes/custom-post-types/class-documentate-documents.php:419
 #: includes/documents/class-documents-cpt-registration.php:44
 msgid "No documents found."
 msgstr "No se encontraron documentos."
 
-#: includes/custom-post-types/class-documentate-documents.php:422
+#: includes/custom-post-types/class-documentate-documents.php:420
 #: includes/documents/class-documents-cpt-registration.php:45
 msgid "No documents found in trash."
 msgstr "No se encontraron documentos en la papelera."
 
-#: includes/custom-post-types/class-documentate-documents.php:481
-#: includes/custom-post-types/class-documentate-documents.php:489
+#: includes/custom-post-types/class-documentate-documents.php:451
+#: includes/custom-post-types/class-documentate-documents.php:459
 #: includes/documents/class-documents-cpt-registration.php:74
 #: includes/documents/class-documents-cpt-registration.php:82
 msgid "Document Types"
 msgstr "Tipos de documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:482
-#: includes/custom-post-types/class-documentate-documents.php:543
-#: includes/custom-post-types/class-documentate-documents.php:2598
+#: includes/custom-post-types/class-documentate-documents.php:452
+#: includes/custom-post-types/class-documentate-documents.php:2558
 #: includes/documents/class-documents-cpt-registration.php:75
 msgid "Document Type"
 msgstr "Tipo de documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:483
+#: includes/custom-post-types/class-documentate-documents.php:453
 #: includes/documents/class-documents-cpt-registration.php:76
 msgid "Search Types"
 msgstr "Buscar tipos"
 
-#: includes/custom-post-types/class-documentate-documents.php:484
+#: includes/custom-post-types/class-documentate-documents.php:454
 #: includes/documents/class-documents-cpt-registration.php:77
 msgid "All Types"
 msgstr "Todos los tipos"
 
-#: includes/custom-post-types/class-documentate-documents.php:485
+#: includes/custom-post-types/class-documentate-documents.php:455
 #: includes/documents/class-documents-cpt-registration.php:78
 msgid "Edit Type"
 msgstr "Editar tipo"
 
-#: includes/custom-post-types/class-documentate-documents.php:486
+#: includes/custom-post-types/class-documentate-documents.php:456
 #: includes/documents/class-documents-cpt-registration.php:79
 msgid "Update Type"
 msgstr "Actualizar tipo"
 
-#: includes/custom-post-types/class-documentate-documents.php:487
+#: includes/custom-post-types/class-documentate-documents.php:457
 #: includes/documents/class-documents-cpt-registration.php:80
 msgid "Add New Type"
 msgstr "Añadir nuevo tipo"
 
-#: includes/custom-post-types/class-documentate-documents.php:488
+#: includes/custom-post-types/class-documentate-documents.php:458
 #: includes/documents/class-documents-cpt-registration.php:81
 msgid "New Type"
 msgstr "Nuevo tipo"
 
-#: includes/custom-post-types/class-documentate-documents.php:552
+#: includes/custom-post-types/class-documentate-documents.php:512
 msgid "Document Sections"
 msgstr "Secciones del documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:591
+#: includes/class-documentate-workflow.php:552
+#: includes/custom-post-types/class-documentate-documents.php:551
 msgid "No document types defined. Create one in Document Types."
 msgstr "No hay tipos de documento definidos. Crea uno en Tipos de documento."
 
-#: includes/custom-post-types/class-documentate-documents.php:596
+#: includes/class-documentate-workflow.php:558
+#: includes/custom-post-types/class-documentate-documents.php:556
 msgid "Choose the type when creating the document. It cannot be changed later."
 msgstr "Elige el tipo al crear el documento. No se puede cambiar después."
 
-#: includes/custom-post-types/class-documentate-documents.php:599
+#: includes/class-documentate-workflow.php:561
+#: includes/custom-post-types/class-documentate-documents.php:559
 msgid "Selected type:"
 msgstr "Tipo seleccionado:"
 
-#: includes/custom-post-types/class-documentate-documents.php:603
+#: includes/class-documentate-workflow.php:565
+#: includes/custom-post-types/class-documentate-documents.php:563
 msgid "Select a type…"
 msgstr "Selecciona un tipo…"
 
-#: includes/custom-post-types/class-documentate-documents.php:626
+#: includes/custom-post-types/class-documentate-documents.php:586
 msgid "Configure a document type with fields to edit its content."
 msgstr "Configura un tipo de documento con campos para editar su contenido."
 
-#: includes/custom-post-types/class-documentate-documents.php:830
-#: includes/custom-post-types/class-documentate-documents.php:1346
+#: includes/custom-post-types/class-documentate-documents.php:790
+#: includes/custom-post-types/class-documentate-documents.php:1306
 msgid "Select an option…"
 msgstr "Selecciona una opción…"
 
-#: includes/custom-post-types/class-documentate-documents.php:1243
+#: includes/custom-post-types/class-documentate-documents.php:1203
 msgid "Add item"
 msgstr "Añadir elemento"
 
-#: includes/custom-post-types/class-documentate-documents.php:1279
+#: includes/custom-post-types/class-documentate-documents.php:1239
 msgid "Move item"
 msgstr "Mover elemento"
 
-#: includes/custom-post-types/class-documentate-documents.php:1280
+#: includes/custom-post-types/class-documentate-documents.php:1240
 msgid "Delete"
 msgstr "Eliminar"
 
-#: includes/custom-post-types/class-documentate-documents.php:2285
+#: includes/custom-post-types/class-documentate-documents.php:2245
 msgid "The document contains additional fields that do not belong to the selected type. Review their content before saving."
 msgstr "El documento contiene campos adicionales que no pertenecen al tipo seleccionado. Revisa su contenido antes de guardar."
 
 #. translators: %s: detected dynamic field key.
-#: includes/custom-post-types/class-documentate-documents.php:2295
+#: includes/custom-post-types/class-documentate-documents.php:2255
 #, php-format
 msgid "Additional field: %s"
 msgstr "Campo adicional: %s"
 
-#: includes/custom-post-types/class-documentate-documents.php:2296
+#: includes/custom-post-types/class-documentate-documents.php:2256
 msgid "This field is not defined in the current document type taxonomy."
 msgstr "Este campo no está definido en la taxonomía de tipo de documento actual."
 
@@ -1138,7 +1087,7 @@ msgid "Title is required."
 msgstr "El título es obligatorio."
 
 #: includes/class-documentate-admin-helper.php:183
-#: includes/custom-post-types/class-documentate-documents.php:531
+#: includes/custom-post-types/class-documentate-documents.php:501
 msgid "Enter document title"
 msgstr "Introduce el título del documento"
 
@@ -1195,15 +1144,15 @@ msgstr "para repetir filas de tabla, usa"
 msgid "in the first field of the row instead of block=begin/end."
 msgstr "en el primer campo de la fila en lugar de block=begin/end."
 
-#: admin/class-documentate-doctype-help-notice.php:116
+#: admin/class-documentate-doctype-help-notice.php:117
 msgid "-- Table row:"
 msgstr "-- Fila de tabla:"
 
-#: admin/class-documentate-doctype-help-notice.php:120
+#: admin/class-documentate-doctype-help-notice.php:121
 msgid "Tip: in ODT/DOCX the text can be fragmented internally. To ensure each marker"
 msgstr "Consejo: en ODT/DOCX el texto puede fragmentarse internamente. Para asegurar que cada marcador"
 
-#: admin/class-documentate-doctype-help-notice.php:121
+#: admin/class-documentate-doctype-help-notice.php:122
 msgid "remains intact, write it in a plain text editor, then copy and paste without formatting."
 msgstr "quede íntegro, escríbelo en un editor de texto plano y luego copia y pega sin formato."
 
@@ -1244,180 +1193,182 @@ msgstr "Manual TBS"
 msgid "frm, ope, conditions, etc."
 msgstr "frm, ope, condiciones, etc."
 
-#: includes/class-documentate-demo-data.php:259
+#: includes/class-documentate-demo-data.php:263
 msgid "Advanced test document type (ODT)"
 msgstr "Tipo de documento de prueba avanzado (ODT)"
 
-#: includes/class-documentate-demo-data.php:260
+#: includes/class-documentate-demo-data.php:264
 msgid "Example automatically created with the included demo-wp-documentate.odt template."
 msgstr "Ejemplo creado automáticamente con la plantilla demo-wp-documentate.odt incluida."
 
-#: includes/class-documentate-demo-data.php:271
+#: includes/class-documentate-demo-data.php:275
 msgid "Advanced test document type (DOCX)"
 msgstr "Tipo de documento de prueba avanzado (DOCX)"
 
-#: includes/class-documentate-demo-data.php:272
+#: includes/class-documentate-demo-data.php:276
 msgid "Example automatically created with the included demo-wp-documentate.docx template."
 msgstr "Ejemplo creado automáticamente con la plantilla demo-wp-documentate.docx incluida."
 
 #. translators: %s: document type name.
-#: includes/class-documentate-demo-data.php:1217
+#: includes/class-documentate-demo-data.php:1574
 #, php-format
 msgid "Test document – %s"
 msgstr "Documento de prueba – %s"
 
-#: includes/class-documentate-demo-data.php:1218
+#: includes/class-documentate-demo-data.php:1575
 msgid "Demo team"
 msgstr "Equipo de demostración"
 
-#: includes/class-documentate-demo-data.php:1219
+#: includes/class-documentate-demo-data.php:1576
 msgid "lorem, ipsum, demo"
 msgstr "lorem, ipsum, demo"
 
-#: includes/class-documentate-demo-data.php:1419
+#: includes/class-documentate-demo-data.php:1776
 msgid "Demo resolution"
 msgstr "Resolución de demostración"
 
 #. translators: %d: item sequence number.
-#: includes/class-documentate-demo-data.php:1462
+#: includes/class-documentate-demo-data.php:1819
 #, php-format
 msgid "Demo item %d"
 msgstr "Elemento de demo %d"
 
 #. translators: %d: item sequence number.
-#: includes/class-documentate-demo-data.php:1467
+#: includes/class-documentate-demo-data.php:1824
 #, php-format
 msgid "Demo summary %d with brief information."
 msgstr "Resumen de demo %d con información breve."
 
-#: includes/class-documentate-demo-data.php:1471
+#: includes/class-documentate-demo-data.php:1828
 msgid "Subject of the example resolution to illustrate the workflow."
 msgstr "Asunto de la resolución de ejemplo para ilustrar el flujo de trabajo."
 
-#: includes/class-documentate-demo-data.php:1475
+#: includes/class-documentate-demo-data.php:1832
 msgid "Background facts written with test content."
 msgstr "Hechos de antecedentes escritos con contenido de prueba."
 
-#: includes/class-documentate-demo-data.php:1479
+#: includes/class-documentate-demo-data.php:1836
 msgid "Legal grounds for testing with generic references."
 msgstr "Fundamentos legales para pruebas con referencias genéricas."
 
-#: includes/class-documentate-demo-data.php:1483
+#: includes/class-documentate-demo-data.php:1840
 msgid "First. Approve the demo action."
 msgstr "Primero. Aprobar la acción de demostración."
 
-#: includes/class-documentate-demo-data.php:1483
+#: includes/class-documentate-demo-data.php:1840
 msgid "Second. Notify interested parties."
 msgstr "Segundo. Notificar a los interesados."
 
-#: includes/class-documentate-demo-data.php:1487
+#: includes/class-documentate-demo-data.php:1844
 msgid "Additional observations to complete the template."
 msgstr "Observaciones adicionales para completar la plantilla."
 
-#: includes/class-documentate-demo-data.php:1542
-#: includes/class-documentate-demo-data.php:1557
+#: includes/class-documentate-demo-data.php:1899
+#: includes/class-documentate-demo-data.php:1914
 msgid "Test heading"
 msgstr "Encabezado de prueba"
 
-#: includes/class-documentate-demo-data.php:1543
-#: includes/class-documentate-demo-data.php:1558
+#: includes/class-documentate-demo-data.php:1900
+#: includes/class-documentate-demo-data.php:1915
 msgid "First paragraph with example text."
 msgstr "Primer párrafo con texto de ejemplo."
 
 #. translators: 1: bold text label, 2: italic text label, 3: underline text label.
-#: includes/class-documentate-demo-data.php:1545
-#: includes/class-documentate-demo-data.php:1560
+#: includes/class-documentate-demo-data.php:1902
+#: includes/class-documentate-demo-data.php:1917
 #, php-format
 msgid "Second paragraph with %1$s, %2$s and %3$s."
 msgstr "Segundo párrafo con %1$s, %2$s y %3$s."
 
 #. translators: 1: bold text label, 2: italic text label, 3: underline text label.
-#: includes/class-documentate-demo-data.php:1545
-#: includes/class-documentate-demo-data.php:1560
+#: includes/class-documentate-demo-data.php:1902
+#: includes/class-documentate-demo-data.php:1917
 msgid "bold"
 msgstr "negrita"
 
 #. translators: 1: bold text label, 2: italic text label, 3: underline text label.
-#: includes/class-documentate-demo-data.php:1545
-#: includes/class-documentate-demo-data.php:1560
+#: includes/class-documentate-demo-data.php:1902
+#: includes/class-documentate-demo-data.php:1917
 msgid "italics"
 msgstr "cursiva"
 
 #. translators: 1: bold text label, 2: italic text label, 3: underline text label.
-#: includes/class-documentate-demo-data.php:1545
-#: includes/class-documentate-demo-data.php:1560
+#: includes/class-documentate-demo-data.php:1902
+#: includes/class-documentate-demo-data.php:1917
 msgid "underline"
 msgstr "subrayado"
 
-#: includes/class-documentate-demo-data.php:1546
-#: includes/class-documentate-demo-data.php:1561
+#: includes/class-documentate-demo-data.php:1903
+#: includes/class-documentate-demo-data.php:1918
 msgid "Item one"
 msgstr "Elemento uno"
 
-#: includes/class-documentate-demo-data.php:1546
-#: includes/class-documentate-demo-data.php:1561
+#: includes/class-documentate-demo-data.php:1903
+#: includes/class-documentate-demo-data.php:1918
 msgid "Item two"
 msgstr "Elemento dos"
 
-#: includes/class-documentate-demo-data.php:1547
-#: includes/class-documentate-demo-data.php:1562
+#: includes/class-documentate-demo-data.php:1904
+#: includes/class-documentate-demo-data.php:1919
 msgid "Col 1"
 msgstr "Col 1"
 
-#: includes/class-documentate-demo-data.php:1547
-#: includes/class-documentate-demo-data.php:1562
+#: includes/class-documentate-demo-data.php:1904
+#: includes/class-documentate-demo-data.php:1919
 msgid "Col 2"
 msgstr "Col 2"
 
-#: includes/class-documentate-demo-data.php:1547
-#: includes/class-documentate-demo-data.php:1562
+#: includes/class-documentate-demo-data.php:1904
+#: includes/class-documentate-demo-data.php:1919
 msgid "Data A1"
 msgstr "Dato A1"
 
-#: includes/class-documentate-demo-data.php:1547
-#: includes/class-documentate-demo-data.php:1562
+#: includes/class-documentate-demo-data.php:1904
+#: includes/class-documentate-demo-data.php:1919
 msgid "Data A2"
 msgstr "Dato A2"
 
-#: includes/class-documentate-demo-data.php:1547
-#: includes/class-documentate-demo-data.php:1562
+#: includes/class-documentate-demo-data.php:1904
+#: includes/class-documentate-demo-data.php:1919
 msgid "Data B1"
 msgstr "Dato B1"
 
-#: includes/class-documentate-demo-data.php:1547
-#: includes/class-documentate-demo-data.php:1562
+#: includes/class-documentate-demo-data.php:1904
+#: includes/class-documentate-demo-data.php:1919
 msgid "Data B2"
 msgstr "Dato B2"
 
-#: includes/class-documentate-demo-data.php:1567
+#: includes/class-documentate-demo-data.php:1924
 msgid "keywords, tags, demo"
 msgstr "palabras clave, etiquetas, demo"
 
-#: includes/class-documentate-demo-data.php:1570
+#: includes/class-documentate-demo-data.php:1927
 msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 msgstr "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 
-#: includes/custom-post-types/class-documentate-documents.php:2404
+#: includes/custom-post-types/class-documentate-documents.php:2364
 msgid "All authors"
 msgstr "Todos los autores"
 
-#: includes/custom-post-types/class-documentate-documents.php:2427
+#: includes/custom-post-types/class-documentate-documents.php:2387
 msgid "All document types"
 msgstr "Todos los tipos de documento"
 
-#: includes/custom-post-types/class-documentate-documents.php:2450
+#: includes/custom-post-types/class-documentate-documents.php:2410
 msgid "All categories"
 msgstr "Todas las categorías"
 
-#: includes/custom-post-types/class-documentate-documents.php:2603
+#: includes/custom-post-types/class-documentate-documents.php:2563
 msgid "Category"
 msgstr "Categoría"
 
 #: includes/class-documentate-admin-helper.php:266
+#: includes/class-documentate-workflow.php:760
 msgid "Archive"
 msgstr "Archivar"
 
 #: includes/class-documentate-admin-helper.php:280
+#: includes/class-documentate-workflow.php:781
 msgid "Unarchive"
 msgstr "Desarchivar"
 
@@ -1426,63 +1377,50 @@ msgstr "Desarchivar"
 msgid "Invalid document or status."
 msgstr "Documento o estado no válido."
 
-#: includes/class-documentate-workflow.php:68
+#: includes/class-documentate-workflow.php:69
 msgid "Only published documents can be archived."
 msgstr "Solo se pueden archivar documentos publicados."
 
-#: includes/class-documentate-workflow.php:72
+#: includes/class-documentate-workflow.php:73
 msgid "Only administrators can archive documents."
 msgstr "Solo los administradores pueden archivar documentos."
 
-#: includes/class-documentate-workflow.php:76
+#: includes/class-documentate-workflow.php:77
 msgid "Archived documents can only be modified by administrators."
 msgstr "Los documentos archivados solo pueden ser modificados por administradores."
 
-#: includes/class-documentate-workflow.php:135
+#: includes/class-documentate-workflow.php:133
 msgctxt "post status"
 msgid "Archived"
 msgstr "Archivado"
 
 #. translators: %s: Number of archived documents
-#: includes/class-documentate-workflow.php:141
+#: includes/class-documentate-workflow.php:139
 #, php-format
 msgid "Archived <span class=\"count\">(%s)</span>"
 msgid_plural "Archived <span class=\"count\">(%s)</span>"
 msgstr[0] "Archivado <span class=\"count\">(%s)</span>"
 msgstr[1] "Archivados <span class=\"count\">(%s)</span>"
 
-#: includes/class-documentate-workflow.php:403
+#: includes/class-documentate-workflow.php:400
 msgid "This document is archived and read-only. Only an administrator can unarchive it."
 msgstr "Este documento está archivado y es de solo lectura. Solo un administrador puede desarchivarlo."
 
-#: includes/class-documentate-workflow.php:405
+#: includes/class-documentate-workflow.php:403
 msgid "Unarchive to enable editing."
 msgstr "Desarchiva para habilitar la edición."
 
-#: includes/class-documentate-workflow.php:519
-#: includes/custom-post-types/class-documentate-documents.php:2572
+#: includes/custom-post-types/class-documentate-documents.php:2532
 msgid "Archived"
 msgstr "Archivado"
 
-#: includes/class-documentate-workflow.php:561
+#: includes/class-documentate-workflow.php:649
 msgid "Document is archived and read-only. Unarchive to enable editing."
 msgstr "El documento está archivado y es de solo lectura. Desarchiva para habilitar la edición."
 
-#: includes/class-documentate-workflow.php:563
+#: includes/class-documentate-workflow.php:651
 msgid "Document is archived. Contact an administrator to unarchive."
 msgstr "El documento está archivado. Contacta a un administrador para desarchivarlo."
-
-#: includes/class-documentate-workflow.php:580
-msgid "Archive Document"
-msgstr "Archivar documento"
-
-#: includes/class-documentate-workflow.php:587
-msgid "Unarchive Document"
-msgstr "Desarchivar documento"
-
-#: includes/class-documentate-workflow.php:599
-msgid "Archived - Historical record"
-msgstr "Archivado - Registro histórico"
 
 #: includes/class-documentate-template-access.php:75
 msgid "You do not have permission to manage templates."
@@ -1500,10 +1438,102 @@ msgstr "— Sin ámbito —"
 msgid "Documents in this category (and subcategories) will be visible to this user."
 msgstr "Los documentos en esta categoría (y subcategorías) serán visibles para este usuario."
 
-#: includes/class-documentate-admin-helper.php:1005
+#: includes/class-documentate-admin-helper.php:1003
 msgid "You have unsaved changes. Do you want to generate the document with the last saved version?"
 msgstr "Tienes cambios sin guardar. ¿Quieres generar el documento con la última versión guardada?"
 
 #: includes/class-documentate-opentbs.php:229
 msgid "Could not open the archive to sanitize HTML."
 msgstr "No se pudo abrir el archivo para limpiar el código HTML."
+
+#: includes/class-documentate-workflow.php:401
+msgid "This document is pending review and read-only. An administrator will review it."
+msgstr "Este documento está pendiente de revisión y es de solo lectura. Un administrador lo revisará."
+
+#: includes/class-documentate-workflow.php:459
+msgid "Document Management"
+msgstr "Gestión del documento"
+
+#: includes/class-documentate-workflow.php:518
+msgid "Save"
+msgstr "Guardar"
+
+#: includes/class-documentate-workflow.php:585
+msgid "In Review"
+msgstr "En revisión"
+
+#: includes/class-documentate-workflow.php:586
+msgid "Approved"
+msgstr "Aprobado"
+
+#: includes/class-documentate-workflow.php:660
+msgid "Document is pending review. Approve or return to draft."
+msgstr "El documento está pendiente de revisión. Apruébelo o devuélvalo a borrador."
+
+#: includes/class-documentate-workflow.php:662
+msgid "Document is pending review. An administrator will review it."
+msgstr "El documento está pendiente de revisión. Un administrador lo revisará."
+
+#: includes/class-documentate-workflow.php:707
+msgid "Save Draft"
+msgstr "Guardar borrador"
+
+#: includes/class-documentate-workflow.php:710
+msgid "Send to Review"
+msgstr "Enviar a revisión"
+
+#: includes/class-documentate-workflow.php:724
+msgid "Document is pending review. No actions available."
+msgstr "El documento está pendiente de revisión. No hay acciones disponibles."
+
+#: includes/class-documentate-workflow.php:730
+msgid "Return to Draft"
+msgstr "Devolver a borrador"
+
+#: includes/class-documentate-workflow.php:736
+msgid "Approve & Publish"
+msgstr "Aprobar y publicar"
+
+#: includes/class-documentate-workflow.php:751
+msgid "Document is published and locked."
+msgstr "El documento está publicado y bloqueado."
+
+#: includes/class-documentate-workflow.php:775
+msgid "Document is archived and locked."
+msgstr "El documento está archivado y bloqueado."
+
+#: includes/class-documentate-workflow.php:809
+msgid "Move to Trash"
+msgstr "Mover a la papelera"
+
+#: includes/class-documentate-workflow.php:857
+msgid "You do not have permission to restore revisions for this document."
+msgstr "No tiene permiso para restaurar revisiones de este documento."
+
+#: includes/class-documentate-workflow.php:858
+msgid "Revision Restore Blocked"
+msgstr "Restauración de revisión bloqueada"
+
+#. translators: %d: Number of revisions
+#: includes/class-documentate-workflow.php:895
+#, php-format
+msgid "%d Revision"
+msgid_plural "%d Revisions"
+msgstr[0] "%d revisión"
+msgstr[1] "%d revisiones"
+
+#: includes/class-documentate-workflow.php:638
+msgid "Document is read-only. Return to Review to enable editing."
+msgstr "El documento es de solo lectura. Devolver a revisión para habilitar la edición."
+
+#: includes/class-documentate-workflow.php:757
+msgid "Return to Review"
+msgstr "Devolver a revisión"
+
+#: includes/class-documentate-admin-helper.php:781
+msgid "Download:"
+msgstr "Descargar:"
+
+#: includes/class-documentate-workflow.php:733
+msgid "Save Review"
+msgstr "Guardar revisión"

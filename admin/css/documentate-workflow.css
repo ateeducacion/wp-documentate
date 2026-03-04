@@ -2,20 +2,332 @@
  * Documentate Workflow Styles
  *
  * Styles for the document workflow management:
+ * - Visual stepper for workflow progress
+ * - Document Management meta box buttons
  * - Read-only/locked state visual indicators
- * - Status badges and workflow meta box
- * - Editor restriction notices
+ * - Status messages
  * - Disabled field styling
  *
  * @package Documentate
  */
 
 /* ==========================================================================
+   Fallback: Hide submitdiv if it somehow reappears
+   ========================================================================== */
+
+.post-type-documentate_document #submitdiv {
+	display: none !important;
+}
+
+/* ==========================================================================
+   Doc Type Section (merged into management metabox)
+   ========================================================================== */
+
+.documentate-doc-type-section {
+	margin-bottom: 12px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid #ddd;
+}
+
+.documentate-doc-type-section .description {
+	margin-top: 0;
+}
+
+/* ==========================================================================
+   Visual Stepper
+   ========================================================================== */
+
+.documentate-stepper {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 16px 0 12px;
+	position: relative;
+	margin-bottom: 12px;
+}
+
+.documentate-stepper::before {
+	content: '';
+	position: absolute;
+	top: 24px;
+	left: 16px;
+	right: 16px;
+	height: 2px;
+	background: #ddd;
+}
+
+.documentate-stepper__step {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	position: relative;
+	z-index: 1;
+	flex: 1;
+}
+
+.documentate-stepper__dot {
+	display: block;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: #ddd;
+	border: 2px solid #ddd;
+	margin-bottom: 6px;
+}
+
+.documentate-stepper__label {
+	font-size: 11px;
+	color: #a7aaad;
+	text-align: center;
+	line-height: 1.2;
+}
+
+/* Draft (red) */
+.documentate-stepper__step.is-current.is-status-draft .documentate-stepper__dot {
+	background: #d63638;
+	border-color: #d63638;
+	box-shadow: 0 0 0 3px rgba(214, 54, 56, 0.2);
+}
+
+.documentate-stepper__step.is-current.is-status-draft .documentate-stepper__label {
+	color: #d63638;
+	font-weight: 600;
+}
+
+/* In Review / Pending (orange) */
+.documentate-stepper__step.is-current.is-status-pending .documentate-stepper__dot {
+	background: #dba617;
+	border-color: #dba617;
+	box-shadow: 0 0 0 3px rgba(219, 166, 23, 0.2);
+}
+
+.documentate-stepper__step.is-current.is-status-pending .documentate-stepper__label {
+	color: #dba617;
+	font-weight: 600;
+}
+
+/* Approved / Published (green) */
+.documentate-stepper__step.is-current.is-status-publish .documentate-stepper__dot {
+	background: #00a32a;
+	border-color: #00a32a;
+	box-shadow: 0 0 0 3px rgba(0, 163, 42, 0.2);
+}
+
+.documentate-stepper__step.is-current.is-status-publish .documentate-stepper__label {
+	color: #00a32a;
+	font-weight: 600;
+}
+
+/* ==========================================================================
+   Management Meta Box - Status Messages
+   ========================================================================== */
+
+.documentate-mgmt-message {
+	display: flex;
+	align-items: flex-start;
+	padding: 8px 10px;
+	margin: 8px 0;
+	border-radius: 2px;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.documentate-mgmt-message .dashicons {
+	margin-right: 6px;
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+}
+
+/* Warning (missing doc_type) */
+.documentate-mgmt-message--warning {
+	background: #fff8e5;
+	border-left: 3px solid #dba617;
+	color: #614200;
+}
+
+.documentate-mgmt-message--warning .dashicons {
+	color: #dba617;
+}
+
+/* Draft status (red) */
+.documentate-mgmt-message--draft {
+	background: #fcf0f1;
+	border-left: 3px solid #d63638;
+	color: #8a2424;
+}
+
+.documentate-mgmt-message--draft .dashicons {
+	color: #d63638;
+}
+
+/* Pending / In Review status (orange) */
+.documentate-mgmt-message--pending {
+	background: #fff8e5;
+	border-left: 3px solid #dba617;
+	color: #614200;
+}
+
+.documentate-mgmt-message--pending .dashicons {
+	color: #dba617;
+}
+
+/* Published / Approved status (green) */
+.documentate-mgmt-message--success {
+	background: #edfaef;
+	border-left: 3px solid #00a32a;
+	color: #1a5c1a;
+}
+
+.documentate-mgmt-message--success .dashicons {
+	color: #00a32a;
+}
+
+/* ==========================================================================
+   Management Meta Box - Action Buttons
+   ========================================================================== */
+
+.documentate-mgmt-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 12px 0 4px;
+	border-top: 1px solid #ddd;
+	margin-top: 12px;
+}
+
+.documentate-mgmt-btn {
+	flex-shrink: 0;
+}
+
+.documentate-mgmt-btn--success {
+	background: #00a32a !important;
+	border-color: #008a20 !important;
+	color: #fff !important;
+}
+
+.documentate-mgmt-btn--success:hover {
+	background: #008a20 !important;
+	border-color: #007017 !important;
+	color: #fff !important;
+}
+
+.documentate-mgmt-btn--success:focus {
+	box-shadow: 0 0 0 1px #fff, 0 0 0 3px #00a32a !important;
+}
+
+.documentate-mgmt-btn--warning {
+	background: #dba617 !important;
+	border-color: #c59415 !important;
+	color: #fff !important;
+}
+
+.documentate-mgmt-btn--warning:hover {
+	background: #c59415 !important;
+	border-color: #a67c10 !important;
+	color: #fff !important;
+}
+
+.documentate-mgmt-btn--warning:focus {
+	box-shadow: 0 0 0 1px #fff, 0 0 0 3px #dba617 !important;
+}
+
+.documentate-mgmt-btn--danger {
+	color: #b32d2e !important;
+	border-color: #b32d2e !important;
+}
+
+.documentate-mgmt-btn--danger:hover {
+	background: #b32d2e !important;
+	color: #fff !important;
+}
+
+.documentate-mgmt-btn--danger:focus {
+	box-shadow: 0 0 0 1px #fff, 0 0 0 3px #b32d2e !important;
+}
+
+.documentate-mgmt-link {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 0;
+	font-size: 13px;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.documentate-mgmt-locked-notice {
+	display: flex;
+	align-items: center;
+	font-size: 12px;
+	color: #646970;
+	margin: 0;
+}
+
+.documentate-mgmt-locked-notice .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	margin-right: 6px;
+	color: #a7aaad;
+}
+
+/* ==========================================================================
+   Management Meta Box - Trash Link
+   ========================================================================== */
+
+.documentate-mgmt-delete {
+	padding: 8px 0 0;
+	margin-top: 4px;
+}
+
+.documentate-mgmt-delete .submitdelete {
+	color: #b32d2e;
+	text-decoration: underline;
+	font-size: 12px;
+}
+
+.documentate-mgmt-delete .submitdelete:hover {
+	color: #a00;
+}
+
+/* ==========================================================================
+   Management Meta Box - Revisions Link
+   ========================================================================== */
+
+.documentate-mgmt-revisions {
+	padding: 8px 0 0;
+	font-size: 12px;
+}
+
+.documentate-mgmt-revisions a {
+	text-decoration: underline;
+	color: #2271b1;
+}
+
+.documentate-mgmt-revisions a:hover {
+	color: #135e96;
+}
+
+/* ==========================================================================
+   Management Meta Box - Spinner
+   ========================================================================== */
+
+#documentate_document_management .spinner {
+	float: none;
+	margin: 4px 0;
+}
+
+#documentate_document_management .spinner.is-active {
+	visibility: visible;
+}
+
+/* ==========================================================================
    Locked Document State
    ========================================================================== */
 
 /**
- * Body class when document is locked (published).
+ * Body class when document is locked.
  */
 body.documentate-document-locked #poststuff {
 	position: relative;
@@ -113,275 +425,21 @@ body.documentate-document-locked #poststuff {
  * Workflow notice styling.
  */
 .documentate-workflow-notice,
-.documentate-doctype-warning,
-.documentate-editor-restriction-notice {
+.documentate-doctype-warning {
 	margin: 20px 0 10px;
 }
 
 .documentate-workflow-notice .dashicons,
-.documentate-doctype-warning .dashicons,
-.documentate-editor-restriction-notice .dashicons {
+.documentate-doctype-warning .dashicons {
 	margin-right: 8px;
 	vertical-align: middle;
 }
 
 .documentate-workflow-notice p,
-.documentate-doctype-warning p,
-.documentate-editor-restriction-notice p {
+.documentate-doctype-warning p {
 	display: flex;
 	align-items: center;
 	margin: 0.5em 0;
-}
-
-/* ==========================================================================
-   Workflow Status Meta Box
-   ========================================================================== */
-
-/**
- * Workflow status meta box container.
- */
-.documentate-workflow-status {
-	padding: 10px 0;
-}
-
-/**
- * Status display badge.
- */
-.documentate-workflow-status .status-display {
-	display: flex;
-	align-items: center;
-	padding: 10px 12px;
-	margin: 0 0 15px;
-	border-radius: 4px;
-	background: #f0f0f0;
-	font-size: 14px;
-}
-
-.documentate-workflow-status .status-display .dashicons {
-	margin-right: 8px;
-	font-size: 20px;
-	width: 20px;
-	height: 20px;
-}
-
-/**
- * Status-specific colors.
- */
-.documentate-workflow-status .status-draft {
-	background-color: #f0f0f0;
-	border-left: 4px solid #72777c;
-}
-
-.documentate-workflow-status .status-pending {
-	background-color: #fff8e5;
-	border-left: 4px solid #dba617;
-}
-
-.documentate-workflow-status .status-publish {
-	background-color: #edfaef;
-	border-left: 4px solid #00a32a;
-}
-
-.documentate-workflow-status .status-auto-draft {
-	background-color: #f0f6fc;
-	border-left: 4px solid #2271b1;
-}
-
-.documentate-workflow-status .status-archived {
-	background-color: #f0f0f1;
-	border-left: 4px solid #787c82;
-}
-
-/**
- * Workflow warning message.
- */
-.documentate-workflow-status .workflow-warning {
-	display: flex;
-	align-items: flex-start;
-	padding: 8px 10px;
-	margin: 10px 0;
-	background: #fff8e5;
-	border-left: 3px solid #dba617;
-	border-radius: 2px;
-	font-size: 12px;
-	color: #614200;
-}
-
-.documentate-workflow-status .workflow-warning .dashicons {
-	margin-right: 6px;
-	color: #dba617;
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
-	flex-shrink: 0;
-}
-
-/**
- * Workflow info message.
- */
-.documentate-workflow-status .workflow-info {
-	display: flex;
-	align-items: flex-start;
-	padding: 8px 10px;
-	margin: 10px 0;
-	background: #f0f6fc;
-	border-left: 3px solid #2271b1;
-	border-radius: 2px;
-	font-size: 12px;
-	color: #135e96;
-}
-
-.documentate-workflow-status .workflow-info .dashicons {
-	margin-right: 6px;
-	color: #2271b1;
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
-	flex-shrink: 0;
-}
-
-/**
- * Archived workflow notice.
- */
-.documentate-workflow-status .workflow-archived {
-	display: flex;
-	align-items: flex-start;
-	padding: 8px 10px;
-	margin: 10px 0;
-	background: #f0f0f1;
-	border-left: 3px solid #787c82;
-	border-radius: 2px;
-	font-size: 12px;
-	color: #50575e;
-}
-
-.documentate-workflow-status .workflow-archived .dashicons {
-	margin-right: 6px;
-	color: #787c82;
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
-	flex-shrink: 0;
-}
-
-/**
- * Archive action button in workflow metabox.
- */
-.documentate-workflow-status .workflow-action {
-	margin-top: 15px;
-	padding-top: 10px;
-}
-
-.documentate-workflow-status .workflow-action .button {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.documentate-workflow-status .workflow-action .button .dashicons {
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
-	line-height: 1;
-}
-
-/**
- * Workflow legend.
- */
-.documentate-workflow-status .workflow-legend {
-	margin-top: 15px;
-	padding-top: 15px;
-	border-top: 1px solid #ddd;
-}
-
-.documentate-workflow-status .workflow-legend p {
-	margin: 0 0 8px;
-	font-size: 12px;
-	color: #50575e;
-}
-
-.documentate-workflow-status .workflow-legend ol {
-	margin: 0;
-	padding-left: 20px;
-	font-size: 11px;
-	color: #646970;
-}
-
-.documentate-workflow-status .workflow-legend li {
-	margin-bottom: 4px;
-}
-
-/* ==========================================================================
-   Publish Box Modifications
-   ========================================================================== */
-
-/**
- * Editor notice in publish box.
- */
-.misc-pub-section.documentate-editor-notice,
-.misc-pub-section.documentate-published-notice {
-	padding: 8px 10px;
-	background: #f0f6fc;
-	border-bottom: 1px solid #c3c4c7;
-	font-size: 12px;
-	line-height: 1.4;
-}
-
-.misc-pub-section.documentate-published-notice {
-	background: #edfaef;
-}
-
-.misc-pub-section.documentate-editor-notice .dashicons,
-.misc-pub-section.documentate-published-notice .dashicons {
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
-	margin-right: 4px;
-	vertical-align: text-bottom;
-}
-
-/* ==========================================================================
-   Hide Schedule Publication & Private Visibility
-   ========================================================================== */
-
-/**
- * Hide timestamp/schedule UI elements.
- */
-#timestampdiv,
-.misc-pub-curtime,
-.edit-timestamp,
-.timestamp-wrap {
-	display: none !important;
-}
-
-/**
- * Hide the Private visibility option.
- * Documents should follow: draft -> pending -> publish workflow.
- */
-#visibility-radio-private,
-label[for="visibility-radio-private"] {
-	display: none !important;
-}
-
-/* ==========================================================================
-   Responsive Adjustments
-   ========================================================================== */
-
-@media screen and (max-width: 782px) {
-	.documentate-workflow-status .status-display {
-		flex-wrap: wrap;
-	}
-
-	.documentate-workflow-status .workflow-info,
-	.documentate-workflow-status .workflow-warning {
-		font-size: 13px;
-	}
-
-	.documentate-workflow-notice p,
-	.documentate-doctype-warning p,
-	.documentate-editor-restriction-notice p {
-		flex-wrap: wrap;
-	}
 }
 
 /* ==========================================================================
@@ -512,13 +570,36 @@ label[for="visibility-radio-private"] {
 }
 
 /* ==========================================================================
+   Responsive Adjustments
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	.documentate-stepper__label {
+		font-size: 10px;
+	}
+
+	.documentate-mgmt-actions {
+		flex-direction: column;
+	}
+
+	.documentate-mgmt-btn {
+		width: 100%;
+		text-align: center;
+	}
+
+	.documentate-workflow-notice p,
+	.documentate-doctype-warning p {
+		flex-wrap: wrap;
+	}
+}
+
+/* ==========================================================================
    Print Styles
    ========================================================================== */
 
 @media print {
 	.documentate-workflow-notice,
 	.documentate-doctype-warning,
-	.documentate-editor-restriction-notice,
 	.locked-overlay {
 		display: none !important;
 	}

@@ -103,8 +103,6 @@ class Documentate_Documents {
 		 */
 		add_action( 'set_object_terms', array( $this, 'enforce_locked_doc_type' ), 10, 6 );
 
-		add_action( 'admin_head-post.php', array( $this, 'hide_submit_box_controls' ) );
-		add_action( 'admin_head-post-new.php', array( $this, 'hide_submit_box_controls' ) );
 
 		// Admin list table filters and columns.
 		add_action( 'restrict_manage_posts', array( $this, 'add_admin_filters' ), 10, 2 );
@@ -432,7 +430,7 @@ class Documentate_Documents {
 			'capability_type'    => 'post',
 			'map_meta_cap'       => true,
 			'hierarchical'       => false,
-			'supports'           => array( 'title', 'author', 'revisions' ),
+			'supports'           => array( 'title', 'author', 'revisions', 'comments' ),
 			'taxonomies'        => array( 'category' ),
 			'has_archive'        => false,
 			'rewrite'            => false,
@@ -443,34 +441,6 @@ class Documentate_Documents {
 		register_taxonomy_for_object_type( 'category', 'documentate_document' );
 	}
 
-	/**
-	 * Hide visibility and publish date controls for documents submit box.
-	 *
-	 * @return void
-	 */
-	public function hide_submit_box_controls() {
-		if ( ! function_exists( 'get_current_screen' ) ) {
-			return;
-		}
-
-		$screen = get_current_screen();
-		if ( ! $screen || 'documentate_document' !== $screen->post_type ) {
-			return;
-		}
-
-		$css  = '<style id="documentate-document-submitbox-controls">';
-		$css .= '.post-type-documentate_document #visibility,';
-		$css .= '.post-type-documentate_document .misc-pub-visibility,';
-		$css .= '.post-type-documentate_document .misc-pub-curtime,';
-		$css .= '.post-type-documentate_document #timestampdiv,';
-		$css .= '.post-type-documentate_document #password-span,';
-		$css .= '.post-type-documentate_document .edit-visibility,';
-		$css .= '.post-type-documentate_document .edit-timestamp';
-		$css .= ' {display:none!important;}';
-		$css .= '</style>';
-
-		echo $css; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-	}
 
 		/**
 		 * Register taxonomies used by the documents CPT.
@@ -537,16 +507,6 @@ class Documentate_Documents {
 	 * Register admin meta boxes for document sections.
 	 */
 	public function register_meta_boxes() {
-		// Document type selector (locked after initial creation).
-		add_meta_box(
-			'documentate_doc_type',
-			__( 'Document Type', 'documentate' ),
-			array( $this, 'render_type_metabox' ),
-			'documentate_document',
-			'side',
-			'high'
-		);
-
 		add_meta_box(
 			'documentate_sections',
 			__( 'Document Sections', 'documentate' ),

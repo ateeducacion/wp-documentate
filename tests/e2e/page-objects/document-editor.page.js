@@ -77,18 +77,56 @@ class DocumentEditorPage {
 	 * Save Draft button.
 	 */
 	get saveDraftButton() {
-		return this.page.getByRole( 'button', { name: /save draft/i } ).or(
-			this.page.locator( '#save-post' )
+		return this.page.locator( '#documentate-save-draft' ).or(
+			this.page.getByRole( 'button', { name: /save draft/i } )
 		);
 	}
 
 	/**
 	 * Publish/Update button.
+	 * Supports the Approve & Publish button from pending review state.
 	 */
 	get publishButton() {
-		return this.page.getByRole( 'button', { name: /publish|update/i } ).or(
+		return this.page.locator( '#documentate-approve-publish' ).or(
+			this.page.getByRole( 'button', { name: /publish|update/i } )
+		).or(
 			this.page.locator( '#publish' )
 		);
+	}
+
+	/**
+	 * Send to Review button.
+	 */
+	get sendToReviewButton() {
+		return this.page.locator( '#documentate-send-review' );
+	}
+
+	/**
+	 * Return to Draft / Revert to Draft button.
+	 */
+	get returnToDraftButton() {
+		return this.page.locator( '#documentate-return-draft' );
+	}
+
+	/**
+	 * Return to Review button (from published state).
+	 */
+	get returnToReviewButton() {
+		return this.page.locator( '#documentate-return-review' );
+	}
+
+	/**
+	 * Save (pending) button.
+	 */
+	get savePendingButton() {
+		return this.page.locator( '#documentate-save-pending' );
+	}
+
+	/**
+	 * Approve & Publish button.
+	 */
+	get approvePublishButton() {
+		return this.page.locator( '#documentate-approve-publish' );
 	}
 
 	/**
@@ -331,13 +369,16 @@ class DocumentEditorPage {
 	 * Wait for save operation to complete.
 	 */
 	async waitForSave() {
-		// Wait for spinner to appear and disappear, or success notice
-		await this.page.waitForSelector( '#publishing-action .spinner.is-active', {
+		// Wait for spinner to appear and disappear, or success notice.
+		// Supports both the Document Management meta box spinner and the legacy publishing-action spinner.
+		const spinnerSelector = '#documentate_document_management .spinner.is-active, #publishing-action .spinner.is-active';
+
+		await this.page.waitForSelector( spinnerSelector, {
 			state: 'visible',
 			timeout: 5000,
 		} ).catch( () => {} );
 
-		await this.page.waitForSelector( '#publishing-action .spinner.is-active', {
+		await this.page.waitForSelector( spinnerSelector, {
 			state: 'hidden',
 			timeout: 10000,
 		} ).catch( () => {} );
