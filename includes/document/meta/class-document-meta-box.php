@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Document metadata meta box.
  *
@@ -13,12 +14,11 @@ use WP_Post;
  * Registers and handles the document metadata meta box for documentate_document posts.
  */
 class Document_Meta_Box {
-
-	const META_KEY_SUBJECT  = '_documentate_meta_subject';
-	const META_KEY_AUTHOR   = '_documentate_meta_author';
+	const META_KEY_SUBJECT = '_documentate_meta_subject';
+	const META_KEY_AUTHOR = '_documentate_meta_author';
 	const META_KEY_KEYWORDS = '_documentate_meta_keywords';
-	const NONCE_ACTION      = 'documentate_document_meta_save';
-	const NONCE_NAME        = 'documentate_document_meta_nonce';
+	const NONCE_ACTION = 'documentate_document_meta_save';
+	const NONCE_NAME = 'documentate_document_meta_nonce';
 
 	/**
 	 * Register hooks for the meta box.
@@ -26,8 +26,8 @@ class Document_Meta_Box {
 	 * @return void
 	 */
 	public function register() {
-		add_action( 'add_meta_boxes_documentate_document', array( $this, 'register_meta_box' ) );
-		add_action( 'save_post_documentate_document', array( $this, 'save' ), 10, 3 );
+		add_action('add_meta_boxes_documentate_document', array($this, 'register_meta_box'));
+		add_action('save_post_documentate_document', array($this, 'save'), 10, 3);
 	}
 
 	/**
@@ -36,16 +36,16 @@ class Document_Meta_Box {
 	 * @param WP_Post $post Current post object.
 	 * @return void
 	 */
-	public function register_meta_box( $post ) {
-		unset( $post );
+	public function register_meta_box($post) {
+		unset($post);
 
 		add_meta_box(
 			'documentate_document_meta',
-			__( 'Document Metadata', 'documentate' ),
-			array( $this, 'render' ),
+			__('Document Metadata', 'documentate'),
+			array($this, 'render'),
 			'documentate_document',
 			'side',
-			'default'
+			'default',
 		);
 	}
 
@@ -55,28 +55,38 @@ class Document_Meta_Box {
 	 * @param WP_Post $post Post object.
 	 * @return void
 	 */
-	public function render( WP_Post $post ) {
-		wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME );
+	public function render(WP_Post $post) {
+		wp_nonce_field(self::NONCE_ACTION, self::NONCE_NAME);
 
-		$title = get_post_field( 'post_title', $post->ID, 'raw' );
-		if ( ! is_string( $title ) || '' === $title ) {
+		$title = get_post_field('post_title', $post->ID, 'raw');
+		if (!is_string($title) || '' === $title) {
 			$title = $post->post_title;
 		}
 
-		$author   = get_post_meta( $post->ID, self::META_KEY_AUTHOR, true );
-		$keywords = get_post_meta( $post->ID, self::META_KEY_KEYWORDS, true );
+		$author = get_post_meta($post->ID, self::META_KEY_AUTHOR, true);
+		$keywords = get_post_meta($post->ID, self::META_KEY_KEYWORDS, true);
 
-		echo '<p><strong>' . esc_html__( 'Title', 'documentate' ) . '</strong></p>';
-		echo '<p class="description">' . esc_html( $title ) . '</p>';
-		echo '<p><strong>' . esc_html__( 'Subject', 'documentate' ) . '</strong></p>';
-		echo '<p class="description">' . esc_html__( 'The subject is derived from the post title.', 'documentate' ) . '</p>';
+		echo '<p><strong>' . esc_html__('Title', 'documentate') . '</strong></p>';
+		echo '<p class="description">' . esc_html($title) . '</p>';
+		echo '<p><strong>' . esc_html__('Subject', 'documentate') . '</strong></p>';
+		echo '<p class="description">' . esc_html__('The subject is derived from the post title.', 'documentate') . '</p>';
 
-		echo '<p><label for="documentate_document_meta_author">' . esc_html__( 'Author', 'documentate' ) . '</label></p>';
-		echo '<p><input type="text" id="documentate_document_meta_author" name="documentate_document_meta_author" class="widefat" maxlength="255" value="' . esc_attr( $author ) . '" /></p>';
+		echo '<p><label for="documentate_document_meta_author">' . esc_html__('Author', 'documentate') . '</label></p>';
+		echo
+			'<p><input type="text" id="documentate_document_meta_author" name="documentate_document_meta_author" class="widefat" maxlength="255" value="'
+				. esc_attr($author)
+				. '" /></p>'
+		;
 
-		echo '<p><label for="documentate_document_meta_keywords">' . esc_html__( 'Keywords', 'documentate' ) . '</label></p>';
-		echo '<p><input type="text" id="documentate_document_meta_keywords" name="documentate_document_meta_keywords" class="widefat" maxlength="512" placeholder="' . esc_attr__( 'keyword1, keyword2', 'documentate' ) . '" value="' . esc_attr( $keywords ) . '" /></p>';
-		echo '<p class="description">' . esc_html__( 'Comma-separated list.', 'documentate' ) . '</p>';
+		echo '<p><label for="documentate_document_meta_keywords">' . esc_html__('Keywords', 'documentate') . '</label></p>';
+		echo
+			'<p><input type="text" id="documentate_document_meta_keywords" name="documentate_document_meta_keywords" class="widefat" maxlength="512" placeholder="'
+				. esc_attr__('keyword1, keyword2', 'documentate')
+				. '" value="'
+				. esc_attr($keywords)
+				. '" /></p>'
+		;
+		echo '<p class="description">' . esc_html__('Comma-separated list.', 'documentate') . '</p>';
 	}
 
 	/**
@@ -87,53 +97,57 @@ class Document_Meta_Box {
 	 * @param bool    $update  Whether this is an existing post being updated.
 	 * @return void
 	 */
-	public function save( $post_id, $post = null, $update = false ) {
-		unset( $update );
+	public function save($post_id, $post = null, $update = false) {
+		unset($update);
 
-		if ( ! isset( $_POST[ self::NONCE_NAME ] ) ) {
+		if (!isset($_POST[self::NONCE_NAME])) {
 			return;
 		}
 
-		$nonce = sanitize_text_field( wp_unslash( $_POST[ self::NONCE_NAME ] ) );
-		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
+		$nonce = sanitize_text_field(wp_unslash($_POST[self::NONCE_NAME]));
+		if (!wp_verify_nonce($nonce, self::NONCE_ACTION)) {
 			return;
 		}
 
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
 			return;
 		}
 
-		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+		if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
 			return;
 		}
 
-		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+		if (!current_user_can('edit_post', $post_id)) {
 			return;
 		}
 
-		if ( null === $post ) {
-			$post = get_post( $post_id );
+		if (null === $post) {
+			$post = get_post($post_id);
 		}
 
-		if ( ! $post instanceof WP_Post ) {
+		if (!$post instanceof WP_Post) {
 			return;
 		}
 
-		$title_source = get_post_field( 'post_title', $post_id, 'raw' );
-		if ( ! is_string( $title_source ) || '' === $title_source ) {
+		$title_source = get_post_field('post_title', $post_id, 'raw');
+		if (!is_string($title_source) || '' === $title_source) {
 			$title_source = $post->post_title;
 		}
 
-		$title_raw    = sanitize_text_field( (string) $title_source );
-		$subject      = $this->sanitize_limited_text( $title_raw, 255 );
-		$author_input = isset( $_POST['documentate_document_meta_author'] ) ? sanitize_text_field( wp_unslash( $_POST['documentate_document_meta_author'] ) ) : '';
-		$author       = $this->sanitize_limited_text( $author_input, 255 );
-		$keywords_raw = isset( $_POST['documentate_document_meta_keywords'] ) ? sanitize_text_field( wp_unslash( $_POST['documentate_document_meta_keywords'] ) ) : '';
-		$keywords     = $this->sanitize_keywords( $keywords_raw );
+		$title_raw = sanitize_text_field((string) $title_source);
+		$subject = $this->sanitize_limited_text($title_raw, 255);
+		$author_input = isset($_POST['documentate_document_meta_author'])
+			? sanitize_text_field(wp_unslash($_POST['documentate_document_meta_author']))
+			: '';
+		$author = $this->sanitize_limited_text($author_input, 255);
+		$keywords_raw = isset($_POST['documentate_document_meta_keywords'])
+			? sanitize_text_field(wp_unslash($_POST['documentate_document_meta_keywords']))
+			: '';
+		$keywords = $this->sanitize_keywords($keywords_raw);
 
-		$this->persist_meta( $post_id, self::META_KEY_SUBJECT, $subject );
-		$this->persist_meta( $post_id, self::META_KEY_AUTHOR, $author );
-		$this->persist_meta( $post_id, self::META_KEY_KEYWORDS, $keywords );
+		$this->persist_meta($post_id, self::META_KEY_SUBJECT, $subject);
+		$this->persist_meta($post_id, self::META_KEY_AUTHOR, $author);
+		$this->persist_meta($post_id, self::META_KEY_KEYWORDS, $keywords);
 	}
 
 	/**
@@ -144,13 +158,13 @@ class Document_Meta_Box {
 	 * @param string $value    Sanitized value.
 	 * @return void
 	 */
-	private function persist_meta( $post_id, $meta_key, $value ) {
-		if ( '' === $value ) {
-			delete_post_meta( $post_id, $meta_key );
+	private function persist_meta($post_id, $meta_key, $value) {
+		if ('' === $value) {
+			delete_post_meta($post_id, $meta_key);
 			return;
 		}
 
-		update_post_meta( $post_id, $meta_key, $value );
+		update_post_meta($post_id, $meta_key, $value);
 	}
 
 	/**
@@ -160,11 +174,11 @@ class Document_Meta_Box {
 	 * @param int    $max_length Max length.
 	 * @return string
 	 */
-	private function sanitize_limited_text( $value, $max_length ) {
-		$value = is_string( $value ) ? $value : '';
-		$value = $this->strip_control_chars( $value );
+	private function sanitize_limited_text($value, $max_length) {
+		$value = is_string($value) ? $value : '';
+		$value = $this->strip_control_chars($value);
 
-		return $this->truncate( $value, $max_length );
+		return $this->truncate($value, $max_length);
 	}
 
 	/**
@@ -173,32 +187,32 @@ class Document_Meta_Box {
 	 * @param string $value Raw value.
 	 * @return string
 	 */
-	private function sanitize_keywords( $value ) {
-		if ( ! is_string( $value ) ) {
+	private function sanitize_keywords($value) {
+		if (!is_string($value)) {
 			return '';
 		}
 
-		$value = $this->strip_control_chars( $value );
+		$value = $this->strip_control_chars($value);
 
-		$parts = array_map( 'trim', explode( ',', $value ) );
+		$parts = array_map('trim', explode(',', $value));
 		$clean = array();
 
-		foreach ( $parts as $part ) {
-			if ( '' === $part ) {
+		foreach ($parts as $part) {
+			if ('' === $part) {
 				continue;
 			}
 
-			$part    = $this->truncate( $part, 255 );
+			$part = $this->truncate($part, 255);
 			$clean[] = $part;
 		}
 
-		if ( empty( $clean ) ) {
+		if (empty($clean)) {
 			return '';
 		}
 
-		$keywords = implode( ', ', $clean );
+		$keywords = implode(', ', $clean);
 
-		return $this->truncate( $keywords, 512 );
+		return $this->truncate($keywords, 512);
 	}
 
 	/**
@@ -207,9 +221,9 @@ class Document_Meta_Box {
 	 * @param string $value String value.
 	 * @return string
 	 */
-	private function strip_control_chars( $value ) {
-		$sanitized = preg_replace( '/[\x00-\x1F\x7F]/u', '', $value );
-		if ( null === $sanitized ) {
+	private function strip_control_chars($value) {
+		$sanitized = preg_replace('/[\x00-\x1F\x7F]/u', '', $value);
+		if (null === $sanitized) {
 			return $value;
 		}
 
@@ -223,21 +237,21 @@ class Document_Meta_Box {
 	 * @param int    $max   Maximum length.
 	 * @return string
 	 */
-	private function truncate( $value, $max ) {
-		if ( $max <= 0 ) {
+	private function truncate($value, $max) {
+		if ($max <= 0) {
 			return '';
 		}
 
-		if ( function_exists( 'mb_strlen' ) && function_exists( 'mb_substr' ) ) {
-			if ( mb_strlen( $value, 'UTF-8' ) > $max ) {
-				return mb_substr( $value, 0, $max, 'UTF-8' );
+		if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+			if (mb_strlen($value, 'UTF-8') > $max) {
+				return mb_substr($value, 0, $max, 'UTF-8');
 			}
 
 			return $value;
 		}
 
-		if ( strlen( $value ) > $max ) {
-			return substr( $value, 0, $max );
+		if (strlen($value) > $max) {
+			return substr($value, 0, $max);
 		}
 
 		return $value;

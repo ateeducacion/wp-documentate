@@ -1,4 +1,5 @@
 <?php
+
 /**
  * The file that defines the Documents custom post type for Documentate.
  *
@@ -15,11 +16,11 @@
 
 use Documentate\DocType\SchemaConverter;
 use Documentate\DocType\SchemaStorage;
-use Documentate\Documents\Documents_Meta_Handler;
 use Documentate\Documents\Documents_CPT_Registration;
-use Documentate\Documents\Documents_Revision_Handler;
-use Documentate\Documents\Documents_Field_Validator;
 use Documentate\Documents\Documents_Field_Renderer;
+use Documentate\Documents\Documents_Field_Validator;
+use Documentate\Documents\Documents_Meta_Handler;
+use Documentate\Documents\Documents_Revision_Handler;
 
 /**
  * Class to handle the Documentate Documents custom post type.
@@ -30,7 +31,6 @@ use Documentate\Documents\Documents_Field_Renderer;
  * - Documents_Meta_Handler: Meta field utilities
  */
 class Documentate_Documents {
-
 	/**
 	 * CPT registration handler.
 	 *
@@ -45,10 +45,10 @@ class Documentate_Documents {
 	 */
 	private $revision_handler;
 
-		/**
-		 * Maximum number of items allowed per array field.
-		 */
-		const ARRAY_FIELD_MAX_ITEMS = 20;
+	/**
+	 * Maximum number of items allowed per array field.
+	 */
+	const ARRAY_FIELD_MAX_ITEMS = 20;
 
 	/**
 	 * Check if collaborative editing is enabled in settings.
@@ -56,8 +56,8 @@ class Documentate_Documents {
 	 * @return bool True if collaborative editing is enabled.
 	 */
 	private function is_collaborative_editing_enabled() {
-		$options = get_option( 'documentate_settings', array() );
-		return isset( $options['collaborative_enabled'] ) && '1' === $options['collaborative_enabled'];
+		$options = get_option('documentate_settings', array());
+		return isset($options['collaborative_enabled']) && '1' === $options['collaborative_enabled'];
 	}
 
 	/**
@@ -77,41 +77,40 @@ class Documentate_Documents {
 	 */
 	private function define_hooks() {
 		// CPT/taxonomy registration - keep hooks on $this for backwards compatibility.
-		add_action( 'init', array( $this, 'register_post_type' ) );
-		add_action( 'init', array( $this, 'register_taxonomies' ) );
-		add_filter( 'use_block_editor_for_post_type', array( $this, 'disable_gutenberg' ), 10, 2 );
+		add_action('init', array($this, 'register_post_type'));
+		add_action('init', array($this, 'register_taxonomies'));
+		add_filter('use_block_editor_for_post_type', array($this, 'disable_gutenberg'), 10, 2);
 
 		// Meta boxes.
-		add_action( 'add_meta_boxes', array( $this, 'register_meta_boxes' ) );
-		add_action( 'save_post_documentate_document', array( $this, 'save_meta_boxes' ) );
+		add_action('add_meta_boxes', array($this, 'register_meta_boxes'));
+		add_action('save_post_documentate_document', array($this, 'save_meta_boxes'));
 
 		// Title placeholder.
-		add_filter( 'enter_title_here', array( $this, 'title_placeholder' ), 10, 2 );
+		add_filter('enter_title_here', array($this, 'title_placeholder'), 10, 2);
 
 		// Revision handling - keep hooks on $this for backwards compatibility.
-		add_action( 'wp_save_post_revision', array( $this, 'copy_meta_to_revision' ), 10, 2 );
-		add_action( 'wp_restore_post_revision', array( $this, 'restore_meta_from_revision' ), 10, 2 );
-		add_filter( 'wp_revisions_to_keep', array( $this, 'limit_revisions_for_cpt' ), 10, 2 );
-		add_filter( 'wp_save_post_revision_post_has_changed', array( $this, 'force_revision_on_meta' ), 10, 3 );
+		add_action('wp_save_post_revision', array($this, 'copy_meta_to_revision'), 10, 2);
+		add_action('wp_restore_post_revision', array($this, 'restore_meta_from_revision'), 10, 2);
+		add_filter('wp_revisions_to_keep', array($this, 'limit_revisions_for_cpt'), 10, 2);
+		add_filter('wp_save_post_revision_post_has_changed', array($this, 'force_revision_on_meta'), 10, 3);
 
 		// Compose Gutenberg-friendly content before saving to ensure revision UI diffs.
-		add_filter( 'wp_insert_post_data', array( $this, 'filter_post_data_compose_content' ), 10, 2 );
+		add_filter('wp_insert_post_data', array($this, 'filter_post_data_compose_content'), 10, 2);
 
 		/**
 		 * Lock document type after the first assignment.
 		 * Reapplies the original term if an attempt to change it is detected.
 		 */
-		add_action( 'set_object_terms', array( $this, 'enforce_locked_doc_type' ), 10, 6 );
-
+		add_action('set_object_terms', array($this, 'enforce_locked_doc_type'), 10, 6);
 
 		// Admin list table filters and columns.
-		add_action( 'restrict_manage_posts', array( $this, 'add_admin_filters' ), 10, 2 );
-		add_action( 'pre_get_posts', array( $this, 'apply_admin_filters' ) );
-		add_filter( 'manage_documentate_document_posts_columns', array( $this, 'add_admin_columns' ) );
-		add_action( 'manage_documentate_document_posts_custom_column', array( $this, 'render_admin_column' ), 10, 2 );
-		add_filter( 'manage_edit-documentate_document_sortable_columns', array( $this, 'add_sortable_columns' ) );
-		add_action( 'admin_head', array( $this, 'add_admin_list_styles' ) );
-		add_filter( 'views_edit-documentate_document', array( $this, 'add_archived_view' ) );
+		add_action('restrict_manage_posts', array($this, 'add_admin_filters'), 10, 2);
+		add_action('pre_get_posts', array($this, 'apply_admin_filters'));
+		add_filter('manage_documentate_document_posts_columns', array($this, 'add_admin_columns'));
+		add_action('manage_documentate_document_posts_custom_column', array($this, 'render_admin_column'), 10, 2);
+		add_filter('manage_edit-documentate_document_sortable_columns', array($this, 'add_sortable_columns'));
+		add_action('admin_head', array($this, 'add_admin_list_styles'));
+		add_filter('views_edit-documentate_document', array($this, 'add_archived_view'));
 
 		$this->register_revision_ui();
 	}
@@ -127,47 +126,47 @@ class Documentate_Documents {
 	 * @param array  $old_tt_ids Previous term taxonomy IDs.
 	 * @return void
 	 */
-	public function enforce_locked_doc_type( $object_id, $terms, $tt_ids, $taxonomy, $append, $old_tt_ids ) {
-		unset( $terms, $tt_ids, $append );
+	public function enforce_locked_doc_type($object_id, $terms, $tt_ids, $taxonomy, $append, $old_tt_ids) {
+		unset($terms, $tt_ids, $append);
 		$taxonomy = (string) $taxonomy;
-		if ( 'documentate_doc_type' !== $taxonomy ) {
+		if ('documentate_doc_type' !== $taxonomy) {
 			return;
 		}
 
-		$post = get_post( $object_id );
-		if ( ! $post || 'documentate_document' !== $post->post_type ) {
+		$post = get_post($object_id);
+		if (!$post || 'documentate_document' !== $post->post_type) {
 			return;
 		}
 
 		static $lock_guard = false;
-		if ( $lock_guard ) {
+		if ($lock_guard) {
 			return;
 		}
 
-		$locked = intval( get_post_meta( $object_id, 'documentate_locked_doc_type', true ) );
+		$locked = intval(get_post_meta($object_id, 'documentate_locked_doc_type', true));
 
 		// If not yet locked, lock to the current assigned term (if any) on first set.
-		if ( $locked <= 0 ) {
-			$assigned = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-			if ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) {
-				update_post_meta( $object_id, 'documentate_locked_doc_type', intval( $assigned[0] ) );
+		if ($locked <= 0) {
+			$assigned = wp_get_post_terms($object_id, 'documentate_doc_type', array('fields' => 'ids'));
+			if (!is_wp_error($assigned) && !empty($assigned)) {
+				update_post_meta($object_id, 'documentate_locked_doc_type', intval($assigned[0]));
 			}
 			return;
 		}
 
 		// Already locked: ensure the post keeps the locked term.
-		$current = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( is_wp_error( $current ) ) {
+		$current = wp_get_post_terms($object_id, 'documentate_doc_type', array('fields' => 'ids'));
+		if (is_wp_error($current)) {
 			return;
 		}
-		$current_one = ( ! empty( $current ) ) ? intval( $current[0] ) : 0;
-		if ( $current_one === $locked && count( $current ) === 1 ) {
+		$current_one = !empty($current) ? intval($current[0]) : 0;
+		if ($current_one === $locked && count($current) === 1) {
 			return;
 		}
 
 		// If old assignment existed, or current differs, reapply the locked term.
 		$lock_guard = true;
-		wp_set_post_terms( $object_id, array( $locked ), 'documentate_doc_type', false );
+		wp_set_post_terms($object_id, array($locked), 'documentate_doc_type', false);
 		$lock_guard = false;
 	}
 
@@ -177,34 +176,34 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 * @return string[]
 	 */
-	private function get_meta_fields_for_post( $post_id ) {
+	private function get_meta_fields_for_post($post_id) {
 		$fields = array();
-		$known  = array();
+		$known = array();
 
-		$dynamic = $this->get_dynamic_fields_schema_for_post( $post_id );
-		if ( ! empty( $dynamic ) ) {
-			foreach ( $dynamic as $def ) {
-				if ( empty( $def['slug'] ) ) {
+		$dynamic = $this->get_dynamic_fields_schema_for_post($post_id);
+		if (!empty($dynamic)) {
+			foreach ($dynamic as $def) {
+				if (empty($def['slug'])) {
 					continue;
 				}
-				$key = 'documentate_field_' . sanitize_key( $def['slug'] );
-				if ( '' === $key ) {
+				$key = 'documentate_field_' . sanitize_key($def['slug']);
+				if ('' === $key) {
 					continue;
 				}
-				$fields[]    = $key;
-				$known[ $key ] = true;
+				$fields[] = $key;
+				$known[$key] = true;
 			}
 		}
 
-		if ( $post_id > 0 ) {
-			$all_meta = get_post_meta( $post_id );
-			if ( ! empty( $all_meta ) ) {
-				foreach ( $all_meta as $meta_key => $values ) {
-					unset( $values );
-					if (  !str_starts_with( $meta_key, 'documentate_field_' ) ) {
+		if ($post_id > 0) {
+			$all_meta = get_post_meta($post_id);
+			if (!empty($all_meta)) {
+				foreach ($all_meta as $meta_key => $values) {
+					unset($values);
+					if (!str_starts_with($meta_key, 'documentate_field_')) {
 						continue;
 					}
-					if ( isset( $known[ $meta_key ] ) ) {
+					if (isset($known[$meta_key])) {
 						continue;
 					}
 					$fields[] = $meta_key;
@@ -212,7 +211,7 @@ class Documentate_Documents {
 			}
 		}
 
-		return array_values( array_unique( $fields ) );
+		return array_values(array_unique($fields));
 	}
 
 	/**
@@ -222,44 +221,44 @@ class Documentate_Documents {
 	 * @param int $revision_id Revision post ID.
 	 * @return void
 	 */
-	public function copy_meta_to_revision( $post_id, $revision_id ) {
-		$parent = get_post( $post_id );
-		if ( ! $parent || 'documentate_document' !== $parent->post_type ) {
+	public function copy_meta_to_revision($post_id, $revision_id) {
+		$parent = get_post($post_id);
+		if (!$parent || 'documentate_document' !== $parent->post_type) {
 			return;
 		}
 
 		// Collect dynamic meta keys from schema and from existing post meta as fallback.
-		$keys = $this->get_meta_fields_for_post( $post_id );
-		if ( $post_id > 0 ) {
-			$all_meta = get_post_meta( $post_id );
-			if ( is_array( $all_meta ) ) {
-				foreach ( $all_meta as $meta_key => $unused ) { // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
-					unset( $unused );
-					if ( is_string( $meta_key ) &&  str_starts_with( $meta_key, 'documentate_field_' ) ) {
+		$keys = $this->get_meta_fields_for_post($post_id);
+		if ($post_id > 0) {
+			$all_meta = get_post_meta($post_id);
+			if (is_array($all_meta)) {
+				foreach ($all_meta as $meta_key => $unused) { // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+					unset($unused);
+					if (is_string($meta_key) && str_starts_with($meta_key, 'documentate_field_')) {
 						$keys[] = $meta_key;
 					}
 				}
 			}
 		}
-		$keys = array_values( array_unique( $keys ) );
+		$keys = array_values(array_unique($keys));
 
-		foreach ( $keys as $key ) {
-			$value = get_post_meta( $post_id, $key, true );
+		foreach ($keys as $key) {
+			$value = get_post_meta($post_id, $key, true);
 			// Store only if it has something meaningful (empty array/string skipped).
-			if ( is_array( $value ) ) {
-				if ( empty( $value ) ) {
+			if (is_array($value)) {
+				if (empty($value)) {
 					continue;
 				}
-			} elseif ( '' === trim( (string) $value ) ) {
+			} elseif ('' === trim((string) $value)) {
 				continue;
 			}
 			// Ensure a clean single value on the revision row.
-			delete_metadata( 'post', $revision_id, $key );
-			add_metadata( 'post', $revision_id, $key, $value, true );
+			delete_metadata('post', $revision_id, $key);
+			add_metadata('post', $revision_id, $key, $value, true);
 		}
 
 		// Bust the meta cache for the revision to ensure immediate reads reflect the copy.
-		wp_cache_delete( $revision_id, 'post_meta' );
+		wp_cache_delete($revision_id, 'post_meta');
 	}
 
 	/**
@@ -269,18 +268,18 @@ class Documentate_Documents {
 	 * @param int $revision_id Selected revision post ID.
 	 * @return void
 	 */
-	public function restore_meta_from_revision( $post_id, $revision_id ) {
-		$parent = get_post( $post_id );
-		if ( ! $parent || 'documentate_document' !== $parent->post_type ) {
+	public function restore_meta_from_revision($post_id, $revision_id) {
+		$parent = get_post($post_id);
+		if (!$parent || 'documentate_document' !== $parent->post_type) {
 			return;
 		}
 
-		foreach ( $this->get_meta_fields_for_post( $post_id ) as $key ) {
-			$value = get_metadata( 'post', $revision_id, $key, true );
-			if ( null !== $value && '' !== $value ) {
-				update_post_meta( $post_id, $key, $value );
+		foreach ($this->get_meta_fields_for_post($post_id) as $key) {
+			$value = get_metadata('post', $revision_id, $key, true);
+			if (null !== $value && '' !== $value) {
+				update_post_meta($post_id, $key, $value);
 			} else {
-				delete_post_meta( $post_id, $key );
+				delete_post_meta($post_id, $key);
 			}
 		}
 	}
@@ -292,8 +291,8 @@ class Documentate_Documents {
 	 * @param WP_Post $post Post object.
 	 * @return int
 	 */
-	public function limit_revisions_for_cpt( $num, $post ) {
-		if ( $post && 'documentate_document' === $post->post_type ) {
+	public function limit_revisions_for_cpt($num, $post) {
+		if ($post && 'documentate_document' === $post->post_type) {
 			return 15; // Adjust to your needs.
 		}
 		return $num;
@@ -307,15 +306,12 @@ class Documentate_Documents {
 	 * @param WP_Post $post             Current post object.
 	 * @return bool
 	 */
-	public function force_revision_on_meta( $post_has_changed, $last_revision, $post ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		if ( $post && 'documentate_document' === $post->post_type ) {
+	public function force_revision_on_meta($post_has_changed, $last_revision, $post) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		if ($post && 'documentate_document' === $post->post_type) {
 			return true;
 		}
 		return $post_has_changed;
 	}
-
-
-
 
 	/**
 	 * Register revision UI fields and providers so the diff shows meta changes.
@@ -323,18 +319,18 @@ class Documentate_Documents {
 	 * Hook this in define_hooks().
 	 */
 	private function register_revision_ui() {
-				add_filter( '_wp_post_revision_fields', array( $this, 'add_revision_fields' ), 10, 2 );
+		add_filter('_wp_post_revision_fields', array($this, 'add_revision_fields'), 10, 2);
 	}
 
-		/**
-		 * Add custom meta fields to the revisions UI.
-		 *
-		 * @param array   $fields Existing fields.
-		 * @param WP_Post $post   Post being compared.
-		 * @return array
-		 */
-	public function add_revision_fields( $fields, $post ) {
-		   return $fields;
+	/**
+	 * Add custom meta fields to the revisions UI.
+	 *
+	 * @param array   $fields Existing fields.
+	 * @param WP_Post $post   Post being compared.
+	 * @return array
+	 */
+	public function add_revision_fields($fields, $post) {
+		return $fields;
 	}
 
 	/**
@@ -344,37 +340,37 @@ class Documentate_Documents {
 	 * @param WP_Post $revision  Revision post object.
 	 * @return string
 	 */
-	public function revision_field_value( $value, $revision = null ) {
-		$field = str_replace( '_wp_post_revision_field_', '', current_filter() );
+	public function revision_field_value($value, $revision = null) {
+		$field = str_replace('_wp_post_revision_field_', '', current_filter());
 		// Resolve revision ID from variable callback signatures.
 		$rev_id = 0;
 		$args = func_get_args();
-		foreach ( $args as $arg ) {
-			if ( is_object( $arg ) && isset( $arg->ID ) ) {
-				$rev_id = intval( $arg->ID );
+		foreach ($args as $arg) {
+			if (is_object($arg) && isset($arg->ID)) {
+				$rev_id = intval($arg->ID);
 				break;
 			}
-			if ( is_array( $arg ) && isset( $arg['ID'] ) && is_numeric( $arg['ID'] ) ) {
-				$maybe = get_post( intval( $arg['ID'] ) );
-				if ( $maybe && 'revision' === $maybe->post_type ) {
-					$rev_id = intval( $maybe->ID );
+			if (is_array($arg) && isset($arg['ID']) && is_numeric($arg['ID'])) {
+				$maybe = get_post(intval($arg['ID']));
+				if ($maybe && 'revision' === $maybe->post_type) {
+					$rev_id = intval($maybe->ID);
 					break;
 				}
 			}
-			if ( is_numeric( $arg ) ) {
-				$maybe = get_post( intval( $arg ) );
-				if ( $maybe && 'revision' === $maybe->post_type ) {
-					$rev_id = intval( $maybe->ID );
+			if (is_numeric($arg)) {
+				$maybe = get_post(intval($arg));
+				if ($maybe && 'revision' === $maybe->post_type) {
+					$rev_id = intval($maybe->ID);
 					break;
 				}
 			}
 		}
-		if ( $rev_id <= 0 ) {
+		if ($rev_id <= 0) {
 			return '';
 		}
 		// Get the meta stored on the REVISION row.
-		$raw = get_metadata( 'post', $rev_id, $field, true );
-		return $this->normalize_html_for_diff( $raw );
+		$raw = get_metadata('post', $rev_id, $field, true);
+		return $this->normalize_html_for_diff($raw);
 	}
 
 	/**
@@ -383,103 +379,99 @@ class Documentate_Documents {
 	 * @param string $html HTML input.
 	 * @return string
 	 */
-	private function normalize_html_for_diff( $html ) {
-		if ( '' === $html ) {
+	private function normalize_html_for_diff($html) {
+		if ('' === $html) {
 			return '';
 		}
 		// Decode entities, strip tags, collapse whitespace, keep line breaks sensibly.
-		$text = wp_specialchars_decode( (string) $html );
+		$text = wp_specialchars_decode((string) $html);
 		// Preserve basic block separations.
-		$text = preg_replace( '/<(?:p|div|br|li|h[1-6])[^>]*>/i', "\n", $text );
-		$text = wp_strip_all_tags( $text );
-		$text = preg_replace( "/\r\n|\r/", "\n", $text );
-		$text = preg_replace( "/\n{3,}/", "\n\n", $text );
-		return trim( $text );
+		$text = preg_replace('/<(?:p|div|br|li|h[1-6])[^>]*>/i', "\n", $text);
+		$text = wp_strip_all_tags($text);
+		$text = preg_replace("/\r\n|\r/", "\n", $text);
+		$text = preg_replace("/\n{3,}/", "\n\n", $text);
+		return trim($text);
 	}
-
-
-
 
 	/**
 	 * Register the Documents custom post type and attach core categories.
 	 */
 	public function register_post_type() {
 		$labels = array(
-			'name'                  => __( 'Documents', 'documentate' ),
-			'singular_name'         => __( 'Document', 'documentate' ),
-			'menu_name'             => __( 'Documents', 'documentate' ),
-			'name_admin_bar'        => __( 'Document', 'documentate' ),
-			'add_new'               => __( 'Add New', 'documentate' ),
-			'add_new_item'          => __( 'Add New Document', 'documentate' ),
-			'new_item'              => __( 'New Document', 'documentate' ),
-			'edit_item'             => __( 'Edit Document', 'documentate' ),
-			'view_item'             => __( 'View Document', 'documentate' ),
-			'all_items'             => __( 'All Documents', 'documentate' ),
-			'search_items'          => __( 'Search Documents', 'documentate' ),
-			'not_found'             => __( 'No documents found.', 'documentate' ),
-			'not_found_in_trash'    => __( 'No documents found in trash.', 'documentate' ),
+			'name' => __('Documents', 'documentate'),
+			'singular_name' => __('Document', 'documentate'),
+			'menu_name' => __('Documents', 'documentate'),
+			'name_admin_bar' => __('Document', 'documentate'),
+			'add_new' => __('Add New', 'documentate'),
+			'add_new_item' => __('Add New Document', 'documentate'),
+			'new_item' => __('New Document', 'documentate'),
+			'edit_item' => __('Edit Document', 'documentate'),
+			'view_item' => __('View Document', 'documentate'),
+			'all_items' => __('All Documents', 'documentate'),
+			'search_items' => __('Search Documents', 'documentate'),
+			'not_found' => __('No documents found.', 'documentate'),
+			'not_found_in_trash' => __('No documents found in trash.', 'documentate'),
 		);
 
 		$args = array(
-			'labels'             => $labels,
-			'public'             => false,
-			'show_ui'            => true,
-			'show_in_menu'       => true,
-			'menu_position'      => 25,
-			'menu_icon'          => 'dashicons-media-document',
-			'capability_type'    => 'post',
-			'map_meta_cap'       => true,
-			'hierarchical'       => false,
-			'supports'           => array( 'title', 'author', 'revisions', 'comments' ),
-			'taxonomies'        => array( 'category' ),
-			'has_archive'        => false,
-			'rewrite'            => false,
-			'show_in_rest'       => false,
+			'labels' => $labels,
+			'public' => false,
+			'show_ui' => true,
+			'show_in_menu' => true,
+			'menu_position' => 25,
+			'menu_icon' => 'dashicons-media-document',
+			'capability_type' => 'post',
+			'map_meta_cap' => true,
+			'hierarchical' => false,
+			'supports' => array('title', 'author', 'revisions', 'comments'),
+			'taxonomies' => array('category'),
+			'has_archive' => false,
+			'rewrite' => false,
+			'show_in_rest' => false,
 		);
 
-		register_post_type( 'documentate_document', $args );
-		register_taxonomy_for_object_type( 'category', 'documentate_document' );
+		register_post_type('documentate_document', $args);
+		register_taxonomy_for_object_type('category', 'documentate_document');
 	}
 
-
-		/**
-		 * Register taxonomies used by the documents CPT.
-		 */
+	/**
+	 * Register taxonomies used by the documents CPT.
+	 */
 	public function register_taxonomies() {
-			// Document types (define templates and custom fields for the document).
-			$types_labels = array(
-				'name'              => __( 'Document Types', 'documentate' ),
-				'singular_name'     => __( 'Document Type', 'documentate' ),
-				'search_items'      => __( 'Search Types', 'documentate' ),
-				'all_items'         => __( 'All Types', 'documentate' ),
-				'edit_item'         => __( 'Edit Type', 'documentate' ),
-				'update_item'       => __( 'Update Type', 'documentate' ),
-				'add_new_item'      => __( 'Add New Type', 'documentate' ),
-				'new_item_name'     => __( 'New Type', 'documentate' ),
-				'menu_name'         => __( 'Document Types', 'documentate' ),
-			);
-			register_taxonomy(
-				'documentate_doc_type',
-				array( 'documentate_document' ),
-				array(
-					'hierarchical'      => false,
-					'labels'            => $types_labels,
-					'show_ui'           => true,
-					'show_admin_column' => true,
-					'query_var'         => true,
-					'rewrite'           => false,
-					'show_in_rest'      => false,
-					// Only administrators can manage document types.
-					'capabilities'      => array(
-						'manage_terms' => 'manage_options',
-						'edit_terms'   => 'manage_options',
-						'delete_terms' => 'manage_options',
-						'assign_terms' => 'edit_posts',
-					),
-					// We'll use a custom metabox to prevent editing after first save.
-					'meta_box_cb'       => false,
-				)
-			);
+		// Document types (define templates and custom fields for the document).
+		$types_labels = array(
+			'name' => __('Document Types', 'documentate'),
+			'singular_name' => __('Document Type', 'documentate'),
+			'search_items' => __('Search Types', 'documentate'),
+			'all_items' => __('All Types', 'documentate'),
+			'edit_item' => __('Edit Type', 'documentate'),
+			'update_item' => __('Update Type', 'documentate'),
+			'add_new_item' => __('Add New Type', 'documentate'),
+			'new_item_name' => __('New Type', 'documentate'),
+			'menu_name' => __('Document Types', 'documentate'),
+		);
+		register_taxonomy(
+			'documentate_doc_type',
+			array('documentate_document'),
+			array(
+				'hierarchical' => false,
+				'labels' => $types_labels,
+				'show_ui' => true,
+				'show_admin_column' => true,
+				'query_var' => true,
+				'rewrite' => false,
+				'show_in_rest' => false,
+				// Only administrators can manage document types.
+				'capabilities' => array(
+					'manage_terms' => 'manage_options',
+					'edit_terms' => 'manage_options',
+					'delete_terms' => 'manage_options',
+					'assign_terms' => 'edit_posts',
+				),
+				// We'll use a custom metabox to prevent editing after first save.
+				'meta_box_cb' => false,
+			),
+		);
 	}
 
 	/**
@@ -489,8 +481,8 @@ class Documentate_Documents {
 	 * @param string $post_type        Post type.
 	 * @return bool
 	 */
-	public function disable_gutenberg( $use_block_editor, $post_type ) {
-		if ( 'documentate_document' === $post_type ) {
+	public function disable_gutenberg($use_block_editor, $post_type) {
+		if ('documentate_document' === $post_type) {
 			return false;
 		}
 		return $use_block_editor;
@@ -503,9 +495,9 @@ class Documentate_Documents {
 	 * @param WP_Post $post        Current post object.
 	 * @return string
 	 */
-	public function title_placeholder( $placeholder, $post ) {
-		if ( 'documentate_document' === $post->post_type ) {
-			return __( 'Enter document title', 'documentate' );
+	public function title_placeholder($placeholder, $post) {
+		if ('documentate_document' === $post->post_type) {
+			return __('Enter document title', 'documentate');
 		}
 		return $placeholder;
 	}
@@ -516,23 +508,16 @@ class Documentate_Documents {
 	public function register_meta_boxes() {
 		add_meta_box(
 			'documentate_sections',
-			__( 'Document Sections', 'documentate' ),
-			array( $this, 'render_sections_metabox' ),
+			__('Document Sections', 'documentate'),
+			array($this, 'render_sections_metabox'),
 			'documentate_document',
 			'normal',
-			'high'
+			'high',
 		);
 
 		// Move author metabox to side with low priority.
-		remove_meta_box( 'authordiv', 'documentate_document', 'normal' );
-		add_meta_box(
-			'authordiv',
-			__( 'Author' ),
-			'post_author_meta_box',
-			'documentate_document',
-			'side',
-			'low'
-		);
+		remove_meta_box('authordiv', 'documentate_document', 'normal');
+		add_meta_box('authordiv', __('Author'), 'post_author_meta_box', 'documentate_document', 'side', 'low');
 	}
 
 	/**
@@ -541,35 +526,51 @@ class Documentate_Documents {
 	 * @param WP_Post $post Post.
 	 * @return void
 	 */
-	public function render_type_metabox( $post ) {
-		wp_nonce_field( 'documentate_type_nonce', 'documentate_type_nonce' );
+	public function render_type_metabox($post) {
+		wp_nonce_field('documentate_type_nonce', 'documentate_type_nonce');
 
-		$assigned = wp_get_post_terms( $post->ID, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		$current  = ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) ? intval( $assigned[0] ) : 0;
+		$assigned = wp_get_post_terms($post->ID, 'documentate_doc_type', array('fields' => 'ids'));
+		$current = !is_wp_error($assigned) && !empty($assigned) ? intval($assigned[0]) : 0;
 
-		$terms = get_terms(
-			array(
-				'taxonomy'   => 'documentate_doc_type',
-				'hide_empty' => false,
-			)
-		);
+		$terms = get_terms(array(
+			'taxonomy' => 'documentate_doc_type',
+			'hide_empty' => false,
+		));
 
-		if ( ! $terms || is_wp_error( $terms ) ) {
-			echo '<p>' . esc_html__( 'No document types defined. Create one in Document Types.', 'documentate' ) . '</p>';
+		if (!$terms || is_wp_error($terms)) {
+			echo '<p>' . esc_html__('No document types defined. Create one in Document Types.', 'documentate') . '</p>';
 			return;
 		}
 
-		$locked = ( $current > 0 && 'auto-draft' !== $post->post_status );
-		echo '<p class="description">' . esc_html__( 'Choose the type when creating the document. It cannot be changed later.', 'documentate' ) . '</p>';
-		if ( $locked ) {
-			$term = get_term( $current, 'documentate_doc_type' );
-			echo '<p><strong>' . esc_html__( 'Selected type:', 'documentate' ) . '</strong> ' . esc_html( $term ? $term->name : '' ) . '</p>';
-			echo '<input type="hidden" name="documentate_doc_type" value="' . esc_attr( (string) $current ) . '" />';
+		$locked = $current > 0 && 'auto-draft' !== $post->post_status;
+		echo
+			'<p class="description">'
+				. esc_html__('Choose the type when creating the document. It cannot be changed later.', 'documentate')
+				. '</p>'
+		;
+		if ($locked) {
+			$term = get_term($current, 'documentate_doc_type');
+			echo
+				'<p><strong>'
+					. esc_html__('Selected type:', 'documentate')
+					. '</strong> '
+					. esc_html($term ? $term->name : '')
+					. '</p>'
+			;
+			echo '<input type="hidden" name="documentate_doc_type" value="' . esc_attr((string) $current) . '" />';
 		} else {
 			echo '<select name="documentate_doc_type" class="widefat">';
-			echo '<option value="">' . esc_html__( 'Select a type…', 'documentate' ) . '</option>';
-			foreach ( $terms as $t ) {
-				echo '<option value="' . esc_attr( (string) $t->term_id ) . '" ' . selected( $current, $t->term_id, false ) . '>' . esc_html( $t->name ) . '</option>';
+			echo '<option value="">' . esc_html__('Select a type…', 'documentate') . '</option>';
+			foreach ($terms as $t) {
+				echo
+					'<option value="'
+						. esc_attr((string) $t->term_id)
+						. '" '
+						. selected($current, $t->term_id, false)
+						. '>'
+						. esc_html($t->name)
+						. '</option>'
+				;
 			}
 			echo '</select>';
 		}
@@ -580,154 +581,189 @@ class Documentate_Documents {
 	 *
 	 * @param WP_Post $post Current post.
 	 */
-	public function render_sections_metabox( $post ) {
-		wp_nonce_field( 'documentate_sections_nonce', 'documentate_sections_nonce' );
+	public function render_sections_metabox($post) {
+		wp_nonce_field('documentate_sections_nonce', 'documentate_sections_nonce');
 
-		$schema     = $this->get_dynamic_fields_schema_for_post( $post->ID );
-		$raw_schema = $this->get_raw_schema_for_post( $post->ID );
-		$raw_fields = isset( $raw_schema['fields'] ) && is_array( $raw_schema['fields'] ) ? $raw_schema['fields'] : array();
+		$schema = $this->get_dynamic_fields_schema_for_post($post->ID);
+		$raw_schema = $this->get_raw_schema_for_post($post->ID);
+		$raw_fields = isset($raw_schema['fields']) && is_array($raw_schema['fields']) ? $raw_schema['fields'] : array();
 		// Load the raw schema so we can expose placeholders, constraints and help text.
 
-		if ( empty( $schema ) ) {
+		if (empty($schema)) {
 			echo '<div class="documentate-sections">';
-			echo '<p class="description">' . esc_html__( 'Configure a document type with fields to edit its content.', 'documentate' ) . '</p>';
-			$unknown = $this->collect_unknown_dynamic_fields( $post->ID, array() );
-			$this->render_unknown_dynamic_fields_ui( $unknown );
+			echo
+				'<p class="description">'
+					. esc_html__('Configure a document type with fields to edit its content.', 'documentate')
+					. '</p>'
+			;
+			$unknown = $this->collect_unknown_dynamic_fields($post->ID, array());
+			$this->render_unknown_dynamic_fields_ui($unknown);
 			echo '</div>';
 			return;
 		}
 
-		$stored_fields   = $this->get_structured_field_values( $post->ID );
+		$stored_fields = $this->get_structured_field_values($post->ID);
 		$known_meta_keys = array();
 
 		echo '<div class="documentate-sections">';
 		echo '<table class="form-table"><tbody>';
 
-		foreach ( $schema as $row ) {
-			if ( empty( $row['slug'] ) || empty( $row['label'] ) ) {
+		foreach ($schema as $row) {
+			if (empty($row['slug']) || empty($row['label'])) {
 				continue;
 			}
 
-			$slug  = sanitize_key( $row['slug'] );
-			$label = sanitize_text_field( $row['label'] );
+			$slug = sanitize_key($row['slug']);
+			$label = sanitize_text_field($row['label']);
 
-			if ( '' === $slug || '' === $label ) {
+			if ('' === $slug || '' === $label) {
 				continue;
 			}
 
-			if ( 'post_title' === $slug ) {
+			if ('post_title' === $slug) {
 				$known_meta_keys[] = 'documentate_field_' . $slug;
 				// Let WordPress handle the native title field.
 				continue;
 			}
 
-			$type       = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
-			$raw_field  = isset( $raw_fields[ $slug ] ) ? $raw_fields[ $slug ] : array();
-			$field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
-			$data_type  = isset( $row['data_type'] ) ? sanitize_key( $row['data_type'] ) : '';
-			$type       = $this->resolve_field_control_type( $type, $raw_field );
-			$field_title = $this->get_field_title( $raw_field );
-			if ( '' !== $field_title ) {
+			$type = isset($row['type']) ? sanitize_key($row['type']) : 'textarea';
+			$raw_field = isset($raw_fields[$slug]) ? $raw_fields[$slug] : array();
+			$field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type($raw_field);
+			$data_type = isset($row['data_type']) ? sanitize_key($row['data_type']) : '';
+			$type = $this->resolve_field_control_type($type, $raw_field);
+			$field_title = $this->get_field_title($raw_field);
+			if ('' !== $field_title) {
 				$label = $field_title;
 			}
-			$field_title_attribute = $this->get_field_pattern_message( $raw_field );
-			if ( '' === $field_title_attribute ) {
+			$field_title_attribute = $this->get_field_pattern_message($raw_field);
+			if ('' === $field_title_attribute) {
 				$field_title_attribute = $field_title;
 			}
 
-			if ( 'array' === $type ) {
-				$item_schema = $this->normalize_array_item_schema( $row );
-				$items       = array();
-				$raw_repeater = isset( $raw_schema['repeaters'][ $slug ] ) && is_array( $raw_schema['repeaters'][ $slug ] ) ? $raw_schema['repeaters'][ $slug ] : array();
-				$repeater_source = isset( $raw_repeater['definition'] ) ? $raw_repeater['definition'] : array();
-				$repeater_title  = $this->get_field_title( $repeater_source );
-				if ( '' !== $repeater_title ) {
+			if ('array' === $type) {
+				$item_schema = $this->normalize_array_item_schema($row);
+				$items = array();
+				$raw_repeater = isset($raw_schema['repeaters'][$slug]) && is_array($raw_schema['repeaters'][$slug])
+					? $raw_schema['repeaters'][$slug]
+					: array();
+				$repeater_source = isset($raw_repeater['definition']) ? $raw_repeater['definition'] : array();
+				$repeater_title = $this->get_field_title($repeater_source);
+				if ('' !== $repeater_title) {
 					$label = $repeater_title;
 				}
-				$repeater_title_attribute = $this->get_field_pattern_message( $repeater_source );
-				if ( '' === $repeater_title_attribute ) {
+				$repeater_title_attribute = $this->get_field_pattern_message($repeater_source);
+				if ('' === $repeater_title_attribute) {
 					$repeater_title_attribute = $repeater_title;
 				}
 
 				// Mark repeater meta key as known so it does not appear under unknown fields.
 				$known_meta_keys[] = 'documentate_field_' . $slug;
 
-				if ( isset( $stored_fields[ $slug ] ) && isset( $stored_fields[ $slug ]['type'] ) && 'array' === $stored_fields[ $slug ]['type'] ) {
-					$items = $this->get_array_field_items_from_structured( $stored_fields[ $slug ] );
+				if (
+					isset($stored_fields[$slug])
+					&& isset($stored_fields[$slug]['type'])
+					&& 'array' === $stored_fields[$slug]['type']
+				) {
+					$items = $this->get_array_field_items_from_structured($stored_fields[$slug]);
 				}
 
-				if ( empty( $items ) ) {
-					$items = array( array() );
+				if (empty($items)) {
+					$items = array(array());
 				}
 
-				$description = $this->get_field_description( $raw_field );
-				$validation  = $this->get_field_validation_message( $raw_field );
+				$description = $this->get_field_description($raw_field);
+				$validation = $this->get_field_validation_message($raw_field);
 
-				echo '<tr class="documentate-field documentate-field-array documentate-field-' . esc_attr( $slug ) . '">';
+				echo '<tr class="documentate-field documentate-field-array documentate-field-' . esc_attr($slug) . '">';
 				echo '<th scope="row"><label';
-				if ( '' !== $repeater_title_attribute ) {
-					echo ' title="' . esc_attr( $repeater_title_attribute ) . '"';
+				if ('' !== $repeater_title_attribute) {
+					echo ' title="' . esc_attr($repeater_title_attribute) . '"';
 				}
-				echo '>' . esc_html( $label ) . '</label></th>';
+				echo '>' . esc_html($label) . '</label></th>';
 				echo '<td>';
-				$this->render_array_field( $slug, $label, $item_schema, $items, $raw_repeater );
-				if ( '' !== $description ) {
-					echo '<p class="description">' . esc_html( $description ) . '</p>';
+				$this->render_array_field($slug, $label, $item_schema, $items, $raw_repeater);
+				if ('' !== $description) {
+					echo '<p class="description">' . esc_html($description) . '</p>';
 				}
-				if ( '' !== $validation ) {
-					echo '<p class="description documentate-field-validation" data-documentate-validation-message="true">' . esc_html( $validation ) . '</p>';
+				if ('' !== $validation) {
+					echo
+						'<p class="description documentate-field-validation" data-documentate-validation-message="true">'
+							. esc_html($validation)
+							. '</p>'
+					;
 				}
 				echo '</td></tr>';
 				continue;
 			}
 
-			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+			if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
 				$type = 'textarea';
 			}
 
-			$meta_key          = 'documentate_field_' . $slug;
+			$meta_key = 'documentate_field_' . $slug;
 			$known_meta_keys[] = $meta_key;
-			$value             = '';
+			$value = '';
 
-			if ( isset( $stored_fields[ $slug ] ) ) {
-				$value = (string) $stored_fields[ $slug ]['value'];
+			if (isset($stored_fields[$slug])) {
+				$value = (string) $stored_fields[$slug]['value'];
 			}
 
-			$description    = $this->get_field_description( $raw_field );
-			$validation     = $this->get_field_validation_message( $raw_field );
+			$description = $this->get_field_description($raw_field);
+			$validation = $this->get_field_validation_message($raw_field);
 			$description_id = '' !== $description ? $meta_key . '-description' : '';
-			$validation_id  = '' !== $validation ? $meta_key . '-validation' : '';
-			$describedby    = array();
+			$validation_id = '' !== $validation ? $meta_key . '-validation' : '';
+			$describedby = array();
 
-			if ( '' !== $description_id ) {
+			if ('' !== $description_id) {
 				$describedby[] = $description_id;
 			}
-			if ( '' !== $validation_id ) {
+			if ('' !== $validation_id) {
 				$describedby[] = $validation_id;
 			}
 
-			echo '<tr class="documentate-field documentate-field-' . esc_attr( $slug ) . ' documentate-field-control-' . esc_attr( $type ) . '">';
-			echo '<th scope="row"><label for="' . esc_attr( $meta_key ) . '"';
-			if ( '' !== $field_title_attribute ) {
-				echo ' title="' . esc_attr( $field_title_attribute ) . '"';
+			echo
+				'<tr class="documentate-field documentate-field-'
+					. esc_attr($slug)
+					. ' documentate-field-control-'
+					. esc_attr($type)
+					. '">'
+			;
+			echo '<th scope="row"><label for="' . esc_attr($meta_key) . '"';
+			if ('' !== $field_title_attribute) {
+				echo ' title="' . esc_attr($field_title_attribute) . '"';
 			}
-			echo '>' . esc_html( $label ) . '</label></th>';
+			echo '>' . esc_html($label) . '</label></th>';
 			echo '<td>';
 
-			if ( 'single' === $type ) {
-				$this->render_single_input_control( $meta_key, $label, $value, $field_type, $data_type, $raw_field, $describedby, $validation );
-			} elseif ( 'rich' === $type ) {
-				$is_locked = in_array( $post->post_status, array( 'publish', 'archived' ), true );
-				$this->render_rich_editor_control( $meta_key, $value, $is_locked );
+			if ('single' === $type) {
+				$this->render_single_input_control(
+					$meta_key,
+					$label,
+					$value,
+					$field_type,
+					$data_type,
+					$raw_field,
+					$describedby,
+					$validation,
+				);
+			} elseif ('rich' === $type) {
+				$is_locked = in_array($post->post_status, array('publish', 'archived'), true);
+				$this->render_rich_editor_control($meta_key, $value, $is_locked);
 			} else {
-				$this->render_textarea_control( $meta_key, $value, $raw_field, $describedby, $validation );
+				$this->render_textarea_control($meta_key, $value, $raw_field, $describedby, $validation);
 			}
 
-			if ( '' !== $description ) {
-				echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+			if ('' !== $description) {
+				echo '<p id="' . esc_attr($description_id) . '" class="description">' . esc_html($description) . '</p>';
 			}
-			if ( '' !== $validation ) {
-				echo '<p id="' . esc_attr( $validation_id ) . '" class="description documentate-field-validation" data-documentate-validation-message="true">' . esc_html( $validation ) . '</p>';
+			if ('' !== $validation) {
+				echo
+					'<p id="'
+						. esc_attr($validation_id)
+						. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+						. esc_html($validation)
+						. '</p>'
+				;
 			}
 
 			echo '</td></tr>';
@@ -735,8 +771,8 @@ class Documentate_Documents {
 
 		echo '</tbody></table>';
 
-		$unknown = $this->collect_unknown_dynamic_fields( $post->ID, $known_meta_keys );
-		$this->render_unknown_dynamic_fields_ui( $unknown );
+		$unknown = $this->collect_unknown_dynamic_fields($post->ID, $known_meta_keys);
+		$this->render_unknown_dynamic_fields_ui($unknown);
 		echo '</div>';
 	}
 
@@ -752,28 +788,49 @@ class Documentate_Documents {
 	 * @param array<string>       $describedby Aria describedby IDs.
 	 * @param string              $validation Validation message.
 	 */
-	private function render_single_input_control( $meta_key, $label, $value, $field_type, $data_type, $raw_field, $describedby, $validation ) {
-		$input_type       = $this->map_single_input_type( $field_type, $data_type );
-		$normalized_value = $this->normalize_scalar_value( $value, $input_type );
-		$attributes       = $this->build_scalar_input_attributes( $raw_field, $input_type );
+	private function render_single_input_control(
+		$meta_key,
+		$label,
+		$value,
+		$field_type,
+		$data_type,
+		$raw_field,
+		$describedby,
+		$validation,
+	) {
+		$input_type = $this->map_single_input_type($field_type, $data_type);
+		$normalized_value = $this->normalize_scalar_value($value, $input_type);
+		$attributes = $this->build_scalar_input_attributes($raw_field, $input_type);
 
-		if ( ! empty( $describedby ) ) {
-			$attributes['aria-describedby'] = implode( ' ', $describedby );
+		if (!empty($describedby)) {
+			$attributes['aria-describedby'] = implode(' ', $describedby);
 		}
-		if ( '' !== $validation ) {
+		if ('' !== $validation) {
 			$attributes['data-validation-message'] = $validation;
 		}
 
-		$attributes['class'] = $this->build_input_class( $input_type );
-		$attribute_string    = $this->format_field_attributes( $attributes );
+		$attributes['class'] = $this->build_input_class($input_type);
+		$attribute_string = $this->format_field_attributes($attributes);
 
-		if ( 'select' === $input_type ) {
-			$this->render_select_control( $meta_key, $normalized_value, $raw_field, $attributes, $attribute_string );
-		} elseif ( 'checkbox' === $input_type ) {
-			$this->render_checkbox_control( $meta_key, $label, $normalized_value, $attribute_string );
+		if ('select' === $input_type) {
+			$this->render_select_control($meta_key, $normalized_value, $raw_field, $attributes, $attribute_string);
+		} elseif ('checkbox' === $input_type) {
+			$this->render_checkbox_control($meta_key, $label, $normalized_value, $attribute_string);
 		} else {
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-			echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="' . esc_attr( $normalized_value ) . '" ' . $attribute_string . ' />';
+			echo
+				'<input type="'
+					. esc_attr($input_type)
+					. '" id="'
+					. esc_attr($meta_key)
+					. '" name="'
+					. esc_attr($meta_key)
+					. '" value="'
+					. esc_attr($normalized_value)
+					. '" '
+					. $attribute_string
+					. ' />'
+			;
 		}
 	}
 
@@ -786,18 +843,26 @@ class Documentate_Documents {
 	 * @param array<string,mixed> $attributes       Field attributes.
 	 * @param string              $attribute_string Formatted attribute string.
 	 */
-	private function render_select_control( $meta_key, $value, $raw_field, $attributes, $attribute_string ) {
-		$options     = $this->parse_select_options( $raw_field );
-		$placeholder = $this->get_select_placeholder( $raw_field );
+	private function render_select_control($meta_key, $value, $raw_field, $attributes, $attribute_string) {
+		$options = $this->parse_select_options($raw_field);
+		$placeholder = $this->get_select_placeholder($raw_field);
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-		echo '<select id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>';
-		if ( '' !== $placeholder ) {
-			echo '<option value="">' . esc_html( $placeholder ) . '</option>';
-		} elseif ( empty( $attributes['required'] ) ) {
-			echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
+		echo '<select id="' . esc_attr($meta_key) . '" name="' . esc_attr($meta_key) . '" ' . $attribute_string . '>';
+		if ('' !== $placeholder) {
+			echo '<option value="">' . esc_html($placeholder) . '</option>';
+		} elseif (empty($attributes['required'])) {
+			echo '<option value="">' . esc_html__('Select an option…', 'documentate') . '</option>';
 		}
-		foreach ( $options as $option_value => $option_label ) {
-			echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $option_value, $value, false ) . '>' . esc_html( $option_label ) . '</option>';
+		foreach ($options as $option_value => $option_label) {
+			echo
+				'<option value="'
+					. esc_attr($option_value)
+					. '" '
+					. selected($option_value, $value, false)
+					. '>'
+					. esc_html($option_label)
+					. '</option>'
+			;
 		}
 		echo '</select>';
 	}
@@ -810,13 +875,23 @@ class Documentate_Documents {
 	 * @param string $value            The current field value.
 	 * @param string $attribute_string Formatted attribute string.
 	 */
-	private function render_checkbox_control( $meta_key, $label, $value, $attribute_string ) {
+	private function render_checkbox_control($meta_key, $label, $value, $attribute_string) {
 		// Hidden field guarantees we persist an explicit "0" when unchecked.
-		echo '<input type="hidden" name="' . esc_attr( $meta_key ) . '" value="0" />';
+		echo '<input type="hidden" name="' . esc_attr($meta_key) . '" value="0" />';
 		echo '<label class="documentate-checkbox-wrapper">';
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-		echo '<input type="checkbox" id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" value="1" ' . checked( '1', $value, false ) . ' ' . $attribute_string . ' />';
-		echo '<span class="screen-reader-text">' . esc_html( $label ) . '</span>';
+		echo
+			'<input type="checkbox" id="'
+				. esc_attr($meta_key)
+				. '" name="'
+				. esc_attr($meta_key)
+				. '" value="1" '
+				. checked('1', $value, false)
+				. ' '
+				. $attribute_string
+				. ' />'
+		;
+		echo '<span class="screen-reader-text">' . esc_html($label) . '</span>';
 		echo '</label>';
 	}
 
@@ -827,43 +902,47 @@ class Documentate_Documents {
 	 * @param string $value     The current field value.
 	 * @param bool   $is_locked Whether the editor should be readonly (default false).
 	 */
-	private function render_rich_editor_control( $meta_key, $value, $is_locked = false ) {
+	private function render_rich_editor_control($meta_key, $value, $is_locked = false) {
 		$is_collaborative = $this->is_collaborative_editing_enabled();
 
-		if ( $is_collaborative ) {
+		if ($is_collaborative) {
 			echo '<div class="documentate-collab-container">';
-			echo '<textarea id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" class="documentate-collab-textarea" rows="8">' . esc_textarea( $value ) . '</textarea>';
+			echo
+				'<textarea id="'
+					. esc_attr($meta_key)
+					. '" name="'
+					. esc_attr($meta_key)
+					. '" class="documentate-collab-textarea" rows="8">'
+					. esc_textarea($value)
+					. '</textarea>'
+			;
 			echo '</div>';
 		} else {
 			$tinymce_config = array(
-				'toolbar1'        => 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,searchreplace,removeformat',
-				'content_style'   => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
+				'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,searchreplace,removeformat',
+				'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
 				// TinyMCE content filtering: remove elements not supported by OpenTBS.
 				'invalid_elements' => 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-				'valid_elements'   => 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
+				'valid_elements' => 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
 				'paste_remove_styles' => true,
 				'paste_strip_class_attributes' => 'all',
 			);
 
-			if ( $is_locked ) {
+			if ($is_locked) {
 				$tinymce_config['readonly'] = 1;
 			}
 
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles output escaping.
-			wp_editor(
-				$value,
-				$meta_key,
-				array(
-					'textarea_name' => $meta_key,
-					'textarea_rows' => 8,
-					'media_buttons' => false,
-					'teeny'         => false,
-					'wpautop'       => false,
-					'tinymce'       => $tinymce_config,
-					'quicktags'     => true,
-					'editor_height' => 220,
-				)
-			);
+			wp_editor($value, $meta_key, array(
+				'textarea_name' => $meta_key,
+				'textarea_rows' => 8,
+				'media_buttons' => false,
+				'teeny' => false,
+				'wpautop' => false,
+				'tinymce' => $tinymce_config,
+				'quicktags' => true,
+				'editor_height' => 220,
+			));
 		}
 	}
 
@@ -876,21 +955,31 @@ class Documentate_Documents {
 	 * @param array<string>       $describedby Aria describedby IDs.
 	 * @param string              $validation Validation message.
 	 */
-	private function render_textarea_control( $meta_key, $value, $raw_field, $describedby, $validation ) {
-		$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-		if ( ! empty( $describedby ) ) {
-			$attributes['aria-describedby'] = implode( ' ', $describedby );
+	private function render_textarea_control($meta_key, $value, $raw_field, $describedby, $validation) {
+		$attributes = $this->build_scalar_input_attributes($raw_field, 'textarea');
+		if (!empty($describedby)) {
+			$attributes['aria-describedby'] = implode(' ', $describedby);
 		}
-		if ( '' !== $validation ) {
+		if ('' !== $validation) {
 			$attributes['data-validation-message'] = $validation;
 		}
-		if ( ! isset( $attributes['rows'] ) ) {
+		if (!isset($attributes['rows'])) {
 			$attributes['rows'] = 6;
 		}
-		$attributes['class'] = $this->build_input_class( 'textarea' );
-		$attribute_string    = $this->format_field_attributes( $attributes );
+		$attributes['class'] = $this->build_input_class('textarea');
+		$attribute_string = $this->format_field_attributes($attributes);
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-		echo '<textarea id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>' . esc_textarea( $value ) . '</textarea>';
+		echo
+			'<textarea id="'
+				. esc_attr($meta_key)
+				. '" name="'
+				. esc_attr($meta_key)
+				. '" '
+				. $attribute_string
+				. '>'
+				. esc_textarea($value)
+				. '</textarea>'
+		;
 	}
 
 	/**
@@ -899,89 +988,89 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 * @return array<string,array<string,array>> Indexed schema details.
 	 */
-	private function get_raw_schema_for_post( $post_id ) {
-		$post_id = intval( $post_id );
-		if ( $post_id <= 0 ) {
+	private function get_raw_schema_for_post($post_id) {
+		$post_id = intval($post_id);
+		if ($post_id <= 0) {
 			return array();
 		}
 
-		$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		$term_id  = ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) ? intval( $assigned[0] ) : 0;
-		if ( $term_id <= 0 ) {
+		$assigned = wp_get_post_terms($post_id, 'documentate_doc_type', array('fields' => 'ids'));
+		$term_id = !is_wp_error($assigned) && !empty($assigned) ? intval($assigned[0]) : 0;
+		if ($term_id <= 0) {
 			return array();
 		}
 
-		$storage   = new SchemaStorage();
-		$schema_v2 = $storage->get_schema( $term_id );
-		if ( ! is_array( $schema_v2 ) ) {
+		$storage = new SchemaStorage();
+		$schema_v2 = $storage->get_schema($term_id);
+		if (!is_array($schema_v2)) {
 			return array();
 		}
 
-		$fields_index    = array();
+		$fields_index = array();
 		$repeaters_index = array();
-		if ( isset( $schema_v2['fields'] ) && is_array( $schema_v2['fields'] ) ) {
-			foreach ( $schema_v2['fields'] as $field ) {
-				if ( ! is_array( $field ) ) {
+		if (isset($schema_v2['fields']) && is_array($schema_v2['fields'])) {
+			foreach ($schema_v2['fields'] as $field) {
+				if (!is_array($field)) {
 					continue;
 				}
 				$slug = '';
-				if ( isset( $field['slug'] ) ) {
-					$slug = sanitize_key( $field['slug'] );
-				} elseif ( isset( $field['name'] ) ) {
-					$slug = sanitize_key( $field['name'] );
+				if (isset($field['slug'])) {
+					$slug = sanitize_key($field['slug']);
+				} elseif (isset($field['name'])) {
+					$slug = sanitize_key($field['name']);
 				}
-				if ( '' === $slug ) {
+				if ('' === $slug) {
 					continue;
 				}
-				$fields_index[ $slug ] = $field;
+				$fields_index[$slug] = $field;
 			}
 		}
 
-		if ( isset( $schema_v2['repeaters'] ) && is_array( $schema_v2['repeaters'] ) ) {
-			foreach ( $schema_v2['repeaters'] as $repeater ) {
-				if ( ! is_array( $repeater ) ) {
+		if (isset($schema_v2['repeaters']) && is_array($schema_v2['repeaters'])) {
+			foreach ($schema_v2['repeaters'] as $repeater) {
+				if (!is_array($repeater)) {
 					continue;
 				}
 
 				$slug = '';
-				if ( isset( $repeater['slug'] ) ) {
-					$slug = sanitize_key( $repeater['slug'] );
-				} elseif ( isset( $repeater['name'] ) ) {
-					$slug = sanitize_key( $repeater['name'] );
+				if (isset($repeater['slug'])) {
+					$slug = sanitize_key($repeater['slug']);
+				} elseif (isset($repeater['name'])) {
+					$slug = sanitize_key($repeater['name']);
 				}
 
-				if ( '' === $slug ) {
+				if ('' === $slug) {
 					continue;
 				}
 
 				$fields = array();
-				if ( isset( $repeater['fields'] ) && is_array( $repeater['fields'] ) ) {
-					foreach ( $repeater['fields'] as $field ) {
-						if ( ! is_array( $field ) ) {
+				if (isset($repeater['fields']) && is_array($repeater['fields'])) {
+					foreach ($repeater['fields'] as $field) {
+						if (!is_array($field)) {
 							continue;
 						}
 						$field_slug = '';
-						if ( isset( $field['slug'] ) ) {
-							$field_slug = sanitize_key( $field['slug'] );
-						} elseif ( isset( $field['name'] ) ) {
-							$field_slug = sanitize_key( $field['name'] );
+						if (isset($field['slug'])) {
+							$field_slug = sanitize_key($field['slug']);
+						} elseif (isset($field['name'])) {
+							$field_slug = sanitize_key($field['name']);
 						}
-						if ( '' === $field_slug ) {
+						if ('' === $field_slug) {
 							continue;
 						}
-						$fields[ $field_slug ] = $field;
+						$fields[$field_slug] = $field;
 					}
 				}
 
-				$repeaters_index[ $slug ] = array(
+				$repeaters_index[$slug] = array(
 					'definition' => $repeater,
-					'fields'     => $fields,
+					'fields' => $fields,
 				);
 			}
 		}
 
 		return array(
-			'fields'    => $fields_index,
+			'fields' => $fields_index,
 			'repeaters' => $repeaters_index,
 		);
 	}
@@ -993,8 +1082,8 @@ class Documentate_Documents {
 	 * @param array|null $raw_field   Raw schema definition.
 	 * @return string Control identifier: single|textarea|rich|array.
 	 */
-	private function resolve_field_control_type( $legacy_type, $raw_field ) {
-		return Documents_Field_Validator::resolve_field_control_type( $legacy_type, $raw_field );
+	private function resolve_field_control_type($legacy_type, $raw_field) {
+		return Documents_Field_Validator::resolve_field_control_type($legacy_type, $raw_field);
 	}
 
 	/**
@@ -1005,8 +1094,8 @@ class Documentate_Documents {
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
-	private function get_field_description( $raw_field ) {
-		return Documents_Field_Validator::get_field_description( $raw_field );
+	private function get_field_description($raw_field) {
+		return Documents_Field_Validator::get_field_description($raw_field);
 	}
 
 	/**
@@ -1017,8 +1106,8 @@ class Documentate_Documents {
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
-	private function get_field_validation_message( $raw_field ) {
-		return Documents_Field_Validator::get_field_validation_message( $raw_field );
+	private function get_field_validation_message($raw_field) {
+		return Documents_Field_Validator::get_field_validation_message($raw_field);
 	}
 
 	/**
@@ -1027,8 +1116,8 @@ class Documentate_Documents {
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
-	private function get_field_title( $raw_field ) {
-		return Documents_Field_Validator::get_field_title( $raw_field );
+	private function get_field_title($raw_field) {
+		return Documents_Field_Validator::get_field_title($raw_field);
 	}
 
 	/**
@@ -1037,8 +1126,8 @@ class Documentate_Documents {
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
-	private function get_field_pattern_message( $raw_field ) {
-		return Documents_Field_Validator::get_field_pattern_message( $raw_field );
+	private function get_field_pattern_message($raw_field) {
+		return Documents_Field_Validator::get_field_pattern_message($raw_field);
 	}
 
 	/**
@@ -1048,8 +1137,8 @@ class Documentate_Documents {
 	 * @param string $data_type  Normalized data type.
 	 * @return string
 	 */
-	private function map_single_input_type( $field_type, $data_type ) {
-		return Documents_Field_Validator::map_single_input_type( $field_type, $data_type );
+	private function map_single_input_type($field_type, $data_type) {
+		return Documents_Field_Validator::map_single_input_type($field_type, $data_type);
 	}
 
 	/**
@@ -1059,8 +1148,8 @@ class Documentate_Documents {
 	 * @param string $input_type Target input type.
 	 * @return string
 	 */
-	private function normalize_scalar_value( $value, $input_type ) {
-		return Documents_Field_Validator::normalize_scalar_value( $value, $input_type );
+	private function normalize_scalar_value($value, $input_type) {
+		return Documents_Field_Validator::normalize_scalar_value($value, $input_type);
 	}
 
 	/**
@@ -1070,8 +1159,8 @@ class Documentate_Documents {
 	 * @param string $input_type Input type being rendered.
 	 * @return array<string,string>
 	 */
-	private function build_scalar_input_attributes( $raw_field, $input_type ) {
-		return Documents_Field_Validator::build_scalar_input_attributes( $raw_field, $input_type );
+	private function build_scalar_input_attributes($raw_field, $input_type) {
+		return Documents_Field_Validator::build_scalar_input_attributes($raw_field, $input_type);
 	}
 
 	/**
@@ -1080,8 +1169,8 @@ class Documentate_Documents {
 	 * @param string $input_type Input type.
 	 * @return string
 	 */
-	private function build_input_class( $input_type ) {
-		return Documents_Field_Renderer::build_input_class( $input_type );
+	private function build_input_class($input_type) {
+		return Documents_Field_Renderer::build_input_class($input_type);
 	}
 
 	/**
@@ -1090,8 +1179,8 @@ class Documentate_Documents {
 	 * @param array<string,string> $attributes Attribute map.
 	 * @return string
 	 */
-	private function format_field_attributes( $attributes ) {
-		return Documents_Field_Renderer::format_field_attributes( $attributes );
+	private function format_field_attributes($attributes) {
+		return Documents_Field_Renderer::format_field_attributes($attributes);
 	}
 
 	/**
@@ -1100,8 +1189,8 @@ class Documentate_Documents {
 	 * @param array $raw_field Raw field definition.
 	 * @return array<string,string>
 	 */
-	private function parse_select_options( $raw_field ) {
-		return Documents_Field_Renderer::parse_select_options( $raw_field );
+	private function parse_select_options($raw_field) {
+		return Documents_Field_Renderer::parse_select_options($raw_field);
 	}
 
 	/**
@@ -1110,8 +1199,8 @@ class Documentate_Documents {
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
-	private function get_select_placeholder( $raw_field ) {
-		return Documents_Field_Renderer::get_select_placeholder( $raw_field );
+	private function get_select_placeholder($raw_field) {
+		return Documents_Field_Renderer::get_select_placeholder($raw_field);
 	}
 
 	/**
@@ -1120,54 +1209,56 @@ class Documentate_Documents {
 	 * @param mixed $value Value to evaluate.
 	 * @return bool
 	 */
-	private function is_truthy( $value ) {
-		return Documents_Field_Validator::is_truthy( $value );
+	private function is_truthy($value) {
+		return Documents_Field_Validator::is_truthy($value);
 	}
 
-		/**
-		 * Normalize the item schema for an array field definition.
-		 *
-		 * @param array $definition Field definition from the schema.
-		 * @return array<string, array{label:string,type:string,data_type:string}>
-		 */
-	private function normalize_array_item_schema( $definition ) {
-			$schema = array();
+	/**
+	 * Normalize the item schema for an array field definition.
+	 *
+	 * @param array $definition Field definition from the schema.
+	 * @return array<string, array{label:string,type:string,data_type:string}>
+	 */
+	private function normalize_array_item_schema($definition) {
+		$schema = array();
 
-		if ( isset( $definition['item_schema'] ) && is_array( $definition['item_schema'] ) ) {
-			foreach ( $definition['item_schema'] as $key => $item ) {
-				$item_key = sanitize_key( $key );
-				if ( '' === $item_key ) {
-						continue;
+		if (isset($definition['item_schema']) && is_array($definition['item_schema'])) {
+			foreach ($definition['item_schema'] as $key => $item) {
+				$item_key = sanitize_key($key);
+				if ('' === $item_key) {
+					continue;
 				}
 
-				$label = isset( $item['label'] ) ? sanitize_text_field( $item['label'] ) : $this->humanize_unknown_field_label( $item_key );
-				$type  = isset( $item['type'] ) ? sanitize_key( $item['type'] ) : 'textarea';
-				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-						$type = 'textarea';
+				$label = isset($item['label'])
+					? sanitize_text_field($item['label'])
+					: $this->humanize_unknown_field_label($item_key);
+				$type = isset($item['type']) ? sanitize_key($item['type']) : 'textarea';
+				if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
+					$type = 'textarea';
 				}
 
-				$data_type = isset( $item['data_type'] ) ? sanitize_key( $item['data_type'] ) : 'text';
-				if ( ! in_array( $data_type, array( 'text', 'number', 'boolean', 'date' ), true ) ) {
-						$data_type = 'text';
+				$data_type = isset($item['data_type']) ? sanitize_key($item['data_type']) : 'text';
+				if (!in_array($data_type, array('text', 'number', 'boolean', 'date'), true)) {
+					$data_type = 'text';
 				}
 
-				$schema[ $item_key ] = array(
-					'label'     => $label,
-					'type'      => $type,
+				$schema[$item_key] = array(
+					'label' => $label,
+					'type' => $type,
 					'data_type' => $data_type,
 				);
 			}
 		}
 
-		if ( empty( $schema ) ) {
-				$schema['content'] = array(
-					'label'     => __( 'Content', 'documentate' ),
-					'type'      => 'textarea',
-					'data_type' => 'text',
-				);
+		if (empty($schema)) {
+			$schema['content'] = array(
+				'label' => __('Content', 'documentate'),
+				'type' => 'textarea',
+				'data_type' => 'text',
+			);
 		}
 
-			return $schema;
+		return $schema;
 	}
 
 	/**
@@ -1180,45 +1271,53 @@ class Documentate_Documents {
 	 * @param array  $raw_repeater Raw schema definition for this repeater.
 	 * @return void
 	 */
-	private function render_array_field( $slug, $label, $item_schema, $items, $raw_repeater = array() ) {
-		$slug        = sanitize_key( $slug );
-		$label       = sanitize_text_field( $label );
-		$repeater_source = isset( $raw_repeater['definition'] ) ? $raw_repeater['definition'] : array();
-		$repeater_title  = $this->get_field_title( $repeater_source );
-		if ( '' !== $repeater_title ) {
+	private function render_array_field($slug, $label, $item_schema, $items, $raw_repeater = array()) {
+		$slug = sanitize_key($slug);
+		$label = sanitize_text_field($label);
+		$repeater_source = isset($raw_repeater['definition']) ? $raw_repeater['definition'] : array();
+		$repeater_title = $this->get_field_title($repeater_source);
+		if ('' !== $repeater_title) {
 			$label = $repeater_title;
 		}
-		$repeater_title_attribute = $this->get_field_pattern_message( $repeater_source );
-		if ( '' === $repeater_title_attribute ) {
+		$repeater_title_attribute = $this->get_field_pattern_message($repeater_source);
+		if ('' === $repeater_title_attribute) {
 			$repeater_title_attribute = $repeater_title;
 		}
-		$field_id    = 'documentate-array-' . $slug;
-		$items       = is_array( $items ) ? $items : array();
-		$item_schema = is_array( $item_schema ) ? $item_schema : array();
-		$raw_fields  = array();
-		if ( isset( $raw_repeater['fields'] ) && is_array( $raw_repeater['fields'] ) ) {
+		$field_id = 'documentate-array-' . $slug;
+		$items = is_array($items) ? $items : array();
+		$item_schema = is_array($item_schema) ? $item_schema : array();
+		$raw_fields = array();
+		if (isset($raw_repeater['fields']) && is_array($raw_repeater['fields'])) {
 			$raw_fields = $raw_repeater['fields'];
 		}
 
-		echo '<div class="documentate-array-field" data-array-field="' . esc_attr( $slug ) . '" style="margin-bottom:24px;">';
-		echo '<div class="documentate-array-heading" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;">';
+		echo '<div class="documentate-array-field" data-array-field="' . esc_attr($slug) . '" style="margin-bottom:24px;">';
+		echo
+			'<div class="documentate-array-heading" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;">'
+		;
 		echo '<span class="documentate-array-title" style="font-weight:600;font-size:15px;"';
-		if ( '' !== $repeater_title_attribute ) {
-			echo ' title="' . esc_attr( $repeater_title_attribute ) . '"';
+		if ('' !== $repeater_title_attribute) {
+			echo ' title="' . esc_attr($repeater_title_attribute) . '"';
 		}
-		echo '>' . esc_html( $label ) . '</span>';
-		echo '<button type="button" class="button button-secondary documentate-array-add" data-array-target="' . esc_attr( $slug ) . '">' . esc_html__( 'Add item', 'documentate' ) . '</button>';
+		echo '>' . esc_html($label) . '</span>';
+		echo
+			'<button type="button" class="button button-secondary documentate-array-add" data-array-target="'
+				. esc_attr($slug)
+				. '">'
+				. esc_html__('Add item', 'documentate')
+				. '</button>'
+		;
 		echo '</div>';
 
-		echo '<div class="documentate-array-items" id="' . esc_attr( $field_id ) . '" data-field="' . esc_attr( $slug ) . '">';
-		foreach ( $items as $index => $values ) {
-			$values = is_array( $values ) ? $values : array();
-			$this->render_array_field_item( $slug, (string) $index, $item_schema, $values, false, $raw_fields );
+		echo '<div class="documentate-array-items" id="' . esc_attr($field_id) . '" data-field="' . esc_attr($slug) . '">';
+		foreach ($items as $index => $values) {
+			$values = is_array($values) ? $values : array();
+			$this->render_array_field_item($slug, (string) $index, $item_schema, $values, false, $raw_fields);
 		}
 		echo '</div>';
 
-		echo '<template class="documentate-array-template" data-field="' . esc_attr( $slug ) . '">';
-		$this->render_array_field_item( $slug, '__INDEX__', $item_schema, array(), true, $raw_fields );
+		echo '<template class="documentate-array-template" data-field="' . esc_attr($slug) . '">';
+		$this->render_array_field_item($slug, '__INDEX__', $item_schema, array(), true, $raw_fields);
 		echo '</template>';
 		echo '</div>';
 	}
@@ -1234,191 +1333,296 @@ class Documentate_Documents {
 	 * @param array  $raw_fields   Raw schema definitions for the repeater items.
 	 * @return void
 	 */
-	private function render_array_field_item( $slug, $index, $item_schema, $values, $is_template = false, $raw_fields = array() ) {
-		$slug        = sanitize_key( $slug );
-		$index_attr  = (string) $index;
-		$item_schema = is_array( $item_schema ) ? $item_schema : array();
-		$values      = is_array( $values ) ? $values : array();
-		$raw_fields  = is_array( $raw_fields ) ? $raw_fields : array();
+	private function render_array_field_item(
+		$slug,
+		$index,
+		$item_schema,
+		$values,
+		$is_template = false,
+		$raw_fields = array(),
+	) {
+		$slug = sanitize_key($slug);
+		$index_attr = (string) $index;
+		$item_schema = is_array($item_schema) ? $item_schema : array();
+		$values = is_array($values) ? $values : array();
+		$raw_fields = is_array($raw_fields) ? $raw_fields : array();
 
-		echo '<div class="documentate-array-item" data-index="' . esc_attr( $index_attr ) . '" draggable="true" style="border:1px solid #e5e5e5;padding:16px;margin-bottom:12px;background:#fff;">';
-		echo '<div class="documentate-array-item-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">';
-		echo '<span class="documentate-array-handle" role="button" tabindex="0" aria-label="' . esc_attr__( 'Move item', 'documentate' ) . '" style="cursor:move;user-select:none;">≡</span>';
-		echo '<button type="button" class="button-link-delete documentate-array-remove">' . esc_html__( 'Delete', 'documentate' ) . '</button>';
+		echo
+			'<div class="documentate-array-item" data-index="'
+				. esc_attr($index_attr)
+				. '" draggable="true" style="border:1px solid #e5e5e5;padding:16px;margin-bottom:12px;background:#fff;">'
+		;
+		echo
+			'<div class="documentate-array-item-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">'
+		;
+		echo
+			'<span class="documentate-array-handle" role="button" tabindex="0" aria-label="'
+				. esc_attr__('Move item', 'documentate')
+				. '" style="cursor:move;user-select:none;">≡</span>'
+		;
+		echo
+			'<button type="button" class="button-link-delete documentate-array-remove">'
+				. esc_html__('Delete', 'documentate')
+				. '</button>'
+		;
 		echo '</div>';
 
-		foreach ( $item_schema as $key => $definition ) {
-			$item_key = sanitize_key( $key );
-			if ( '' === $item_key ) {
+		foreach ($item_schema as $key => $definition) {
+			$item_key = sanitize_key($key);
+			if ('' === $item_key) {
 				continue;
 			}
 
 			$field_name = 'tpl_fields[' . $slug . '][' . $index_attr . '][' . $item_key . ']';
-			$field_id   = 'documentate-' . $slug . '-' . $item_key . '-' . $index_attr;
-			$label      = isset( $definition['label'] ) ? sanitize_text_field( $definition['label'] ) : $this->humanize_unknown_field_label( $item_key );
-			$type       = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
-			$raw_field  = isset( $raw_fields[ $item_key ] ) ? $raw_fields[ $item_key ] : array();
-			$type       = $this->resolve_field_control_type( $type, $raw_field );
-			$value      = isset( $values[ $item_key ] ) ? (string) $values[ $item_key ] : '';
-			$field_title = $this->get_field_title( $raw_field );
-			if ( '' !== $field_title ) {
+			$field_id = 'documentate-' . $slug . '-' . $item_key . '-' . $index_attr;
+			$label = isset($definition['label'])
+				? sanitize_text_field($definition['label'])
+				: $this->humanize_unknown_field_label($item_key);
+			$type = isset($definition['type']) ? sanitize_key($definition['type']) : 'textarea';
+			$raw_field = isset($raw_fields[$item_key]) ? $raw_fields[$item_key] : array();
+			$type = $this->resolve_field_control_type($type, $raw_field);
+			$value = isset($values[$item_key]) ? (string) $values[$item_key] : '';
+			$field_title = $this->get_field_title($raw_field);
+			if ('' !== $field_title) {
 				$label = $field_title;
 			}
-			$field_title_attribute = $this->get_field_pattern_message( $raw_field );
-			if ( '' === $field_title_attribute ) {
+			$field_title_attribute = $this->get_field_pattern_message($raw_field);
+			if ('' === $field_title_attribute) {
 				$field_title_attribute = $field_title;
 			}
 
 			echo '<div class="documentate-array-field-control" style="margin-bottom:12px;">';
-			echo '<label for="' . esc_attr( $field_id ) . '" style="font-weight:600;display:block;margin-bottom:4px;"';
-			if ( '' !== $field_title_attribute ) {
-				echo ' title="' . esc_attr( $field_title_attribute ) . '"';
+			echo '<label for="' . esc_attr($field_id) . '" style="font-weight:600;display:block;margin-bottom:4px;"';
+			if ('' !== $field_title_attribute) {
+				echo ' title="' . esc_attr($field_title_attribute) . '"';
 			}
-			echo '>' . esc_html( $label ) . '</label>';
+			echo '>' . esc_html($label) . '</label>';
 
-			if ( 'single' === $type ) {
-				$raw_field_type   = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
-				$raw_data_type    = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : '';
-				$input_type       = $this->map_single_input_type( $raw_field_type, $raw_data_type );
-				$normalized_value = $this->normalize_scalar_value( $value, $input_type );
-				$attributes       = $this->build_scalar_input_attributes( $raw_field, $input_type );
-				$description      = $this->get_field_description( $raw_field );
-				$validation       = $this->get_field_validation_message( $raw_field );
-				$description_id   = '' !== $description ? $field_id . '-description' : '';
-				$validation_id    = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby      = array();
-				if ( '' !== $description_id ) {
+			if ('single' === $type) {
+				$raw_field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type($raw_field);
+				$raw_data_type = isset($definition['data_type']) ? sanitize_key($definition['data_type']) : '';
+				$input_type = $this->map_single_input_type($raw_field_type, $raw_data_type);
+				$normalized_value = $this->normalize_scalar_value($value, $input_type);
+				$attributes = $this->build_scalar_input_attributes($raw_field, $input_type);
+				$description = $this->get_field_description($raw_field);
+				$validation = $this->get_field_validation_message($raw_field);
+				$description_id = '' !== $description ? $field_id . '-description' : '';
+				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+				$describedby = array();
+				if ('' !== $description_id) {
 					$describedby[] = $description_id;
 				}
-				if ( '' !== $validation_id ) {
+				if ('' !== $validation_id) {
 					$describedby[] = $validation_id;
 				}
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
+				if (!empty($describedby)) {
+					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
-				if ( '' !== $validation ) {
+				if ('' !== $validation) {
 					$attributes['data-validation-message'] = $validation;
 				}
-				$attributes['class'] = $this->build_input_class( $input_type );
-				$attribute_string    = $this->format_field_attributes( $attributes );
+				$attributes['class'] = $this->build_input_class($input_type);
+				$attribute_string = $this->format_field_attributes($attributes);
 
-				if ( 'select' === $input_type ) {
-					$options     = $this->parse_select_options( $raw_field );
-					$placeholder = $this->get_select_placeholder( $raw_field );
+				if ('select' === $input_type) {
+					$options = $this->parse_select_options($raw_field);
+					$placeholder = $this->get_select_placeholder($raw_field);
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<select id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" ' . $attribute_string . '>';
-					if ( '' !== $placeholder ) {
-						echo '<option value="">' . esc_html( $placeholder ) . '</option>';
-					} elseif ( empty( $attributes['required'] ) ) {
-						echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
+					echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" ' . $attribute_string . '>';
+					if ('' !== $placeholder) {
+						echo '<option value="">' . esc_html($placeholder) . '</option>';
+					} elseif (empty($attributes['required'])) {
+						echo '<option value="">' . esc_html__('Select an option…', 'documentate') . '</option>';
 					}
-					foreach ( $options as $option_value => $option_label ) {
-						echo '<option value="' . esc_attr( $option_value ) . '" ' . selected( $option_value, $normalized_value, false ) . '>' . esc_html( $option_label ) . '</option>';
+					foreach ($options as $option_value => $option_label) {
+						echo
+							'<option value="'
+								. esc_attr($option_value)
+								. '" '
+								. selected($option_value, $normalized_value, false)
+								. '>'
+								. esc_html($option_label)
+								. '</option>'
+						;
 					}
 					echo '</select>';
-				} elseif ( 'checkbox' === $input_type ) {
-					echo '<input type="hidden" name="' . esc_attr( $field_name ) . '" value="0" />';
+				} elseif ('checkbox' === $input_type) {
+					echo '<input type="hidden" name="' . esc_attr($field_name) . '" value="0" />';
 					echo '<label class="documentate-checkbox-wrapper">';
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<input type="checkbox" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="1" ' . checked( '1', $normalized_value, false ) . ' ' . $attribute_string . ' />';
-					echo '<span class="screen-reader-text">' . esc_html( $label ) . '</span>';
+					echo
+						'<input type="checkbox" id="'
+							. esc_attr($field_id)
+							. '" name="'
+							. esc_attr($field_name)
+							. '" value="1" '
+							. checked('1', $normalized_value, false)
+							. ' '
+							. $attribute_string
+							. ' />'
+					;
+					echo '<span class="screen-reader-text">' . esc_html($label) . '</span>';
 					echo '</label>';
 				} else {
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<input type="' . esc_attr( $input_type ) . '" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="' . esc_attr( $normalized_value ) . '" ' . $attribute_string . ' />';
+					echo
+						'<input type="'
+							. esc_attr($input_type)
+							. '" id="'
+							. esc_attr($field_id)
+							. '" name="'
+							. esc_attr($field_name)
+							. '" value="'
+							. esc_attr($normalized_value)
+							. '" '
+							. $attribute_string
+							. ' />'
+					;
 				}
 
-				if ( '' !== $description ) {
-					echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+				if ('' !== $description) {
+					echo '<p id="' . esc_attr($description_id) . '" class="description">' . esc_html($description) . '</p>';
 				}
-				if ( '' !== $validation ) {
-					echo '<p id="' . esc_attr( $validation_id ) . '" class="description documentate-field-validation" data-documentate-validation-message="true">' . esc_html( $validation ) . '</p>';
+				if ('' !== $validation) {
+					echo
+						'<p id="'
+							. esc_attr($validation_id)
+							. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+							. esc_html($validation)
+							. '</p>'
+					;
 				}
-			} elseif ( 'rich' === $type ) {
-				$description    = $this->get_field_description( $raw_field );
-				$validation     = $this->get_field_validation_message( $raw_field );
+			} elseif ('rich' === $type) {
+				$description = $this->get_field_description($raw_field);
+				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
-				$validation_id  = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby    = array();
-				if ( '' !== $description_id ) {
+				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+				$describedby = array();
+				if ('' !== $description_id) {
 					$describedby[] = $description_id;
 				}
-				if ( '' !== $validation_id ) {
+				if ('' !== $validation_id) {
 					$describedby[] = $validation_id;
 				}
-				$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
+				$attributes = $this->build_scalar_input_attributes($raw_field, 'textarea');
+				if (!empty($describedby)) {
+					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
-				if ( '' !== $validation ) {
+				if ('' !== $validation) {
 					$attributes['data-validation-message'] = $validation;
 				}
-				if ( ! isset( $attributes['rows'] ) ) {
+				if (!isset($attributes['rows'])) {
 					$attributes['rows'] = 8;
 				}
 
 				// Check if collaborative editing is enabled.
 				$is_collaborative = $this->is_collaborative_editing_enabled();
 
-				if ( $is_collaborative ) {
+				if ($is_collaborative) {
 					// Render TipTap collaborative editor container for array fields.
 					$classes = trim(
-						$this->build_input_class( 'textarea' ) . ' documentate-array-rich documentate-collab-textarea' . ( $is_template ? ' documentate-array-rich-template' : '' )
+						$this->build_input_class('textarea')
+						. ' documentate-array-rich documentate-collab-textarea'
+						. ($is_template ? ' documentate-array-rich-template' : ''),
 					);
 					$attributes['class'] = $classes;
-					$attribute_string = $this->format_field_attributes( $attributes );
+					$attribute_string = $this->format_field_attributes($attributes);
 					echo '<div class="documentate-collab-container">';
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<textarea ' . $attribute_string . ' id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '">' . esc_textarea( $value ) . '</textarea>';
+					echo
+						'<textarea '
+							. $attribute_string
+							. ' id="'
+							. esc_attr($field_id)
+							. '" name="'
+							. esc_attr($field_name)
+							. '">'
+							. esc_textarea($value)
+							. '</textarea>'
+					;
 					echo '</div>';
 				} else {
 					$classes = trim(
-						$this->build_input_class( 'textarea' ) . ' documentate-array-rich' . ( $is_template ? ' documentate-array-rich-template' : '' )
+						$this->build_input_class('textarea')
+						. ' documentate-array-rich'
+						. ($is_template ? ' documentate-array-rich-template' : ''),
 					);
 					$attributes['class'] = $classes;
 					$attributes['data-editor-initialized'] = 'false';
-					$attribute_string = $this->format_field_attributes( $attributes );
+					$attribute_string = $this->format_field_attributes($attributes);
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<textarea ' . $attribute_string . ' id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '">' . esc_textarea( $value ) . '</textarea>';
+					echo
+						'<textarea '
+							. $attribute_string
+							. ' id="'
+							. esc_attr($field_id)
+							. '" name="'
+							. esc_attr($field_name)
+							. '">'
+							. esc_textarea($value)
+							. '</textarea>'
+					;
 				}
 
-				if ( '' !== $description ) {
-					echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+				if ('' !== $description) {
+					echo '<p id="' . esc_attr($description_id) . '" class="description">' . esc_html($description) . '</p>';
 				}
-				if ( '' !== $validation ) {
-					echo '<p id="' . esc_attr( $validation_id ) . '" class="description documentate-field-validation" data-documentate-validation-message="true">' . esc_html( $validation ) . '</p>';
+				if ('' !== $validation) {
+					echo
+						'<p id="'
+							. esc_attr($validation_id)
+							. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+							. esc_html($validation)
+							. '</p>'
+					;
 				}
 			} else {
-				$attributes  = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-				$description = $this->get_field_description( $raw_field );
-				$validation  = $this->get_field_validation_message( $raw_field );
+				$attributes = $this->build_scalar_input_attributes($raw_field, 'textarea');
+				$description = $this->get_field_description($raw_field);
+				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
-				$validation_id  = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby    = array();
-				if ( '' !== $description_id ) {
+				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+				$describedby = array();
+				if ('' !== $description_id) {
 					$describedby[] = $description_id;
 				}
-				if ( '' !== $validation_id ) {
+				if ('' !== $validation_id) {
 					$describedby[] = $validation_id;
 				}
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
+				if (!empty($describedby)) {
+					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
-				if ( '' !== $validation ) {
+				if ('' !== $validation) {
 					$attributes['data-validation-message'] = $validation;
 				}
-				if ( ! isset( $attributes['rows'] ) ) {
+				if (!isset($attributes['rows'])) {
 					$attributes['rows'] = 6;
 				}
-				$attributes['class'] = $this->build_input_class( 'textarea' );
-				$attribute_string    = $this->format_field_attributes( $attributes );
+				$attributes['class'] = $this->build_input_class('textarea');
+				$attribute_string = $this->format_field_attributes($attributes);
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-				echo '<textarea ' . $attribute_string . ' id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '">' . esc_textarea( $value ) . '</textarea>';
-				if ( '' !== $description ) {
-					echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+				echo
+					'<textarea '
+						. $attribute_string
+						. ' id="'
+						. esc_attr($field_id)
+						. '" name="'
+						. esc_attr($field_name)
+						. '">'
+						. esc_textarea($value)
+						. '</textarea>'
+				;
+				if ('' !== $description) {
+					echo '<p id="' . esc_attr($description_id) . '" class="description">' . esc_html($description) . '</p>';
 				}
-				if ( '' !== $validation ) {
-					echo '<p id="' . esc_attr( $validation_id ) . '" class="description documentate-field-validation" data-documentate-validation-message="true">' . esc_html( $validation ) . '</p>';
+				if ('' !== $validation) {
+					echo
+						'<p id="'
+							. esc_attr($validation_id)
+							. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+							. esc_html($validation)
+							. '</p>'
+					;
 				}
 			}
 
@@ -1446,18 +1650,18 @@ class Documentate_Documents {
 	 * @param string $type      Field type (single, rich, or default to textarea).
 	 * @return string Sanitized value.
 	 */
-	private function sanitize_field_by_type( $raw_value, $type ) {
-		$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
+	private function sanitize_field_by_type($raw_value, $type) {
+		$raw_value = is_scalar($raw_value) ? (string) $raw_value : '';
 
-		if ( isset( self::$sanitizer_map[ $type ] ) ) {
-			return call_user_func( self::$sanitizer_map[ $type ], $raw_value );
+		if (isset(self::$sanitizer_map[$type])) {
+			return call_user_func(self::$sanitizer_map[$type], $raw_value);
 		}
 
-		if ( 'rich' === $type ) {
-			return $this->sanitize_rich_text_value( $raw_value );
+		if ('rich' === $type) {
+			return $this->sanitize_rich_text_value($raw_value);
 		}
 
-		return sanitize_textarea_field( $raw_value );
+		return sanitize_textarea_field($raw_value);
 	}
 
 	/**
@@ -1469,15 +1673,15 @@ class Documentate_Documents {
 	 * @param string $value Raw submitted value.
 	 * @return string
 	 */
-	private function sanitize_rich_text_value( $value ) {
-		$value = wp_unslash( (string) $value );
+	private function sanitize_rich_text_value($value) {
+		$value = wp_unslash((string) $value);
 
-		if ( '' === $value ) {
+		if ('' === $value) {
 			return '';
 		}
 
 		// Normalize line endings.
-		$value = str_replace( array( "\r\n", "\r" ), "\n", $value );
+		$value = str_replace(array("\r\n", "\r"), "\n", $value);
 
 		// Only strip dangerous elements (security filtering).
 		$patterns = array(
@@ -1486,7 +1690,7 @@ class Documentate_Documents {
 			'#<iframe\b[^>]*>.*?</iframe>#is',
 		);
 
-		$clean = preg_replace( $patterns, '', $value );
+		$clean = preg_replace($patterns, '', $value);
 
 		return null === $clean ? $value : $clean;
 	}
@@ -1497,15 +1701,11 @@ class Documentate_Documents {
 	 * @param string $value Raw string value.
 	 * @return string
 	 */
-	private function normalize_literal_line_endings( $value ) {
+	private function normalize_literal_line_endings($value) {
 		$value = (string) $value;
-		while ( false !== strpos( $value, '\\\\' ) ) {
-			$normalized = str_replace(
-				array( '\\r\\n', '\\n', '\\r' ),
-				array( "\n", "\n", "\n" ),
-				$value
-			);
-			if ( $normalized === $value ) {
+		while (false !== strpos($value, '\\\\')) {
+			$normalized = str_replace(array('\\r\\n', '\\n', '\\r'), array("\n", "\n", "\n"), $value);
+			if ($normalized === $value) {
 				break;
 			}
 			$value = $normalized;
@@ -1520,31 +1720,39 @@ class Documentate_Documents {
 	 * @param string $value Sanitized HTML.
 	 * @return string
 	 */
-	private function remove_linebreak_artifacts( $value ) {
+	private function remove_linebreak_artifacts($value) {
 		$value = (string) $value;
 
 		// 1) Remove paragraphs that only contain stray literal newline markers (n or rn) or whitespace.
 		// NOTE: Do NOT use case-insensitive flag to avoid matching "N" in words like "Numbered".
-		$value = preg_replace( '#<p(?:[^>]*)>(?:\s|&nbsp;)*(?:rn|n)*(?:\s|&nbsp;)*</p>#', '', $value );
-		if ( ! is_string( $value ) ) {
+		$value = preg_replace('#<p(?:[^>]*)>(?:\s|&nbsp;)*(?:rn|n)*(?:\s|&nbsp;)*</p>#', '', $value);
+		if (!is_string($value)) {
 			$value = '';
 		}
 
 		// 2) Remove standalone markers between any two tags: >  n  <  => ><
-		$value = preg_replace( '#>(?:\s|&nbsp;)*(?:rn|n)+(?:\s|&nbsp;)*<#', '><', $value );
-		if ( ! is_string( $value ) ) {
+		$value = preg_replace('#>(?:\s|&nbsp;)*(?:rn|n)+(?:\s|&nbsp;)*<#', '><', $value);
+		if (!is_string($value)) {
 			$value = '';
 		}
 
 		// 3) Remove markers right after opening block/list/table tags.
-		$value = preg_replace( '#(<(?:ul|ol|table|thead|tbody|tfoot|tr|td|th|li)[^>]*>)(?:\s|&nbsp;)*(?:rn|n)+#', '$1', $value );
-		if ( ! is_string( $value ) ) {
+		$value = preg_replace(
+			'#(<(?:ul|ol|table|thead|tbody|tfoot|tr|td|th|li)[^>]*>)(?:\s|&nbsp;)*(?:rn|n)+#',
+			'$1',
+			$value,
+		);
+		if (!is_string($value)) {
 			$value = '';
 		}
 
 		// 4) Remove markers right before closing block/list/table tags.
-		$value = preg_replace( '#(?:\s|&nbsp;)*(?:rn|n)+(?:\s|&nbsp;)*(</(?:ul|ol|table|thead|tbody|tfoot|tr|td|th|li)>)#', '$1', $value );
-		if ( ! is_string( $value ) ) {
+		$value = preg_replace(
+			'#(?:\s|&nbsp;)*(?:rn|n)+(?:\s|&nbsp;)*(</(?:ul|ol|table|thead|tbody|tfoot|tr|td|th|li)>)#',
+			'$1',
+			$value,
+		);
+		if (!is_string($value)) {
 			$value = '';
 		}
 
@@ -1558,110 +1766,112 @@ class Documentate_Documents {
 	 * @param array $definition Schema definition for the field.
 	 * @return array<int, array<string, string>>
 	 */
-	private function sanitize_array_field_items( $items, $definition ) {
-		if ( ! is_array( $items ) ) {
-				return array();
+	private function sanitize_array_field_items($items, $definition) {
+		if (!is_array($items)) {
+			return array();
 		}
 
-			$schema = $this->normalize_array_item_schema( $definition );
-			$clean  = array();
+		$schema = $this->normalize_array_item_schema($definition);
+		$clean = array();
 
-		foreach ( $items as $item ) {
-			if ( ! is_array( $item ) ) {
-					continue;
+		foreach ($items as $item) {
+			if (!is_array($item)) {
+				continue;
 			}
 
-				$filtered = array();
-			foreach ( $schema as $key => $settings ) {
-					$raw   = isset( $item[ $key ] ) ? $item[ $key ] : '';
-					$raw   = is_scalar( $raw ) ? (string) $raw : '';
-					$type  = isset( $settings['type'] ) ? $settings['type'] : 'textarea';
+			$filtered = array();
+			foreach ($schema as $key => $settings) {
+				$raw = isset($item[$key]) ? $item[$key] : '';
+				$raw = is_scalar($raw) ? (string) $raw : '';
+				$type = isset($settings['type']) ? $settings['type'] : 'textarea';
 
-					$filtered[ $key ] = $this->sanitize_field_by_type( $raw, $type );
+				$filtered[$key] = $this->sanitize_field_by_type($raw, $type);
 			}
 
-				$has_content = false;
-			foreach ( $filtered as $key => $value ) {
-					$type = isset( $schema[ $key ]['type'] ) ? $schema[ $key ]['type'] : 'textarea';
-				if ( 'rich' === $type ) {
-					if ( '' !== trim( wp_strip_all_tags( (string) $value ) ) ) {
+			$has_content = false;
+			foreach ($filtered as $key => $value) {
+				$type = isset($schema[$key]['type']) ? $schema[$key]['type'] : 'textarea';
+				if ('rich' === $type) {
+					if ('' !== trim(wp_strip_all_tags((string) $value))) {
 						$has_content = true;
 						break;
 					}
-				} elseif ( '' !== trim( (string) $value ) ) {
-							$has_content = true;
-							break;
+				} elseif ('' !== trim((string) $value)) {
+					$has_content = true;
+					break;
 				}
 			}
 
-			if ( $has_content ) {
-					$clean[] = $filtered;
+			if ($has_content) {
+				$clean[] = $filtered;
 			}
 		}
 
-		if ( empty( $clean ) ) {
-				return array();
+		if (empty($clean)) {
+			return array();
 		}
 
-			$clean = array_slice( $clean, 0, self::ARRAY_FIELD_MAX_ITEMS );
-			return array_values( $clean );
+		$clean = array_slice($clean, 0, self::ARRAY_FIELD_MAX_ITEMS);
+		return array_values($clean);
 	}
 
-		/**
-		 * Decode stored structured field data into array items.
-		 *
-		 * @param array $entry Structured entry with type/value keys.
-		 * @return array<int, array<string, string>>
-		 */
-	private function get_array_field_items_from_structured( $entry ) {
-		if ( ! is_array( $entry ) ) {
-				return array();
+	/**
+	 * Decode stored structured field data into array items.
+	 *
+	 * @param array $entry Structured entry with type/value keys.
+	 * @return array<int, array<string, string>>
+	 */
+	private function get_array_field_items_from_structured($entry) {
+		if (!is_array($entry)) {
+			return array();
 		}
 
-			$value = isset( $entry['value'] ) ? (string) $entry['value'] : '';
-			return self::decode_array_field_value( $value );
+		$value = isset($entry['value']) ? (string) $entry['value'] : '';
+		return self::decode_array_field_value($value);
 	}
 
-		/**
-		 * Decode a structured JSON value into array items.
-		 *
-		 * @param string $value JSON encoded string.
-		 * @return array<int, array<string, string>>
-		 */
-	public static function decode_array_field_value( $value ) {
+	/**
+	 * Decode a structured JSON value into array items.
+	 *
+	 * @param string $value JSON encoded string.
+	 * @return array<int, array<string, string>>
+	 */
+	public static function decode_array_field_value($value) {
 		$value = (string) $value;
-		if ( '' === trim( $value ) ) {
+		if ('' === trim($value)) {
 			return array();
 		}
 
 		// WordPress may double-encode HTML entities when saving to meta.
 		// Decode them before attempting to parse as JSON.
-		if ( false !== strpos( $value, '&' ) ) {
-			$value = wp_specialchars_decode( $value, ENT_QUOTES );
+		if (false !== strpos($value, '&')) {
+			$value = wp_specialchars_decode($value, ENT_QUOTES);
 		}
 
 		// The value should be valid JSON encoded with JSON_HEX flags.
 		// JSON_HEX_QUOT/TAG/AMP/APOS encode special characters as \uXXXX sequences.
 		// These are standard JSON and will be decoded correctly by json_decode.
-		$decoded = json_decode( $value, true );
+		$decoded = json_decode($value, true);
 
-		if ( ! is_array( $decoded ) ) {
+		if (!is_array($decoded)) {
 			return array();
 		}
 
 		$items = array();
-		foreach ( $decoded as $item ) {
-			if ( ! is_array( $item ) ) {
+		foreach ($decoded as $item) {
+			if (!is_array($item)) {
 				continue;
 			}
 			$normalized = array();
-			foreach ( $item as $key => $val ) {
-				$normalized[ sanitize_key( $key ) ] = is_scalar( $val ) ? (string) self::fix_unescaped_unicode_sequences( (string) $val ) : '';
+			foreach ($item as $key => $val) {
+				$normalized[sanitize_key($key)] = is_scalar($val)
+					? (string) self::fix_unescaped_unicode_sequences((string) $val)
+					: '';
 			}
 			$items[] = $normalized;
 		}
 
-		return array_slice( $items, 0, self::ARRAY_FIELD_MAX_ITEMS );
+		return array_slice($items, 0, self::ARRAY_FIELD_MAX_ITEMS);
 	}
 
 	/**
@@ -1669,34 +1879,43 @@ class Documentate_Documents {
 	 *
 	 * @param int $post_id Post ID.
 	 */
-	public function save_meta_boxes( $post_id ) {
-		if ( ! isset( $_POST['documentate_sections_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['documentate_sections_nonce'] ) ), 'documentate_sections_nonce' ) ) {
+	public function save_meta_boxes($post_id) {
+		if (
+			!isset($_POST['documentate_sections_nonce'])
+			|| !wp_verify_nonce(
+				sanitize_text_field(wp_unslash($_POST['documentate_sections_nonce'])),
+				'documentate_sections_nonce',
+			)
+		) {
 			return;
 		}
 
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
 			return;
 		}
 
-		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+		if (!current_user_can('edit_post', $post_id)) {
 			return;
 		}
 
 		// Handle type selection (lock after set).
-		if ( isset( $_POST['documentate_type_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['documentate_type_nonce'] ) ), 'documentate_type_nonce' ) ) {
-			$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-			$current  = ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) ? intval( $assigned[0] ) : 0;
-			if ( $current > 0 ) {
-				wp_set_post_terms( $post_id, array( $current ), 'documentate_doc_type', false );
-			} elseif ( isset( $_POST['documentate_doc_type'] ) ) {
-				$posted = intval( wp_unslash( $_POST['documentate_doc_type'] ) );
-				if ( $posted > 0 ) {
-					wp_set_post_terms( $post_id, array( $posted ), 'documentate_doc_type', false );
+		if (
+			isset($_POST['documentate_type_nonce'])
+			&& wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['documentate_type_nonce'])), 'documentate_type_nonce')
+		) {
+			$assigned = wp_get_post_terms($post_id, 'documentate_doc_type', array('fields' => 'ids'));
+			$current = !is_wp_error($assigned) && !empty($assigned) ? intval($assigned[0]) : 0;
+			if ($current > 0) {
+				wp_set_post_terms($post_id, array($current), 'documentate_doc_type', false);
+			} elseif (isset($_POST['documentate_doc_type'])) {
+				$posted = intval(wp_unslash($_POST['documentate_doc_type']));
+				if ($posted > 0) {
+					wp_set_post_terms($post_id, array($posted), 'documentate_doc_type', false);
 				}
 			}
 		}
 
-		$this->save_dynamic_fields_meta( $post_id );
+		$this->save_dynamic_fields_meta($post_id);
 
 		// post_content is composed in wp_insert_post_data filter; avoid recursion here.
 	}
@@ -1707,235 +1926,241 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 * @return void
 	 */
-	private function save_dynamic_fields_meta( $post_id ) {
-		$schema = $this->get_dynamic_fields_schema_for_post( $post_id );
+	private function save_dynamic_fields_meta($post_id) {
+		$schema = $this->get_dynamic_fields_schema_for_post($post_id);
 
 		$post_values = array();
-		if ( isset( $_POST ) && is_array( $_POST ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$post_values = wp_unslash( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if (isset($_POST) && is_array($_POST)) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$post_values = wp_unslash($_POST); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		}
 
-		$known_meta_keys     = array();
+		$known_meta_keys = array();
 		$posted_array_fields = array();
-		if ( isset( $post_values['tpl_fields'] ) && is_array( $post_values['tpl_fields'] ) ) {
+		if (isset($post_values['tpl_fields']) && is_array($post_values['tpl_fields'])) {
 			$posted_array_fields = $post_values['tpl_fields'];
 		}
 
 		// Persist fields defined by the current schema (when available).
-		foreach ( (array) $schema as $definition ) {
-			if ( empty( $definition['slug'] ) ) {
+		foreach ((array) $schema as $definition) {
+			if (empty($definition['slug'])) {
 				continue;
 			}
 
-			$slug = sanitize_key( $definition['slug'] );
-			if ( '' === $slug ) {
+			$slug = sanitize_key($definition['slug']);
+			if ('' === $slug) {
 				continue;
 			}
 
-			$type     = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
+			$type = isset($definition['type']) ? sanitize_key($definition['type']) : 'textarea';
 			$meta_key = 'documentate_field_' . $slug;
-			$known_meta_keys[ $meta_key ] = true;
+			$known_meta_keys[$meta_key] = true;
 
-			if ( 'array' === $type ) {
-				if ( isset( $posted_array_fields[ $slug ] ) ) {
-					$items = $this->sanitize_array_field_items( $posted_array_fields[ $slug ], $definition );
-					if ( empty( $items ) ) {
-						delete_post_meta( $post_id, $meta_key );
+			if ('array' === $type) {
+				if (isset($posted_array_fields[$slug])) {
+					$items = $this->sanitize_array_field_items($posted_array_fields[$slug], $definition);
+					if (empty($items)) {
+						delete_post_meta($post_id, $meta_key);
 					} else {
 						// Use JSON_HEX flags to encode quotes and other special chars as \uXXXX sequences.
 						// This avoids issues with WordPress's automatic slashing/unslashing of quotes.
 						// Do NOT use JSON_UNESCAPED_UNICODE so that accented characters are also encoded
 						// as \uXXXX, which allows fix_unescaped_unicode_sequences to handle them consistently.
 						$json_flags = JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS;
-						$json_value = wp_json_encode( $items, $json_flags );
-						update_post_meta( $post_id, $meta_key, $json_value );
+						$json_value = wp_json_encode($items, $json_flags);
+						update_post_meta($post_id, $meta_key, $json_value);
 					}
 				}
 				continue;
 			}
 
-			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+			if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
 				$type = 'textarea';
 			}
 
-			if ( ! array_key_exists( $meta_key, $post_values ) ) {
+			if (!array_key_exists($meta_key, $post_values)) {
 				continue;
 			}
 
-			$raw_value = $post_values[ $meta_key ];
-			$value     = $this->sanitize_field_by_type( $raw_value, $type );
+			$raw_value = $post_values[$meta_key];
+			$value = $this->sanitize_field_by_type($raw_value, $type);
 
-			if ( '' === $value ) {
-				delete_post_meta( $post_id, $meta_key );
+			if ('' === $value) {
+				delete_post_meta($post_id, $meta_key);
 			} else {
-				update_post_meta( $post_id, $meta_key, $value );
+				update_post_meta($post_id, $meta_key, $value);
 			}
 		}
 
 		// Persist unknown dynamic fields posted that are not part of the schema
 		// (or when no schema is currently available for the post's type).
-		foreach ( $post_values as $key => $value ) {
-			if ( ! is_string( $key ) ||  !str_starts_with( $key, 'documentate_field_' ) ) {
+		foreach ($post_values as $key => $value) {
+			if (!is_string($key) || !str_starts_with($key, 'documentate_field_')) {
 				continue;
 			}
-			if ( isset( $known_meta_keys[ $key ] ) ) {
+			if (isset($known_meta_keys[$key])) {
 				continue;
 			}
-			if ( is_array( $value ) ) {
+			if (is_array($value)) {
 				continue;
 			}
 
-			$raw_value = wp_unslash( $value );
-			$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
-			$sanitized = $this->sanitize_rich_text_value( $raw_value );
+			$raw_value = wp_unslash($value);
+			$raw_value = is_scalar($raw_value) ? (string) $raw_value : '';
+			$sanitized = $this->sanitize_rich_text_value($raw_value);
 
-			if ( '' === $sanitized ) {
-				delete_post_meta( $post_id, $key );
+			if ('' === $sanitized) {
+				delete_post_meta($post_id, $key);
 			} else {
-				update_post_meta( $post_id, $key, $sanitized );
+				update_post_meta($post_id, $key, $sanitized);
 			}
 		}
 	}
 
-		/**
-		 * Filter post data before save to compose a Gutenberg-friendly post_content.
-		 *
-		 * @param array $data    Sanitized post data to be inserted.
-		 * @param array $postarr Raw post data.
-		 * @return array
-		 */
-	public function filter_post_data_compose_content( $data, $postarr ) {
-		if ( empty( $data['post_type'] ) || 'documentate_document' !== $data['post_type'] ) {
+	/**
+	 * Filter post data before save to compose a Gutenberg-friendly post_content.
+	 *
+	 * @param array $data    Sanitized post data to be inserted.
+	 * @param array $postarr Raw post data.
+	 * @return array
+	 */
+	public function filter_post_data_compose_content($data, $postarr) {
+		if (empty($data['post_type']) || 'documentate_document' !== $data['post_type']) {
 			return $data;
 		}
 
-		$post_id = isset( $postarr['ID'] ) ? intval( $postarr['ID'] ) : 0;
+		$post_id = isset($postarr['ID']) ? intval($postarr['ID']) : 0;
 
 		// Clear password - documents don't use password protection.
 		$data['post_password'] = '';
 
 		// Preserve post dates for existing posts.
-		$data = $this->preserve_document_dates( $data, $post_id );
+		$data = $this->preserve_document_dates($data, $post_id);
 
-		$term_id = $this->get_term_id_from_request_or_post( $post_id );
+		$term_id = $this->get_term_id_from_request_or_post($post_id);
 
-		$schema         = array();
+		$schema = array();
 		$dynamic_schema = array();
-		if ( $term_id > 0 ) {
-			$dynamic_schema = self::get_term_schema( $term_id );
-			$schema         = $dynamic_schema;
+		if ($term_id > 0) {
+			$dynamic_schema = self::get_term_schema($term_id);
+			$schema = $dynamic_schema;
 		}
 
-		$existing_structured = $this->collect_existing_structured_content( $postarr, $post_id );
+		$existing_structured = $this->collect_existing_structured_content($postarr, $post_id);
 
-		$structured_fields   = array();
-		$known_slugs         = array();
+		$structured_fields = array();
+		$known_slugs = array();
 		$posted_array_fields = array();
-		if ( isset( $_POST['tpl_fields'] ) && is_array( $_POST['tpl_fields'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$posted_array_fields = wp_unslash( $_POST['tpl_fields'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if (isset($_POST['tpl_fields']) && is_array($_POST['tpl_fields'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$posted_array_fields = wp_unslash($_POST['tpl_fields']); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		}
 
-		foreach ( $schema as $row ) {
-			if ( empty( $row['slug'] ) ) {
-						continue;
-			}
-					$slug = sanitize_key( $row['slug'] );
-			if ( '' === $slug ) {
+		foreach ($schema as $row) {
+			if (empty($row['slug'])) {
 				continue;
 			}
-					$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
-				$known_slugs[ $slug ] = true;
+			$slug = sanitize_key($row['slug']);
+			if ('' === $slug) {
+				continue;
+			}
+			$type = isset($row['type']) ? sanitize_key($row['type']) : 'textarea';
+			$known_slugs[$slug] = true;
 
-			if ( 'array' === $type ) {
-							$items = array();
-				if ( isset( $posted_array_fields[ $slug ] ) && is_array( $posted_array_fields[ $slug ] ) ) {
-						$items = $this->sanitize_array_field_items( $posted_array_fields[ $slug ], $row );
-				} elseif ( isset( $existing_structured[ $slug ] ) && isset( $existing_structured[ $slug ]['type'] ) && 'array' === $existing_structured[ $slug ]['type'] ) {
-						$items = $this->get_array_field_items_from_structured( $existing_structured[ $slug ] );
+			if ('array' === $type) {
+				$items = array();
+				if (isset($posted_array_fields[$slug]) && is_array($posted_array_fields[$slug])) {
+					$items = $this->sanitize_array_field_items($posted_array_fields[$slug], $row);
+				} elseif (
+					isset($existing_structured[$slug])
+					&& isset($existing_structured[$slug]['type'])
+					&& 'array' === $existing_structured[$slug]['type']
+				) {
+					$items = $this->get_array_field_items_from_structured($existing_structured[$slug]);
 				}
 
-							// Use the same JSON_HEX flags as in save_dynamic_fields_meta for consistency.
-						// wp_slash() preserves backslashes (like \n and \uXXXX) through WordPress's wp_unslash() in wp_insert_post().
-						$json_value                 = ! empty( $items ) ? wp_json_encode( $items, JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS ) : '[]';
-						$structured_fields[ $slug ] = array(
-							'type'  => 'array',
-							'value' => wp_slash( $json_value ),
-						);
-							continue;
+				// Use the same JSON_HEX flags as in save_dynamic_fields_meta for consistency.
+				// wp_slash() preserves backslashes (like \n and \uXXXX) through WordPress's wp_unslash() in wp_insert_post().
+				$json_value = !empty($items)
+					? wp_json_encode($items, JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS)
+					: '[]';
+				$structured_fields[$slug] = array(
+					'type' => 'array',
+					'value' => wp_slash($json_value),
+				);
+				continue;
 			}
 
-			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+			if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
 				$type = 'textarea';
 			}
 			$meta_key = 'documentate_field_' . $slug;
 
-			$structured_fields[ $slug ] = $this->process_posted_field_value( $slug, $type, $meta_key, $existing_structured );
+			$structured_fields[$slug] = $this->process_posted_field_value($slug, $type, $meta_key, $existing_structured);
 		}
 
 		$unknown_fields = array();
 
-		if ( ! empty( $existing_structured ) ) {
-			foreach ( $existing_structured as $slug => $info ) {
-				$slug = sanitize_key( $slug );
-				if ( '' === $slug || isset( $known_slugs[ $slug ] ) || isset( $unknown_fields[ $slug ] ) ) {
+		if (!empty($existing_structured)) {
+			foreach ($existing_structured as $slug => $info) {
+				$slug = sanitize_key($slug);
+				if ('' === $slug || isset($known_slugs[$slug]) || isset($unknown_fields[$slug])) {
 					continue;
 				}
 				$meta_key = 'documentate_field_' . $slug;
-				if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-					$val = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-					$val = is_scalar( $val ) ? (string) $val : '';
-					$unknown_fields[ $slug ] = array(
-						'type'  => 'rich',
-						'value' => $this->sanitize_rich_text_value( $val ),
+				if (isset($_POST[$meta_key])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+					$val = wp_unslash($_POST[$meta_key]); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+					$val = is_scalar($val) ? (string) $val : '';
+					$unknown_fields[$slug] = array(
+						'type' => 'rich',
+						'value' => $this->sanitize_rich_text_value($val),
 					);
 				} else {
-					$type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
-					if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+					$type = isset($info['type']) ? sanitize_key($info['type']) : 'rich';
+					if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
 						$type = 'rich';
 					}
-					$unknown_fields[ $slug ] = array(
-						'type'  => $type,
+					$unknown_fields[$slug] = array(
+						'type' => $type,
 						'value' => (string) $info['value'],
 					);
 				}
 			}
 		}
 
-		foreach ( $_POST as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			if ( ! is_string( $key ) ||  !str_starts_with( $key, 'documentate_field_' ) ) {
+		foreach ($_POST as $key => $value) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if (!is_string($key) || !str_starts_with($key, 'documentate_field_')) {
 				continue;
 			}
-			$slug = sanitize_key( substr( $key, strlen( 'documentate_field_' ) ) );
-			if ( '' === $slug || isset( $structured_fields[ $slug ] ) || isset( $unknown_fields[ $slug ] ) ) {
+			$slug = sanitize_key(substr($key, strlen('documentate_field_')));
+			if ('' === $slug || isset($structured_fields[$slug]) || isset($unknown_fields[$slug])) {
 				continue;
 			}
-			if ( is_array( $value ) ) {
+			if (is_array($value)) {
 				continue;
 			}
-			$raw_value = wp_unslash( $value ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
-			$unknown_fields[ $slug ] = array(
-				'type'  => 'rich',
-				'value' => $this->sanitize_rich_text_value( $raw_value ),
+			$raw_value = wp_unslash($value); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$raw_value = is_scalar($raw_value) ? (string) $raw_value : '';
+			$unknown_fields[$slug] = array(
+				'type' => 'rich',
+				'value' => $this->sanitize_rich_text_value($raw_value),
 			);
 		}
 
-		if ( empty( $structured_fields ) && empty( $unknown_fields ) ) {
+		if (empty($structured_fields) && empty($unknown_fields)) {
 			$data['post_content'] = '';
 			return $data;
 		}
 
 		$fragments = array();
-		foreach ( $structured_fields as $slug => $info ) {
-			$fragments[] = $this->build_structured_field_fragment( $slug, $info['type'], $info['value'] );
+		foreach ($structured_fields as $slug => $info) {
+			$fragments[] = $this->build_structured_field_fragment($slug, $info['type'], $info['value']);
 		}
-		if ( ! empty( $unknown_fields ) ) {
-			foreach ( $unknown_fields as $slug => $info ) {
-				$fragments[] = $this->build_structured_field_fragment( $slug, $info['type'], $info['value'] );
+		if (!empty($unknown_fields)) {
+			foreach ($unknown_fields as $slug => $info) {
+				$fragments[] = $this->build_structured_field_fragment($slug, $info['type'], $info['value']);
 			}
 		}
 
-		$data['post_content'] = implode( "\n\n", $fragments );
+		$data['post_content'] = implode("\n\n", $fragments);
 		return $data;
 	}
 
@@ -1946,15 +2171,15 @@ class Documentate_Documents {
 	 * @param int                 $post_id   Post ID.
 	 * @return array<string,mixed>
 	 */
-	private function preserve_document_dates( $data, $post_id ) {
-		if ( $post_id <= 0 ) {
+	private function preserve_document_dates($data, $post_id) {
+		if ($post_id <= 0) {
 			return $data;
 		}
 
-		$current_post = get_post( $post_id );
-		if ( $current_post && 'documentate_document' === $current_post->post_type ) {
-			if ( empty( $data['post_date'] ) || '0000-00-00 00:00:00' === $data['post_date'] ) {
-				$data['post_date']     = $current_post->post_date;
+		$current_post = get_post($post_id);
+		if ($current_post && 'documentate_document' === $current_post->post_type) {
+			if (empty($data['post_date']) || '0000-00-00 00:00:00' === $data['post_date']) {
+				$data['post_date'] = $current_post->post_date;
 				$data['post_date_gmt'] = $current_post->post_date_gmt;
 			}
 		}
@@ -1968,15 +2193,15 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 * @return int
 	 */
-	private function get_term_id_from_request_or_post( $post_id ) {
+	private function get_term_id_from_request_or_post($post_id) {
 		$term_id = 0;
-		if ( isset( $_POST['documentate_doc_type'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			$term_id = max( 0, intval( wp_unslash( $_POST['documentate_doc_type'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if (isset($_POST['documentate_doc_type'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$term_id = max(0, intval(wp_unslash($_POST['documentate_doc_type']))); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
-		if ( $term_id <= 0 && $post_id > 0 ) {
-			$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-			if ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) {
-				$term_id = intval( $assigned[0] );
+		if ($term_id <= 0 && $post_id > 0) {
+			$assigned = wp_get_post_terms($post_id, 'documentate_doc_type', array('fields' => 'ids'));
+			if (!is_wp_error($assigned) && !empty($assigned)) {
+				$term_id = intval($assigned[0]);
 			}
 		}
 		return $term_id;
@@ -1989,18 +2214,18 @@ class Documentate_Documents {
 	 * @param int                 $post_id  Post ID.
 	 * @return array<string,array{value:string,type:string}>
 	 */
-	private function collect_existing_structured_content( $postarr, $post_id ) {
+	private function collect_existing_structured_content($postarr, $post_id) {
 		$existing_structured = array();
-		if ( isset( $postarr['post_content'] ) && '' !== $postarr['post_content'] ) {
-			$existing_structured = self::parse_structured_content( (string) $postarr['post_content'] );
+		if (isset($postarr['post_content']) && '' !== $postarr['post_content']) {
+			$existing_structured = self::parse_structured_content((string) $postarr['post_content']);
 		}
-		if ( empty( $existing_structured ) && $post_id > 0 ) {
-			$current_content = get_post_field( 'post_content', $post_id, 'edit' );
-			if ( is_string( $current_content ) && '' !== $current_content ) {
-				$existing_structured = self::parse_structured_content( $current_content );
+		if (empty($existing_structured) && $post_id > 0) {
+			$current_content = get_post_field('post_content', $post_id, 'edit');
+			if (is_string($current_content) && '' !== $current_content) {
+				$existing_structured = self::parse_structured_content($current_content);
 			}
-			if ( empty( $existing_structured ) ) {
-				$existing_structured = $this->get_structured_field_values( $post_id );
+			if (empty($existing_structured)) {
+				$existing_structured = $this->get_structured_field_values($post_id);
 			}
 		}
 		return $existing_structured;
@@ -2015,30 +2240,30 @@ class Documentate_Documents {
 	 * @param array<string,array> $existing Existing structured fields.
 	 * @return array{type:string,value:string}
 	 */
-	private function process_posted_field_value( $slug, $type, $meta_key, $existing ) {
+	private function process_posted_field_value($slug, $type, $meta_key, $existing) {
 		$value = '';
 
-		if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$raw_input = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$raw_input = is_scalar( $raw_input ) ? (string) $raw_input : '';
+		if (isset($_POST[$meta_key])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$raw_input = wp_unslash($_POST[$meta_key]); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$raw_input = is_scalar($raw_input) ? (string) $raw_input : '';
 
-			if ( 'rich' !== $type && Documents_Meta_Handler::value_contains_block_html( $raw_input ) ) {
+			if ('rich' !== $type && Documents_Meta_Handler::value_contains_block_html($raw_input)) {
 				$type = 'rich';
 			}
 
-			if ( 'single' === $type ) {
-				$value = sanitize_text_field( $raw_input );
-			} elseif ( 'rich' === $type ) {
-				$value = $this->sanitize_rich_text_value( $raw_input );
+			if ('single' === $type) {
+				$value = sanitize_text_field($raw_input);
+			} elseif ('rich' === $type) {
+				$value = $this->sanitize_rich_text_value($raw_input);
 			} else {
-				$value = sanitize_textarea_field( $raw_input );
+				$value = sanitize_textarea_field($raw_input);
 			}
-		} elseif ( isset( $existing[ $slug ] ) ) {
-			$value = (string) $existing[ $slug ]['value'];
+		} elseif (isset($existing[$slug])) {
+			$value = (string) $existing[$slug]['value'];
 		}
 
 		return array(
-			'type'  => $type,
+			'type' => $type,
 			'value' => (string) $value,
 		);
 	}
@@ -2051,68 +2276,68 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 * @return array<string, array{value:string,type:string}>
 	 */
-	private function get_structured_field_values( $post_id ) {
-		$post = get_post( $post_id );
-		if ( ! $post ) {
+	private function get_structured_field_values($post_id) {
+		$post = get_post($post_id);
+		if (!$post) {
 			return array();
 		}
 
-		$fields = self::parse_structured_content( $post->post_content );
-		if ( ! empty( $fields ) ) {
+		$fields = self::parse_structured_content($post->post_content);
+		if (!empty($fields)) {
 			return $fields;
 		}
 
 		$fallback = array();
-			   $schema   = $this->get_dynamic_fields_schema_for_post( $post_id );
-		if ( ! empty( $schema ) ) {
-			foreach ( $schema as $row ) {
-				if ( empty( $row['slug'] ) ) {
+		$schema = $this->get_dynamic_fields_schema_for_post($post_id);
+		if (!empty($schema)) {
+			foreach ($schema as $row) {
+				if (empty($row['slug'])) {
 					continue;
 				}
-				$slug = sanitize_key( $row['slug'] );
-				if ( '' === $slug ) {
+				$slug = sanitize_key($row['slug']);
+				if ('' === $slug) {
 					continue;
 				}
 				$meta_key = 'documentate_field_' . $slug;
-				$value    = get_post_meta( $post_id, $meta_key, true );
-				if ( '' === $value ) {
+				$value = get_post_meta($post_id, $meta_key, true);
+				if ('' === $value) {
 					continue;
 				}
-						$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
-				if ( 'array' === $type ) {
-						$encoded = '';
-						$stored  = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
-					if ( is_string( $stored ) && '' !== $stored ) {
-								$encoded = (string) $stored;
+				$type = isset($row['type']) ? sanitize_key($row['type']) : 'textarea';
+				if ('array' === $type) {
+					$encoded = '';
+					$stored = get_post_meta($post_id, 'documentate_field_' . $slug, true);
+					if (is_string($stored) && '' !== $stored) {
+						$encoded = (string) $stored;
 					} else {
-									$legacy = get_post_meta( $post_id, 'documentate_' . $slug, true );
-						if ( empty( $legacy ) && 'annexes' === $slug ) {
-								$legacy = get_post_meta( $post_id, 'documentate_annexes', true );
+						$legacy = get_post_meta($post_id, 'documentate_' . $slug, true);
+						if (empty($legacy) && 'annexes' === $slug) {
+							$legacy = get_post_meta($post_id, 'documentate_annexes', true);
 						}
-						if ( is_array( $legacy ) && ! empty( $legacy ) ) {
-								$encoded = wp_json_encode( $legacy, JSON_UNESCAPED_UNICODE );
+						if (is_array($legacy) && !empty($legacy)) {
+							$encoded = wp_json_encode($legacy, JSON_UNESCAPED_UNICODE);
 						}
 					}
 
-					if ( '' !== $encoded ) {
-						$fallback[ $slug ] = array(
+					if ('' !== $encoded) {
+						$fallback[$slug] = array(
 							'value' => $encoded,
-							'type'  => 'array',
+							'type' => 'array',
 						);
 					}
-									continue;
+					continue;
 				}
-				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-						$type = 'textarea';
+				if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
+					$type = 'textarea';
 				}
-				$fallback[ $slug ] = array(
+				$fallback[$slug] = array(
 					'value' => (string) $value,
-					'type'  => $type,
+					'type' => $type,
 				);
 			}
 		}
 
-			   return $fallback;
+		return $fallback;
 	}
 
 	/**
@@ -2123,8 +2348,8 @@ class Documentate_Documents {
 	 * @param string $content Raw post content.
 	 * @return array<string, array{value:string,type:string}>
 	 */
-	public static function parse_structured_content( $content ) {
-		return Documents_Meta_Handler::parse_structured_content( $content );
+	public static function parse_structured_content($content) {
+		return Documents_Meta_Handler::parse_structured_content($content);
 	}
 
 	/**
@@ -2133,13 +2358,13 @@ class Documentate_Documents {
 	 * @param string $attribute_string Raw attribute string.
 	 * @return array<string,string>
 	 */
-	private static function parse_structured_field_attributes( $attribute_string ) {
+	private static function parse_structured_field_attributes($attribute_string) {
 		$result = array();
 		$pattern = '/([a-zA-Z0-9_-]+)="([^"]*)"/';
-		if ( preg_match_all( $pattern, (string) $attribute_string, $matches, PREG_SET_ORDER ) ) {
-			foreach ( $matches as $match ) {
-				$key = strtolower( $match[1] );
-				$result[ $key ] = $match[2];
+		if (preg_match_all($pattern, (string) $attribute_string, $matches, PREG_SET_ORDER)) {
+			foreach ($matches as $match) {
+				$key = strtolower($match[1]);
+				$result[$key] = $match[2];
 			}
 		}
 		return $result;
@@ -2155,8 +2380,8 @@ class Documentate_Documents {
 	 * @param string $value Field value.
 	 * @return string
 	 */
-	private function build_structured_field_fragment( $slug, $type, $value ) {
-		return Documents_Meta_Handler::build_structured_field_fragment( $slug, $type, $value );
+	private function build_structured_field_fragment($slug, $type, $value) {
+		return Documents_Meta_Handler::build_structured_field_fragment($slug, $type, $value);
 	}
 
 	/**
@@ -2167,8 +2392,8 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 * @return array[] Array of field definitions with keys: slug, label, type.
 	 */
-	private function get_dynamic_fields_schema_for_post( $post_id ) {
-		return Documents_Meta_Handler::get_dynamic_fields_schema_for_post( $post_id );
+	private function get_dynamic_fields_schema_for_post($post_id) {
+		return Documents_Meta_Handler::get_dynamic_fields_schema_for_post($post_id);
 	}
 
 	/**
@@ -2179,8 +2404,8 @@ class Documentate_Documents {
 	 * @param int $term_id Term ID.
 	 * @return array[]
 	 */
-	public static function get_term_schema( $term_id ) {
-		return Documents_Meta_Handler::get_term_schema( $term_id );
+	public static function get_term_schema($term_id) {
+		return Documents_Meta_Handler::get_term_schema($term_id);
 	}
 
 	/**
@@ -2190,44 +2415,44 @@ class Documentate_Documents {
 	 * @param array $known_meta_keys Dynamic meta keys defined by the current schema.
 	 * @return array[] Array keyed by meta key with value/source data.
 	 */
-	private function collect_unknown_dynamic_fields( $post_id, $known_meta_keys ) {
+	private function collect_unknown_dynamic_fields($post_id, $known_meta_keys) {
 		$known_lookup = array();
-		if ( ! empty( $known_meta_keys ) ) {
-			foreach ( $known_meta_keys as $meta_key ) {
-				$known_lookup[ $meta_key ] = true;
+		if (!empty($known_meta_keys)) {
+			foreach ($known_meta_keys as $meta_key) {
+				$known_lookup[$meta_key] = true;
 			}
 		}
 
 		$unknown = array();
-		$prefix  = 'documentate_field_';
+		$prefix = 'documentate_field_';
 
-		foreach ( $_POST as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			if ( ! is_string( $key ) ||  !str_starts_with( $key, $prefix ) ) {
+		foreach ($_POST as $key => $value) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if (!is_string($key) || !str_starts_with($key, $prefix)) {
 				continue;
 			}
-			if ( isset( $known_lookup[ $key ] ) ) {
+			if (isset($known_lookup[$key])) {
 				continue;
 			}
-			if ( is_array( $value ) ) {
+			if (is_array($value)) {
 				continue;
 			}
-			$unknown[ $key ] = array(
-				'value'  => wp_unslash( $value ), // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$unknown[$key] = array(
+				'value' => wp_unslash($value), // phpcs:ignore WordPress.Security.NonceVerification.Missing
 				'source' => 'post',
 			);
 		}
 
-		if ( $post_id > 0 ) {
-			$stored = $this->get_structured_field_values( $post_id );
-			if ( ! empty( $stored ) ) {
-				foreach ( $stored as $slug => $info ) {
-					$meta_key = $prefix . sanitize_key( $slug );
-					if ( isset( $known_lookup[ $meta_key ] ) || isset( $unknown[ $meta_key ] ) ) {
+		if ($post_id > 0) {
+			$stored = $this->get_structured_field_values($post_id);
+			if (!empty($stored)) {
+				foreach ($stored as $slug => $info) {
+					$meta_key = $prefix . sanitize_key($slug);
+					if (isset($known_lookup[$meta_key]) || isset($unknown[$meta_key])) {
 						continue;
 					}
-					$value = isset( $info['value'] ) ? (string) $info['value'] : '';
-					$unknown[ $meta_key ] = array(
-						'value'  => $value,
+					$value = isset($info['value']) ? (string) $info['value'] : '';
+					$unknown[$meta_key] = array(
+						'value' => $value,
 						'source' => 'content',
 					);
 				}
@@ -2243,48 +2468,63 @@ class Documentate_Documents {
 	 * @param array $unknown_fields Unknown field definitions.
 	 * @return void
 	 */
-	private function render_unknown_dynamic_fields_ui( $unknown_fields ) {
-		if ( empty( $unknown_fields ) ) {
+	private function render_unknown_dynamic_fields_ui($unknown_fields) {
+		if (empty($unknown_fields)) {
 			return;
 		}
 
 		echo '<div class="documentate-unknown-dynamic" style="margin-top:24px;">';
-		echo '<div class="notice notice-warning inline" style="margin:0 0 12px;">' . esc_html__( 'The document contains additional fields that do not belong to the selected type. Review their content before saving.', 'documentate' ) . '</div>';
-
-		foreach ( $unknown_fields as $meta_key => $data ) {
-			$label = $this->humanize_unknown_field_label( $meta_key );
-			$value = '';
-			if ( isset( $data['value'] ) && is_string( $data['value'] ) ) {
-				$value = wp_kses_post( $data['value'] );
-			}
-			echo '<div class="documentate-field documentate-field-warning" style="margin-bottom:16px;border:1px solid #dba617;padding:12px;background:#fffbea;">';
-			/* translators: %s: detected dynamic field key. */
-			echo '<label for="' . esc_attr( $meta_key ) . '" style="font-weight:600;display:block;margin-bottom:4px;">' . esc_html( sprintf( __( 'Additional field: %s', 'documentate' ), $label ) ) . '</label>';
-			echo '<p class="description" style="margin-top:0;margin-bottom:8px;">' . esc_html__( 'This field is not defined in the current document type taxonomy.', 'documentate' ) . '</p>';
-            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles escaping.
-			wp_editor(
-				$value,
-				$meta_key,
-				array(
-					'textarea_name' => $meta_key,
-					'textarea_rows' => 6,
-					'media_buttons' => false,
-					'teeny'         => false,
-					'wpautop'       => false,
-					'tinymce'       => array(
-						'toolbar1'         => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
-						'content_style'    => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
-						// TinyMCE content filtering: remove elements not supported by OpenTBS.
-						'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-						'valid_elements'   => 'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,' .
-											  'h1,h2,h3,h4,h5,h6,blockquote,code,pre,' .
-											  'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
-
-					),
-					'quicktags'     => true,
-					'editor_height' => 200,
+		echo
+			'<div class="notice notice-warning inline" style="margin:0 0 12px;">'
+				. esc_html__(
+					'The document contains additional fields that do not belong to the selected type. Review their content before saving.',
+					'documentate',
 				)
-			);
+				. '</div>'
+		;
+
+		foreach ($unknown_fields as $meta_key => $data) {
+			$label = $this->humanize_unknown_field_label($meta_key);
+			$value = '';
+			if (isset($data['value']) && is_string($data['value'])) {
+				$value = wp_kses_post($data['value']);
+			}
+			echo
+				'<div class="documentate-field documentate-field-warning" style="margin-bottom:16px;border:1px solid #dba617;padding:12px;background:#fffbea;">'
+			;
+			/* translators: %s: detected dynamic field key. */
+			echo
+				'<label for="'
+					. esc_attr($meta_key)
+					. '" style="font-weight:600;display:block;margin-bottom:4px;">'
+					. esc_html(sprintf(__('Additional field: %s', 'documentate'), $label))
+					. '</label>'
+			;
+			echo
+				'<p class="description" style="margin-top:0;margin-bottom:8px;">'
+					. esc_html__('This field is not defined in the current document type taxonomy.', 'documentate')
+					. '</p>'
+			;
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles escaping.
+			wp_editor($value, $meta_key, array(
+				'textarea_name' => $meta_key,
+				'textarea_rows' => 6,
+				'media_buttons' => false,
+				'teeny' => false,
+				'wpautop' => false,
+				'tinymce' => array(
+					'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
+					'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
+					// TinyMCE content filtering: remove elements not supported by OpenTBS.
+					'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
+					'valid_elements' =>
+						'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,'
+							. 'h1,h2,h3,h4,h5,h6,blockquote,code,pre,'
+							. 'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
+				),
+				'quicktags' => true,
+				'editor_height' => 200,
+			));
 			echo '</div>';
 		}
 
@@ -2297,51 +2537,51 @@ class Documentate_Documents {
 	 * @param string $meta_key Meta key.
 	 * @return string
 	 */
-	private function humanize_unknown_field_label( $meta_key ) {
-		$slug = str_replace( 'documentate_field_', '', (string) $meta_key );
-		$slug = str_replace( array( '-', '_' ), ' ', $slug );
-		$slug = trim( preg_replace( '/\s+/', ' ', $slug ) );
-		if ( '' === $slug ) {
+	private function humanize_unknown_field_label($meta_key) {
+		$slug = str_replace('documentate_field_', '', (string) $meta_key);
+		$slug = str_replace(array('-', '_'), ' ', $slug);
+		$slug = trim(preg_replace('/\s+/', ' ', $slug));
+		if ('' === $slug) {
 			return (string) $meta_key;
 		}
-		if ( function_exists( 'mb_convert_case' ) ) {
-			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
+		if (function_exists('mb_convert_case')) {
+			return mb_convert_case($slug, MB_CASE_TITLE, 'UTF-8');
 		}
-			return ucwords( $slug );
+		return ucwords($slug);
 	}
 
-		/**
-		 * Recover accidentally unescaped Unicode sequences (e.g., u00e1) in strings.
-		 *
-		 * This is a defensive fix for cases where JSON sequences like \\u00e1 lost their
-		 * leading backslash due to slashing/unslashing during persistence. If a string
-		 * contains patterns matching u00XXXX, convert them back to their UTF-8 chars.
-		 *
-		 * @param string $text Input text.
-		 * @return string
-		 */
-	private static function fix_unescaped_unicode_sequences( $text ) {
-		if ( ! is_string( $text ) || false === strpos( $text, 'u00' ) ) {
+	/**
+	 * Recover accidentally unescaped Unicode sequences (e.g., u00e1) in strings.
+	 *
+	 * This is a defensive fix for cases where JSON sequences like \\u00e1 lost their
+	 * leading backslash due to slashing/unslashing during persistence. If a string
+	 * contains patterns matching u00XXXX, convert them back to their UTF-8 chars.
+	 *
+	 * @param string $text Input text.
+	 * @return string
+	 */
+	private static function fix_unescaped_unicode_sequences($text) {
+		if (!is_string($text) || false === strpos($text, 'u00')) {
 			return $text;
 		}
 
-		$callback = static function ( $m ) {
+		$callback = static function ($m) {
 			$hex = $m[1];
-			if ( 4 !== strlen( $hex ) ) {
+			if (4 !== strlen($hex)) {
 				return $m[0];
 			}
-			$code  = hexdec( $hex );
-			$utf16 = pack( 'n', $code );
-			if ( function_exists( 'mb_convert_encoding' ) ) {
-				return mb_convert_encoding( $utf16, 'UTF-8', 'UTF-16BE' );
+			$code = hexdec($hex);
+			$utf16 = pack('n', $code);
+			if (function_exists('mb_convert_encoding')) {
+				return mb_convert_encoding($utf16, 'UTF-8', 'UTF-16BE');
 			}
-			if ( function_exists( 'iconv' ) ) {
-				return (string) iconv( 'UTF-16BE', 'UTF-8', $utf16 );
+			if (function_exists('iconv')) {
+				return (string) iconv('UTF-16BE', 'UTF-8', $utf16);
 			}
 			return $m[0];
 		};
 
-			return (string) preg_replace_callback( '/u([0-9a-fA-F]{4})/i', $callback, $text );
+		return (string) preg_replace_callback('/u([0-9a-fA-F]{4})/i', $callback, $text);
 	}
 
 	/**
@@ -2351,76 +2591,72 @@ class Documentate_Documents {
 	 * @param string $which     Location of the extra table nav markup: 'top' or 'bottom'.
 	 * @return void
 	 */
-	public function add_admin_filters( $post_type, $which ) {
-		if ( 'documentate_document' !== $post_type || 'top' !== $which ) {
+	public function add_admin_filters($post_type, $which) {
+		if ('documentate_document' !== $post_type || 'top' !== $which) {
 			return;
 		}
 
 		// Author filter.
-		$authors = get_users(
-			array(
-				'has_published_posts' => array( 'documentate_document' ),
-				'fields'              => array( 'ID', 'display_name' ),
-				'orderby'             => 'display_name',
-			)
-		);
+		$authors = get_users(array(
+			'has_published_posts' => array('documentate_document'),
+			'fields' => array('ID', 'display_name'),
+			'orderby' => 'display_name',
+		));
 
-		if ( ! empty( $authors ) ) {
-			$current_author = isset( $_GET['author'] ) ? absint( $_GET['author'] ) : 0;
+		if (!empty($authors)) {
+			$current_author = isset($_GET['author']) ? absint($_GET['author']) : 0;
 			echo '<select name="author" id="filter-by-author">';
-			echo '<option value="">' . esc_html__( 'All authors', 'documentate' ) . '</option>';
-			foreach ( $authors as $author ) {
+			echo '<option value="">' . esc_html__('All authors', 'documentate') . '</option>';
+			foreach ($authors as $author) {
 				printf(
 					'<option value="%d"%s>%s</option>',
-					absint( $author->ID ),
-					selected( $current_author, $author->ID, false ),
-					esc_html( $author->display_name )
+					absint($author->ID),
+					selected($current_author, $author->ID, false),
+					esc_html($author->display_name),
 				);
 			}
 			echo '</select>';
 		}
 
 		// Document type filter (taxonomy dropdown).
-		$doc_types = get_terms(
-			array(
-				'taxonomy'   => 'documentate_doc_type',
-				'hide_empty' => false,
-			)
-		);
+		$doc_types = get_terms(array(
+			'taxonomy' => 'documentate_doc_type',
+			'hide_empty' => false,
+		));
 
-		if ( ! is_wp_error( $doc_types ) && ! empty( $doc_types ) ) {
-			$current_type = isset( $_GET['documentate_doc_type'] ) ? sanitize_text_field( wp_unslash( $_GET['documentate_doc_type'] ) ) : '';
+		if (!is_wp_error($doc_types) && !empty($doc_types)) {
+			$current_type = isset($_GET['documentate_doc_type'])
+				? sanitize_text_field(wp_unslash($_GET['documentate_doc_type']))
+				: '';
 			echo '<select name="documentate_doc_type" id="filter-by-doc-type">';
-			echo '<option value="">' . esc_html__( 'All document types', 'documentate' ) . '</option>';
-			foreach ( $doc_types as $doc_type ) {
+			echo '<option value="">' . esc_html__('All document types', 'documentate') . '</option>';
+			foreach ($doc_types as $doc_type) {
 				printf(
 					'<option value="%s"%s>%s</option>',
-					esc_attr( $doc_type->slug ),
-					selected( $current_type, $doc_type->slug, false ),
-					esc_html( $doc_type->name )
+					esc_attr($doc_type->slug),
+					selected($current_type, $doc_type->slug, false),
+					esc_html($doc_type->name),
 				);
 			}
 			echo '</select>';
 		}
 
 		// Category filter (if taxonomy exists).
-		$categories = get_terms(
-			array(
-				'taxonomy'   => 'category',
-				'hide_empty' => false,
-			)
-		);
+		$categories = get_terms(array(
+			'taxonomy' => 'category',
+			'hide_empty' => false,
+		));
 
-		if ( ! is_wp_error( $categories ) && ! empty( $categories ) ) {
-			$current_cat = isset( $_GET['category_name'] ) ? sanitize_text_field( wp_unslash( $_GET['category_name'] ) ) : '';
+		if (!is_wp_error($categories) && !empty($categories)) {
+			$current_cat = isset($_GET['category_name']) ? sanitize_text_field(wp_unslash($_GET['category_name'])) : '';
 			echo '<select name="category_name" id="filter-by-category">';
-			echo '<option value="">' . esc_html__( 'All categories', 'documentate' ) . '</option>';
-			foreach ( $categories as $category ) {
+			echo '<option value="">' . esc_html__('All categories', 'documentate') . '</option>';
+			foreach ($categories as $category) {
 				printf(
 					'<option value="%s"%s>%s</option>',
-					esc_attr( $category->slug ),
-					selected( $current_cat, $category->slug, false ),
-					esc_html( $category->name )
+					esc_attr($category->slug),
+					selected($current_cat, $category->slug, false),
+					esc_html($category->name),
 				);
 			}
 			echo '</select>';
@@ -2433,80 +2669,80 @@ class Documentate_Documents {
 	 * @param WP_Query $query Query object.
 	 * @return void
 	 */
-	public function apply_admin_filters( $query ) {
-		if ( ! is_admin() || ! $query->is_main_query() ) {
+	public function apply_admin_filters($query) {
+		if (!is_admin() || !$query->is_main_query()) {
 			return;
 		}
 
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || 'edit-documentate_document' !== $screen->id ) {
+		$screen = function_exists('get_current_screen') ? get_current_screen() : null;
+		if (!$screen || 'edit-documentate_document' !== $screen->id) {
 			return;
 		}
 
 		// Hide archived posts unless specifically requesting them.
-		$post_status   = $query->get( 'post_status' );
+		$post_status = $query->get('post_status');
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$show_archived = isset( $_GET['post_status'] ) && 'archived' === sanitize_key( $_GET['post_status'] );
+		$show_archived = isset($_GET['post_status']) && 'archived' === sanitize_key($_GET['post_status']);
 
-		if ( empty( $post_status ) && ! $show_archived ) {
+		if (empty($post_status) && !$show_archived) {
 			// Default view: exclude archived.
-			$query->set( 'post_status', array( 'publish', 'pending', 'draft', 'private', 'future' ) );
+			$query->set('post_status', array('publish', 'pending', 'draft', 'private', 'future'));
 		}
 
-		$orderby = $query->get( 'orderby' );
+		$orderby = $query->get('orderby');
 
 		// Handle sorting by author.
-		if ( 'author_name' === $orderby ) {
-			$query->set( 'orderby', 'author' );
+		if ('author_name' === $orderby) {
+			$query->set('orderby', 'author');
 		}
 
 		// Handle sorting by document type.
-		if ( 'doc_type' === $orderby ) {
+		if ('doc_type' === $orderby) {
 			add_filter(
 				'posts_clauses',
-				function ( $clauses, $wp_query ) {
+				function ($clauses, $wp_query) {
 					global $wpdb;
 
-					if ( $wp_query->get( 'orderby' ) !== 'doc_type' ) {
+					if ($wp_query->get('orderby') !== 'doc_type') {
 						return $clauses;
 					}
 
-					$order = strtoupper( $wp_query->get( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
+					$order = strtoupper($wp_query->get('order')) === 'ASC' ? 'ASC' : 'DESC';
 
-					$clauses['join']   .= " LEFT JOIN {$wpdb->term_relationships} AS dtr ON ({$wpdb->posts}.ID = dtr.object_id)";
-					$clauses['join']   .= " LEFT JOIN {$wpdb->term_taxonomy} AS dtt ON (dtr.term_taxonomy_id = dtt.term_taxonomy_id AND dtt.taxonomy = 'documentate_doc_type')";
-					$clauses['join']   .= " LEFT JOIN {$wpdb->terms} AS dt ON (dtt.term_id = dt.term_id)";
+					$clauses['join'] .= " LEFT JOIN {$wpdb->term_relationships} AS dtr ON ({$wpdb->posts}.ID = dtr.object_id)";
+					$clauses['join'] .= " LEFT JOIN {$wpdb->term_taxonomy} AS dtt ON (dtr.term_taxonomy_id = dtt.term_taxonomy_id AND dtt.taxonomy = 'documentate_doc_type')";
+					$clauses['join'] .= " LEFT JOIN {$wpdb->terms} AS dt ON (dtt.term_id = dt.term_id)";
 					$clauses['orderby'] = "dt.name {$order}, " . $clauses['orderby'];
 
 					return $clauses;
 				},
 				10,
-				2
+				2,
 			);
 		}
 
 		// Handle sorting by category.
-		if ( 'category_name' === $orderby ) {
+		if ('category_name' === $orderby) {
 			add_filter(
 				'posts_clauses',
-				function ( $clauses, $wp_query ) {
+				function ($clauses, $wp_query) {
 					global $wpdb;
 
-					if ( $wp_query->get( 'orderby' ) !== 'category_name' ) {
+					if ($wp_query->get('orderby') !== 'category_name') {
 						return $clauses;
 					}
 
-					$order = strtoupper( $wp_query->get( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
+					$order = strtoupper($wp_query->get('order')) === 'ASC' ? 'ASC' : 'DESC';
 
-					$clauses['join']   .= " LEFT JOIN {$wpdb->term_relationships} AS ctr ON ({$wpdb->posts}.ID = ctr.object_id)";
-					$clauses['join']   .= " LEFT JOIN {$wpdb->term_taxonomy} AS ctt ON (ctr.term_taxonomy_id = ctt.term_taxonomy_id AND ctt.taxonomy = 'category')";
-					$clauses['join']   .= " LEFT JOIN {$wpdb->terms} AS ct ON (ctt.term_id = ct.term_id)";
+					$clauses['join'] .= " LEFT JOIN {$wpdb->term_relationships} AS ctr ON ({$wpdb->posts}.ID = ctr.object_id)";
+					$clauses['join'] .= " LEFT JOIN {$wpdb->term_taxonomy} AS ctt ON (ctr.term_taxonomy_id = ctt.term_taxonomy_id AND ctt.taxonomy = 'category')";
+					$clauses['join'] .= " LEFT JOIN {$wpdb->terms} AS ct ON (ctt.term_id = ct.term_id)";
 					$clauses['orderby'] = "ct.name {$order}, " . $clauses['orderby'];
 
 					return $clauses;
 				},
 				10,
-				2
+				2,
 			);
 		}
 	}
@@ -2517,27 +2753,24 @@ class Documentate_Documents {
 	 * @param array $views Existing views.
 	 * @return array Modified views.
 	 */
-	public function add_archived_view( $views ) {
-		$count          = wp_count_posts( 'documentate_document' );
-		$archived_count = isset( $count->archived ) ? intval( $count->archived ) : 0;
+	public function add_archived_view($views) {
+		$count = wp_count_posts('documentate_document');
+		$archived_count = isset($count->archived) ? intval($count->archived) : 0;
 
-		if ( $archived_count > 0 ) {
+		if ($archived_count > 0) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$current     = isset( $_GET['post_status'] ) && 'archived' === sanitize_key( $_GET['post_status'] ) ? ' class="current"' : '';
+			$current = isset($_GET['post_status']) && 'archived' === sanitize_key($_GET['post_status'])
+				? ' class="current"'
+				: '';
 			$views['archived'] = sprintf(
 				'<a href="%s"%s>%s <span class="count">(%d)</span></a>',
-				esc_url(
-					add_query_arg(
-						array(
-							'post_type'   => 'documentate_document',
-							'post_status' => 'archived',
-						),
-						admin_url( 'edit.php' )
-					)
-				),
+				esc_url(add_query_arg(array(
+					'post_type' => 'documentate_document',
+					'post_status' => 'archived',
+				), admin_url('edit.php'))),
 				$current,
-				esc_html__( 'Archived', 'documentate' ),
-				$archived_count
+				esc_html__('Archived', 'documentate'),
+				$archived_count,
 			);
 		}
 
@@ -2550,24 +2783,24 @@ class Documentate_Documents {
 	 * @param array $columns Existing columns.
 	 * @return array Modified columns.
 	 */
-	public function add_admin_columns( $columns ) {
+	public function add_admin_columns($columns) {
 		// Remove default taxonomy columns (we add custom sortable ones).
-		unset( $columns['categories'] );
-		unset( $columns['taxonomy-documentate_doc_type'] );
+		unset($columns['categories']);
+		unset($columns['taxonomy-documentate_doc_type']);
 
 		$new_columns = array();
 
-		foreach ( $columns as $key => $label ) {
-			$new_columns[ $key ] = $label;
+		foreach ($columns as $key => $label) {
+			$new_columns[$key] = $label;
 
 			// Insert doc_type column after title.
-			if ( 'title' === $key ) {
-				$new_columns['doc_type'] = __( 'Document Type', 'documentate' );
+			if ('title' === $key) {
+				$new_columns['doc_type'] = __('Document Type', 'documentate');
 			}
 
 			// Insert category column after author.
-			if ( 'author' === $key ) {
-				$new_columns['doc_category'] = __( 'Category', 'documentate' );
+			if ('author' === $key) {
+				$new_columns['doc_category'] = __('Category', 'documentate');
 			}
 		}
 
@@ -2581,36 +2814,36 @@ class Documentate_Documents {
 	 * @param int    $post_id Post ID.
 	 * @return void
 	 */
-	public function render_admin_column( $column, $post_id ) {
-		if ( 'doc_type' === $column ) {
-			$terms = get_the_terms( $post_id, 'documentate_doc_type' );
-			if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
-				$term  = $terms[0];
-				$color = get_term_meta( $term->term_id, 'documentate_type_color', true );
-				$style = $color ? 'background-color:' . esc_attr( $color ) . ';color:#fff;padding:2px 6px;border-radius:3px;' : '';
+	public function render_admin_column($column, $post_id) {
+		if ('doc_type' === $column) {
+			$terms = get_the_terms($post_id, 'documentate_doc_type');
+			if (!empty($terms) && !is_wp_error($terms)) {
+				$term = $terms[0];
+				$color = get_term_meta($term->term_id, 'documentate_type_color', true);
+				$style = $color ? 'background-color:' . esc_attr($color) . ';color:#fff;padding:2px 6px;border-radius:3px;' : '';
 				printf(
 					'<a href="%s" style="%s">%s</a>',
-					esc_url( add_query_arg( 'documentate_doc_type', $term->slug, admin_url( 'edit.php?post_type=documentate_document' ) ) ),
-					esc_attr( $style ),
-					esc_html( $term->name )
+					esc_url(add_query_arg('documentate_doc_type', $term->slug, admin_url('edit.php?post_type=documentate_document'))),
+					esc_attr($style),
+					esc_html($term->name),
 				);
 			} else {
 				echo '—';
 			}
 		}
 
-		if ( 'doc_category' === $column ) {
-			$terms = get_the_terms( $post_id, 'category' );
-			if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+		if ('doc_category' === $column) {
+			$terms = get_the_terms($post_id, 'category');
+			if (!empty($terms) && !is_wp_error($terms)) {
 				$links = array();
-				foreach ( $terms as $term ) {
+				foreach ($terms as $term) {
 					$links[] = sprintf(
 						'<a href="%s">%s</a>',
-						esc_url( add_query_arg( 'category_name', $term->slug, admin_url( 'edit.php?post_type=documentate_document' ) ) ),
-						esc_html( $term->name )
+						esc_url(add_query_arg('category_name', $term->slug, admin_url('edit.php?post_type=documentate_document'))),
+						esc_html($term->name),
 					);
 				}
-				echo wp_kses_post( implode( ', ', $links ) );
+				echo wp_kses_post(implode(', ', $links));
 			} else {
 				echo '—';
 			}
@@ -2623,9 +2856,9 @@ class Documentate_Documents {
 	 * @param array $columns Sortable columns.
 	 * @return array Modified sortable columns.
 	 */
-	public function add_sortable_columns( $columns ) {
-		$columns['author']       = 'author_name';
-		$columns['doc_type']     = 'doc_type';
+	public function add_sortable_columns($columns) {
+		$columns['author'] = 'author_name';
+		$columns['doc_type'] = 'doc_type';
 		$columns['doc_category'] = 'category_name';
 
 		return $columns;
@@ -2637,8 +2870,8 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	public function add_admin_list_styles() {
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || 'edit-documentate_document' !== $screen->id ) {
+		$screen = function_exists('get_current_screen') ? get_current_screen() : null;
+		if (!$screen || 'edit-documentate_document' !== $screen->id) {
 			return;
 		}
 

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Helpers to reshape schema definitions for UI consumption.
  *
@@ -11,32 +12,31 @@ namespace Documentate\DocType;
  * Converts schema v2 structures into the flattened legacy layout expected by current UI code.
  */
 class SchemaConverter {
-
 	/**
 	 * Convert schema v2 structure into the legacy flat array used by existing UI code.
 	 *
 	 * @param array $schema_v2 Versioned schema array.
 	 * @return array<int,array>
 	 */
-	public static function to_legacy( $schema_v2 ) {
-		if ( ! is_array( $schema_v2 ) ) {
+	public static function to_legacy($schema_v2) {
+		if (!is_array($schema_v2)) {
 			return array();
 		}
 
 		$output = array();
 
-		$fields = isset( $schema_v2['fields'] ) && is_array( $schema_v2['fields'] ) ? $schema_v2['fields'] : array();
-		foreach ( $fields as $field ) {
-			$legacy = self::map_field( $field );
-			if ( $legacy ) {
+		$fields = isset($schema_v2['fields']) && is_array($schema_v2['fields']) ? $schema_v2['fields'] : array();
+		foreach ($fields as $field) {
+			$legacy = self::map_field($field);
+			if ($legacy) {
 				$output[] = $legacy;
 			}
 		}
 
-		$repeaters = isset( $schema_v2['repeaters'] ) && is_array( $schema_v2['repeaters'] ) ? $schema_v2['repeaters'] : array();
-		foreach ( $repeaters as $repeater ) {
-			$legacy = self::map_repeater( $repeater );
-			if ( $legacy ) {
+		$repeaters = isset($schema_v2['repeaters']) && is_array($schema_v2['repeaters']) ? $schema_v2['repeaters'] : array();
+		foreach ($repeaters as $repeater) {
+			$legacy = self::map_repeater($repeater);
+			if ($legacy) {
 				$output[] = $legacy;
 			}
 		}
@@ -50,36 +50,36 @@ class SchemaConverter {
 	 * @param array $field Field definition.
 	 * @return array|null
 	 */
-	private static function map_field( $field ) {
-		if ( ! is_array( $field ) ) {
+	private static function map_field($field) {
+		if (!is_array($field)) {
 			return null;
 		}
 
-		$slug = self::sanitize_slug( $field );
-		if ( '' === $slug ) {
+		$slug = self::sanitize_slug($field);
+		if ('' === $slug) {
 			return null;
 		}
 
-		$label       = self::resolve_label( $field, $slug );
-		$placeholder = self::sanitize_placeholder( $field, $slug );
+		$label = self::resolve_label($field, $slug);
+		$placeholder = self::sanitize_placeholder($field, $slug);
 		// Preserve the original template placeholder name for merging with OpenTBS.
-		$tbs_name    = self::sanitize_tbs_name( $field, $slug );
-		$type        = isset( $field['type'] ) ? sanitize_key( $field['type'] ) : '';
-		if ( '' === $type ) {
+		$tbs_name = self::sanitize_tbs_name($field, $slug);
+		$type = isset($field['type']) ? sanitize_key($field['type']) : '';
+		if ('' === $type) {
 			$type = 'textarea';
 		}
 
-		$case = isset( $field['case'] ) ? sanitize_key( $field['case'] ) : '';
+		$case = isset($field['case']) ? sanitize_key($field['case']) : '';
 
 		return array(
-			'slug'        => $slug,
-			'label'       => $label,
-			'type'        => self::guess_scalar_control_type( $type, $slug, $label, $placeholder ),
+			'slug' => $slug,
+			'label' => $label,
+			'type' => self::guess_scalar_control_type($type, $slug, $label, $placeholder),
 			'placeholder' => $placeholder,
 			// Name of the placeholder in the template (e.g., "name", "phone", "Observaciones").
-			'name'        => $tbs_name,
-			'data_type'   => self::map_data_type( $type ),
-			'case'        => $case,
+			'name' => $tbs_name,
+			'data_type' => self::map_data_type($type),
+			'case' => $case,
 		);
 	}
 
@@ -89,55 +89,55 @@ class SchemaConverter {
 	 * @param array $repeater Repeater definition.
 	 * @return array|null
 	 */
-	private static function map_repeater( $repeater ) {
-		if ( ! is_array( $repeater ) ) {
+	private static function map_repeater($repeater) {
+		if (!is_array($repeater)) {
 			return null;
 		}
 
-		$slug = self::sanitize_slug( $repeater );
-		if ( '' === $slug ) {
+		$slug = self::sanitize_slug($repeater);
+		if ('' === $slug) {
 			return null;
 		}
 
-		$label       = self::resolve_label( $repeater, $slug );
+		$label = self::resolve_label($repeater, $slug);
 		// Preserve the base block name used in the template (e.g., "items").
-		$tbs_name    = self::sanitize_tbs_name( $repeater, $slug );
-		$fields      = isset( $repeater['fields'] ) && is_array( $repeater['fields'] ) ? $repeater['fields'] : array();
+		$tbs_name = self::sanitize_tbs_name($repeater, $slug);
+		$fields = isset($repeater['fields']) && is_array($repeater['fields']) ? $repeater['fields'] : array();
 		$item_schema = array();
 
-		foreach ( $fields as $field ) {
-			if ( ! is_array( $field ) ) {
+		foreach ($fields as $field) {
+			if (!is_array($field)) {
 				continue;
 			}
 
-			$item_slug = self::sanitize_slug( $field );
-			if ( '' === $item_slug ) {
+			$item_slug = self::sanitize_slug($field);
+			if ('' === $item_slug) {
 				continue;
 			}
 
-			$item_label = self::resolve_label( $field, $item_slug );
-			$item_type  = isset( $field['type'] ) ? sanitize_key( $field['type'] ) : '';
-			if ( '' === $item_type ) {
+			$item_label = self::resolve_label($field, $item_slug);
+			$item_type = isset($field['type']) ? sanitize_key($field['type']) : '';
+			if ('' === $item_type) {
 				$item_type = 'textarea';
 			}
-			$item_case = isset( $field['case'] ) ? sanitize_key( $field['case'] ) : '';
+			$item_case = isset($field['case']) ? sanitize_key($field['case']) : '';
 
-			$item_schema[ $item_slug ] = array(
-				'label'     => $item_label,
-				'type'      => self::guess_array_item_control_type( $item_type, $item_slug, $item_label ),
-				'data_type' => self::map_data_type( $item_type ),
-				'case'      => $item_case,
+			$item_schema[$item_slug] = array(
+				'label' => $item_label,
+				'type' => self::guess_array_item_control_type($item_type, $item_slug, $item_label),
+				'data_type' => self::map_data_type($item_type),
+				'case' => $item_case,
 			);
 		}
 
 		return array(
-			'slug'        => $slug,
-			'label'       => $label,
-			'type'        => 'array',
+			'slug' => $slug,
+			'label' => $label,
+			'type' => 'array',
 			'placeholder' => $slug,
 			// Name of the block in the template ([items;block=...]).
-			'name'        => $tbs_name,
-			'data_type'   => 'array',
+			'name' => $tbs_name,
+			'data_type' => 'array',
 			'item_schema' => $item_schema,
 		);
 	}
@@ -148,15 +148,15 @@ class SchemaConverter {
 	 * @var array<string,string>
 	 */
 	private static $data_type_map = array(
-		'number'   => 'number',
-		'date'     => 'date',
-		'boolean'  => 'boolean',
-		'email'    => 'text',
-		'url'      => 'text',
-		'text'     => 'text',
-		'html'     => 'text',
+		'number' => 'number',
+		'date' => 'date',
+		'boolean' => 'boolean',
+		'email' => 'text',
+		'url' => 'text',
+		'text' => 'text',
+		'html' => 'text',
 		'textarea' => 'text',
-		'select'   => 'text',
+		'select' => 'text',
 	);
 
 	/**
@@ -167,11 +167,11 @@ class SchemaConverter {
 	 * @param string $type Field type.
 	 * @return string
 	 */
-	private static function map_data_type( $type ) {
-		$type = strtolower( (string) $type );
+	private static function map_data_type($type) {
+		$type = strtolower((string) $type);
 
-		if ( isset( self::$data_type_map[ $type ] ) ) {
-			return self::$data_type_map[ $type ];
+		if (isset(self::$data_type_map[$type])) {
+			return self::$data_type_map[$type];
 		}
 
 		return 'text';
@@ -186,28 +186,31 @@ class SchemaConverter {
 	 * @param string $placeholder Placeholder text.
 	 * @return string
 	 */
-	private static function guess_scalar_control_type( $field_type, $slug, $label, $placeholder ) {
-		$field_type  = strtolower( (string) $field_type );
-		$slug        = strtolower( (string) $slug );
-		$label       = strtolower( (string) $label );
-		$placeholder = strtolower( (string) $placeholder );
-		$haystack    = trim( $slug . ' ' . $label . ' ' . $placeholder );
+	private static function guess_scalar_control_type($field_type, $slug, $label, $placeholder) {
+		$field_type = strtolower((string) $field_type);
+		$slug = strtolower((string) $slug);
+		$label = strtolower((string) $label);
+		$placeholder = strtolower((string) $placeholder);
+		$haystack = trim($slug . ' ' . $label . ' ' . $placeholder);
 
-		if ( in_array( $field_type, array( 'number', 'date', 'boolean', 'email', 'url', 'text', 'select' ), true ) ) {
+		if (in_array($field_type, array('number', 'date', 'boolean', 'email', 'url', 'text', 'select'), true)) {
 			return 'single';
 		}
 
-		if ( 'html' === $field_type ) {
+		if ('html' === $field_type) {
 			return 'rich';
 		}
 
-		if ( preg_match( '/\\b(title|titulo|título|heading|subject|asunto|name|nombre)\\b/u', $haystack ) ) {
+		if (preg_match('/\\b(title|titulo|título|heading|subject|asunto|name|nombre)\\b/u', $haystack)) {
 			return 'single';
 		}
 
 		// Detect rich text fields by common patterns.
 		// Includes Spanish legal/administrative terms that typically contain formatted content.
-		if ( preg_match( '/(content|contenido|texto|text|body|descripcion|descripción|detalle|summary|resumen|antecedentes|hechos|fundamentos|observaciones|notas|resolucion|resolución|resuelvo)/u', $haystack ) ) {
+		if (preg_match(
+			'/(content|contenido|texto|text|body|descripcion|descripción|detalle|summary|resumen|antecedentes|hechos|fundamentos|observaciones|notas|resolucion|resolución|resuelvo)/u',
+			$haystack,
+		)) {
 			return 'rich';
 		}
 
@@ -222,28 +225,28 @@ class SchemaConverter {
 	 * @param string $label      Item label.
 	 * @return string
 	 */
-	private static function guess_array_item_control_type( $field_type, $slug, $label ) {
-		$field_type = strtolower( (string) $field_type );
-		$slug       = strtolower( (string) $slug );
-		$label      = strtolower( (string) $label );
+	private static function guess_array_item_control_type($field_type, $slug, $label) {
+		$field_type = strtolower((string) $field_type);
+		$slug = strtolower((string) $slug);
+		$label = strtolower((string) $label);
 
-		if ( in_array( $field_type, array( 'number', 'date', 'boolean', 'email', 'url', 'text', 'select' ), true ) ) {
+		if (in_array($field_type, array('number', 'date', 'boolean', 'email', 'url', 'text', 'select'), true)) {
 			return 'single';
 		}
 
-		if ( preg_match( '/^(number|numero|número|index|indice)$/', $slug ) ) {
+		if (preg_match('/^(number|numero|número|index|indice)$/', $slug)) {
 			return 'single';
 		}
 
-		if ( preg_match( '/\\b(title|titulo|título|heading|name|nombre)\\b/u', $slug . ' ' . $label ) ) {
+		if (preg_match('/\\b(title|titulo|título|heading|name|nombre)\\b/u', $slug . ' ' . $label)) {
 			return 'single';
 		}
 
-		if ( preg_match( '/(content|contenido|texto|text|body|descripcion|descripción)$/u', $slug . ' ' . $label ) ) {
+		if (preg_match('/(content|contenido|texto|text|body|descripcion|descripción)$/u', $slug . ' ' . $label)) {
 			return 'rich';
 		}
 
-		if ( 'html' === $field_type ) {
+		if ('html' === $field_type) {
 			return 'rich';
 		}
 
@@ -257,25 +260,25 @@ class SchemaConverter {
 	 * @param string $fallback Fallback value.
 	 * @return string
 	 */
-	private static function resolve_label( $record, $fallback ) {
+	private static function resolve_label($record, $fallback) {
 		$candidates = array(
-			isset( $record['title'] ) ? sanitize_text_field( $record['title'] ) : '',
-			isset( $record['label'] ) ? sanitize_text_field( $record['label'] ) : '',
-			isset( $record['name'] ) ? sanitize_text_field( $record['name'] ) : '',
+			isset($record['title']) ? sanitize_text_field($record['title']) : '',
+			isset($record['label']) ? sanitize_text_field($record['label']) : '',
+			isset($record['name']) ? sanitize_text_field($record['name']) : '',
 		);
 
-		foreach ( $candidates as $candidate ) {
-			$candidate = trim( $candidate );
-			if ( '' === $candidate ) {
+		foreach ($candidates as $candidate) {
+			$candidate = trim($candidate);
+			if ('' === $candidate) {
 				continue;
 			}
-			if ( false !== strpbrk( $candidate, '_-' ) ) {
-				return self::humanize( $candidate );
+			if (false !== strpbrk($candidate, '_-')) {
+				return self::humanize($candidate);
 			}
 			return $candidate;
 		}
 
-		return self::humanize( $fallback );
+		return self::humanize($fallback);
 	}
 
 	/**
@@ -285,12 +288,12 @@ class SchemaConverter {
 	 * @param string $fallback Fallback value.
 	 * @return string
 	 */
-	private static function sanitize_placeholder( $record, $fallback ) {
-		$placeholder = isset( $record['placeholder'] ) ? (string) $record['placeholder'] : '';
-		if ( '' === $placeholder ) {
+	private static function sanitize_placeholder($record, $fallback) {
+		$placeholder = isset($record['placeholder']) ? (string) $record['placeholder'] : '';
+		if ('' === $placeholder) {
 			return $fallback;
 		}
-		$placeholder = preg_replace( '/[^A-Za-z0-9._:-]/', '', $placeholder );
+		$placeholder = preg_replace('/[^A-Za-z0-9._:-]/', '', $placeholder);
 		return $placeholder ? $placeholder : $fallback;
 	}
 
@@ -301,14 +304,14 @@ class SchemaConverter {
 	 * @param string $fallback Fallback when name is missing.
 	 * @return string
 	 */
-	private static function sanitize_tbs_name( $record, $fallback ) {
-		$name = isset( $record['name'] ) ? (string) $record['name'] : '';
-		$name = trim( $name );
-		if ( '' === $name ) {
+	private static function sanitize_tbs_name($record, $fallback) {
+		$name = isset($record['name']) ? (string) $record['name'] : '';
+		$name = trim($name);
+		if ('' === $name) {
 			return $fallback;
 		}
 		// Keep case; allow TinyButStrong supported chars.
-		$name = preg_replace( '/[^A-Za-z0-9._:-]/', '', $name );
+		$name = preg_replace('/[^A-Za-z0-9._:-]/', '', $name);
 		return '' !== $name ? $name : $fallback;
 	}
 
@@ -318,15 +321,15 @@ class SchemaConverter {
 	 * @param array $record Schema record.
 	 * @return string
 	 */
-	private static function sanitize_slug( $record ) {
+	private static function sanitize_slug($record) {
 		$slug_sources = array(
-			isset( $record['slug'] ) ? $record['slug'] : '',
-			isset( $record['name'] ) ? $record['name'] : '',
+			isset($record['slug']) ? $record['slug'] : '',
+			isset($record['name']) ? $record['name'] : '',
 		);
 
-		foreach ( $slug_sources as $source ) {
-			$slug = sanitize_key( $source );
-			if ( '' !== $slug ) {
+		foreach ($slug_sources as $source) {
+			$slug = sanitize_key($source);
+			if ('' !== $slug) {
 				return $slug;
 			}
 		}
@@ -339,16 +342,16 @@ class SchemaConverter {
 	 * @param string $slug Slug value.
 	 * @return string
 	 */
-	private static function humanize( $slug ) {
-		$slug = str_replace( array( '-', '_', '.' ), ' ', $slug );
-		$slug = preg_replace( '/\\s+/', ' ', $slug );
-		$slug = trim( $slug );
-		if ( '' === $slug ) {
+	private static function humanize($slug) {
+		$slug = str_replace(array('-', '_', '.'), ' ', $slug);
+		$slug = preg_replace('/\\s+/', ' ', $slug);
+		$slug = trim($slug);
+		if ('' === $slug) {
 			return '';
 		}
-		if ( function_exists( 'mb_convert_case' ) ) {
-			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
+		if (function_exists('mb_convert_case')) {
+			return mb_convert_case($slug, MB_CASE_TITLE, 'UTF-8');
 		}
-		return ucwords( strtolower( $slug ) );
+		return ucwords(strtolower($slug));
 	}
 }

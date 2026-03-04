@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Document converter template for Collabora in WordPress Playground.
  *
@@ -13,23 +14,25 @@
 // which handles headers, permission checks, and nonce validation.
 
 // Get conversion parameters from the validated request.
-$documentate_document_id   = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
-$documentate_target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
-$documentate_source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
-$documentate_output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
-$documentate_nonce         = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
-$documentate_use_channel   = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
+$documentate_document_id = isset($_GET['post_id']) ? absint($_GET['post_id']) : 0;
+$documentate_target_format = isset($_GET['format']) ? sanitize_key($_GET['format']) : 'pdf';
+$documentate_source_format = isset($_GET['source']) ? sanitize_key($_GET['source']) : 'odt';
+$documentate_output_action = isset($_GET['output']) ? sanitize_key($_GET['output']) : 'preview';
+$documentate_nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash($_GET['_wpnonce'])) : '';
+$documentate_use_channel = isset($_GET['use_channel']) && '1' === $_GET['use_channel'];
 
 // Get Collabora URL from settings.
-$documentate_options       = get_option( 'documentate_settings', array() );
-$documentate_collabora_url = isset( $documentate_options['collabora_base_url'] ) ? esc_url( $documentate_options['collabora_base_url'] ) : '';
+$documentate_options = get_option('documentate_settings', array());
+$documentate_collabora_url = isset($documentate_options['collabora_base_url'])
+	? esc_url($documentate_options['collabora_base_url'])
+	: '';
 
 ?>
 <!DOCTYPE html>
 <html>
 <head>
 	<meta charset="utf-8">
-	<title><?php esc_html_e( 'Documentate Converter', 'documentate' ); ?></title>
+	<title><?php esc_html_e('Documentate Converter', 'documentate'); ?></title>
 	<style>
 		body {
 			margin: 0;
@@ -80,20 +83,20 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 <body>
 	<div class="status" id="status">
 		<div class="spinner" id="spinner"></div>
-		<h2 id="status-title"><?php esc_html_e( 'Starting...', 'documentate' ); ?></h2>
-		<p id="status-message"><?php esc_html_e( 'Preparing document converter.', 'documentate' ); ?></p>
+		<h2 id="status-title"><?php esc_html_e('Starting...', 'documentate'); ?></h2>
+		<p id="status-message"><?php esc_html_e('Preparing document converter.', 'documentate'); ?></p>
 	</div>
 
 	<script type="module">
 		// Conversion parameters from URL (validated by PHP).
 		const conversionConfig = {
 			postId: <?php echo (int) $documentate_document_id; ?>,
-			targetFormat: <?php echo wp_json_encode( $documentate_target_format ); ?>,
-			sourceFormat: <?php echo wp_json_encode( $documentate_source_format ); ?>,
-			outputAction: <?php echo wp_json_encode( $documentate_output_action ); ?>,
-			nonce: <?php echo wp_json_encode( $documentate_nonce ); ?>,
-			ajaxUrl: <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
-			collaboraUrl: <?php echo wp_json_encode( $documentate_collabora_url ); ?>,
+			targetFormat: <?php echo wp_json_encode($documentate_target_format); ?>,
+			sourceFormat: <?php echo wp_json_encode($documentate_source_format); ?>,
+			outputAction: <?php echo wp_json_encode($documentate_output_action); ?>,
+			nonce: <?php echo wp_json_encode($documentate_nonce); ?>,
+			ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
+			collaboraUrl: <?php echo wp_json_encode($documentate_collabora_url); ?>,
 			useChannel: <?php echo $documentate_use_channel ? 'true' : 'false'; ?>
 		};
 
@@ -143,13 +146,13 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 		async function init() {
 			try {
 				if (!conversionConfig.collaboraUrl) {
-					throw new Error(<?php echo wp_json_encode( __( 'Collabora URL not configured.', 'documentate' ) ); ?>);
+					throw new Error(<?php echo wp_json_encode(__('Collabora URL not configured.', 'documentate')); ?>);
 				}
 
 				// Step 1: Generate source document via AJAX.
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Generating document...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Processing template on server.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Generating document...', 'documentate')); ?>,
+					<?php echo wp_json_encode(__('Processing template on server.', 'documentate')); ?>
 				);
 
 				const formData = new FormData();
@@ -167,25 +170,27 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 				const ajaxData = await ajaxResponse.json();
 
 				if (!ajaxData.success || !ajaxData.data?.url) {
-					throw new Error(ajaxData.data?.message || <?php echo wp_json_encode( __( 'Failed to generate source document.', 'documentate' ) ); ?>);
+					throw new Error(ajaxData.data?.message || <?php echo
+						wp_json_encode(__('Failed to generate source document.', 'documentate'))
+					; ?>);
 				}
 
 				// Step 2: Fetch the source document.
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Downloading document...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Fetching source document.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Downloading document...', 'documentate')); ?>,
+					<?php echo wp_json_encode(__('Fetching source document.', 'documentate')); ?>
 				);
 
 				const sourceResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
 				if (!sourceResponse.ok) {
-					throw new Error(`<?php echo esc_js( __( 'Failed to fetch source document:', 'documentate' ) ); ?> ${sourceResponse.status}`);
+					throw new Error(`<?php echo esc_js(__('Failed to fetch source document:', 'documentate')); ?> ${sourceResponse.status}`);
 				}
 				const sourceBlob = await sourceResponse.blob();
 
 				// Step 3: Send to Collabora proxy via JavaScript fetch().
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Converting to PDF...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Sending to Collabora server.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Converting to PDF...', 'documentate')); ?>,
+					<?php echo wp_json_encode(__('Sending to Collabora server.', 'documentate')); ?>
 				);
 
 				// Build multipart form data for Collabora.
@@ -211,7 +216,7 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 				const resultBlob = await collaboraResponse.blob();
 
 				if (resultBlob.size === 0) {
-					throw new Error(<?php echo wp_json_encode( __( 'Collabora returned an empty response.', 'documentate' ) ); ?>);
+					throw new Error(<?php echo wp_json_encode(__('Collabora returned an empty response.', 'documentate')); ?>);
 				}
 
 				console.log('Documentate: Conversion successful, size:', resultBlob.size);
@@ -251,8 +256,8 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 						});
 
 						updateStatus(
-							<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
-							<?php echo wp_json_encode( __( 'Document converted.', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode(__('Completed!', 'documentate')); ?>,
+							<?php echo wp_json_encode(__('Document converted.', 'documentate')); ?>,
 							false,
 							true
 						);
@@ -272,8 +277,8 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 						document.body.removeChild(a);
 
 						updateStatus(
-							<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
-							<?php echo wp_json_encode( __( 'Document downloaded.', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode(__('Completed!', 'documentate')); ?>,
+							<?php echo wp_json_encode(__('Document downloaded.', 'documentate')); ?>,
 							false,
 							true
 						);
@@ -286,12 +291,12 @@ $documentate_collabora_url = isset( $documentate_options['collabora_base_url'] )
 				console.error('Documentate conversion error:', error);
 
 				if (conversionConfig.useChannel) {
-					sendToChannel('error', null, error.message || <?php echo wp_json_encode( __( 'Conversion error.', 'documentate' ) ); ?>);
+					sendToChannel('error', null, error.message || <?php echo wp_json_encode(__('Conversion error.', 'documentate')); ?>);
 				}
 
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Error', 'documentate' ) ); ?>,
-					error.message || <?php echo wp_json_encode( __( 'Conversion error.', 'documentate' ) ); ?>,
+					<?php echo wp_json_encode(__('Error', 'documentate')); ?>,
+					error.message || <?php echo wp_json_encode(__('Conversion error.', 'documentate')); ?>,
 					true
 				);
 			}
