@@ -301,7 +301,7 @@ class Documentate_Template_Parser {
 				$data_type = 'text';
 			}
 
-			if (in_array($slug, array('onshow', 'ondata', 'block', 'var'), true)) {
+			if (in_array($slug, array('onshow', 'ondata', 'block', 'var', 'sign'), true)) {
 				continue;
 			}
 
@@ -667,15 +667,35 @@ class Documentate_Template_Parser {
 	 * @param string $template_path Absolute path to template file.
 	 * @return bool True if the [sign] placeholder exists in the template.
 	 */
-	public static function template_has_sign_placeholder( $template_path ) {
-		$fields = self::extract_fields( $template_path );
-		if ( is_wp_error( $fields ) || empty( $fields ) ) {
+	public static function template_has_sign_placeholder($template_path) {
+		return false !== self::get_sign_placeholder_info($template_path);
+	}
+
+	/**
+	 * Get [sign] placeholder info including optional position parameters.
+	 *
+	 * Supports parameters: x, y (PDF points from bottom-left), page (page number, -1 = last).
+	 * Example: [sign;x=100;y=200] or [sign;x=50;y=80;page=2]
+	 *
+	 * @param string $template_path Absolute path to template file.
+	 * @return array{x: int, y: int, page: int}|false Position data or false if not found.
+	 */
+	public static function get_sign_placeholder_info($template_path) {
+		$fields = self::extract_fields($template_path);
+		if (is_wp_error($fields) || empty($fields)) {
 			return false;
 		}
-		foreach ( $fields as $field ) {
-			if ( isset( $field['placeholder'] ) && 'sign' === strtolower( $field['placeholder'] ) ) {
-				return true;
+		foreach ($fields as $field) {
+			if (!isset($field['placeholder']) || 'sign' !== strtolower($field['placeholder'])) {
+				continue;
 			}
+
+			$params = isset($field['parameters']) && is_array($field['parameters']) ? $field['parameters'] : array();
+			return array(
+				'x' => isset($params['x']) ? intval($params['x']) : 0,
+				'y' => isset($params['y']) ? intval($params['y']) : 0,
+				'page' => isset($params['page']) ? intval($params['page']) : 0,
+			);
 		}
 		return false;
 	}

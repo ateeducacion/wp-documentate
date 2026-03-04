@@ -427,6 +427,10 @@ class Documentate_Document_Generator {
 			}
 		}
 
+		// Replace [sign] placeholder with empty string so it doesn't appear in the output.
+		// Signature position is determined by template parameters (x, y, page), not by text detection.
+		$fields['sign'] = '';
+
 		if (!empty($structured)) {
 			foreach ($structured as $slug => $info) {
 				$slug = sanitize_key($slug);

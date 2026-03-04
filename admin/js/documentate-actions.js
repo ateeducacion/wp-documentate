@@ -305,58 +305,19 @@
 	}
 
 	/**
-	 * Attempt to launch AutoFirma via the afirma:// protocol.
+	 * Handle the Sign and Download flow via AutoScript.js (AutoFirma).
 	 *
-	 * Detects whether the launch succeeded by monitoring whether the browser
-	 * window loses focus (indicating the OS opened the AutoFirma application).
-	 * Resolves to true if AutoFirma appears to have launched, false otherwise.
+	 * Fetches the generated PDF, signs with AutoScript.sign() using PAdES
+	 * format, then triggers a direct browser download (no server round-trip).
 	 *
-	 * @param {string} afirmaUrl Full afirma:// URL including PDF data.
-	 * @returns {Promise<boolean>} Whether AutoFirma was launched.
-	 */
-	function tryLaunchAfirma(afirmaUrl) {
-		return new Promise(function (resolve) {
-			let windowBlurred = false;
-
-			const onBlur = function () {
-				windowBlurred = true;
-				window.removeEventListener('blur', onBlur);
-			};
-
-			window.addEventListener('blur', onBlur);
-
-			// Navigate to the custom protocol; if AutoFirma is installed the OS
-			// intercepts it and opens the app without navigating away.
-			try {
-				window.location.href = afirmaUrl;
-			} catch (e) {
-				window.removeEventListener('blur', onBlur);
-				resolve(false);
-				return;
-			}
-
-			// Give the OS time to launch AutoFirma and steal focus.
-			setTimeout(function () {
-				window.removeEventListener('blur', onBlur);
-				resolve(windowBlurred);
-			}, 1500);
-		});
-	}
-
-	/**
-	 * Handle the Sign and Download flow via AutoFirma.
-	 *
-	 * Fetches the generated PDF, builds an afirma:// signing URL, and tries to
-	 * launch AutoFirma.  Falls back to a normal PDF download if AutoFirma is not
-	 * available or if an error occurs during the signing preparation.
-	 *
-	 * AutoFirma signing parameters: PAdES format with SHA-256/RSA algorithm.
+	 * Signature position is determined by [sign;x=...;y=...;page=...] parameters
+	 * in the template. Falls back to bottom-left of last page if not specified.
 	 *
 	 * @param {string} pdfUrl URL of the generated PDF to sign.
 	 */
 	async function handleSignAndDownload(pdfUrl) {
 		updateModal(
-			strings.signingDocument || 'Firmando documento con AutoFirma...',
+			strings.signingInProgress || 'Selecciona tu certificado en AutoFirma...',
 			strings.wait || 'Por favor, espera...'
 		);
 
@@ -367,25 +328,72 @@
 				throw new Error(strings.errorGeneric || 'Error generating the document.');
 			}
 			const pdfBuffer = await pdfResponse.arrayBuffer();
+
+			// Use position from template [sign] parameters, or defaults.
+			const pos = config.signPosition || {};
+			const sigPage = pos.page || -1;    // -1 = last page.
+			const sigLLX = pos.x || 50;
+			const sigLLY = pos.y || 50;
+			const sigURX = sigLLX + 250;
+			const sigURY = sigLLY + 70;
+
 			const pdfBase64 = arrayBufferToBase64(pdfBuffer);
 
-			// Build the afirma:// signing URL (PAdES with SHA-256/RSA).
-			const afirmaUrl =
-				'afirma://sign?v=2&op=sign&t=Base64&format=PAdES' +
-				'&algorithm=SHA256withRSA&dat=' + encodeURIComponent(pdfBase64);
+			// PAdES signature parameters with dynamic positioning.
+			const params =
+				'mode=implicit\n' +
+				'signatureSubFilter=ETSI.CAdES.detached\n' +
+				'filters=nonexpired:\n' +
+				'signaturePage=' + sigPage + '\n' +
+				'signaturePositionOnPageLowerLeftX=' + sigLLX + '\n' +
+				'signaturePositionOnPageLowerLeftY=' + sigLLY + '\n' +
+				'signaturePositionOnPageUpperRightX=' + sigURX + '\n' +
+				'signaturePositionOnPageUpperRightY=' + sigURY + '\n' +
+				'layer2Text=Firmado por $$SUBJECTCN$$ el $$SIGNDATE=dd/MM/yyyy HH:mm$$\n' +
+				'layer2FontFamily=1\n' +
+				'layer2FontSize=10\n' +
+				'layer2FontColor=black';
 
-			hideModal();
-
-			const launched = await tryLaunchAfirma(afirmaUrl);
-
-			if (!launched) {
-				// AutoFirma not installed or protocol not handled – fall back.
-				window.location.href = pdfUrl;
-			}
+			AutoScript.sign(
+				pdfBase64,
+				'SHA512withRSA',
+				'PAdES',
+				params,
+				function onSuccess(signedBase64) {
+					// Direct browser download — no server round-trip.
+					try {
+						const byteChars = atob(signedBase64);
+						const byteArray = new Uint8Array(byteChars.length);
+						for (let i = 0; i < byteChars.length; i++) {
+							byteArray[i] = byteChars.charCodeAt(i);
+						}
+						const blob = new Blob([byteArray], { type: 'application/pdf' });
+						const blobUrl = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = blobUrl;
+						a.download = (config.postSlug || 'documento') + '-' + config.postId + '_signed.pdf';
+						document.body.appendChild(a);
+						a.click();
+						document.body.removeChild(a);
+						setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+						hideModal();
+					} catch (dlError) {
+						console.error('Download error:', dlError);
+						showError(strings.errorGeneric || 'Error al descargar el documento firmado.');
+					}
+				},
+				function onError(errorType, errorMessage) {
+					if (errorType === 'es.gob.afirma.core.AOCancelledOperationException') {
+						hideModal();
+						return;
+					}
+					console.error('AutoFirma sign error:', errorType, errorMessage);
+					showError(strings.signErrorNoAutofirma || 'AutoFirma no está instalado o no se pudo iniciar.');
+				}
+			);
 		} catch (error) {
-			// Any failure (network, encoding, etc.) falls back to plain download.
-			hideModal();
-			window.location.href = pdfUrl;
+			console.error('AutoFirma error:', error);
+			showError(strings.signErrorNoAutofirma || 'AutoFirma no está instalado o no se pudo iniciar.');
 		}
 	}
 
@@ -676,15 +684,6 @@
 		const format = $btn.data('documentate-format');
 		const cdnMode = $btn.data('documentate-cdn-mode') === '1' || $btn.data('documentate-cdn-mode') === 1;
 		const sourceFormat = $btn.data('documentate-source-format');
-		// Sign mode: template has [sign] placeholder and the action is a PDF download.
-		// Only active in standard AJAX mode (not CDN / Collabora Playground, which are
-		// browser-based environments where AutoFirma desktop app cannot be invoked).
-		const signMode =
-			action === 'download' &&
-			format === 'pdf' &&
-			($btn.data('documentate-sign') === '1' || $btn.data('documentate-sign') === 1) &&
-			!cdnMode &&
-			!config.collaboraPlayground;
 
 		if (!action || !config.ajaxUrl || !config.postId) {
 			// Fallback to default behavior
@@ -752,7 +751,7 @@
 				action: 'documentate_generate_document',
 				post_id: config.postId,
 				format: format || 'pdf',
-				output: action, // 'preview', 'download'
+				output: action === 'sign' ? 'download' : action, // 'preview', 'download'
 				_wpnonce: config.nonce
 			},
 			success: function (response) {
@@ -761,15 +760,13 @@
 						// Open preview in new tab
 						window.open(response.data.url, '_blank');
 						hideModal();
+					} else if (action === 'sign' && response.data.url) {
+						// Sign and download via AutoFirma (AutoScript.js).
+						handleSignAndDownload(response.data.url);
 					} else if (response.data.url) {
-						if (signMode) {
-							// Sign and download via AutoFirma.
-							handleSignAndDownload(response.data.url);
-						} else {
-							// Trigger download
-							hideModal();
-							window.location.href = response.data.url;
-						}
+						// Trigger download
+						hideModal();
+						window.location.href = response.data.url;
 					} else {
 						showError(strings.errorGeneric || 'Error al generar el documento.');
 					}
@@ -795,6 +792,15 @@
 	function init() {
 		// Bind click handlers to action buttons
 		$(document).on('click', '[data-documentate-action]', handleActionClick);
+
+		// Initialize AutoFirma communication if AutoScript is available.
+		if (config.hasSignPlaceholder && typeof AutoScript !== 'undefined') {
+			try {
+				AutoScript.cargarAppAfirma();
+			} catch (e) {
+				console.warn('AutoFirma init warning:', e);
+			}
+		}
 	}
 
 	$(init);
