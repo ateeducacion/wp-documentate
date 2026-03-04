@@ -137,7 +137,7 @@ test.describe( 'Document Revisions', () => {
 		await revisionsLink.click();
 
 		// Wait for revisions page to load.
-		await page.waitForSelector( '.revisions, #revisions', { timeout: 5000 } );
+		await page.locator( '.revisions, #revisions' ).first().waitFor( { state: 'visible', timeout: 5000 } );
 
 		// Look for restore button.
 		const restoreButton = page.getByRole( 'button', { name: /restore/i } ).or(
@@ -163,7 +163,15 @@ test.describe( 'Document Revisions', () => {
 				await page.keyboard.press( 'ArrowLeft' );
 			}
 
-			await page.waitForTimeout( 500 );
+			// Wait for the restore button to become enabled
+			await page.waitForFunction(
+				() => {
+					const btn = document.querySelector( 'input[value*="Restore"], input[value*="Restaurar"]' );
+					return btn && ! btn.disabled;
+				},
+				null,
+				{ timeout: 3000 }
+			).catch( () => {} );
 		}
 
 		if ( await restoreButton.isDisabled() ) {

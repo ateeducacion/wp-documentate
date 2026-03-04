@@ -18,10 +18,11 @@ const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8889';
 module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'github' ] ] : [ [ 'list' ] ],
 	forbidOnly: !! process.env.CI,
-	workers: 1,
+	fullyParallel: false,
+	workers: parseInt( process.env.PLAYWRIGHT_WORKERS || '', 10 ) || 2,
 	retries: process.env.CI ? 2 : 0,
-	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 100_000,
-	reportSlowTests: null,
+	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 60_000,
+	reportSlowTests: { max: 5, threshold: 15_000 },
 	testDir: path.join( __dirname, 'specs' ),
 	outputDir: path.join( process.env.WP_ARTIFACTS_PATH, 'test-results' ),
 	snapshotPathTemplate:
