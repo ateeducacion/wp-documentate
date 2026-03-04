@@ -1110,3 +1110,12 @@ msgstr "Falló el preprocesamiento de la plantilla (bloques de visibilidad)."
 
 msgid "Template pre-processing failed (placeholder normalization)."
 msgstr "Falló el preprocesamiento de la plantilla (normalización de marcadores)."
+
+msgid "Sign and Download"
+msgstr "Firmar y descargar"
+
+msgid "Signing document with AutoFirma..."
+msgstr "Firmando documento con AutoFirma..."
+
+msgid "AutoFirma is not available. Downloading the unsigned PDF."
+msgstr "AutoFirma no está disponible. Descargando el PDF sin firmar."

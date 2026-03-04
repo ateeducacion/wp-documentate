@@ -657,6 +657,13 @@ class Documentate_Admin_Helper {
 		$docx_template = Documentate_Document_Generator::get_template_path($post->ID, 'docx');
 		$odt_template = Documentate_Document_Generator::get_template_path($post->ID, 'odt');
 
+		// Detect [sign] placeholder in the active template.
+		$template_for_sign_check = '' !== $docx_template ? $docx_template : $odt_template;
+		$has_sign_placeholder = false;
+		if ( '' !== $template_for_sign_check ) {
+			$has_sign_placeholder = Documentate_Template_Parser::template_has_sign_placeholder( $template_for_sign_check );
+		}
+
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-conversion-manager.php';
 
 		$conversion_ready = Documentate_Conversion_Manager::is_available();
@@ -765,7 +772,7 @@ class Documentate_Admin_Helper {
 			;
 		}
 
-		// Download PDF button (primary/blue).
+		// Download PDF / Sign and Download button (primary/blue).
 		if ($pdf_available) {
 			$pdf_attrs = array(
 				'class' => 'button button-primary documentate-action-btn documentate-action-btn--pdf',
@@ -777,12 +784,19 @@ class Documentate_Admin_Helper {
 				$pdf_attrs['data-documentate-cdn-mode'] = '1';
 				$pdf_attrs['data-documentate-source-format'] = $source_format;
 			}
+			if ($has_sign_placeholder) {
+				$pdf_attrs['data-documentate-sign'] = '1';
+			}
+			$pdf_label = $has_sign_placeholder
+				? __('Sign and Download', 'documentate')
+				: __('Download PDF', 'documentate');
+			$pdf_icon = $has_sign_placeholder ? 'dashicons-lock' : 'dashicons-pdf';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 			echo
 				'<a '
 					. $this->build_action_attributes($pdf_attrs)
-					. '><span class="dashicons dashicons-pdf"></span> '
-					. esc_html__('Download PDF', 'documentate')
+					. '><span class="dashicons ' . esc_attr($pdf_icon) . '"></span> '
+					. esc_html($pdf_label)
 					. '</a>'
 			;
 		} else {
@@ -1038,6 +1052,8 @@ class Documentate_Admin_Helper {
 				'You have unsaved changes. Do you want to generate the document with the last saved version?',
 				'documentate',
 			),
+			'signingDocument' => __('Signing document with AutoFirma...', 'documentate'),
+			'signFallback' => __('AutoFirma is not available. Downloading the unsigned PDF.', 'documentate'),
 		);
 	}
 

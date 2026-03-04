@@ -662,6 +662,25 @@ class Documentate_Template_Parser {
 	}
 
 	/**
+	 * Check whether a template contains a [sign] placeholder.
+	 *
+	 * @param string $template_path Absolute path to template file.
+	 * @return bool True if the [sign] placeholder exists in the template.
+	 */
+	public static function template_has_sign_placeholder( $template_path ) {
+		$fields = self::extract_fields( $template_path );
+		if ( is_wp_error( $fields ) || empty( $fields ) ) {
+			return false;
+		}
+		foreach ( $fields as $field ) {
+			if ( isset( $field['placeholder'] ) && 'sign' === strtolower( $field['placeholder'] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Polyfill for str_ends_with to support older PHP versions.
 	 *
 	 * @param string $haystack Full string.

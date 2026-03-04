@@ -288,6 +288,108 @@
 	}
 
 	/**
+	 * Convert an ArrayBuffer to a base64-encoded string.
+	 *
+	 * @param {ArrayBuffer} buffer Binary data to convert.
+	 * @returns {string} Base64-encoded representation.
+	 */
+	function arrayBufferToBase64(buffer) {
+		const bytes = new Uint8Array(buffer);
+		const chunks = [];
+		const chunkSize = 8192;
+		for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+			const chunk = bytes.subarray(i, i + chunkSize);
+			chunks.push(String.fromCharCode.apply(null, chunk));
+		}
+		return btoa(chunks.join(''));
+	}
+
+	/**
+	 * Attempt to launch AutoFirma via the afirma:// protocol.
+	 *
+	 * Detects whether the launch succeeded by monitoring whether the browser
+	 * window loses focus (indicating the OS opened the AutoFirma application).
+	 * Resolves to true if AutoFirma appears to have launched, false otherwise.
+	 *
+	 * @param {string} afirmaUrl Full afirma:// URL including PDF data.
+	 * @returns {Promise<boolean>} Whether AutoFirma was launched.
+	 */
+	function tryLaunchAfirma(afirmaUrl) {
+		return new Promise(function (resolve) {
+			let windowBlurred = false;
+
+			const onBlur = function () {
+				windowBlurred = true;
+				window.removeEventListener('blur', onBlur);
+			};
+
+			window.addEventListener('blur', onBlur);
+
+			// Navigate to the custom protocol; if AutoFirma is installed the OS
+			// intercepts it and opens the app without navigating away.
+			try {
+				window.location.href = afirmaUrl;
+			} catch (e) {
+				window.removeEventListener('blur', onBlur);
+				resolve(false);
+				return;
+			}
+
+			// Give the OS time to launch AutoFirma and steal focus.
+			setTimeout(function () {
+				window.removeEventListener('blur', onBlur);
+				resolve(windowBlurred);
+			}, 1500);
+		});
+	}
+
+	/**
+	 * Handle the Sign and Download flow via AutoFirma.
+	 *
+	 * Fetches the generated PDF, builds an afirma:// signing URL, and tries to
+	 * launch AutoFirma.  Falls back to a normal PDF download if AutoFirma is not
+	 * available or if an error occurs during the signing preparation.
+	 *
+	 * AutoFirma signing parameters: PAdES format with SHA-256/RSA algorithm.
+	 *
+	 * @param {string} pdfUrl URL of the generated PDF to sign.
+	 */
+	async function handleSignAndDownload(pdfUrl) {
+		updateModal(
+			strings.signingDocument || 'Firmando documento con AutoFirma...',
+			strings.wait || 'Por favor, espera...'
+		);
+
+		try {
+			// Fetch the PDF binary so it can be passed to AutoFirma.
+			const pdfResponse = await fetch(pdfUrl, { credentials: 'same-origin' });
+			if (!pdfResponse.ok) {
+				throw new Error(strings.errorGeneric || 'Error generating the document.');
+			}
+			const pdfBuffer = await pdfResponse.arrayBuffer();
+			const pdfBase64 = arrayBufferToBase64(pdfBuffer);
+
+			// Build the afirma:// signing URL (PAdES with SHA-256/RSA).
+			const afirmaUrl =
+				'afirma://sign?v=2&op=sign&t=Base64&format=PAdES' +
+				'&algorithm=SHA256withRSA&dat=' + encodeURIComponent(pdfBase64);
+
+			hideModal();
+
+			const launched = await tryLaunchAfirma(afirmaUrl);
+
+			if (!launched) {
+				// AutoFirma not installed or protocol not handled – fall back.
+				window.location.href = pdfUrl;
+			}
+		} catch (error) {
+			// Any failure (network, encoding, etc.) falls back to plain download.
+			hideModal();
+			window.location.href = pdfUrl;
+		}
+	}
+
+	/**
 	 * Log debug info to the browser console for troubleshooting.
 	 *
 	 * @param {Object} response AJAX response object.
@@ -574,6 +676,15 @@
 		const format = $btn.data('documentate-format');
 		const cdnMode = $btn.data('documentate-cdn-mode') === '1' || $btn.data('documentate-cdn-mode') === 1;
 		const sourceFormat = $btn.data('documentate-source-format');
+		// Sign mode: template has [sign] placeholder and the action is a PDF download.
+		// Only active in standard AJAX mode (not CDN / Collabora Playground, which are
+		// browser-based environments where AutoFirma desktop app cannot be invoked).
+		const signMode =
+			action === 'download' &&
+			format === 'pdf' &&
+			($btn.data('documentate-sign') === '1' || $btn.data('documentate-sign') === 1) &&
+			!cdnMode &&
+			!config.collaboraPlayground;
 
 		if (!action || !config.ajaxUrl || !config.postId) {
 			// Fallback to default behavior
@@ -651,9 +762,14 @@
 						window.open(response.data.url, '_blank');
 						hideModal();
 					} else if (response.data.url) {
-						// Trigger download
-						hideModal();
-						window.location.href = response.data.url;
+						if (signMode) {
+							// Sign and download via AutoFirma.
+							handleSignAndDownload(response.data.url);
+						} else {
+							// Trigger download
+							hideModal();
+							window.location.href = response.data.url;
+						}
 					} else {
 						showError(strings.errorGeneric || 'Error al generar el documento.');
 					}
