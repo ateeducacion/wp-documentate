@@ -183,24 +183,20 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
+			const page = documentEditor.page;
+
+			// Pre-check: verify DOCX generation is available (requires conversion engine).
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
+			if ( ! downloadUrl ) {
+				test.skip( 'DOCX generation not available (no conversion engine)' );
+				return;
+			}
+
+			const buttons = getActionButtons( page );
 			const docxButton = buttons.docx.first();
 
-			if ( ! await docxButton.isVisible() ) {
-				test.skip( 'DOCX button not available' );
-				return;
-			}
-
-			const isDisabled = await docxButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'DOCX button is disabled' );
-				return;
-			}
-
 			// Start waiting for download before clicking
-			const downloadPromise = documentEditor.page.waitForEvent( 'download' );
+			const downloadPromise = page.waitForEvent( 'download' );
 			await docxButton.click();
 
 			const download = await downloadPromise;
@@ -247,23 +243,20 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
+			const page = documentEditor.page;
+
+			// Pre-check: verify ODT generation is available.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
+			if ( ! downloadUrl ) {
+				test.skip( 'ODT generation not available' );
+				return;
+			}
+
+			const buttons = getActionButtons( page );
 			const odtButton = buttons.odt.first();
 
-			if ( ! await odtButton.isVisible() ) {
-				test.skip( 'ODT button not available' );
-				return;
-			}
-
-			const isDisabled = await odtButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'ODT button is disabled' );
-				return;
-			}
-
-			const downloadPromise = documentEditor.page.waitForEvent( 'download' );
+			// Start waiting for download before clicking
+			const downloadPromise = page.waitForEvent( 'download' );
 			await odtButton.click();
 
 			const download = await downloadPromise;
@@ -309,23 +302,20 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
+			const page = documentEditor.page;
+
+			// Pre-check: verify PDF generation is available (requires conversion engine).
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
+			if ( ! downloadUrl ) {
+				test.skip( 'PDF generation not available (no conversion engine)' );
+				return;
+			}
+
+			const buttons = getActionButtons( page );
 			const pdfButton = buttons.pdf.first();
 
-			if ( ! await pdfButton.isVisible() ) {
-				test.skip( 'PDF button not available' );
-				return;
-			}
-
-			const isDisabled = await pdfButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'PDF button is disabled (conversion not configured)' );
-				return;
-			}
-
-			const downloadPromise = documentEditor.page.waitForEvent( 'download' );
+			// Start waiting for download before clicking
+			const downloadPromise = page.waitForEvent( 'download' );
 			await pdfButton.click();
 
 			const download = await downloadPromise;

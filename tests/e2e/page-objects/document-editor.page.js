@@ -341,9 +341,93 @@ class DocumentEditorPage {
 	}
 
 	/**
+	 * Fill all visible required fields that are currently empty with placeholder data.
+	 *
+	 * This prevents HTML5 validation from blocking form submission in tests.
+	 * Only fills fields that are both required AND empty.
+	 */
+	async fillRequiredFields() {
+		// Fill required text/email/url inputs.
+		const requiredTextInputs = this.page.locator(
+			'input[required]:is([type="text"], [type="email"], [type="url"])'
+		);
+		const textCount = await requiredTextInputs.count();
+		for ( let i = 0; i < textCount; i++ ) {
+			const input = requiredTextInputs.nth( i );
+			if ( await input.isVisible() && ( await input.inputValue() ) === '' ) {
+				await input.fill( 'Test value' );
+			}
+		}
+
+		// Fill required number inputs.
+		const requiredNumberInputs = this.page.locator( 'input[required][type="number"]' );
+		const numCount = await requiredNumberInputs.count();
+		for ( let i = 0; i < numCount; i++ ) {
+			const input = requiredNumberInputs.nth( i );
+			if ( await input.isVisible() && ( await input.inputValue() ) === '' ) {
+				await input.fill( '1' );
+			}
+		}
+
+		// Fill required date inputs.
+		const requiredDateInputs = this.page.locator( 'input[required][type="date"]' );
+		const dateCount = await requiredDateInputs.count();
+		for ( let i = 0; i < dateCount; i++ ) {
+			const input = requiredDateInputs.nth( i );
+			if ( await input.isVisible() && ( await input.inputValue() ) === '' ) {
+				await input.fill( '2026-01-01' );
+			}
+		}
+
+		// Fill required select elements (select the first non-empty option).
+		const requiredSelects = this.page.locator( 'select[required]' );
+		const selCount = await requiredSelects.count();
+		for ( let i = 0; i < selCount; i++ ) {
+			const sel = requiredSelects.nth( i );
+			if ( await sel.isVisible() && ( await sel.inputValue() ) === '' ) {
+				const firstOption = sel.locator( 'option:not([value=""])' ).first();
+				if ( await firstOption.count() > 0 ) {
+					const val = await firstOption.getAttribute( 'value' );
+					await sel.selectOption( val );
+				}
+			}
+		}
+
+		// Fill required rich editors (TinyMCE) via data-required wrapper.
+		const requiredRichWraps = this.page.locator( '.documentate-rich-editor-wrap[data-required="true"]' );
+		const richCount = await requiredRichWraps.count();
+		for ( let i = 0; i < richCount; i++ ) {
+			const wrap = requiredRichWraps.nth( i );
+			const textarea = wrap.locator( 'textarea' ).first();
+			if ( await textarea.count() > 0 ) {
+				const val = await textarea.inputValue();
+				if ( val.trim() === '' ) {
+					const textareaId = await textarea.getAttribute( 'id' );
+					// Set content via TinyMCE API if available.
+					await this.page.evaluate( ( id ) => {
+						if ( window.tinyMCE ) {
+							const editor = window.tinyMCE.get( id );
+							if ( editor ) {
+								editor.setContent( '<p>Test content</p>' );
+								editor.save();
+								return;
+							}
+						}
+						const el = document.getElementById( id );
+						if ( el ) {
+							el.value = '<p>Test content</p>';
+						}
+					}, textareaId );
+				}
+			}
+		}
+	}
+
+	/**
 	 * Save the document as draft.
 	 */
 	async saveDraft() {
+		await this.fillRequiredFields();
 		await this.saveDraftButton.click();
 		await this.waitForSave();
 	}
@@ -383,6 +467,7 @@ class DocumentEditorPage {
 
 		// If "Approve & Publish" is visible, we're already in pending — just approve.
 		if ( await approveBtn.isVisible().catch( () => false ) ) {
+			await this.fillRequiredFields();
 			await Promise.all( [
 				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
 				approveBtn.click(),
@@ -405,13 +490,17 @@ class DocumentEditorPage {
 			// draft when doc_type hasn't been saved yet via save_post).
 			await this.saveDraft();
 
+			// After save, required fields may have appeared — fill them.
+			await this.fillRequiredFields();
+
 			await Promise.all( [
 				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
 				this.page.locator( '#documentate-send-review' ).click(),
 			] );
 
-			// Page reloaded — now in pending state, click Approve & Publish.
+			// Page reloaded — now in pending state, fill required fields and approve.
 			await this.page.locator( '#documentate-approve-publish' ).waitFor( { state: 'visible', timeout: 10000 } );
+			await this.fillRequiredFields();
 			await Promise.all( [
 				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
 				this.page.locator( '#documentate-approve-publish' ).click(),
