@@ -43,4 +43,8 @@ sftp-config.json                                           export-ignore
 sonar-project.properties                                   export-ignore
 test.php                                                   export-ignore
 tests/                                                     export-ignore
-linter-baseline.toml				           export-ignore
+linter-baseline.toml                                       export-ignore
+mago.toml                                                  export-ignore
+ARCHITECTURE.md                                            export-ignore
+
+
