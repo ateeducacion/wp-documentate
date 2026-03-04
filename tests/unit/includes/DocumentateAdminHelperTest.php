@@ -401,9 +401,9 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Preview', $output );
+		$this->assertStringContainsString( 'Download PDF', $output );
 		$this->assertStringContainsString( 'DOCX', $output );
 		$this->assertStringContainsString( 'ODT', $output );
-		$this->assertStringContainsString( 'PDF', $output );
 	}
 
 	/**
@@ -1144,16 +1144,17 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox description text.
+	 * Test render_actions_metabox shows primary and secondary action rows.
 	 */
-	public function test_render_actions_metabox_description() {
+	public function test_render_actions_metabox_action_rows() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
 		ob_start();
 		$this->helper->render_actions_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'description', $output );
+		$this->assertStringContainsString( 'documentate-actions-primary', $output );
+		$this->assertStringContainsString( 'documentate-actions-secondary', $output );
 	}
 
 	/**
@@ -1741,16 +1742,16 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox shows conversion engine label.
+	 * Test render_actions_metabox shows secondary formats label.
 	 */
-	public function test_render_actions_metabox_shows_engine_label() {
+	public function test_render_actions_metabox_shows_secondary_label() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
 		ob_start();
 		$this->helper->render_actions_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'description', $output );
+		$this->assertStringContainsString( 'Other download formats:', $output );
 	}
 
 	/**

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Schema extractor for document type templates.
  *
@@ -14,7 +15,6 @@ use ZipArchive;
  * Parses DOCX/ODT templates to build a normalized schema definition.
  */
 class SchemaExtractor {
-
 	const SCHEMA_VERSION = 2;
 
 	/**
@@ -49,16 +49,16 @@ class SchemaExtractor {
 	 * @param string $field_type Field type.
 	 * @return array{pattern: string, message: string}|null
 	 */
-	private static function get_default_pattern( $field_type ) {
-		if ( ! isset( self::$default_patterns[ $field_type ] ) ) {
+	private static function get_default_pattern($field_type) {
+		if (!isset(self::$default_patterns[$field_type])) {
 			return null;
 		}
 
-		$config = self::$default_patterns[ $field_type ];
+		$config = self::$default_patterns[$field_type];
 
 		// Handle translatable messages at runtime.
-		if ( 'email' === $field_type && '' === $config['message'] ) {
-			$config['message'] = __( 'Enter a valid email (user@domain.tld)', 'documentate' );
+		if ('email' === $field_type && '' === $config['message']) {
+			$config['message'] = __('Enter a valid email (user@domain.tld)', 'documentate');
 		}
 
 		return $config;
@@ -70,31 +70,31 @@ class SchemaExtractor {
 	 * @param string $template_path Absolute path to the template file.
 	 * @return array|WP_Error Schema array on success or WP_Error on failure.
 	 */
-	public function extract( $template_path ) {
+	public function extract($template_path) {
 		$template_path = (string) $template_path;
 
-		if ( '' === $template_path || ! file_exists( $template_path ) || ! is_readable( $template_path ) ) {
-			return new WP_Error(
-				'documentate_schema_template_missing',
-				__( 'The selected template file is not accessible.', 'documentate' )
-			);
+		if ('' === $template_path || !file_exists($template_path) || !is_readable($template_path)) {
+			return new WP_Error('documentate_schema_template_missing', __(
+				'The selected template file is not accessible.',
+				'documentate',
+			));
 		}
 
-		$template_type = $this->detect_template_type( $template_path );
-		if ( '' === $template_type ) {
-			return new WP_Error(
-				'documentate_schema_template_type',
-				__( 'The template must be a DOCX or ODT file.', 'documentate' )
-			);
+		$template_type = $this->detect_template_type($template_path);
+		if ('' === $template_type) {
+			return new WP_Error('documentate_schema_template_type', __(
+				'The template must be a DOCX or ODT file.',
+				'documentate',
+			));
 		}
 
-		$placeholders = $this->collect_placeholders( $template_path, $template_type );
-		if ( is_wp_error( $placeholders ) ) {
+		$placeholders = $this->collect_placeholders($template_path, $template_type);
+		if (is_wp_error($placeholders)) {
 			return $placeholders;
 		}
 
-		$schema = $this->build_schema( $placeholders, $template_type, $template_path );
-		if ( is_wp_error( $schema ) ) {
+		$schema = $this->build_schema($placeholders, $template_type, $template_path);
+		if (is_wp_error($schema)) {
 			return $schema;
 		}
 
@@ -107,9 +107,9 @@ class SchemaExtractor {
 	 * @param string $template_path Template path.
 	 * @return string
 	 */
-	private function detect_template_type( $template_path ) {
-		$ext = strtolower( pathinfo( $template_path, PATHINFO_EXTENSION ) );
-		if ( in_array( $ext, array( 'docx', 'odt' ), true ) ) {
+	private function detect_template_type($template_path) {
+		$ext = strtolower(pathinfo($template_path, PATHINFO_EXTENSION));
+		if (in_array($ext, array('docx', 'odt'), true)) {
 			return $ext;
 		}
 		return '';
@@ -122,44 +122,41 @@ class SchemaExtractor {
 	 * @param string $template_type Template type (docx|odt).
 	 * @return array<int, array<string,mixed>>|WP_Error
 	 */
-	private function collect_placeholders( $template_path, $template_type ) {
+	private function collect_placeholders($template_path, $template_type) {
 		$zip = new ZipArchive();
-		if ( true !== $zip->open( $template_path ) ) {
-			return new WP_Error(
-				'documentate_schema_template_open',
-				__( 'The template file could not be opened.', 'documentate' )
-			);
+		if (true !== $zip->open($template_path)) {
+			return new WP_Error('documentate_schema_template_open', __('The template file could not be opened.', 'documentate'));
 		}
 
 		$targets = array();
-		if ( 'docx' === $template_type ) {
-			$targets = $this->collect_docx_targets( $zip );
+		if ('docx' === $template_type) {
+			$targets = $this->collect_docx_targets($zip);
 		} else {
-			$targets = $this->collect_odt_targets( $zip );
+			$targets = $this->collect_odt_targets($zip);
 		}
 
 		$tokens = array();
-		foreach ( $targets as $target ) {
-			$contents = $zip->getFromName( $target );
-			if ( false === $contents ) {
+		foreach ($targets as $target) {
+			$contents = $zip->getFromName($target);
+			if (false === $contents) {
 				continue;
 			}
 
-			$normalized = $this->normalize_xml_text( $contents, $template_type );
-			if ( '' === $normalized ) {
+			$normalized = $this->normalize_xml_text($contents, $template_type);
+			if ('' === $normalized) {
 				continue;
 			}
 
-			foreach ( $this->extract_placeholder_chunks( $normalized ) as $chunk ) {
-				$inner = substr( $chunk, 1, -1 );
-				$token = $this->parse_placeholder_token( $inner );
-				if ( empty( $token['name'] ) ) {
+			foreach ($this->extract_placeholder_chunks($normalized) as $chunk) {
+				$inner = substr($chunk, 1, -1);
+				$token = $this->parse_placeholder_token($inner);
+				if (empty($token['name'])) {
 					continue;
 				}
 
 				$token['source'] = $target;
-				$token['order']  = count( $tokens );
-				$tokens[]        = $token;
+				$token['order'] = count($tokens);
+				$tokens[] = $token;
 			}
 		}
 
@@ -174,7 +171,7 @@ class SchemaExtractor {
 	 * @param ZipArchive $zip Open ZipArchive instance.
 	 * @return array<string>
 	 */
-	private function collect_docx_targets( ZipArchive $zip ) {
+	private function collect_docx_targets(ZipArchive $zip) {
 		$targets = array();
 
 		$preferred = array(
@@ -187,21 +184,21 @@ class SchemaExtractor {
 			'word/endnotes.xml',
 		);
 
-		foreach ( $preferred as $candidate ) {
-			if ( false !== $zip->locateName( $candidate ) ) {
+		foreach ($preferred as $candidate) {
+			if (false !== $zip->locateName($candidate)) {
 				$targets[] = $candidate;
 			}
 		}
 
 		// Include any additional headers/footers not covered above.
-		for ( $i = 0; ; $i++ ) {
-			$name = $zip->getNameIndex( $i );
-			if ( false === $name ) {
+		for ($i = 0;; $i++) {
+			$name = $zip->getNameIndex($i);
+			if (false === $name) {
 				break;
 			}
 
-			if ( preg_match( '#^word/(header|footer|footnotes|endnotes)[^/]*\.xml$#i', $name ) ) {
-				if ( ! in_array( $name, $targets, true ) ) {
+			if (preg_match('#^word/(header|footer|footnotes|endnotes)[^/]*\.xml$#i', $name)) {
+				if (!in_array($name, $targets, true)) {
 					$targets[] = $name;
 				}
 			}
@@ -216,10 +213,10 @@ class SchemaExtractor {
 	 * @param ZipArchive $zip Open ZipArchive instance.
 	 * @return array<string>
 	 */
-	private function collect_odt_targets( ZipArchive $zip ) {
+	private function collect_odt_targets(ZipArchive $zip) {
 		$targets = array();
-		foreach ( array( 'content.xml', 'styles.xml' ) as $candidate ) {
-			if ( false !== $zip->locateName( $candidate ) ) {
+		foreach (array('content.xml', 'styles.xml') as $candidate) {
+			if (false !== $zip->locateName($candidate)) {
 				$targets[] = $candidate;
 			}
 		}
@@ -233,39 +230,35 @@ class SchemaExtractor {
 	 * @param string $template_type  Template type (docx|odt).
 	 * @return string
 	 */
-	private function normalize_xml_text( $xml, $template_type ) {
+	private function normalize_xml_text($xml, $template_type) {
 		$xml = (string) $xml;
-		if ( '' === $xml ) {
+		if ('' === $xml) {
 			return '';
 		}
 
-		if ( 'docx' === $template_type ) {
+		if ('docx' === $template_type) {
 			$patterns = array(
 				'#</w:t>\s*</w:r>\s*<w:r[^>]*>\s*<w:t[^>]*>#i',
 				'#</w:t>\s*<w:r[^>]*>\s*<w:t[^>]*>#i',
 				'#</w:t>\s*<w:t[^>]*>#i',
 			);
-			$xml = preg_replace( $patterns, '', $xml );
+			$xml = preg_replace($patterns, '', $xml);
 		} else {
 			// Handle nested spans: multiple closing tags followed by multiple opening tags.
 			// Loop to collapse nested structures like </span></span><span><span>.
 			$prev = '';
-			while ( $prev !== $xml ) {
+			while ($prev !== $xml) {
 				$prev = $xml;
-				$xml  = preg_replace(
-					'#(</text:span>\s*)+(<text:span[^>]*>\s*)+#i',
-					' ',
-					$xml
-				);
+				$xml = preg_replace('#(</text:span>\s*)+(<text:span[^>]*>\s*)+#i', ' ', $xml);
 			}
 			// Also collapse paragraph boundaries.
-			$xml = preg_replace( '#</text:p>\s*<text:p[^>]*>#i', ' ', $xml );
+			$xml = preg_replace('#</text:p>\s*<text:p[^>]*>#i', ' ', $xml);
 		}
 
-		$xml = preg_replace( '/[\x00-\x1F\x7F]/', '', $xml );
-		$xml = wp_strip_all_tags( (string) $xml );
-		$xml = html_entity_decode( $xml, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-		$xml = str_replace( array( "\r\n", "\r" ), "\n", $xml );
+		$xml = preg_replace('/[\x00-\x1F\x7F]/', '', $xml);
+		$xml = wp_strip_all_tags((string) $xml);
+		$xml = html_entity_decode($xml, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+		$xml = str_replace(array("\r\n", "\r"), "\n", $xml);
 
 		return (string) $xml;
 	}
@@ -276,42 +269,42 @@ class SchemaExtractor {
 	 * @param string $raw Raw placeholder without brackets.
 	 * @return array<string,mixed>
 	 */
-	private function parse_placeholder_token( $raw ) {
+	private function parse_placeholder_token($raw) {
 		$raw = (string) $raw;
-		$decoded = html_entity_decode( $raw, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-		$decoded = trim( $decoded );
+		$decoded = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+		$decoded = trim($decoded);
 
-		$segments = $this->split_placeholder_segments( $decoded );
-		if ( empty( $segments ) ) {
+		$segments = $this->split_placeholder_segments($decoded);
+		if (empty($segments)) {
 			return array(
-				'name'       => '',
+				'name' => '',
 				'parameters' => array(),
-				'raw'        => $raw,
-				'decoded'    => $decoded,
+				'raw' => $raw,
+				'decoded' => $decoded,
 			);
 		}
 
-		$name = array_shift( $segments );
-		$name = trim( (string) $name );
+		$name = array_shift($segments);
+		$name = trim((string) $name);
 
 		$parameters = array();
-		foreach ( $segments as $segment ) {
-			$segment = trim( $segment );
-			if ( '' === $segment ) {
+		foreach ($segments as $segment) {
+			$segment = trim($segment);
+			if ('' === $segment) {
 				continue;
 			}
-			$param = $this->parse_parameter_segment( $segment );
-			if ( empty( $param['name'] ) ) {
+			$param = $this->parse_parameter_segment($segment);
+			if (empty($param['name'])) {
 				continue;
 			}
-			$parameters[ $param['name'] ] = $param['value'];
+			$parameters[$param['name']] = $param['value'];
 		}
 
 		return array(
-			'name'       => $name,
+			'name' => $name,
 			'parameters' => $parameters,
-			'raw'        => $raw,
-			'decoded'    => $decoded,
+			'raw' => $raw,
+			'decoded' => $decoded,
 		);
 	}
 
@@ -321,45 +314,42 @@ class SchemaExtractor {
 	 * @param string $placeholder Placeholder string.
 	 * @return array<int,string>
 	 */
-	private function split_placeholder_segments( $placeholder ) {
-		$result    = array();
-		$length    = strlen( $placeholder );
-		$buffer    = '';
-		$quote     = null;
+	private function split_placeholder_segments($placeholder) {
+		$result = array();
+		$length = strlen($placeholder);
+		$buffer = '';
+		$quote = null;
 		$prev_char = '';
 
-		for ( $i = 0; $i < $length; $i++ ) {
-			$char = $placeholder[ $i ];
+		for ($i = 0; $i < $length; $i++) {
+			$char = $placeholder[$i];
 
-			if ( ( "'" === $char || '"' === $char ) && '\\' !== $prev_char ) {
-				if ( null === $quote ) {
+			if (("'" === $char || '"' === $char) && '\\' !== $prev_char) {
+				if (null === $quote) {
 					$quote = $char;
-				} elseif ( $quote === $char ) {
+				} elseif ($quote === $char) {
 					$quote = null;
 				}
 			}
 
-			if ( ';' === $char && null === $quote ) {
-				$result[] = trim( $buffer );
-				$buffer   = '';
+			if (';' === $char && null === $quote) {
+				$result[] = trim($buffer);
+				$buffer = '';
 				$prev_char = $char;
 				continue;
 			}
 
-			$buffer   .= $char;
+			$buffer .= $char;
 			$prev_char = $char;
 		}
 
-		if ( '' !== $buffer || empty( $result ) ) {
-			$result[] = trim( $buffer );
+		if ('' !== $buffer || empty($result)) {
+			$result[] = trim($buffer);
 		}
 
-		return array_filter(
-			$result,
-			static function ( $segment ) {
-				return '' !== $segment;
-			}
-		);
+		return array_filter($result, static function ($segment) {
+			return '' !== $segment;
+		});
 	}
 
 	/**
@@ -368,34 +358,34 @@ class SchemaExtractor {
 	 * @param string $segment Raw segment.
 	 * @return array{name:string,value:mixed}
 	 */
-	private function parse_parameter_segment( $segment ) {
-		$name  = '';
+	private function parse_parameter_segment($segment) {
+		$name = '';
 		$value = true;
 
-		if ( false !== strpos( $segment, '=' ) ) {
-			list( $raw_name, $raw_value ) = explode( '=', $segment, 2 );
-			$raw_name = trim( (string) $raw_name );
-			$raw_value = trim( (string) $raw_value );
+		if (false !== strpos($segment, '=')) {
+			list($raw_name, $raw_value) = explode('=', $segment, 2);
+			$raw_name = trim((string) $raw_name);
+			$raw_value = trim((string) $raw_value);
 
-			if ( '' !== $raw_name ) {
-				$name = strtolower( $raw_name );
+			if ('' !== $raw_name) {
+				$name = strtolower($raw_name);
 			}
 
-			if ( '' !== $raw_value ) {
-				$first = substr( $raw_value, 0, 1 );
-				$last  = substr( $raw_value, -1 );
-				if ( ( "'" === $first && "'" === $last ) || ( '"' === $first && '"' === $last ) ) {
-					$raw_value = substr( $raw_value, 1, -1 );
+			if ('' !== $raw_value) {
+				$first = substr($raw_value, 0, 1);
+				$last = substr($raw_value, -1);
+				if ("'" === $first && "'" === $last || '"' === $first && '"' === $last) {
+					$raw_value = substr($raw_value, 1, -1);
 				}
-				$raw_value = html_entity_decode( $raw_value, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-				$value     = $raw_value;
+				$raw_value = html_entity_decode($raw_value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+				$value = $raw_value;
 			}
 		} else {
-			$name = strtolower( $segment );
+			$name = strtolower($segment);
 		}
 
 		return array(
-			'name'  => $name,
+			'name' => $name,
 			'value' => $value,
 		);
 	}
@@ -408,131 +398,132 @@ class SchemaExtractor {
 	 * @param string                         $template_path Template path.
 	 * @return array|WP_Error
 	 */
-	private function build_schema( $placeholders, $template_type, $template_path ) {
-		$fields           = array();
-		$repeaters        = array();
-		$stack            = array();
+	private function build_schema($placeholders, $template_type, $template_path) {
+		$fields = array();
+		$repeaters = array();
+		$stack = array();
 		$visibility_stack = array();
 
 		// First pass: identify repeaters from tbs:row or tbs:cell block patterns.
-		$tbs_repeaters       = $this->detect_tbs_repeaters( $placeholders );
+		$tbs_repeaters = $this->detect_tbs_repeaters($placeholders);
 		$added_tbs_repeaters = array();
 
-		foreach ( $placeholders as $token ) {
-			$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
-			$block_mode = isset( $parameters['block'] ) ? strtolower( (string) $parameters['block'] ) : '';
+		foreach ($placeholders as $token) {
+			$parameters = isset($token['parameters']) ? $token['parameters'] : array();
+			$block_mode = isset($parameters['block']) ? strtolower((string) $parameters['block']) : '';
 
-			if ( 'begin' === $block_mode ) {
-				$token_name = isset( $token['name'] ) ? strtolower( (string) $token['name'] ) : '';
+			if ('begin' === $block_mode) {
+				$token_name = isset($token['name']) ? strtolower((string) $token['name']) : '';
 
 				// Check if this is a visibility directive (not a data repeater).
-				if ( in_array( $token_name, self::VISIBILITY_DIRECTIVES, true ) ) {
+				if (in_array($token_name, self::VISIBILITY_DIRECTIVES, true)) {
 					// Track visibility block for proper end matching, but don't create repeater.
 					$visibility_stack[] = $token_name;
 					continue;
 				}
 
 				// Regular data repeater.
-				$repeaters[] = $this->build_repeater_entry( $token );
-				$stack[]     = count( $repeaters ) - 1;
+				$repeaters[] = $this->build_repeater_entry($token);
+				$stack[] = count($repeaters) - 1;
 				continue;
 			}
 
-			if ( 'end' === $block_mode ) {
-				$token_name = isset( $token['name'] ) ? strtolower( (string) $token['name'] ) : '';
+			if ('end' === $block_mode) {
+				$token_name = isset($token['name']) ? strtolower((string) $token['name']) : '';
 
 				// Check if ending a visibility block by name.
-				if ( in_array( $token_name, self::VISIBILITY_DIRECTIVES, true ) && ! empty( $visibility_stack ) ) {
-					array_pop( $visibility_stack );
-				} elseif ( ! empty( $stack ) ) {
+				if (in_array($token_name, self::VISIBILITY_DIRECTIVES, true) && !empty($visibility_stack)) {
+					array_pop($visibility_stack);
+				} elseif (!empty($stack)) {
 					// Ending a data repeater.
-					array_pop( $stack );
+					array_pop($stack);
 				}
 				continue;
 			}
 
 			// Handle OpenTBS tbs:row/tbs:cell style repeaters.
-			if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) ) {
-				$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
-				$base_name  = $this->extract_tbs_repeater_base( $token_name );
-				if ( '' !== $base_name && isset( $tbs_repeaters[ $base_name ] ) && ! isset( $added_tbs_repeaters[ $base_name ] ) ) {
-					$repeater_entry                   = $this->build_tbs_repeater_entry( $base_name, $tbs_repeaters[ $base_name ] );
-					$repeaters[]                      = $repeater_entry;
-					$added_tbs_repeaters[ $base_name ] = true;
+			if (preg_match('/^tbs:(row|cell|p|page)/', $block_mode)) {
+				$token_name = isset($token['name']) ? (string) $token['name'] : '';
+				$base_name = $this->extract_tbs_repeater_base($token_name);
+				if ('' !== $base_name && isset($tbs_repeaters[$base_name]) && !isset($added_tbs_repeaters[$base_name])) {
+					$repeater_entry = $this->build_tbs_repeater_entry($base_name, $tbs_repeaters[$base_name]);
+					$repeaters[] = $repeater_entry;
+					$added_tbs_repeaters[$base_name] = true;
 				}
 				continue;
 			}
 
 			// Check if this is a dotted field belonging to a TBS repeater (e.g., asistentes.nombre).
 			// These fields are already collected in detect_tbs_repeaters(), so skip them here.
-			$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
-			if ( false !== strpos( $token_name, '.' ) && empty( $stack ) ) {
-				$base_name = $this->extract_tbs_repeater_base( $token_name );
-				if ( '' !== $base_name && isset( $tbs_repeaters[ $base_name ] ) ) {
+			$token_name = isset($token['name']) ? (string) $token['name'] : '';
+			if (false !== strpos($token_name, '.') && empty($stack)) {
+				$base_name = $this->extract_tbs_repeater_base($token_name);
+				if ('' !== $base_name && isset($tbs_repeaters[$base_name])) {
 					continue;
 				}
 			}
 
-			$field = $this->build_field_entry( $token );
-			if ( empty( $field ) ) {
+			$field = $this->build_field_entry($token);
+			if (empty($field)) {
 				continue;
 			}
 
-			if ( empty( $stack ) ) {
+			if (empty($stack)) {
 				// Deduplicate: only add if slug doesn't already exist.
-				$field_slug = isset( $field['slug'] ) ? $field['slug'] : '';
-				$exists     = false;
-				foreach ( $fields as $existing ) {
-					if ( isset( $existing['slug'] ) && $existing['slug'] === $field_slug ) {
+				$field_slug = isset($field['slug']) ? $field['slug'] : '';
+				$exists = false;
+				foreach ($fields as $existing) {
+					if (isset($existing['slug']) && $existing['slug'] === $field_slug) {
 						$exists = true;
 						break;
 					}
 				}
-				if ( ! $exists ) {
+				if (!$exists) {
 					$fields[] = $field;
 				}
 			} else {
 				// Inside a repeater: strip the repeater base from dotted field names like "anexos.title".
-				$current_index = end( $stack );
-				if ( isset( $repeaters[ $current_index ] ) ) {
-					$base_name = isset( $repeaters[ $current_index ]['name'] ) ? (string) $repeaters[ $current_index ]['name'] : '';
-					$base_slug = isset( $repeaters[ $current_index ]['slug'] ) ? (string) $repeaters[ $current_index ]['slug'] : '';
+				$current_index = end($stack);
+				if (isset($repeaters[$current_index])) {
+					$base_name = isset($repeaters[$current_index]['name']) ? (string) $repeaters[$current_index]['name'] : '';
+					$base_slug = isset($repeaters[$current_index]['slug']) ? (string) $repeaters[$current_index]['slug'] : '';
 
-					$name = isset( $field['name'] ) ? (string) $field['name'] : '';
-					if ( '' !== $name && false !== strpos( $name, '.' ) ) {
-						$segments = explode( '.', $name );
-						$first    = strtolower( (string) $segments[0] );
-						if ( strtolower( $base_name ) === $first || strtolower( $base_slug ) === $first ) {
-							array_shift( $segments );
-							$item_name = implode( '.', $segments );
-							$item_slug = sanitize_key( str_replace( '.', '_', $item_name ) );
-							if ( '' !== $item_slug ) {
+					$name = isset($field['name']) ? (string) $field['name'] : '';
+					if ('' !== $name && false !== strpos($name, '.')) {
+						$segments = explode('.', $name);
+						$first = strtolower((string) $segments[0]);
+						if (strtolower($base_name) === $first || strtolower($base_slug) === $first) {
+							array_shift($segments);
+							$item_name = implode('.', $segments);
+							$item_slug = sanitize_key(str_replace('.', '_', $item_name));
+							if ('' !== $item_slug) {
 								$field['name'] = $item_name;
 								$field['slug'] = $item_slug;
+
 								// Keep placeholder and labels as-is; UI will humanize from slug/name if needed.
 							}
 						}
 					}
 
-					$repeaters[ $current_index ]['fields'][] = $field;
+					$repeaters[$current_index]['fields'][] = $field;
 				}
 			}
 		}
 
-		$hash = md5_file( $template_path );
-		if ( false === $hash ) {
-			$hash = md5( wp_json_encode( $placeholders ) );
+		$hash = md5_file($template_path);
+		if (false === $hash) {
+			$hash = md5(wp_json_encode($placeholders));
 		}
 
 		return array(
-			'version'   => self::SCHEMA_VERSION,
-			'fields'    => $fields,
+			'version' => self::SCHEMA_VERSION,
+			'fields' => $fields,
 			'repeaters' => $repeaters,
-			'meta'      => array(
+			'meta' => array(
 				'template_type' => $template_type,
-				'template_name' => basename( $template_path ),
-				'hash'          => $hash,
-				'parsed_at'     => current_time( 'mysql' ),
+				'template_name' => basename($template_path),
+				'hash' => $hash,
+				'parsed_at' => current_time('mysql'),
 			),
 		);
 	}
@@ -543,23 +534,23 @@ class SchemaExtractor {
 	 * @param array<string,mixed> $token Placeholder token.
 	 * @return array<string,mixed>
 	 */
-	private function build_repeater_entry( $token ) {
-		$name       = isset( $token['name'] ) ? (string) $token['name'] : '';
-		$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
+	private function build_repeater_entry($token) {
+		$name = isset($token['name']) ? (string) $token['name'] : '';
+		$parameters = isset($token['parameters']) ? $token['parameters'] : array();
 
-		$title       = isset( $parameters['title'] ) ? sanitize_text_field( $parameters['title'] ) : '';
-		$description = isset( $parameters['description'] ) ? sanitize_text_field( $parameters['description'] ) : '';
+		$title = isset($parameters['title']) ? sanitize_text_field($parameters['title']) : '';
+		$description = isset($parameters['description']) ? sanitize_text_field($parameters['description']) : '';
 
 		$clean_parameters = $parameters;
-		unset( $clean_parameters['block'] );
+		unset($clean_parameters['block']);
 
 		return array(
-			'name'        => $name,
-			'slug'        => sanitize_key( $name ),
-			'title'       => $title,
+			'name' => $name,
+			'slug' => sanitize_key($name),
+			'title' => $title,
 			'description' => $description,
-			'parameters'  => $clean_parameters,
-			'fields'      => array(),
+			'parameters' => $clean_parameters,
+			'fields' => array(),
 		);
 	}
 
@@ -569,67 +560,67 @@ class SchemaExtractor {
 	 * @param array<string,mixed> $token Placeholder token data.
 	 * @return array<string,mixed>
 	 */
-	private function build_field_entry( $token ) {
-		$name       = isset( $token['name'] ) ? (string) $token['name'] : '';
-		$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
+	private function build_field_entry($token) {
+		$name = isset($token['name']) ? (string) $token['name'] : '';
+		$parameters = isset($token['parameters']) ? $token['parameters'] : array();
 
-		if ( '' === $name ) {
+		if ('' === $name) {
 			return array();
 		}
 		// Allow dots in field names so dotted placeholders like "anexos.title" are accepted.
-		if ( preg_match( '/[^\\p{L}\\p{N}_\\-. ]/u', $name ) ) {
+		if (preg_match('/[^\\p{L}\\p{N}_\\-. ]/u', $name)) {
 			return array();
 		}
 
-		$field_type = $this->determine_field_type( $name, $parameters );
-		$field_type = $this->normalize_field_type_name( $field_type );
+		$field_type = $this->determine_field_type($name, $parameters);
+		$field_type = $this->normalize_field_type_name($field_type);
 
-		$title       = isset( $parameters['title'] ) ? sanitize_text_field( $parameters['title'] ) : '';
-		$placeholder = isset( $parameters['placeholder'] ) ? sanitize_text_field( $parameters['placeholder'] ) : '';
-		$description = isset( $parameters['description'] ) ? sanitize_text_field( $parameters['description'] ) : '';
-		$pattern     = isset( $parameters['pattern'] ) ? (string) $parameters['pattern'] : '';
-		$pattern_msg = isset( $parameters['patternmsg'] ) ? sanitize_text_field( $parameters['patternmsg'] ) : '';
-		$min_value   = isset( $parameters['minvalue'] ) ? (string) $parameters['minvalue'] : '';
-		$max_value   = isset( $parameters['maxvalue'] ) ? (string) $parameters['maxvalue'] : '';
-		$length      = isset( $parameters['length'] ) ? (string) $parameters['length'] : '';
+		$title = isset($parameters['title']) ? sanitize_text_field($parameters['title']) : '';
+		$placeholder = isset($parameters['placeholder']) ? sanitize_text_field($parameters['placeholder']) : '';
+		$description = isset($parameters['description']) ? sanitize_text_field($parameters['description']) : '';
+		$pattern = isset($parameters['pattern']) ? (string) $parameters['pattern'] : '';
+		$pattern_msg = isset($parameters['patternmsg']) ? sanitize_text_field($parameters['patternmsg']) : '';
+		$min_value = isset($parameters['minvalue']) ? (string) $parameters['minvalue'] : '';
+		$max_value = isset($parameters['maxvalue']) ? (string) $parameters['maxvalue'] : '';
+		$length = isset($parameters['length']) ? (string) $parameters['length'] : '';
 
 		// Case transformation: upper, lower, title.
-		$case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
-		if ( '' !== $case && ! in_array( $case, array( 'upper', 'lower', 'title' ), true ) ) {
+		$case = isset($parameters['case']) ? strtolower(trim((string) $parameters['case'])) : '';
+		if ('' !== $case && !in_array($case, array('upper', 'lower', 'title'), true)) {
 			$case = '';
 		}
 
-		if ( '' === $pattern ) {
-			$default_config = self::get_default_pattern( $field_type );
-			if ( $default_config ) {
+		if ('' === $pattern) {
+			$default_config = self::get_default_pattern($field_type);
+			if ($default_config) {
 				$pattern = $default_config['pattern'];
-				if ( '' === $pattern_msg ) {
+				if ('' === $pattern_msg) {
 					$pattern_msg = $default_config['message'];
 				}
 			}
 		}
 
-		$slug = $this->resolve_field_slug( $name, $parameters );
-		if ( '' === $slug ) {
-			$slug = sanitize_key( $name );
+		$slug = $this->resolve_field_slug($name, $parameters);
+		if ('' === $slug) {
+			$slug = sanitize_key($name);
 		}
 
 		return array(
-			'name'        => $name,
-			'slug'        => $slug,
-			'type'        => $field_type,
-			'title'       => $title,
+			'name' => $name,
+			'slug' => $slug,
+			'type' => $field_type,
+			'title' => $title,
 			'placeholder' => $placeholder,
 			'description' => $description,
-			'pattern'     => $pattern,
-			'patternmsg'  => $pattern_msg,
-			'minvalue'    => $min_value,
-			'maxvalue'    => $max_value,
-			'length'      => $length,
-			'case'        => $case,
-			'parameters'  => $parameters,
-			'raw'         => isset( $token['raw'] ) ? (string) $token['raw'] : '',
-			'source'      => isset( $token['source'] ) ? (string) $token['source'] : '',
+			'pattern' => $pattern,
+			'patternmsg' => $pattern_msg,
+			'minvalue' => $min_value,
+			'maxvalue' => $max_value,
+			'length' => $length,
+			'case' => $case,
+			'parameters' => $parameters,
+			'raw' => isset($token['raw']) ? (string) $token['raw'] : '',
+			'source' => isset($token['source']) ? (string) $token['source'] : '',
 		);
 	}
 
@@ -639,35 +630,35 @@ class SchemaExtractor {
 	 * @param string $text Normalized XML text.
 	 * @return array<int,string>
 	 */
-	private function extract_placeholder_chunks( $text ) {
-		$chunks          = array();
-		$length          = strlen( $text );
-		$in_placeholder  = false;
-		$buffer          = '';
-		$current_quote   = null;
-		$previous_char   = '';
+	private function extract_placeholder_chunks($text) {
+		$chunks = array();
+		$length = strlen($text);
+		$in_placeholder = false;
+		$buffer = '';
+		$current_quote = null;
+		$previous_char = '';
 
-		for ( $i = 0; $i < $length; $i++ ) {
-			$char = $text[ $i ];
+		for ($i = 0; $i < $length; $i++) {
+			$char = $text[$i];
 
-			if ( $in_placeholder ) {
+			if ($in_placeholder) {
 				$buffer .= $char;
 
-				if ( ( "'" === $char || '"' === $char ) && '\\' !== $previous_char ) {
-					if ( null === $current_quote ) {
+				if (("'" === $char || '"' === $char) && '\\' !== $previous_char) {
+					if (null === $current_quote) {
 						$current_quote = $char;
-					} elseif ( $current_quote === $char ) {
+					} elseif ($current_quote === $char) {
 						$current_quote = null;
 					}
-				} elseif ( ']' === $char && null === $current_quote ) {
-					$chunks[]       = $buffer;
-					$buffer         = '';
+				} elseif (']' === $char && null === $current_quote) {
+					$chunks[] = $buffer;
+					$buffer = '';
 					$in_placeholder = false;
 				}
-			} elseif ( '[' === $char ) {
+			} elseif ('[' === $char) {
 				$in_placeholder = true;
-				$buffer         = '[';
-				$current_quote  = null;
+				$buffer = '[';
+				$current_quote = null;
 			}
 
 			$previous_char = $char;
@@ -683,24 +674,27 @@ class SchemaExtractor {
 	 * @param array<string,mixed> $parameters Placeholder parameters.
 	 * @return string
 	 */
-	private function determine_field_type( $name, $parameters ) {
-		$name       = strtolower( (string) $name );
-		$parameters = is_array( $parameters ) ? $parameters : array();
+	private function determine_field_type($name, $parameters) {
+		$name = strtolower((string) $name);
+		$parameters = is_array($parameters) ? $parameters : array();
 
 		$declared = '';
-		if ( isset( $parameters['type'] ) ) {
-			$declared = $this->normalize_declared_field_type( $parameters['type'] );
-		} elseif ( isset( $parameters['data-type'] ) ) {
-			$declared = $this->normalize_declared_field_type( $parameters['data-type'] );
+		if (isset($parameters['type'])) {
+			$declared = $this->normalize_declared_field_type($parameters['type']);
+		} elseif (isset($parameters['data-type'])) {
+			$declared = $this->normalize_declared_field_type($parameters['data-type']);
 		}
 
-		if ( '' !== $declared ) {
+		if ('' !== $declared) {
 			return $declared;
 		}
 
 		// Detect HTML-likely fields by name patterns.
 		// Includes common Spanish legal/administrative terms that typically contain rich text.
-		if ( preg_match( '/(html|rich|contenido|body|cuerpo|antecedentes|hechos|fundamentos|observaciones|notas|descripcion|detalle|resolucion|resuelvo|texto)/u', $name ) ) {
+		if (preg_match(
+			'/(html|rich|contenido|body|cuerpo|antecedentes|hechos|fundamentos|observaciones|notas|descripcion|detalle|resolucion|resuelvo|texto)/u',
+			$name,
+		)) {
 			return 'html';
 		}
 
@@ -713,36 +707,36 @@ class SchemaExtractor {
 	 * @param string $candidate Declared type value.
 	 * @return string Normalized type or empty string if unknown.
 	 */
-	private function normalize_declared_field_type( $candidate ) {
-		$type = strtolower( trim( (string) $candidate ) );
+	private function normalize_declared_field_type($candidate) {
+		$type = strtolower(trim((string) $candidate));
 
-		if ( '' === $type ) {
+		if ('' === $type) {
 			return '';
 		}
 
 		$aliases = array(
-			'rich'        => 'html',
-			'tinymce'     => 'html',
-			'editor'      => 'html',
-			'text-area'   => 'textarea',
-			'text_area'   => 'textarea',
-			'numeric'     => 'number',
-			'int'         => 'number',
-			'integer'     => 'number',
-			'float'       => 'number',
-			'decimal'     => 'number',
-			'bool'        => 'boolean',
-			'checkbox'    => 'boolean',
-			'dropdown'    => 'select',
-			'choice'      => 'select',
+			'rich' => 'html',
+			'tinymce' => 'html',
+			'editor' => 'html',
+			'text-area' => 'textarea',
+			'text_area' => 'textarea',
+			'numeric' => 'number',
+			'int' => 'number',
+			'integer' => 'number',
+			'float' => 'number',
+			'decimal' => 'number',
+			'bool' => 'boolean',
+			'checkbox' => 'boolean',
+			'dropdown' => 'select',
+			'choice' => 'select',
 		);
 
-		if ( isset( $aliases[ $type ] ) ) {
-			$type = $aliases[ $type ];
+		if (isset($aliases[$type])) {
+			$type = $aliases[$type];
 		}
 
-		$valid = array( 'text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean', 'select' );
-		if ( in_array( $type, $valid, true ) ) {
+		$valid = array('text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean', 'select');
+		if (in_array($type, $valid, true)) {
 			return $type;
 		}
 
@@ -755,16 +749,16 @@ class SchemaExtractor {
 	 * @param string $type Computed field type.
 	 * @return string Normalized field type.
 	 */
-	private function normalize_field_type_name( $type ) {
-		$type = strtolower( trim( (string) $type ) );
+	private function normalize_field_type_name($type) {
+		$type = strtolower(trim((string) $type));
 
-		if ( '' === $type ) {
+		if ('' === $type) {
 			return 'text';
 		}
 
-		$valid = array( 'text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean', 'select' );
+		$valid = array('text', 'number', 'date', 'email', 'url', 'textarea', 'html', 'boolean', 'select');
 
-		if ( in_array( $type, $valid, true ) ) {
+		if (in_array($type, $valid, true)) {
 			return $type;
 		}
 
@@ -778,28 +772,28 @@ class SchemaExtractor {
 	 * @param array<string,mixed> $parameters Placeholder parameters.
 	 * @return string
 	 */
-	private function resolve_field_slug( $name, $parameters ) {
-		$parameters = is_array( $parameters ) ? $parameters : array();
+	private function resolve_field_slug($name, $parameters) {
+		$parameters = is_array($parameters) ? $parameters : array();
 
-		if ( isset( $parameters['slug'] ) ) {
-			$explicit = sanitize_key( $parameters['slug'] );
-			if ( '' !== $explicit ) {
+		if (isset($parameters['slug'])) {
+			$explicit = sanitize_key($parameters['slug']);
+			if ('' !== $explicit) {
 				return $explicit;
 			}
 		}
 
-		$base_slug  = sanitize_key( $name );
+		$base_slug = sanitize_key($name);
 		$title_slug = '';
 
-		if ( isset( $parameters['title'] ) ) {
-			$title_slug = sanitize_key( $parameters['title'] );
+		if (isset($parameters['title'])) {
+			$title_slug = sanitize_key($parameters['title']);
 		}
 
-		if ( '' === $base_slug && '' !== $title_slug ) {
+		if ('' === $base_slug && '' !== $title_slug) {
 			return $title_slug;
 		}
 
-		if ( '' !== $title_slug && $this->should_prefer_title_slug( $base_slug ) ) {
+		if ('' !== $title_slug && $this->should_prefer_title_slug($base_slug)) {
 			return $title_slug;
 		}
 
@@ -812,8 +806,8 @@ class SchemaExtractor {
 	 * @param string $slug Current slug candidate.
 	 * @return bool
 	 */
-	private function should_prefer_title_slug( $slug ) {
-		if ( '' === $slug ) {
+	private function should_prefer_title_slug($slug) {
+		if ('' === $slug) {
 			return true;
 		}
 
@@ -826,11 +820,11 @@ class SchemaExtractor {
 			'column',
 		);
 
-		if ( in_array( $slug, $generic, true ) ) {
+		if (in_array($slug, $generic, true)) {
 			return true;
 		}
 
-		if ( preg_match( '/^(field|col|column|item|entry)[0-9]+$/', $slug ) ) {
+		if (preg_match('/^(field|col|column|item|entry)[0-9]+$/', $slug)) {
 			return true;
 		}
 
@@ -843,61 +837,61 @@ class SchemaExtractor {
 	 * @param array<int,array<string,mixed>> $placeholders Parsed placeholders.
 	 * @return array<string,array<string,mixed>> Map of base name to field info.
 	 */
-	private function detect_tbs_repeaters( $placeholders ) {
+	private function detect_tbs_repeaters($placeholders) {
 		$repeaters = array();
 
-		foreach ( $placeholders as $token ) {
-			$name       = isset( $token['name'] ) ? (string) $token['name'] : '';
-			$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
-			$block_mode = isset( $parameters['block'] ) ? strtolower( (string) $parameters['block'] ) : '';
+		foreach ($placeholders as $token) {
+			$name = isset($token['name']) ? (string) $token['name'] : '';
+			$parameters = isset($token['parameters']) ? $token['parameters'] : array();
+			$block_mode = isset($parameters['block']) ? strtolower((string) $parameters['block']) : '';
 
 			// Look for patterns like [a.field;block=tbs:row].
-			if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) && false !== strpos( $name, '.' ) ) {
-				$base_name = $this->extract_tbs_repeater_base( $name );
-				if ( '' === $base_name ) {
+			if (preg_match('/^tbs:(row|cell|p|page)/', $block_mode) && false !== strpos($name, '.')) {
+				$base_name = $this->extract_tbs_repeater_base($name);
+				if ('' === $base_name) {
 					continue;
 				}
 
-				if ( ! isset( $repeaters[ $base_name ] ) ) {
-					$repeaters[ $base_name ] = array(
+				if (!isset($repeaters[$base_name])) {
+					$repeaters[$base_name] = array(
 						'fields' => array(),
 					);
 				}
 			}
 
 			// Collect all fields that belong to a repeater (e.g., a.field patterns).
-			if ( false !== strpos( $name, '.' ) ) {
-				$base_name = $this->extract_tbs_repeater_base( $name );
-				if ( '' !== $base_name && isset( $repeaters[ $base_name ] ) ) {
-					$parts      = explode( '.', $name );
-					$field_name = isset( $parts[1] ) ? $parts[1] : '';
-					if ( '' !== $field_name ) {
+			if (false !== strpos($name, '.')) {
+				$base_name = $this->extract_tbs_repeater_base($name);
+				if ('' !== $base_name && isset($repeaters[$base_name])) {
+					$parts = explode('.', $name);
+					$field_name = isset($parts[1]) ? $parts[1] : '';
+					if ('' !== $field_name) {
 						// Extract field type from parameters.
-						$field_type  = isset( $parameters['type'] ) ? strtolower( trim( (string) $parameters['type'] ) ) : 'text';
-						$valid_types = array( 'text', 'textarea', 'html', 'number', 'date', 'email', 'url', 'select' );
-						if ( ! in_array( $field_type, $valid_types, true ) ) {
+						$field_type = isset($parameters['type']) ? strtolower(trim((string) $parameters['type'])) : 'text';
+						$valid_types = array('text', 'textarea', 'html', 'number', 'date', 'email', 'url', 'select');
+						if (!in_array($field_type, $valid_types, true)) {
 							$field_type = 'text';
 						}
 
 						// Extract case attribute if present.
-						$field_case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
-						if ( '' !== $field_case && ! in_array( $field_case, array( 'upper', 'lower', 'title' ), true ) ) {
+						$field_case = isset($parameters['case']) ? strtolower(trim((string) $parameters['case'])) : '';
+						if ('' !== $field_case && !in_array($field_case, array('upper', 'lower', 'title'), true)) {
 							$field_case = '';
 						}
 
-						$repeaters[ $base_name ]['fields'][ $field_name ] = array(
-							'name'        => $field_name,
-							'slug'        => sanitize_key( $field_name ),
-							'type'        => $field_type,
-							'title'       => isset( $parameters['title'] ) ? sanitize_text_field( $parameters['title'] ) : '',
-							'placeholder' => isset( $parameters['placeholder'] ) ? sanitize_text_field( $parameters['placeholder'] ) : '',
-							'description' => isset( $parameters['description'] ) ? sanitize_text_field( $parameters['description'] ) : '',
-							'pattern'     => isset( $parameters['pattern'] ) ? (string) $parameters['pattern'] : '',
-							'patternmsg'  => isset( $parameters['patternmsg'] ) ? sanitize_text_field( $parameters['patternmsg'] ) : '',
-							'minvalue'    => isset( $parameters['minvalue'] ) ? (string) $parameters['minvalue'] : '',
-							'maxvalue'    => isset( $parameters['maxvalue'] ) ? (string) $parameters['maxvalue'] : '',
-							'length'      => isset( $parameters['length'] ) ? (string) $parameters['length'] : '',
-							'case'        => $field_case,
+						$repeaters[$base_name]['fields'][$field_name] = array(
+							'name' => $field_name,
+							'slug' => sanitize_key($field_name),
+							'type' => $field_type,
+							'title' => isset($parameters['title']) ? sanitize_text_field($parameters['title']) : '',
+							'placeholder' => isset($parameters['placeholder']) ? sanitize_text_field($parameters['placeholder']) : '',
+							'description' => isset($parameters['description']) ? sanitize_text_field($parameters['description']) : '',
+							'pattern' => isset($parameters['pattern']) ? (string) $parameters['pattern'] : '',
+							'patternmsg' => isset($parameters['patternmsg']) ? sanitize_text_field($parameters['patternmsg']) : '',
+							'minvalue' => isset($parameters['minvalue']) ? (string) $parameters['minvalue'] : '',
+							'maxvalue' => isset($parameters['maxvalue']) ? (string) $parameters['maxvalue'] : '',
+							'length' => isset($parameters['length']) ? (string) $parameters['length'] : '',
+							'case' => $field_case,
 						);
 					}
 				}
@@ -913,12 +907,12 @@ class SchemaExtractor {
 	 * @param string $name Placeholder name (e.g., "a.firstname").
 	 * @return string Base name (e.g., "a") or empty string.
 	 */
-	private function extract_tbs_repeater_base( $name ) {
-		if ( false === strpos( $name, '.' ) ) {
+	private function extract_tbs_repeater_base($name) {
+		if (false === strpos($name, '.')) {
 			return '';
 		}
-		$parts = explode( '.', $name );
-		return sanitize_key( $parts[0] );
+		$parts = explode('.', $name);
+		return sanitize_key($parts[0]);
 	}
 
 	/**
@@ -928,38 +922,38 @@ class SchemaExtractor {
 	 * @param array<string,mixed> $info      Collected repeater info.
 	 * @return array<string,mixed>
 	 */
-	private function build_tbs_repeater_entry( $base_name, $info ) {
+	private function build_tbs_repeater_entry($base_name, $info) {
 		$fields = array();
 
-		if ( isset( $info['fields'] ) && is_array( $info['fields'] ) ) {
-			foreach ( $info['fields'] as $field_name => $field_info ) {
+		if (isset($info['fields']) && is_array($info['fields'])) {
+			foreach ($info['fields'] as $field_name => $field_info) {
 				$fields[] = array(
-					'name'        => $field_name,
-					'slug'        => sanitize_key( $field_name ),
-					'type'        => isset( $field_info['type'] ) ? $field_info['type'] : 'text',
-					'title'       => isset( $field_info['title'] ) ? $field_info['title'] : '',
-					'placeholder' => isset( $field_info['placeholder'] ) ? $field_info['placeholder'] : '',
-					'description' => isset( $field_info['description'] ) ? $field_info['description'] : '',
-					'pattern'     => isset( $field_info['pattern'] ) ? $field_info['pattern'] : '',
-					'patternmsg'  => isset( $field_info['patternmsg'] ) ? $field_info['patternmsg'] : '',
-					'minvalue'    => isset( $field_info['minvalue'] ) ? $field_info['minvalue'] : '',
-					'maxvalue'    => isset( $field_info['maxvalue'] ) ? $field_info['maxvalue'] : '',
-					'length'      => isset( $field_info['length'] ) ? $field_info['length'] : '',
-					'case'        => isset( $field_info['case'] ) ? $field_info['case'] : '',
-					'parameters'  => array(),
-					'raw'         => '',
-					'source'      => '',
+					'name' => $field_name,
+					'slug' => sanitize_key($field_name),
+					'type' => isset($field_info['type']) ? $field_info['type'] : 'text',
+					'title' => isset($field_info['title']) ? $field_info['title'] : '',
+					'placeholder' => isset($field_info['placeholder']) ? $field_info['placeholder'] : '',
+					'description' => isset($field_info['description']) ? $field_info['description'] : '',
+					'pattern' => isset($field_info['pattern']) ? $field_info['pattern'] : '',
+					'patternmsg' => isset($field_info['patternmsg']) ? $field_info['patternmsg'] : '',
+					'minvalue' => isset($field_info['minvalue']) ? $field_info['minvalue'] : '',
+					'maxvalue' => isset($field_info['maxvalue']) ? $field_info['maxvalue'] : '',
+					'length' => isset($field_info['length']) ? $field_info['length'] : '',
+					'case' => isset($field_info['case']) ? $field_info['case'] : '',
+					'parameters' => array(),
+					'raw' => '',
+					'source' => '',
 				);
 			}
 		}
 
 		return array(
-			'name'        => $base_name,
-			'slug'        => sanitize_key( $base_name ),
-			'title'       => '',
+			'name' => $base_name,
+			'slug' => sanitize_key($base_name),
+			'title' => '',
 			'description' => '',
-			'parameters'  => array(),
-			'fields'      => $fields,
+			'parameters' => array(),
+			'fields' => $fields,
 		);
 	}
 }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Class Documentate_Disable_Comment_Notifications
  *
@@ -8,7 +9,7 @@
  */
 
 // Exit if accessed directly.
-defined( 'ABSPATH' ) || exit;
+defined('ABSPATH') || exit();
 
 /**
  * Class Documentate_Disable_Comment_Notifications
@@ -17,7 +18,6 @@ defined( 'ABSPATH' ) || exit;
  * list for 'documentate_task' posts. Prevents any email notifications on new comments.
  */
 class Documentate_Disable_Comment_Notifications {
-
 	/**
 	 * Constructor.
 	 *
@@ -25,8 +25,8 @@ class Documentate_Disable_Comment_Notifications {
 	 * for the custom post type 'documentate_task'.
 	 */
 	public function __construct() {
-		add_filter( 'comment_notification_recipients', array( $this, 'disable_comment_notifications' ), 10, 2 );
-		add_filter( 'comment_moderation_recipients', array( $this, 'disable_comment_notifications' ), 10, 2 );
+		add_filter('comment_notification_recipients', array($this, 'disable_comment_notifications'), 10, 2);
+		add_filter('comment_moderation_recipients', array($this, 'disable_comment_notifications'), 10, 2);
 	}
 
 	/**
@@ -36,10 +36,9 @@ class Documentate_Disable_Comment_Notifications {
 	 * @param int      $comment_id The comment ID.
 	 * @return string[] Filtered list of email recipients (empty array if documentate_task).
 	 */
-	public function disable_comment_notifications( $emails, $comment_id ) {
-
-		$comment = get_comment( $comment_id );
-		if ( $comment && 'documentate_task' === get_post_type( $comment->comment_post_ID ) ) {
+	public function disable_comment_notifications($emails, $comment_id) {
+		$comment = get_comment($comment_id);
+		if ($comment && 'documentate_task' === get_post_type($comment->comment_post_ID)) {
 			// Return an empty array to disable all notifications for this CPT.
 			return array();
 		}
@@ -49,6 +48,6 @@ class Documentate_Disable_Comment_Notifications {
 }
 
 // Instantiate the class (this line can be in your main plugin file or here).
-if ( class_exists( 'Documentate_Disable_Comment_Notifications' ) ) {
+if (class_exists('Documentate_Disable_Comment_Notifications')) {
 	new Documentate_Disable_Comment_Notifications();
 }

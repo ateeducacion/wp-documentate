@@ -65,20 +65,8 @@ async function createDocument( admin, page, { title, docType } = {} ) {
  * @param {string} typeName - Document type name or slug
  */
 async function selectDocumentType( page, typeName ) {
-	// Look for the document type checkbox or radio in the meta box
-	const typeCheckbox = page.locator(
-		`#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]`
-	).filter( { has: page.locator( `xpath=../label[contains(text(), "${ typeName }")]` ) } );
-
-	// If not found by label, try by value/id
-	if ( await typeCheckbox.count() === 0 ) {
-		const typeInput = page.locator(
-			`#documentate_doc_typechecklist label:has-text("${ typeName }") input`
-		);
-		await typeInput.check();
-	} else {
-		await typeCheckbox.first().check();
-	}
+	const select = page.locator( 'select[name="documentate_doc_type"]' );
+	await select.selectOption( { label: typeName } );
 }
 
 /**
@@ -90,14 +78,20 @@ async function selectDocumentType( page, typeName ) {
  */
 async function saveDocument( page, status = 'draft' ) {
 	if ( status === 'publish' ) {
-		// Use accessible selector first, fall back to ID
-		const publishBtn = page.getByRole( 'button', { name: /publish|update/i } ).or(
-			page.locator( '#publish' )
-		);
-		await publishBtn.click();
+		// Follow the workflow: Send to Review → Approve & Publish.
+		const sendReviewBtn = page.locator( '#documentate-send-review' );
+		const approveBtn = page.locator( '#documentate-approve-publish' );
+
+		if ( await approveBtn.isVisible().catch( () => false ) ) {
+			await approveBtn.click();
+		} else if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+			await sendReviewBtn.click();
+			await page.waitForSelector( '#message.updated, .notice-success', { timeout: 10000 } );
+			await approveBtn.click();
+		}
 	} else {
-		const draftBtn = page.getByRole( 'button', { name: /save draft/i } ).or(
-			page.locator( '#save-post' )
+		const draftBtn = page.locator( '#documentate-save-draft' ).or(
+			page.getByRole( 'button', { name: /save draft/i } )
 		);
 		await draftBtn.click();
 	}

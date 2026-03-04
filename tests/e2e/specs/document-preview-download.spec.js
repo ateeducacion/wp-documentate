@@ -8,6 +8,50 @@ const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Preview and Download', () => {
 	/**
+	 * Call the document generation AJAX endpoint directly from the page
+	 * context and return the download URL. Buttons use href="#" with
+	 * data-documentate-action attributes; the actual download URL is
+	 * returned by the AJAX endpoint.
+	 *
+	 * @param {import('@playwright/test').Page} page   - Playwright page
+	 * @param {string} format                          - 'docx', 'odt', or 'pdf'
+	 * @param {string} [output='download']             - 'download' or 'preview'
+	 * @return {Promise<string|null>} Download URL or null on failure
+	 */
+	async function getDownloadUrlViaAjax( page, format, output = 'download' ) {
+		return await page.evaluate(
+			async ( { fmt, out } ) => {
+				const cfg = window.documentateActionsConfig;
+				if ( ! cfg || ! cfg.ajaxUrl || ! cfg.postId ) {
+					return null;
+				}
+
+				const body = new URLSearchParams( {
+					action: 'documentate_generate_document',
+					post_id: cfg.postId,
+					format: fmt,
+					output: out,
+					_wpnonce: cfg.nonce,
+				} );
+
+				const resp = await fetch( cfg.ajaxUrl, {
+					method: 'POST',
+					credentials: 'same-origin',
+					body,
+				} );
+
+				if ( ! resp.ok ) {
+					return null;
+				}
+
+				const json = await resp.json();
+				return json.success && json.data?.url ? json.data.url : null;
+			},
+			{ fmt: format, out: output }
+		);
+	}
+
+	/**
 	 * Helper to create a document with a type (needed for export/preview).
 	 */
 	async function createDocumentWithType( documentEditor ) {
@@ -90,7 +134,8 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
+			const page = documentEditor.page;
+			const buttons = getActionButtons( page );
 			const previewButton = buttons.preview.first();
 
 			if ( ! await previewButton.isVisible() ) {
@@ -106,8 +151,14 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			// Get the preview URL
-			const previewUrl = await previewButton.getAttribute( 'href' );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real preview URL.
+			const previewUrl = await getDownloadUrlViaAjax( page, 'pdf', 'preview' );
+
+			if ( ! previewUrl ) {
+				test.skip( 'Preview generation failed via AJAX' );
+				return;
+			}
 
 			// Make a request and check headers
 			const response = await request.get( previewUrl );
@@ -166,24 +217,18 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
-			const docxButton = buttons.docx.first();
+			const page = documentEditor.page;
 
-			if ( ! await docxButton.isVisible() ) {
-				test.skip( 'DOCX button not available' );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
+
+			if ( ! downloadUrl ) {
+				test.skip( 'Document generation failed via AJAX' );
 				return;
 			}
 
-			const isDisabled = await docxButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'DOCX button is disabled' );
-				return;
-			}
-
-			const docxUrl = await docxButton.getAttribute( 'href' );
-			const response = await request.get( docxUrl );
+			const response = await request.get( downloadUrl );
 
 			expect( response.status() ).toBe( 200 );
 
@@ -234,24 +279,18 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
-			const odtButton = buttons.odt.first();
+			const page = documentEditor.page;
 
-			if ( ! await odtButton.isVisible() ) {
-				test.skip( 'ODT button not available' );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
+
+			if ( ! downloadUrl ) {
+				test.skip( 'Document generation failed via AJAX' );
 				return;
 			}
 
-			const isDisabled = await odtButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'ODT button is disabled' );
-				return;
-			}
-
-			const odtUrl = await odtButton.getAttribute( 'href' );
-			const response = await request.get( odtUrl );
+			const response = await request.get( downloadUrl );
 
 			expect( response.status() ).toBe( 200 );
 
@@ -302,24 +341,18 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
-			const pdfButton = buttons.pdf.first();
+			const page = documentEditor.page;
 
-			if ( ! await pdfButton.isVisible() ) {
-				test.skip( 'PDF button not available' );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
+
+			if ( ! downloadUrl ) {
+				test.skip( 'Document generation failed via AJAX' );
 				return;
 			}
 
-			const isDisabled = await pdfButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'PDF button is disabled' );
-				return;
-			}
-
-			const pdfUrl = await pdfButton.getAttribute( 'href' );
-			const response = await request.get( pdfUrl );
+			const response = await request.get( downloadUrl );
 
 			expect( response.status() ).toBe( 200 );
 

@@ -178,12 +178,18 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	public function test_register_meta_boxes_adds_boxes() {
 		global $wp_meta_boxes;
 
+		// Clear metaboxes to test only what register_meta_boxes adds.
+		$wp_meta_boxes = array();
+
 		$this->documents->register_meta_boxes();
 
 		$this->assertArrayHasKey( 'documentate_document', $wp_meta_boxes );
-		$this->assertArrayHasKey( 'side', $wp_meta_boxes['documentate_document'] );
-		$this->assertArrayHasKey( 'documentate_doc_type', $wp_meta_boxes['documentate_document']['side']['high'] );
 		$this->assertArrayHasKey( 'documentate_sections', $wp_meta_boxes['documentate_document']['normal']['high'] );
+		// Doc type metabox is now rendered inside the workflow Document Management metabox.
+		$this->assertFalse(
+			isset( $wp_meta_boxes['documentate_document']['side']['high']['documentate_doc_type'] ),
+			'documentate_doc_type should not be registered as a standalone metabox.'
+		);
 	}
 
 	/**
@@ -382,38 +388,6 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 		$restored = get_post_meta( $post->ID, 'documentate_field_restore_field', true );
 		$this->assertSame( 'Revision Value', $restored );
-	}
-
-	/**
-	 * Test hide_submit_box_controls outputs CSS.
-	 */
-	public function test_hide_submit_box_controls_outputs_css() {
-		$screen = WP_Screen::get( 'documentate_document' );
-		$screen->post_type = 'documentate_document';
-		$GLOBALS['current_screen'] = $screen;
-
-		ob_start();
-		$this->documents->hide_submit_box_controls();
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( '<style', $output );
-		$this->assertStringContainsString( 'documentate-document-submitbox-controls', $output );
-		$this->assertStringContainsString( 'display:none', $output );
-	}
-
-	/**
-	 * Test hide_submit_box_controls does nothing for other screens.
-	 */
-	public function test_hide_submit_box_controls_ignores_other_screens() {
-		$screen = WP_Screen::get( 'post' );
-		$screen->post_type = 'post';
-		$GLOBALS['current_screen'] = $screen;
-
-		ob_start();
-		$this->documents->hide_submit_box_controls();
-		$output = ob_get_clean();
-
-		$this->assertEmpty( $output );
 	}
 
 	/**
@@ -2277,33 +2251,6 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Items', $output );
-	}
-
-	/**
-	 * Test hide_submit_box_controls outputs CSS.
-	 */
-	public function test_hide_submit_box_controls() {
-		set_current_screen( 'documentate_document' );
-
-		ob_start();
-		$this->documents->hide_submit_box_controls();
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( 'documentate-document-submitbox-controls', $output );
-		$this->assertStringContainsString( 'display:none', $output );
-	}
-
-	/**
-	 * Test hide_submit_box_controls does nothing for other post types.
-	 */
-	public function test_hide_submit_box_controls_other_post_type() {
-		set_current_screen( 'post' );
-
-		ob_start();
-		$this->documents->hide_submit_box_controls();
-		$output = ob_get_clean();
-
-		$this->assertEmpty( $output );
 	}
 
 	/**

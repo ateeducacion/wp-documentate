@@ -258,7 +258,7 @@ test.describe( 'Document Fields', () => {
 		// Select doc type if available
 		if ( await documentEditor.hasDocTypes() ) {
 			await documentEditor.selectFirstDocType();
-			await documentEditor.publish();
+			await documentEditor.saveDraft();
 			await documentEditor.navigateToEdit( postId );
 		}
 
@@ -269,8 +269,8 @@ test.describe( 'Document Fields', () => {
 			const testValue = `Persistence test ${ Date.now() }`;
 			await textField.fill( testValue );
 
-			// Update the document
-			await documentEditor.publish();
+			// Save the document
+			await documentEditor.saveDraft();
 
 			// Hard reload
 			await page.goto( page.url() );

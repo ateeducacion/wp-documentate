@@ -1083,7 +1083,7 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test normalize_date_value with various inputs.
+	 * Test normalize_date_value returns ISO format for TBS.
 	 */
 	public function test_normalize_date_value() {
 		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
@@ -1093,13 +1093,17 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 		// Empty string.
 		$this->assertSame( '', $method->invoke( null, '' ) );
 
-		// Standard ISO date with default format (d/m/Y).
+		// Standard ISO date → stays ISO.
 		$result = $method->invoke( null, '2024-03-15' );
-		$this->assertSame( '15/03/2024', $result );
+		$this->assertSame( '2024-03-15', $result );
 
-		// Date with time, default format.
-		$result = $method->invoke( null, '2024-03-15 10:30:00' );
-		$this->assertSame( '15/03/2024', $result );
+		// European DD/MM/YYYY → parsed correctly as 15 March, returned as ISO.
+		$result = $method->invoke( null, '15/03/2024' );
+		$this->assertSame( '2024-03-15', $result );
+
+		// DD/MM/YYYY where day < 13 — must NOT be misinterpreted as MM/DD.
+		$result = $method->invoke( null, '05/01/2026' );
+		$this->assertSame( '2026-01-05', $result );
 
 		// Invalid date.
 		$result = $method->invoke( null, 'not-a-date' );
@@ -1107,29 +1111,31 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test normalize_date_value with custom formats.
+	 * Test parse_date_value with various formats.
 	 */
-	public function test_normalize_date_value_with_custom_format() {
+	public function test_parse_date_value() {
 		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
-		$method = $ref->getMethod( 'normalize_date_value' );
+		$method = $ref->getMethod( 'parse_date_value' );
 		$method->setAccessible( true );
 
 		// ISO format.
-		$result = $method->invoke( null, '2024-03-15', 'Y-m-d' );
-		$this->assertSame( '2024-03-15', $result );
+		$date = $method->invoke( null, '2024-03-15' );
+		$this->assertInstanceOf( DateTime::class, $date );
+		$this->assertSame( '2024-03-15', $date->format( 'Y-m-d' ) );
 
-		// European format with dots.
-		$result = $method->invoke( null, '2024-03-15', 'd.m.Y' );
-		$this->assertSame( '15.03.2024', $result );
+		// European with dots.
+		$date = $method->invoke( null, '15.03.2024' );
+		$this->assertInstanceOf( DateTime::class, $date );
+		$this->assertSame( '2024-03-15', $date->format( 'Y-m-d' ) );
 
-		// Long format with escaped literals.
-		$result = $method->invoke( null, '2024-03-15', 'j \d\e F \d\e Y' );
-		$this->assertStringContainsString( '15 de', $result );
-		$this->assertStringContainsString( 'de 2024', $result );
+		// European with dashes.
+		$date = $method->invoke( null, '15-03-2024' );
+		$this->assertInstanceOf( DateTime::class, $date );
+		$this->assertSame( '2024-03-15', $date->format( 'Y-m-d' ) );
 
-		// Empty value with custom format.
-		$result = $method->invoke( null, '', 'Y-m-d' );
-		$this->assertSame( '', $result );
+		// Invalid date returns false.
+		$result = $method->invoke( null, 'not-a-date' );
+		$this->assertFalse( $result );
 	}
 
 	/**

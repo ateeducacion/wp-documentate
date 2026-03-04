@@ -681,6 +681,71 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * It should collapse fragmented ODT spans to recover placeholders.
+	 */
+	public function test_normalize_template_placeholders_collapses_odt_spans() {
+		$source = '<text:span text:style-name="T6">[</text:span>'
+			. '<text:span text:style-name="T7">lugar</text:span>'
+			. '<text:span text:style-name="T6">;ope=</text:span>'
+			. '<text:span text:style-name="T8">utf8,</text:span>'
+			. '<text:span text:style-name="T6">upper]</text:span>';
+
+		$result = Documentate_OpenTBS::normalize_template_placeholders( $source, '/tmp/test.odt' );
+
+		$this->assertStringContainsString( '[lugar;ope=utf8,upper]', $result );
+	}
+
+	/**
+	 * It should collapse nested ODT spans across multiple levels.
+	 */
+	public function test_normalize_template_placeholders_collapses_nested_odt_spans() {
+		$source = '<text:span text:style-name="T6">[lugar</text:span>'
+			. '</text:span>'
+			. '<text:span text:style-name="X">'
+			. '<text:span text:style-name="T7">;ope=utf8,upper]</text:span>';
+
+		$result = Documentate_OpenTBS::normalize_template_placeholders( $source, '/tmp/template.odt' );
+
+		$this->assertStringContainsString( '[lugar;ope=utf8,upper]', $result );
+	}
+
+	/**
+	 * It should collapse fragmented DOCX runs to recover placeholders.
+	 */
+	public function test_normalize_template_placeholders_collapses_docx_runs() {
+		$source = '<w:r><w:t>[lugar</w:t></w:r>'
+			. '<w:r><w:t xml:space="preserve">;ope=utf8,upper]</w:t></w:r>';
+
+		$result = Documentate_OpenTBS::normalize_template_placeholders( $source, '/tmp/test.docx' );
+
+		$this->assertStringContainsString( '[lugar;ope=utf8,upper]', $result );
+	}
+
+	/**
+	 * It should not alter already-intact placeholders.
+	 */
+	public function test_normalize_template_placeholders_preserves_intact_placeholders() {
+		$source = '<text:span text:style-name="T1">[lugar;ope=utf8,upper]</text:span>';
+
+		$result = Documentate_OpenTBS::normalize_template_placeholders( $source, '/tmp/test.odt' );
+
+		$this->assertSame( $source, $result );
+	}
+
+	/**
+	 * It should not alter normal text spans (only placeholders).
+	 */
+	public function test_normalize_template_placeholders_leaves_normal_text_intact() {
+		$source = '<text:span text:style-name="T1">Es por ello</text:span>'
+			. '<text:span text:style-name="T2"> que se considera</text:span>'
+			. '<text:span text:style-name="T1"> de sumo interés</text:span>';
+
+		$result = Documentate_OpenTBS::normalize_template_placeholders( $source, '/tmp/test.odt' );
+
+		$this->assertSame( $source, $result );
+	}
+
+	/**
 	 * Helper to call private process_visibility_blocks method.
 	 *
 	 * @param string $content Template content.

@@ -200,11 +200,11 @@ class SchemaExtractorTest extends WP_UnitTestCase {
 		// Verify field attributes are extracted.
 		$this->assertArrayHasKey( 'apellido1', $repeaters['asistentes'], 'apellido1 field must exist in repeater.' );
 		$this->assertSame( 'text', $repeaters['asistentes']['apellido1']['type'] );
-		$this->assertSame( 'Apellido 1', $repeaters['asistentes']['apellido1']['title'] );
+		$this->assertSame( 'Primer apellido', $repeaters['asistentes']['apellido1']['title'] );
 
 		$this->assertArrayHasKey( 'apellido2', $repeaters['asistentes'], 'apellido2 field must exist in repeater.' );
 		$this->assertSame( 'text', $repeaters['asistentes']['apellido2']['type'] );
-		$this->assertSame( 'Apellido 2', $repeaters['asistentes']['apellido2']['title'] );
+		$this->assertSame( 'Segundo apellido', $repeaters['asistentes']['apellido2']['title'] );
 
 		$this->assertArrayHasKey( 'nombre', $repeaters['asistentes'], 'nombre field must exist in repeater.' );
 		$this->assertSame( 'text', $repeaters['asistentes']['nombre']['type'] );

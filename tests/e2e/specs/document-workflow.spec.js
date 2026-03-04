@@ -26,15 +26,16 @@ test.describe( 'Document Workflow States', () => {
 		await expect( documentEditor.successNotice ).toBeVisible();
 	} );
 
-	test( 'document without doc_type shows warning when publishing', async ( {
+	test( 'document without doc_type shows warning when sending to review', async ( {
 		documentEditor,
 		page,
 	} ) => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Publish Attempt Without Type' );
 
-		// Try to publish
-		await documentEditor.publish();
+		// Try to send to review without doc type — backend forces draft with warning
+		await documentEditor.sendToReviewButton.click();
+		await documentEditor.waitForSave();
 
 		// Wait for the specific doctype warning notice to appear
 		const warningNotice = page.locator( '.notice-warning.documentate-doctype-warning' );
@@ -42,49 +43,32 @@ test.describe( 'Document Workflow States', () => {
 		await expect( warningNotice ).toBeVisible( { timeout: 10000 } );
 	} );
 
-	test( 'schedule publication UI is hidden', async ( {
+	test( 'submitdiv is removed', async ( {
 		documentEditor,
 		page,
 	} ) => {
 		await documentEditor.navigateToNew();
-		await documentEditor.fillTitle( 'Check Schedule Hidden' );
+		await documentEditor.fillTitle( 'Check Submitdiv Removed' );
 
 		// Wait for page to fully load
 		await page.waitForLoadState( 'networkidle' );
 
-		// The timestamp/schedule div should be hidden via CSS
-		const timestampDiv = page.locator( '#timestampdiv' );
-		const isHidden = await timestampDiv.isHidden().catch( () => true );
-		expect( isHidden ).toBeTruthy();
+		// The default WordPress submitdiv should not exist
+		const submitDiv = page.locator( '#submitdiv' );
+		await expect( submitDiv ).toHaveCount( 0 );
 	} );
 
-	test( 'private visibility option is hidden', async ( {
+	test( 'document management metabox is displayed', async ( {
 		documentEditor,
 		page,
 	} ) => {
 		await documentEditor.navigateToNew();
-		await documentEditor.fillTitle( 'Check Private Hidden' );
-
-		// Wait for page to fully load
-		await page.waitForLoadState( 'networkidle' );
-
-		// The private visibility radio should be hidden via CSS
-		const privateRadio = page.locator( '#visibility-radio-private' );
-		const isHidden = await privateRadio.isHidden().catch( () => true );
-		expect( isHidden ).toBeTruthy();
-	} );
-
-	test( 'workflow status metabox is displayed', async ( {
-		documentEditor,
-		page,
-	} ) => {
-		await documentEditor.navigateToNew();
-		await documentEditor.fillTitle( 'Check Workflow Metabox' );
+		await documentEditor.fillTitle( 'Check Management Metabox' );
 		await documentEditor.saveDraft();
 
-		// The workflow status metabox should be visible
-		const workflowMetabox = page.locator( '#documentate_workflow_status' );
-		await expect( workflowMetabox ).toBeVisible();
+		// The document management metabox should be visible
+		const managementMetabox = page.locator( '#documentate_document_management' );
+		await expect( managementMetabox ).toBeVisible();
 	} );
 } );
 
@@ -212,13 +196,13 @@ test.describe( 'Document Published State', () => {
 		}
 	} );
 
-	test( 'admin can revert published document to draft', async ( {
+	test( 'admin can return published document to review', async ( {
 		documentEditor,
 		page,
 	} ) => {
 		// Create a document with doc_type and publish it
 		await documentEditor.navigateToNew();
-		await documentEditor.fillTitle( 'Revert to Draft Test' );
+		await documentEditor.fillTitle( 'Return to Review Test' );
 
 		// Skip if no document types available
 		if ( ! await documentEditor.hasDocTypes() ) {
@@ -243,29 +227,20 @@ test.describe( 'Document Published State', () => {
 
 		await documentEditor.navigateToEdit( postId );
 
-		// Click Edit status link
-		const editStatusLink = page.locator( '.edit-post-status' );
-		if ( await editStatusLink.isVisible().catch( () => false ) ) {
-			await editStatusLink.click();
+		// Click the "Return to Review" button in the document management meta box
+		const returnButton = page.locator( '#documentate-return-review' );
+		if ( await returnButton.isVisible().catch( () => false ) ) {
+			await returnButton.click();
 
-			// Select draft from dropdown
-			await page.locator( '#post_status' ).selectOption( 'draft' );
+			// Wait for save to complete
+			await documentEditor.waitForSave();
 
-			// Click OK
-			const okButton = page.locator( '.save-post-status' );
-			if ( await okButton.isVisible().catch( () => false ) ) {
-				await okButton.click();
-			}
-
-			// Update the post
-			await documentEditor.publish();
-
-			// Reload and verify status is draft
+			// Reload and verify status is pending
 			await documentEditor.navigateToEdit( postId );
 
 			const postStatus = page.locator( '#post_status' );
 			const status = await postStatus.inputValue().catch( () => '' );
-			expect( status ).toBe( 'draft' );
+			expect( status ).toBe( 'pending' );
 		}
 	} );
 } );

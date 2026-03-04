@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ZetaJS converter helper for Documentate.
  *
@@ -16,7 +17,6 @@
  * Thin wrapper around the zetajs CLI command.
  */
 class Documentate_Zetajs_Converter {
-
 	/**
 	 * Get an initialized WP_Filesystem instance.
 	 *
@@ -25,16 +25,19 @@ class Documentate_Zetajs_Converter {
 	private static function get_wp_filesystem() {
 		global $wp_filesystem;
 
-		if ( $wp_filesystem instanceof WP_Filesystem_Base ) {
+		if ($wp_filesystem instanceof WP_Filesystem_Base) {
 			return $wp_filesystem;
 		}
 
-		if ( ! function_exists( 'WP_Filesystem' ) ) {
+		if (!function_exists('WP_Filesystem')) {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
 
-		if ( ! WP_Filesystem() ) {
-			return new WP_Error( 'documentate_fs_unavailable', __( 'Could not initialize the WordPress filesystem.', 'documentate' ) );
+		if (!WP_Filesystem()) {
+			return new WP_Error('documentate_fs_unavailable', __(
+				'Could not initialize the WordPress filesystem.',
+				'documentate',
+			));
 		}
 
 		return $wp_filesystem;
@@ -46,22 +49,22 @@ class Documentate_Zetajs_Converter {
 	 * @return bool
 	 */
 	public static function is_available() {
-		if ( self::is_cdn_mode() ) {
+		if (self::is_cdn_mode()) {
 			return true;
 		}
 
 		$cli = self::get_cli_path();
-		if ( '' === $cli ) {
+		if ('' === $cli) {
 			return false;
 		}
 		$fs = self::get_wp_filesystem();
-		if ( is_wp_error( $fs ) ) {
+		if (is_wp_error($fs)) {
 			return false;
 		}
-		if ( ! $fs->exists( $cli ) || ! is_executable( $cli ) ) {
+		if (!$fs->exists($cli) || !is_executable($cli)) {
 			return false;
 		}
-		if ( ! function_exists( 'proc_open' ) ) {
+		if (!function_exists('proc_open')) {
 			return false;
 		}
 		return true;
@@ -76,80 +79,85 @@ class Documentate_Zetajs_Converter {
 	 * @param string $input_format   Optional input format (unused but kept for compatibility).
 	 * @return string|WP_Error       Output path on success or WP_Error on failure.
 	 */
-	public static function convert( $input_path, $output_path, $output_format = '', $input_format = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
-		if ( self::is_cdn_mode() ) {
-			return new WP_Error(
-				'documentate_zetajs_browser_only',
-				self::get_browser_conversion_message(),
-				array(
-					'mode'     => 'cdn',
-					'cdn_base' => self::get_cdn_base_url(),
-				)
-			);
+	public static function convert($input_path, $output_path, $output_format = '', $input_format = '') { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+		if (self::is_cdn_mode()) {
+			return new WP_Error('documentate_zetajs_browser_only', self::get_browser_conversion_message(), array(
+				'mode' => 'cdn',
+				'cdn_base' => self::get_cdn_base_url(),
+			));
 		}
 
 		$fs = self::get_wp_filesystem();
-		if ( is_wp_error( $fs ) ) {
+		if (is_wp_error($fs)) {
 			return $fs;
 		}
 
-		if ( ! $fs->exists( $input_path ) ) {
-			return new WP_Error( 'documentate_zetajs_input_missing', __( 'The source file for conversion does not exist.', 'documentate' ) );
+		if (!$fs->exists($input_path)) {
+			return new WP_Error('documentate_zetajs_input_missing', __(
+				'The source file for conversion does not exist.',
+				'documentate',
+			));
 		}
 
-		if ( ! self::is_available() ) {
-			return new WP_Error( 'documentate_zetajs_not_available', __( 'Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN.', 'documentate' ) );
+		if (!self::is_available()) {
+			return new WP_Error('documentate_zetajs_not_available', __(
+				'Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN.',
+				'documentate',
+			));
 		}
 
 		$cli = self::get_cli_path();
-		$dir = dirname( $output_path );
-		if ( ! $fs->is_dir( $dir ) ) {
-			wp_mkdir_p( $dir );
+		$dir = dirname($output_path);
+		if (!$fs->is_dir($dir)) {
+			wp_mkdir_p($dir);
 		}
 
-		if ( $fs->exists( $output_path ) ) {
-			wp_delete_file( $output_path );
+		if ($fs->exists($output_path)) {
+			wp_delete_file($output_path);
 		}
 
 		$descriptor = array(
-			0 => array( 'pipe', 'r' ),
-			1 => array( 'pipe', 'w' ),
-			2 => array( 'pipe', 'w' ),
+			0 => array('pipe', 'r'),
+			1 => array('pipe', 'w'),
+			2 => array('pipe', 'w'),
 		);
 
-		$command = array( $cli, 'convert', $input_path, $output_path );
+		$command = array($cli, 'convert', $input_path, $output_path);
 
-		$process = proc_open( $command, $descriptor, $pipes, null, null, array( 'bypass_shell' => true ) ); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found
-		if ( ! is_resource( $process ) ) {
-			return new WP_Error( 'documentate_zetajs_proc', __( 'Could not start the ZetaJS conversion process.', 'documentate' ) );
+		$process = proc_open($command, $descriptor, $pipes, null, null, array('bypass_shell' => true)); // phpcs:ignore Generic.PHP.ForbiddenFunctions.Found
+		if (!is_resource($process)) {
+			return new WP_Error('documentate_zetajs_proc', __('Could not start the ZetaJS conversion process.', 'documentate'));
 		}
 
-			// phpcs:disable WordPress.WP.AlternativeFunctions -- Managing process pipes, no WP alternative.
-			// Close STDIN as we don't need to feed data.
-			fclose( $pipes[0] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_close
-			$stdout = stream_get_contents( $pipes[1] );
-			fclose( $pipes[1] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_close
-			$stderr = stream_get_contents( $pipes[2] );
-			fclose( $pipes[2] ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_close
-			// phpcs:enable WordPress.WP.AlternativeFunctions
+		// phpcs:disable WordPress.WP.AlternativeFunctions -- Managing process pipes, no WP alternative.
+		// Close STDIN as we don't need to feed data.
+		fclose($pipes[0]); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_close
+		$stdout = stream_get_contents($pipes[1]);
+		fclose($pipes[1]); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_close
+		$stderr = stream_get_contents($pipes[2]);
+		fclose($pipes[2]); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_close
+		// phpcs:enable WordPress.WP.AlternativeFunctions
 
-		$status = proc_close( $process );
-		if ( 0 !== $status ) {
-			$message = trim( $stderr );
-			if ( '' === $message ) {
-				$message = trim( $stdout );
+		$status = proc_close($process);
+		if (0 !== $status) {
+			$message = trim($stderr);
+			if ('' === $message) {
+				$message = trim($stdout);
 			}
-			if ( '' === $message ) {
+			if ('' === $message) {
 				/* translators: %d: exit status returned by the ZetaJS process. */
-				$message = sprintf( __( 'The ZetaJS process exited with code %d.', 'documentate' ), $status );
+				$message = sprintf(__('The ZetaJS process exited with code %d.', 'documentate'), $status);
 			}
-			return new WP_Error( 'documentate_zetajs_failed', $message );
+			return new WP_Error('documentate_zetajs_failed', $message);
 		}
 
-		if ( ! $fs->exists( $output_path ) ) {
+		if (!$fs->exists($output_path)) {
 			$context = $stderr ? $stderr : $stdout;
 			/* translators: %s: raw message captured from the ZetaJS converter output. */
-			return new WP_Error( 'documentate_zetajs_output_missing', sprintf( __( 'Conversion finished but the output file was not generated. Details: %s', 'documentate' ), $context ) );
+			return new WP_Error('documentate_zetajs_output_missing', sprintf(
+				__('Conversion finished but the output file was not generated. Details: %s', 'documentate'),
+				$context,
+			));
 		}
 
 		return $output_path;
@@ -161,13 +169,13 @@ class Documentate_Zetajs_Converter {
 	 * @return string
 	 */
 	private static function get_cli_path() {
-		$cli = defined( 'DOCUMENTATE_ZETAJS_BIN' ) ? (string) DOCUMENTATE_ZETAJS_BIN : '';
+		$cli = defined('DOCUMENTATE_ZETAJS_BIN') ? (string) DOCUMENTATE_ZETAJS_BIN : '';
 		/**
 		 * Filter the ZetaJS CLI path used by the converter.
 		 *
 		 * @param string $cli Current CLI path.
 		 */
-		$cli = apply_filters( 'documentate_zetajs_cli', $cli );
+		$cli = apply_filters('documentate_zetajs_cli', $cli);
 		return (string) $cli;
 	}
 
@@ -180,8 +188,8 @@ class Documentate_Zetajs_Converter {
 	 * @return bool
 	 */
 	public static function is_cdn_mode() {
-		$options = get_option( 'documentate_settings', array() );
-		$engine  = isset( $options['conversion_engine'] ) ? sanitize_key( $options['conversion_engine'] ) : 'collabora';
+		$options = get_option('documentate_settings', array());
+		$engine = isset($options['conversion_engine']) ? sanitize_key($options['conversion_engine']) : 'collabora';
 		return 'wasm' === $engine;
 	}
 
@@ -194,7 +202,7 @@ class Documentate_Zetajs_Converter {
 	 * @return string
 	 */
 	public static function get_cdn_base_url() {
-		if ( ! self::is_cdn_mode() ) {
+		if (!self::is_cdn_mode()) {
 			return '';
 		}
 		return 'https://cdn.zetaoffice.net/zetaoffice_latest/';
@@ -206,6 +214,6 @@ class Documentate_Zetajs_Converter {
 	 * @return string
 	 */
 	public static function get_browser_conversion_message() {
-		return __( 'PDF conversion is performed in the browser using ZetaJS loaded from the official CDN.', 'documentate' );
+		return __('PDF conversion is performed in the browser using ZetaJS loaded from the official CDN.', 'documentate');
 	}
 }
