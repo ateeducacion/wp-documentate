@@ -630,7 +630,7 @@ class Documentate_Admin_Helper {
 			array( $this, 'render_actions_metabox' ),
 			'documentate_document',
 			'side',
-			'high'
+			'core'
 		);
 	}
 
@@ -777,10 +777,11 @@ class Documentate_Admin_Helper {
 			),
 		);
 
-		echo '<p>';
+		echo '<div class="documentate-download-row">';
+		echo '<span class="documentate-download-label">' . esc_html__( 'Download:', 'documentate' ) . '</span>';
 		foreach ( array( 'docx', 'odt', 'pdf' ) as $format ) {
 			$data  = $buttons[ $format ];
-			$class = $data['primary'] ? 'button button-primary documentate-action-btn' : 'button documentate-action-btn';
+			$class = $data['primary'] ? 'button button-small button-primary documentate-action-btn' : 'button button-small documentate-action-btn';
 			if ( $data['available'] ) {
 				$attrs = array(
 					'class'                   => $class,
@@ -817,10 +818,7 @@ class Documentate_Admin_Helper {
 				echo '<button ' . $this->build_action_attributes( $button_attrs ) . '>' . esc_html( $data['label'] ) . '</button> ';
 			}
 		}
-		echo '</p>';
-
-		/* translators: %s: converter engine label. */
-		echo '<p class="description">' . sprintf( esc_html__( 'Additional conversions are performed with %s.', 'documentate' ), esc_html( $engine_label ) ) . '</p>';
+		echo '</div>';
 	}
 
 	/**

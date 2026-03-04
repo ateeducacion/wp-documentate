@@ -67,8 +67,8 @@ const documentHelpers = {
 			);
 			await publishBtn.click();
 		} else {
-			const draftBtn = page.getByRole( 'button', { name: /save draft|guardar borrador/i } ).or(
-				page.locator( '#save-post' )
+			const draftBtn = page.locator( '#documentate-save-draft' ).or(
+				page.getByRole( 'button', { name: /save draft|guardar borrador/i } )
 			);
 			await draftBtn.click();
 		}

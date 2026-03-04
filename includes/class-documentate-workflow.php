@@ -3,7 +3,8 @@
  * Workflow Restriction Handler for Documentate Documents.
  *
  * Manages save workflow, role-based restrictions, and UI states for the
- * documentate_document Custom Post Type.
+ * documentate_document Custom Post Type. Provides a unified "Document Management"
+ * meta box that replaces the default WordPress submitdiv.
  *
  * @package Documentate
  * @since 1.0.0
@@ -19,8 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Handles:
  * - Force draft status when no doc_type assigned
  * - Role-based publishing restrictions (Editors vs Admins)
- * - Read-only mode when post is published
- * - UI cleanup (hide schedule publication)
+ * - Read-only mode when post is published, archived, or pending (non-admin)
+ * - Unified Document Management meta box with stepper and action buttons
  */
 class Documentate_Workflow {
 
@@ -112,17 +113,14 @@ class Documentate_Workflow {
 		// Enqueue scripts and styles for workflow UI.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_workflow_assets' ) );
 
-		// Add inline CSS to hide schedule publication.
-		add_action( 'admin_head', array( $this, 'hide_schedule_publication_css' ) );
-
-		// Modify publish box.
-		add_action( 'post_submitbox_misc_actions', array( $this, 'modify_publish_box' ) );
-
-		// Add workflow status meta box.
+		// Add unified document management meta box (replaces submitdiv).
 		add_action( 'add_meta_boxes', array( $this, 'add_workflow_metabox' ) );
 
 		// Prevent editors from setting publish status via quick edit.
 		add_filter( 'wp_insert_post_empty_content', array( $this, 'check_publish_capability' ), 10, 2 );
+
+		// Prevent non-admins from restoring revisions on pending/published/archived documents.
+		add_action( 'wp_restore_post_revision', array( $this, 'restrict_revision_restore' ), 1, 2 );
 	}
 
 	/**
@@ -379,28 +377,28 @@ class Documentate_Workflow {
 
 		// Get post data for JavaScript.
 		global $post;
-		$post_id          = $post ? $post->ID : 0;
-		$post_status      = $post ? $post->post_status : 'auto-draft';
-		$is_admin         = current_user_can( 'manage_options' );
-		$has_doc_type     = $this->post_has_doc_type( $post_id );
-
-		$is_locked_status = in_array( $post_status, array( 'publish', 'archived' ), true );
+		$post_id     = $post ? $post->ID : 0;
+		$post_status = $post ? $post->post_status : 'auto-draft';
+		$is_admin    = current_user_can( 'manage_options' );
+		$has_doc_type = $this->post_has_doc_type( $post_id );
 
 		wp_localize_script(
 			'documentate-workflow',
 			'documentateWorkflow',
 			array(
-				'postId'       => $post_id,
-				'postStatus'   => $post_status,
-				'isAdmin'      => $is_admin,
-				'hasDocType'   => $has_doc_type,
-				'isPublished'  => 'publish' === $post_status,
-				'isArchived'   => 'archived' === $post_status,
-				'isLocked'     => $is_locked_status && ! $is_admin,
-				'strings'      => array(
+				'postId'     => $post_id,
+				'postStatus' => $post_status,
+				'isAdmin'    => $is_admin,
+				'hasDocType' => $has_doc_type,
+				'isPublished' => 'publish' === $post_status,
+				'isArchived' => 'archived' === $post_status,
+				'isPending'  => 'pending' === $post_status,
+				'isLocked'   => $this->is_status_locked( $post_status, $is_admin ),
+				'strings'    => array(
 					'lockedTitle'       => __( 'Document Locked', 'documentate' ),
 					'lockedMessage'     => __( 'This document is published and read-only. Only an administrator can unlock it by reverting to draft.', 'documentate' ),
 					'archivedMessage'   => __( 'This document is archived and read-only. Only an administrator can unarchive it.', 'documentate' ),
+					'pendingMessage'    => __( 'This document is pending review and read-only. An administrator will review it.', 'documentate' ),
 					'adminUnlock'       => __( 'Change status to Draft to enable editing.', 'documentate' ),
 					'adminUnarchive'    => __( 'Unarchive to enable editing.', 'documentate' ),
 					'needsDocType'      => __( 'Select a document type before publishing.', 'documentate' ),
@@ -433,68 +431,33 @@ class Documentate_Workflow {
 	}
 
 	/**
-	 * Add inline CSS to hide schedule publication UI.
-	 */
-	public function hide_schedule_publication_css() {
-		$screen = get_current_screen();
-		if ( ! $screen || $screen->post_type !== $this->post_type ) {
-			return;
-		}
-		?>
-		<style>
-			/* Hide schedule publication (timestamp) */
-			#timestampdiv,
-			.misc-pub-curtime,
-			.edit-timestamp {
-				display: none !important;
-			}
-		</style>
-		<?php
-	}
-
-	/**
-	 * Modify the publish box for editors.
+	 * Check if the given status should lock the document for this user.
 	 *
-	 * @param WP_Post $post Current post object.
+	 * @param string $status   Post status.
+	 * @param bool   $is_admin Whether current user is admin.
+	 * @return bool True if document should be locked.
 	 */
-	public function modify_publish_box( $post ) {
-		if ( $post->post_type !== $this->post_type ) {
-			return;
+	private function is_status_locked( $status, $is_admin ) {
+		if ( in_array( $status, array( 'publish', 'archived' ), true ) && ! $is_admin ) {
+			return true;
 		}
-
-		$is_admin = current_user_can( 'manage_options' );
-
-		if ( ! $is_admin ) {
-			?>
-			<div class="misc-pub-section documentate-editor-notice">
-				<span class="dashicons dashicons-info"></span>
-				<?php esc_html_e( 'Editors can save as Draft or submit for Pending Review.', 'documentate' ); ?>
-			</div>
-			<?php
+		if ( 'pending' === $status && ! $is_admin ) {
+			return true;
 		}
-
-		if ( 'publish' === $post->post_status ) {
-			?>
-			<div class="misc-pub-section documentate-published-notice">
-				<span class="dashicons dashicons-lock"></span>
-				<?php if ( $is_admin ) : ?>
-					<?php esc_html_e( 'Document is published. Change to Draft to enable editing.', 'documentate' ); ?>
-				<?php else : ?>
-					<?php esc_html_e( 'Document is published and locked. Contact an administrator to edit.', 'documentate' ); ?>
-				<?php endif; ?>
-			</div>
-			<?php
-		}
+		return false;
 	}
 
 	/**
-	 * Add workflow status meta box.
+	 * Add unified document management meta box, replacing submitdiv.
 	 */
 	public function add_workflow_metabox() {
+		remove_meta_box( 'submitdiv', $this->post_type, 'side' );
+		remove_meta_box( 'documentate_doc_type', $this->post_type, 'side' );
+
 		add_meta_box(
-			'documentate_workflow_status',
-			__( 'Workflow Status', 'documentate' ),
-			array( $this, 'render_workflow_metabox' ),
+			'documentate_document_management',
+			__( 'Document Management', 'documentate' ),
+			array( $this, 'render_document_management_metabox' ),
 			$this->post_type,
 			'side',
 			'high'
@@ -502,105 +465,352 @@ class Documentate_Workflow {
 	}
 
 	/**
-	 * Render workflow status meta box.
+	 * Render unified document management meta box.
+	 *
+	 * Combines visual stepper, status messages, context-sensitive action buttons,
+	 * and all hidden inputs that WordPress needs (lost when submitdiv is removed).
 	 *
 	 * @param WP_Post $post Current post object.
 	 */
-	public function render_workflow_metabox( $post ) {
-		$status      = $post->post_status;
-		$is_admin    = current_user_can( 'manage_options' );
+	public function render_document_management_metabox( $post ) {
+		$status       = $post->post_status;
+		$is_admin     = current_user_can( 'manage_options' );
 		$has_doc_type = $this->post_has_doc_type( $post->ID );
+		$is_locked    = $this->is_status_locked( $status, $is_admin );
 
-		$status_labels = array(
-			'auto-draft' => __( 'New', 'documentate' ),
-			'draft'      => __( 'Draft', 'documentate' ),
-			'pending'    => __( 'Pending Review', 'documentate' ),
-			'publish'    => __( 'Published', 'documentate' ),
-			'archived'   => __( 'Archived', 'documentate' ),
-		);
+		// Hidden inputs WordPress needs (lost when submitdiv is removed).
+		$this->render_hidden_inputs( $post );
 
-		$status_icons = array(
-			'auto-draft' => 'dashicons-edit',
-			'draft'      => 'dashicons-media-text',
-			'pending'    => 'dashicons-clock',
-			'publish'    => 'dashicons-yes-alt',
-			'archived'   => 'dashicons-archive',
-		);
+		// Document type selector (merged from separate metabox).
+		$this->render_doc_type_section( $post );
 
-		$status_label = isset( $status_labels[ $status ] ) ? $status_labels[ $status ] : $status;
-		$status_icon  = isset( $status_icons[ $status ] ) ? $status_icons[ $status ] : 'dashicons-admin-post';
+		// Visual stepper.
+		$this->render_stepper( $status );
+
+		// Status messages.
+		$this->render_status_messages( $post, $status, $is_admin, $has_doc_type );
+
+		// Action buttons.
+		$this->render_action_buttons( $post, $status, $is_admin, $is_locked );
+
+		// Revision link.
+		$this->render_revision_link( $post );
+
+		// Trash link.
+		$this->render_trash_link( $post, $status );
+
+		// Spinner.
+		echo '<span class="spinner"></span>';
+	}
+
+	/**
+	 * Render hidden inputs that WordPress core needs.
+	 *
+	 * When submitdiv is removed, these hidden fields must be provided
+	 * so that wp-admin/js/post.js and _wp_translate_postdata() work correctly.
+	 *
+	 * @param WP_Post $post Current post object.
+	 */
+	private function render_hidden_inputs( $post ) {
+		$status = $post->post_status;
 		?>
-		<div class="documentate-workflow-status">
-			<p class="status-display status-<?php echo esc_attr( $status ); ?>">
-				<span class="dashicons <?php echo esc_attr( $status_icon ); ?>"></span>
-				<strong><?php echo esc_html( $status_label ); ?></strong>
-			</p>
-
-			<?php if ( ! $has_doc_type && 'auto-draft' !== $status ) : ?>
-				<p class="workflow-warning">
-					<span class="dashicons dashicons-warning"></span>
-					<?php esc_html_e( 'No document type selected. Must assign a type before publishing.', 'documentate' ); ?>
-				</p>
-			<?php endif; ?>
-
-			<?php if ( 'publish' === $status ) : ?>
-				<p class="workflow-info">
-					<span class="dashicons dashicons-lock"></span>
-					<?php if ( $is_admin ) : ?>
-						<?php esc_html_e( 'Document is read-only. Change status to Draft to edit.', 'documentate' ); ?>
-					<?php else : ?>
-						<?php esc_html_e( 'Document is locked. Contact an administrator.', 'documentate' ); ?>
-					<?php endif; ?>
-				</p>
-			<?php endif; ?>
-
-			<?php if ( 'archived' === $status ) : ?>
-				<p class="workflow-info workflow-archived">
-					<span class="dashicons dashicons-archive"></span>
-					<?php if ( $is_admin ) : ?>
-						<?php esc_html_e( 'Document is archived and read-only. Unarchive to enable editing.', 'documentate' ); ?>
-					<?php else : ?>
-						<?php esc_html_e( 'Document is archived. Contact an administrator to unarchive.', 'documentate' ); ?>
-					<?php endif; ?>
-				</p>
-			<?php endif; ?>
-
-			<?php if ( ! $is_admin && in_array( $status, array( 'draft', 'auto-draft' ), true ) ) : ?>
-				<p class="workflow-info">
-					<span class="dashicons dashicons-info-outline"></span>
-					<?php esc_html_e( 'Submit for Pending Review when ready. An administrator will publish.', 'documentate' ); ?>
-				</p>
-			<?php endif; ?>
-
-			<?php if ( $is_admin ) : ?>
-				<?php if ( 'publish' === $status ) : ?>
-					<p class="workflow-action">
-						<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'archive' ) ); ?>" class="button button-secondary">
-							<span class="dashicons dashicons-archive"></span>
-							<?php esc_html_e( 'Archive Document', 'documentate' ); ?>
-						</a>
-					</p>
-				<?php elseif ( 'archived' === $status ) : ?>
-					<p class="workflow-action">
-						<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'unarchive' ) ); ?>" class="button button-secondary">
-							<span class="dashicons dashicons-upload"></span>
-							<?php esc_html_e( 'Unarchive Document', 'documentate' ); ?>
-						</a>
-					</p>
-				<?php endif; ?>
-			<?php endif; ?>
-
-			<div class="workflow-legend">
-				<p><strong><?php esc_html_e( 'Workflow:', 'documentate' ); ?></strong></p>
-				<ol>
-					<li><?php esc_html_e( 'Draft - Work in progress', 'documentate' ); ?></li>
-					<li><?php esc_html_e( 'Pending - Ready for review', 'documentate' ); ?></li>
-					<li><?php esc_html_e( 'Published - Final (locked)', 'documentate' ); ?></li>
-					<li><?php esc_html_e( 'Archived - Historical record', 'documentate' ); ?></li>
-				</ol>
-			</div>
+		<div style="display:none;">
+			<?php submit_button( __( 'Save', 'documentate' ), '', 'save', false ); ?>
+			<input type="hidden" id="publish" name="publish" value="" />
 		</div>
+		<input type="hidden" name="post_status" id="post_status" value="<?php echo esc_attr( $status ); ?>" />
+		<input type="hidden" name="hidden_post_status" id="hidden_post_status" value="<?php echo esc_attr( $status ); ?>" />
+		<input type="hidden" name="visibility" value="public" />
+		<input type="hidden" name="hidden_post_visibility" value="public" />
 		<?php
+	}
+
+	/**
+	 * Render the document type selector section inside the management metabox.
+	 *
+	 * Replicates the logic from Documentate_Documents::render_type_metabox()
+	 * so the doc type selection lives inside the unified management box.
+	 *
+	 * @param WP_Post $post Current post object.
+	 */
+	private function render_doc_type_section( $post ) {
+		wp_nonce_field( 'documentate_type_nonce', 'documentate_type_nonce' );
+
+		$assigned = wp_get_post_terms( $post->ID, $this->taxonomy, array( 'fields' => 'ids' ) );
+		$current  = ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) ? intval( $assigned[0] ) : 0;
+
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $this->taxonomy,
+				'hide_empty' => false,
+			)
+		);
+
+		echo '<div class="documentate-doc-type-section">';
+
+		if ( ! $terms || is_wp_error( $terms ) ) {
+			echo '<p>' . esc_html__( 'No document types defined. Create one in Document Types.', 'documentate' ) . '</p>';
+			echo '</div>';
+			return;
+		}
+
+		$locked = ( $current > 0 && 'auto-draft' !== $post->post_status );
+		echo '<p class="description">' . esc_html__( 'Choose the type when creating the document. It cannot be changed later.', 'documentate' ) . '</p>';
+		if ( $locked ) {
+			$term = get_term( $current, $this->taxonomy );
+			echo '<p><strong>' . esc_html__( 'Selected type:', 'documentate' ) . '</strong> ' . esc_html( $term ? $term->name : '' ) . '</p>';
+			echo '<input type="hidden" name="documentate_doc_type" value="' . esc_attr( (string) $current ) . '" />';
+		} else {
+			echo '<select name="documentate_doc_type" class="widefat">';
+			echo '<option value="">' . esc_html__( 'Select a type…', 'documentate' ) . '</option>';
+			foreach ( $terms as $t ) {
+				echo '<option value="' . esc_attr( (string) $t->term_id ) . '" ' . selected( $current, $t->term_id, false ) . '>' . esc_html( $t->name ) . '</option>';
+			}
+			echo '</select>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Render the visual stepper showing workflow progress.
+	 *
+	 * Steps: Draft -> In Review -> Approved
+	 *
+	 * @param string $status Current post status.
+	 */
+	private function render_stepper( $status ) {
+		$steps = array(
+			'draft'   => __( 'Draft', 'documentate' ),
+			'pending' => __( 'In Review', 'documentate' ),
+			'publish' => __( 'Approved', 'documentate' ),
+		);
+
+		$step_order = array_keys( $steps );
+
+		// Map auto-draft to draft, archived to publish for stepper purposes.
+		$effective_status = $status;
+		if ( 'auto-draft' === $status ) {
+			$effective_status = 'draft';
+		} elseif ( 'archived' === $status ) {
+			$effective_status = 'publish';
+		}
+
+		$current_index = array_search( $effective_status, $step_order, true );
+		if ( false === $current_index ) {
+			$current_index = 0;
+		}
+
+		echo '<div class="documentate-stepper">';
+		foreach ( $step_order as $index => $step_key ) {
+			$css_class = 'documentate-stepper__step';
+			if ( $index === $current_index ) {
+				$css_class .= ' is-current is-status-' . $step_key;
+			}
+			echo '<div class="' . esc_attr( $css_class ) . '">';
+			echo '<span class="documentate-stepper__dot"></span>';
+			echo '<span class="documentate-stepper__label">' . esc_html( $steps[ $step_key ] ) . '</span>';
+			echo '</div>';
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * Render status messages based on current state.
+	 *
+	 * @param WP_Post $post        Current post object.
+	 * @param string  $status      Current post status.
+	 * @param bool    $is_admin    Whether current user is admin.
+	 * @param bool    $has_doc_type Whether post has a document type.
+	 */
+	private function render_status_messages( $post, $status, $is_admin, $has_doc_type ) {
+		if ( ! $has_doc_type && 'auto-draft' !== $status ) {
+			echo '<p class="documentate-mgmt-message documentate-mgmt-message--warning">';
+			echo '<span class="dashicons dashicons-warning"></span> ';
+			esc_html_e( 'No document type selected. Must assign a type before publishing.', 'documentate' );
+			echo '</p>';
+		}
+
+		if ( 'publish' === $status ) {
+			echo '<p class="documentate-mgmt-message documentate-mgmt-message--success">';
+			echo '<span class="dashicons dashicons-lock"></span> ';
+			if ( $is_admin ) {
+				esc_html_e( 'Document is read-only. Return to Review to enable editing.', 'documentate' );
+			} else {
+				esc_html_e( 'Document is locked. Contact an administrator.', 'documentate' );
+			}
+			echo '</p>';
+		}
+
+		if ( 'archived' === $status ) {
+			echo '<p class="documentate-mgmt-message documentate-mgmt-message--success">';
+			echo '<span class="dashicons dashicons-archive"></span> ';
+			if ( $is_admin ) {
+				esc_html_e( 'Document is archived and read-only. Unarchive to enable editing.', 'documentate' );
+			} else {
+				esc_html_e( 'Document is archived. Contact an administrator to unarchive.', 'documentate' );
+			}
+			echo '</p>';
+		}
+
+		if ( 'pending' === $status ) {
+			echo '<p class="documentate-mgmt-message documentate-mgmt-message--pending">';
+			echo '<span class="dashicons dashicons-clock"></span> ';
+			if ( $is_admin ) {
+				esc_html_e( 'Document is pending review. Approve or return to draft.', 'documentate' );
+			} else {
+				esc_html_e( 'Document is pending review. An administrator will review it.', 'documentate' );
+			}
+			echo '</p>';
+		}
+
+		if ( ! $is_admin && in_array( $status, array( 'draft', 'auto-draft' ), true ) ) {
+			echo '<p class="documentate-mgmt-message documentate-mgmt-message--draft">';
+			echo '<span class="dashicons dashicons-info-outline"></span> ';
+			esc_html_e( 'Submit for Pending Review when ready. An administrator will publish.', 'documentate' );
+			echo '</p>';
+		}
+	}
+
+	/**
+	 * Render context-sensitive action buttons.
+	 *
+	 * @param WP_Post $post      Current post object.
+	 * @param string  $status    Current post status.
+	 * @param bool    $is_admin  Whether current user is admin.
+	 * @param bool    $is_locked Whether document is locked for current user.
+	 */
+	private function render_action_buttons( $post, $status, $is_admin, $is_locked ) {
+		echo '<div class="documentate-mgmt-actions">';
+
+		if ( in_array( $status, array( 'auto-draft', 'draft' ), true ) ) {
+			$this->render_draft_buttons( $is_admin );
+		} elseif ( 'pending' === $status ) {
+			$this->render_pending_buttons( $is_admin );
+		} elseif ( 'publish' === $status ) {
+			$this->render_published_buttons( $post, $is_admin );
+		} elseif ( 'archived' === $status ) {
+			$this->render_archived_buttons( $post, $is_admin );
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Render buttons for draft/auto-draft status.
+	 *
+	 * @param bool $is_admin Whether current user is admin.
+	 */
+	private function render_draft_buttons( $is_admin ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		?>
+		<button type="button" id="documentate-save-draft" class="button documentate-mgmt-btn documentate-mgmt-btn--danger">
+			<?php esc_html_e( 'Save Draft', 'documentate' ); ?>
+		</button>
+		<button type="button" id="documentate-send-review" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
+			<?php esc_html_e( 'Send to Review', 'documentate' ); ?>
+		</button>
+		<?php
+	}
+
+	/**
+	 * Render buttons for pending status.
+	 *
+	 * @param bool $is_admin Whether current user is admin.
+	 */
+	private function render_pending_buttons( $is_admin ) {
+		if ( ! $is_admin ) {
+			echo '<p class="documentate-mgmt-locked-notice">';
+			echo '<span class="dashicons dashicons-lock"></span> ';
+			esc_html_e( 'Document is pending review. No actions available.', 'documentate' );
+			echo '</p>';
+			return;
+		}
+		?>
+		<button type="button" id="documentate-return-draft" class="button documentate-mgmt-btn documentate-mgmt-btn--danger">
+			<?php esc_html_e( 'Return to Draft', 'documentate' ); ?>
+		</button>
+		<button type="button" id="documentate-save-pending" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
+			<?php esc_html_e( 'Save Review', 'documentate' ); ?>
+		</button>
+		<button type="button" id="documentate-approve-publish" class="button documentate-mgmt-btn documentate-mgmt-btn--success">
+			<?php esc_html_e( 'Approve & Publish', 'documentate' ); ?>
+		</button>
+		<?php
+	}
+
+	/**
+	 * Render buttons for published status.
+	 *
+	 * @param WP_Post $post     Current post object.
+	 * @param bool    $is_admin Whether current user is admin.
+	 */
+	private function render_published_buttons( $post, $is_admin ) {
+		if ( ! $is_admin ) {
+			echo '<p class="documentate-mgmt-locked-notice">';
+			echo '<span class="dashicons dashicons-lock"></span> ';
+			esc_html_e( 'Document is published and locked.', 'documentate' );
+			echo '</p>';
+			return;
+		}
+		?>
+		<button type="button" id="documentate-return-review" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
+			<?php esc_html_e( 'Return to Review', 'documentate' ); ?>
+		</button>
+		<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'archive' ) ); ?>" class="documentate-mgmt-link">
+			<?php esc_html_e( 'Archive', 'documentate' ); ?>
+		</a>
+		<?php
+	}
+
+	/**
+	 * Render buttons for archived status.
+	 *
+	 * @param WP_Post $post     Current post object.
+	 * @param bool    $is_admin Whether current user is admin.
+	 */
+	private function render_archived_buttons( $post, $is_admin ) {
+		if ( ! $is_admin ) {
+			echo '<p class="documentate-mgmt-locked-notice">';
+			echo '<span class="dashicons dashicons-lock"></span> ';
+			esc_html_e( 'Document is archived and locked.', 'documentate' );
+			echo '</p>';
+			return;
+		}
+		?>
+		<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'unarchive' ) ); ?>" class="documentate-mgmt-link">
+			<?php esc_html_e( 'Unarchive', 'documentate' ); ?>
+		</a>
+		<?php
+	}
+
+	/**
+	 * Render trash link.
+	 *
+	 * Non-admins cannot trash pending or published/archived documents.
+	 *
+	 * @param WP_Post $post   Current post object.
+	 * @param string  $status Current post status.
+	 */
+	private function render_trash_link( $post, $status ) {
+		$is_admin = current_user_can( 'manage_options' );
+
+		// Non-admins cannot trash pending, published, or archived documents.
+		if ( ! $is_admin && in_array( $status, array( 'pending', 'publish', 'archived' ), true ) ) {
+			return;
+		}
+
+		if ( current_user_can( 'delete_post', $post->ID ) ) {
+			$delete_url = get_delete_post_link( $post->ID );
+			if ( $delete_url ) {
+				echo '<div class="documentate-mgmt-delete">';
+				printf(
+					'<a class="submitdelete deletion" href="%s">%s</a>',
+					esc_url( $delete_url ),
+					esc_html__( 'Move to Trash', 'documentate' )
+				);
+				echo '</div>';
+			}
+		}
 	}
 
 	/**
@@ -621,6 +831,73 @@ class Documentate_Workflow {
 			),
 			'documentate_' . $action . '_' . $post_id
 		);
+	}
+
+	/**
+	 * Prevent non-admins from restoring revisions on locked documents.
+	 *
+	 * Non-admins cannot restore revisions when a document is pending, published, or archived.
+	 * They can still view revision history.
+	 *
+	 * @param int $post_id     Parent post ID being restored.
+	 * @param int $revision_id Selected revision post ID.
+	 */
+	public function restrict_revision_restore( $post_id, $revision_id ) {
+		$parent = get_post( $post_id );
+		if ( ! $parent || $this->post_type !== $parent->post_type ) {
+			return;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		if ( in_array( $parent->post_status, array( 'pending', 'publish', 'archived' ), true ) ) {
+			wp_die(
+				esc_html__( 'You do not have permission to restore revisions for this document.', 'documentate' ),
+				esc_html__( 'Revision Restore Blocked', 'documentate' ),
+				array( 'response' => 403 )
+			);
+		}
+	}
+
+	/**
+	 * Render the revision count link in the meta box.
+	 *
+	 * @param WP_Post $post Current post object.
+	 */
+	private function render_revision_link( $post ) {
+		if ( 'auto-draft' === $post->post_status ) {
+			return;
+		}
+
+		$revisions = wp_get_post_revisions( $post->ID );
+		$count     = count( $revisions );
+
+		if ( $count < 1 ) {
+			return;
+		}
+
+		$revisions_url = admin_url( 'revision.php?revision=' . $post->ID );
+		// Get the latest revision to link to the comparison view.
+		$latest_revision = reset( $revisions );
+		if ( $latest_revision ) {
+			$revisions_url = admin_url( 'revision.php?revision=' . $latest_revision->ID );
+		}
+
+		echo '<div class="documentate-mgmt-revisions">';
+		printf(
+			'<a href="%s">%s</a>',
+			esc_url( $revisions_url ),
+			esc_html(
+				sprintf(
+					/* translators: %d: Number of revisions */
+					_n( '%d Revision', '%d Revisions', $count, 'documentate' ),
+					$count
+				)
+			)
+		);
+		echo '</div>';
 	}
 
 	/**

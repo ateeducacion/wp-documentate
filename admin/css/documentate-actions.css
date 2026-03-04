@@ -93,6 +93,20 @@
 	display: inline-block;
 }
 
+/* Compact download row */
+.documentate-download-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.documentate-download-label {
+	font-size: 12px;
+	color: #646970;
+	flex-shrink: 0;
+}
+
 /* Action buttons with loading state */
 #documentate_actions .documentate-action-btn {
 	position: relative;

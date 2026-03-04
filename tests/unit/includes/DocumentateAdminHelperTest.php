@@ -149,8 +149,8 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		// Check that the metabox is registered.
 		$this->assertArrayHasKey( 'documentate_document', $wp_meta_boxes );
 		$this->assertArrayHasKey( 'side', $wp_meta_boxes['documentate_document'] );
-		$this->assertArrayHasKey( 'high', $wp_meta_boxes['documentate_document']['side'] );
-		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['high'] );
+		$this->assertArrayHasKey( 'core', $wp_meta_boxes['documentate_document']['side'] );
+		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['core'] );
 	}
 
 	/**
@@ -1144,16 +1144,17 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox description text.
+	 * Test render_actions_metabox shows compact download row.
 	 */
-	public function test_render_actions_metabox_description() {
+	public function test_render_actions_metabox_download_row() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
 		ob_start();
 		$this->helper->render_actions_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'description', $output );
+		$this->assertStringContainsString( 'documentate-download-row', $output );
+		$this->assertStringContainsString( 'documentate-download-label', $output );
 	}
 
 	/**
@@ -1651,9 +1652,9 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$this->helper->add_actions_metabox();
 
-		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['high'] );
+		$this->assertArrayHasKey( 'documentate_actions', $wp_meta_boxes['documentate_document']['side']['core'] );
 
-		$metabox = $wp_meta_boxes['documentate_document']['side']['high']['documentate_actions'];
+		$metabox = $wp_meta_boxes['documentate_document']['side']['core']['documentate_actions'];
 		$this->assertSame( __( 'Document Actions', 'documentate' ), $metabox['title'] );
 	}
 
@@ -1741,16 +1742,16 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox shows conversion engine label.
+	 * Test render_actions_metabox shows download label.
 	 */
-	public function test_render_actions_metabox_shows_engine_label() {
+	public function test_render_actions_metabox_shows_download_label() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
 		ob_start();
 		$this->helper->render_actions_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'description', $output );
+		$this->assertStringContainsString( 'Download:', $output );
 	}
 
 	/**
