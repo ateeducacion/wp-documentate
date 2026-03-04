@@ -75,6 +75,9 @@ test.describe( 'Document Revisions', () => {
 		documentEditor,
 		page,
 	} ) => {
+		// Three full publish cycles (initial + 2 edits) with 5+ navigations each.
+		test.slow();
+
 		// Create document with multiple revisions.
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Compare Revisions Test' );
@@ -108,6 +111,9 @@ test.describe( 'Document Revisions', () => {
 		documentEditor,
 		page,
 	} ) => {
+		// Two publish cycles plus revisions UI interaction.
+		test.slow();
+
 		const originalTitle = 'Restore Revision Test - Original';
 		const updatedTitle = 'Restore Revision Test - Updated';
 
