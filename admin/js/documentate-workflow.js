@@ -98,6 +98,13 @@
 			// "Send to Review" button.
 			$('#documentate-send-review').on('click', function (e) {
 				e.preventDefault();
+				if (!self.config.isAdmin) {
+					var msg = (self.config.strings && self.config.strings.confirmSendReview)
+						|| 'Are you sure you want to send this document to review?';
+					if (!window.confirm(msg)) {
+						return;
+					}
+				}
 				self.submitWithStatus('pending');
 			});
 

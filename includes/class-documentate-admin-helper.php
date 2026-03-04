@@ -730,69 +730,75 @@ class Documentate_Admin_Helper {
 			}
 		}
 
-		echo '<p>';
+		// ── Primary row: Preview + Download PDF ──────────────────────────
+		$needs_popup_base = ( $zetajs_cdn_available && ! $conversion_ready ) || $collabora_in_playground;
+
+		echo '<div class="documentate-actions-primary">';
+
+		// Preview button.
 		if ( $preview_available ) {
 			$preview_attrs = array(
-				'class'                   => 'button button-secondary documentate-action-btn',
+				'class'                   => 'button documentate-action-btn documentate-action-btn--preview',
 				'href'                    => '#',
 				'data-documentate-action' => 'preview',
 				'data-documentate-format' => 'pdf',
 			);
-			// Use popup for browser-based conversion:
-			// - ZetaJS CDN mode when no server conversion is available
-			// - Collabora in Playground (always, to bypass wp_remote_post multipart issues).
-			$needs_popup = ( $zetajs_cdn_available && ! $conversion_ready ) || $collabora_in_playground;
+			$needs_popup = $needs_popup_base;
 			if ( $needs_popup ) {
 				$preview_attrs['data-documentate-cdn-mode']      = '1';
 				$preview_attrs['data-documentate-source-format'] = $source_format;
 			}
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-			echo '<a ' . $this->build_action_attributes( $preview_attrs ) . '>' . esc_html__( 'Preview', 'documentate' ) . '</a>';
+			echo '<a ' . $this->build_action_attributes( $preview_attrs ) . '><span class="dashicons dashicons-visibility"></span> ' . esc_html__( 'Preview', 'documentate' ) . '</a>';
 		} else {
-			echo '<button type="button" class="button button-secondary" disabled title="' . esc_attr( $preview_message ) . '">' . esc_html__( 'Preview', 'documentate' ) . '</button>';
+			echo '<button type="button" class="button documentate-action-btn--preview" disabled title="' . esc_attr( $preview_message ) . '"><span class="dashicons dashicons-visibility"></span> ' . esc_html__( 'Preview', 'documentate' ) . '</button>';
 		}
-		echo '</p>';
 
-		$buttons = array(
-			'docx' => array(
-				'href'      => $docx,
-				'available' => $docx_available,
-				'message'   => $docx_message,
-				'primary'   => ( 'docx' === $preferred_format ),
-				'label'     => 'DOCX',
-			),
+		// Download PDF button (primary/blue).
+		if ( $pdf_available ) {
+			$pdf_attrs = array(
+				'class'                   => 'button button-primary documentate-action-btn documentate-action-btn--pdf',
+				'href'                    => '#',
+				'data-documentate-action' => 'download',
+				'data-documentate-format' => 'pdf',
+			);
+			if ( $needs_popup_base && 'pdf' !== $source_format ) {
+				$pdf_attrs['data-documentate-cdn-mode']      = '1';
+				$pdf_attrs['data-documentate-source-format'] = $source_format;
+			}
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
+			echo '<a ' . $this->build_action_attributes( $pdf_attrs ) . '><span class="dashicons dashicons-pdf"></span> ' . esc_html__( 'Download PDF', 'documentate' ) . '</a>';
+		} else {
+			echo '<button type="button" class="button button-primary documentate-action-btn--pdf" disabled title="' . esc_attr( $pdf_message ) . '"><span class="dashicons dashicons-pdf"></span> ' . esc_html__( 'Download PDF', 'documentate' ) . '</button>';
+		}
+
+		echo '</div>';
+
+		// ── Secondary row: Other download formats ────────────────────────
+		$secondary_buttons = array(
 			'odt'  => array(
-				'href'      => $odt,
 				'available' => $odt_available,
 				'message'   => $odt_message,
-				'primary'   => ( 'odt' === $preferred_format ),
-				'label'     => 'ODT',
+				'label'     => __( 'ODT (Source)', 'documentate' ),
 			),
-			'pdf'  => array(
-				'href'      => $pdf,
-				'available' => $pdf_available,
-				'message'   => $pdf_message,
-				'primary'   => false,
-				'label'     => 'PDF',
+			'docx' => array(
+				'available' => $docx_available,
+				'message'   => $docx_message,
+				'label'     => 'DOCX',
 			),
 		);
 
-		echo '<div class="documentate-download-row">';
-		echo '<span class="documentate-download-label">' . esc_html__( 'Download:', 'documentate' ) . '</span>';
-		foreach ( array( 'docx', 'odt', 'pdf' ) as $format ) {
-			$data  = $buttons[ $format ];
-			$class = $data['primary'] ? 'button button-small button-primary documentate-action-btn' : 'button button-small documentate-action-btn';
+		echo '<div class="documentate-actions-secondary">';
+		echo '<span class="documentate-actions-secondary__label">' . esc_html__( 'Other download formats:', 'documentate' ) . '</span>';
+		echo '<span class="documentate-actions-secondary__buttons">';
+		foreach ( $secondary_buttons as $format => $data ) {
 			if ( $data['available'] ) {
 				$attrs = array(
-					'class'                   => $class,
+					'class'                   => 'button button-small documentate-action-btn',
 					'href'                    => '#',
 					'data-documentate-action' => 'download',
 					'data-documentate-format' => $format,
 				);
-				// Use popup for browser-based conversion when format differs from source:
-				// - ZetaJS CDN mode when no server conversion is available
-				// - Collabora in Playground (always, to bypass wp_remote_post multipart issues).
-				$needs_popup_base       = ( $zetajs_cdn_available && ! $conversion_ready ) || $collabora_in_playground;
 				$needs_popup_conversion = $needs_popup_base && $format !== $source_format;
 				if ( $needs_popup_conversion ) {
 					$attrs['data-documentate-cdn-mode']      = '1';
@@ -808,7 +814,7 @@ class Documentate_Admin_Helper {
 				}
 				$button_attrs = array(
 					'type'     => 'button',
-					'class'    => $class,
+					'class'    => 'button button-small',
 					'disabled' => 'disabled',
 				);
 				if ( '' !== $title_attr ) {
@@ -818,6 +824,7 @@ class Documentate_Admin_Helper {
 				echo '<button ' . $this->build_action_attributes( $button_attrs ) . '>' . esc_html( $data['label'] ) . '</button> ';
 			}
 		}
+		echo '</span>';
 		echo '</div>';
 	}
 

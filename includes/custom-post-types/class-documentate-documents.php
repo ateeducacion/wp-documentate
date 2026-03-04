@@ -469,6 +469,13 @@ class Documentate_Documents {
 					'query_var'         => true,
 					'rewrite'           => false,
 					'show_in_rest'      => false,
+					// Only administrators can manage document types.
+					'capabilities'      => array(
+						'manage_terms' => 'manage_options',
+						'edit_terms'   => 'manage_options',
+						'delete_terms' => 'manage_options',
+						'assign_terms' => 'edit_posts',
+					),
 					// We'll use a custom metabox to prevent editing after first save.
 					'meta_box_cb'       => false,
 				)

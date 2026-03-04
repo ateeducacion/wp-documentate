@@ -313,7 +313,17 @@ class Documents_Field_Validator {
 		}
 
 		if ( 'date' === $input_type ) {
-			$timestamp = strtotime( $value );
+			// Try strict parsing with common input formats to avoid DD/MM vs MM/DD ambiguity.
+			$input_formats = array( 'd/m/Y', 'Y-m-d', 'd-m-Y', 'd.m.Y' );
+			foreach ( $input_formats as $input_format ) {
+				$date = \DateTime::createFromFormat( $input_format, $value );
+				if ( $date && $date->format( $input_format ) === $value ) {
+					return $date->format( 'Y-m-d' );
+				}
+			}
+			// Fallback: replace "/" with "-" so strtotime treats it as D-M-Y.
+			$safe_value = str_replace( '/', '-', $value );
+			$timestamp  = strtotime( $safe_value );
 			if ( false !== $timestamp ) {
 				return gmdate( 'Y-m-d', $timestamp );
 			}

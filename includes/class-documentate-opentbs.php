@@ -290,6 +290,9 @@ class Documentate_OpenTBS {
 			// Pre-process visibility blocks [onshow;block=begin;bloc=FIELD]...[onshow;block=end].
 			$tbs_engine->Source = self::process_visibility_blocks( $tbs_engine->Source, $fields );
 
+			// Collapse fragmented XML spans so TBS can match placeholders split across tags.
+			$tbs_engine->Source = self::normalize_template_placeholders( $tbs_engine->Source, $template_path );
+
 			$tbs_engine->ResetVarRef( false );
 
 			// First merge repeater blocks (arrays), then scalar fields.
@@ -369,6 +372,44 @@ class Documentate_OpenTBS {
 			},
 			$content
 		);
+	}
+
+	/**
+	 * Collapse fragmented XML spans in template source so TBS can match placeholders.
+	 *
+	 * ODT/DOCX editors often split placeholder text across multiple XML tags
+	 * (e.g. [lugar;ope=utf8,upper] becomes [</span><span>lugar</span><span>;ope=...]).
+	 * This method rejoins those fragments so OpenTBS can find the placeholder pattern.
+	 *
+	 * @param string $source        Raw XML template content.
+	 * @param string $template_path Template file path (used to detect odt vs docx).
+	 * @return string Normalized XML content.
+	 */
+	public static function normalize_template_placeholders( $source, $template_path ) {
+		$ext = strtolower( pathinfo( $template_path, PATHINFO_EXTENSION ) );
+
+		if ( 'docx' === $ext ) {
+			$patterns = array(
+				'#</w:t>\s*</w:r>\s*<w:r[^>]*>\s*<w:t[^>]*>#i',
+				'#</w:t>\s*<w:r[^>]*>\s*<w:t[^>]*>#i',
+				'#</w:t>\s*<w:t[^>]*>#i',
+			);
+			$source = preg_replace( $patterns, '', $source );
+		} else {
+			// ODT: collapse </text:span>...<text:span> sequences.
+			// Loop to handle nested structures like </span></span><span><span>.
+			$prev = '';
+			while ( $prev !== $source ) {
+				$prev   = $source;
+				$source = preg_replace(
+					'#(</text:span>\s*)+(<text:span[^>]*>\s*)+#i',
+					'',
+					$source
+				);
+			}
+		}
+
+		return $source;
 	}
 
 	/**

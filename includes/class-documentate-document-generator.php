@@ -748,11 +748,45 @@ class Documentate_Document_Generator {
 		if ( '' === $value ) {
 			return '';
 		}
-		$timestamp = strtotime( (string) $value );
-		if ( false === $timestamp ) {
+
+		$date = self::parse_date_value( (string) $value );
+		if ( ! $date ) {
 			return $value;
 		}
-		return wp_date( $format, $timestamp );
+
+		// Return ISO format (Y-m-d) so TBS can unambiguously parse dates
+		// and apply its own frm='mmmm (locale)' etc. formatting correctly.
+		return $date->format( 'Y-m-d' );
+	}
+
+	/**
+	 * Parse a date string into a DateTime object.
+	 *
+	 * Tries common input formats using strict parsing to avoid DD/MM vs MM/DD
+	 * ambiguity inherent in PHP's strtotime().
+	 *
+	 * @param string $value Date string to parse.
+	 * @return DateTime|false DateTime object or false on failure.
+	 */
+	private static function parse_date_value( $value ) {
+		// Try strict parsing with common input formats.
+		$input_formats = array( 'd/m/Y', 'Y-m-d', 'd-m-Y', 'd.m.Y', 'Y/m/d' );
+		foreach ( $input_formats as $input_format ) {
+			$date = DateTime::createFromFormat( $input_format, $value );
+			if ( $date && $date->format( $input_format ) === $value ) {
+				return $date;
+			}
+		}
+
+		// Fallback: replace "/" with "-" so strtotime treats it as D-M-Y instead of M/D/Y.
+		$safe_value = str_replace( '/', '-', $value );
+		$timestamp  = strtotime( $safe_value );
+		if ( false === $timestamp ) {
+			return false;
+		}
+		$date = new DateTime();
+		$date->setTimestamp( $timestamp );
+		return $date;
 	}
 
 	/**

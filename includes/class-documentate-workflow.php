@@ -403,6 +403,7 @@ class Documentate_Workflow {
 					'adminUnarchive'    => __( 'Unarchive to enable editing.', 'documentate' ),
 					'needsDocType'      => __( 'Select a document type before publishing.', 'documentate' ),
 					'editorRestriction' => __( 'Editors can only save as Draft or Pending Review.', 'documentate' ),
+				'confirmSendReview' => __( 'Are you sure you want to send this document to review? Once submitted, you will not be able to edit it until an administrator returns it to draft.', 'documentate' ),
 				),
 			)
 		);
@@ -704,9 +705,11 @@ class Documentate_Workflow {
 	private function render_draft_buttons( $is_admin ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		?>
 		<button type="button" id="documentate-save-draft" class="button documentate-mgmt-btn documentate-mgmt-btn--danger">
+			<span class="dashicons dashicons-cloud-saved"></span>
 			<?php esc_html_e( 'Save Draft', 'documentate' ); ?>
 		</button>
 		<button type="button" id="documentate-send-review" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
+			<span class="dashicons dashicons-share-alt2"></span>
 			<?php esc_html_e( 'Send to Review', 'documentate' ); ?>
 		</button>
 		<?php
@@ -727,12 +730,15 @@ class Documentate_Workflow {
 		}
 		?>
 		<button type="button" id="documentate-return-draft" class="button documentate-mgmt-btn documentate-mgmt-btn--danger">
+			<span class="dashicons dashicons-undo"></span>
 			<?php esc_html_e( 'Return to Draft', 'documentate' ); ?>
 		</button>
 		<button type="button" id="documentate-save-pending" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
+			<span class="dashicons dashicons-cloud-saved"></span>
 			<?php esc_html_e( 'Save Review', 'documentate' ); ?>
 		</button>
 		<button type="button" id="documentate-approve-publish" class="button documentate-mgmt-btn documentate-mgmt-btn--success">
+			<span class="dashicons dashicons-saved"></span>
 			<?php esc_html_e( 'Approve & Publish', 'documentate' ); ?>
 		</button>
 		<?php
@@ -754,6 +760,7 @@ class Documentate_Workflow {
 		}
 		?>
 		<button type="button" id="documentate-return-review" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
+			<span class="dashicons dashicons-undo"></span>
 			<?php esc_html_e( 'Return to Review', 'documentate' ); ?>
 		</button>
 		<a href="<?php echo esc_url( $this->get_archive_action_url( $post->ID, 'archive' ) ); ?>" class="documentate-mgmt-link">
