@@ -232,7 +232,7 @@ package:
 	fi
 	# Update the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" documentate.php
-	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
 	# Create the ZIP package
@@ -240,7 +240,7 @@ package:
 
 	# Restore the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
-	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '0.0.0')/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: 0.0.0/" readme.txt
 
 # Show help with available commands
