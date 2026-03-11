@@ -22,9 +22,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
-  deployments: write
-  checks: write
 
 env:
   COMPOSER_NO_INTERACTION: 1
@@ -32,70 +29,6 @@ env:
   COMPOSER_NO_AUDIT: 1
 
 jobs:
-  playground:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Set branch name for blueprint URL
-        run: |
-          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            echo "BRANCH_NAME=${GITHUB_HEAD_REF}" >> $GITHUB_ENV
-          else
-            echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-          fi
-
-      - name: Patch and encode blueprint
-        run: |
-          sed -i "s|refs/heads/main.zip|refs/heads/${BRANCH_NAME}.zip|g" blueprint.json
-          echo "BASE64_BLUEPRINT=$(base64 -w 0 blueprint.json)" >> $GITHUB_ENV
-
-      - name: Create Playground deployment
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const playgroundUrl = `https://playground.wordpress.net/#${process.env.BASE64_BLUEPRINT}`;
-
-            // Add to summary
-            core.summary.addLink('Test in WP Playground', playgroundUrl);
-            await core.summary.write();
-
-            // Create check
-            await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: "Test on WP Playground",
-              head_sha: context.payload.pull_request?.head.sha || context.sha,
-              status: "completed",
-              conclusion: "neutral",
-              output: {
-                title: "Test in WP Playground",
-                summary: `[Open Playground](${playgroundUrl})`
-              }
-            });
-
-            // Create deployment
-            const deployment = await github.rest.repos.createDeployment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: context.payload.pull_request?.head.ref || context.ref,
-              required_contexts: [],
-              environment: "playground",
-              transient_environment: true,
-              auto_merge: false
-            });
-
-            if (deployment.data.id) {
-              await github.rest.repos.createDeploymentStatus({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                deployment_id: deployment.data.id,
-                state: "success",
-                environment_url: playgroundUrl
-              });
-            }
-
   lint_and_test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
