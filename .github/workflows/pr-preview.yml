@@ -1,0 +1,20 @@
+name: PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Playground preview button
+        uses: WordPress/action-wp-playground-pr-preview@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mode: append-to-description
+          blueprint-url: https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name }}/${{ github.event.pull_request.head.sha }}/blueprint.json

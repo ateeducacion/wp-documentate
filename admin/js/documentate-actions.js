@@ -288,6 +288,116 @@
 	}
 
 	/**
+	 * Convert an ArrayBuffer to a base64-encoded string.
+	 *
+	 * @param {ArrayBuffer} buffer Binary data to convert.
+	 * @returns {string} Base64-encoded representation.
+	 */
+	function arrayBufferToBase64(buffer) {
+		const bytes = new Uint8Array(buffer);
+		const chunks = [];
+		const chunkSize = 8192;
+		for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+			const chunk = bytes.subarray(i, i + chunkSize);
+			chunks.push(String.fromCharCode.apply(null, chunk));
+		}
+		return btoa(chunks.join(''));
+	}
+
+	/**
+	 * Handle the Sign and Download flow via AutoScript.js (AutoFirma).
+	 *
+	 * Fetches the generated PDF, signs with AutoScript.sign() using PAdES
+	 * format, then triggers a direct browser download (no server round-trip).
+	 *
+	 * Signature position is determined by [sign;x=...;y=...;page=...] parameters
+	 * in the template. Falls back to bottom-left of last page if not specified.
+	 *
+	 * @param {string} pdfUrl URL of the generated PDF to sign.
+	 */
+	async function handleSignAndDownload(pdfUrl) {
+		updateModal(
+			strings.signingInProgress || 'Selecciona tu certificado en AutoFirma...',
+			strings.wait || 'Por favor, espera...'
+		);
+
+		try {
+			// Fetch the PDF binary so it can be passed to AutoFirma.
+			const pdfResponse = await fetch(pdfUrl, { credentials: 'same-origin' });
+			if (!pdfResponse.ok) {
+				throw new Error(strings.errorGeneric || 'Error generating the document.');
+			}
+			const pdfBuffer = await pdfResponse.arrayBuffer();
+
+			// Use position from template [sign] parameters, or defaults.
+			const pos = config.signPosition || {};
+			const sigPage = pos.page || -1;    // -1 = last page.
+			const sigLLX = pos.x || 50;
+			const sigLLY = pos.y || 50;
+			const sigURX = sigLLX + 250;
+			const sigURY = sigLLY + 70;
+
+			const pdfBase64 = arrayBufferToBase64(pdfBuffer);
+
+			// PAdES signature parameters with dynamic positioning.
+			const params =
+				'mode=implicit\n' +
+				'signatureSubFilter=ETSI.CAdES.detached\n' +
+				'filters=nonexpired:\n' +
+				'signaturePage=' + sigPage + '\n' +
+				'signaturePositionOnPageLowerLeftX=' + sigLLX + '\n' +
+				'signaturePositionOnPageLowerLeftY=' + sigLLY + '\n' +
+				'signaturePositionOnPageUpperRightX=' + sigURX + '\n' +
+				'signaturePositionOnPageUpperRightY=' + sigURY + '\n' +
+				'layer2Text=Firmado por $$SUBJECTCN$$ el $$SIGNDATE=dd/MM/yyyy HH:mm$$\n' +
+				'layer2FontFamily=1\n' +
+				'layer2FontSize=10\n' +
+				'layer2FontColor=black';
+
+			AutoScript.sign(
+				pdfBase64,
+				'SHA512withRSA',
+				'PAdES',
+				params,
+				function onSuccess(signedBase64) {
+					// Direct browser download — no server round-trip.
+					try {
+						const byteChars = atob(signedBase64);
+						const byteArray = new Uint8Array(byteChars.length);
+						for (let i = 0; i < byteChars.length; i++) {
+							byteArray[i] = byteChars.charCodeAt(i);
+						}
+						const blob = new Blob([byteArray], { type: 'application/pdf' });
+						const blobUrl = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = blobUrl;
+						a.download = (config.postSlug || 'documento') + '-' + config.postId + '_signed.pdf';
+						document.body.appendChild(a);
+						a.click();
+						document.body.removeChild(a);
+						setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+						hideModal();
+					} catch (dlError) {
+						console.error('Download error:', dlError);
+						showError(strings.errorGeneric || 'Error al descargar el documento firmado.');
+					}
+				},
+				function onError(errorType, errorMessage) {
+					if (errorType === 'es.gob.afirma.core.AOCancelledOperationException') {
+						hideModal();
+						return;
+					}
+					console.error('AutoFirma sign error:', errorType, errorMessage);
+					showError(strings.signErrorNoAutofirma || 'AutoFirma no está instalado o no se pudo iniciar.');
+				}
+			);
+		} catch (error) {
+			console.error('AutoFirma error:', error);
+			showError(strings.signErrorNoAutofirma || 'AutoFirma no está instalado o no se pudo iniciar.');
+		}
+	}
+
+	/**
 	 * Log debug info to the browser console for troubleshooting.
 	 *
 	 * @param {Object} response AJAX response object.
@@ -641,7 +751,7 @@
 				action: 'documentate_generate_document',
 				post_id: config.postId,
 				format: format || 'pdf',
-				output: action, // 'preview', 'download'
+				output: action === 'sign' ? 'download' : action, // 'preview', 'download'
 				_wpnonce: config.nonce
 			},
 			success: function (response) {
@@ -650,6 +760,9 @@
 						// Open preview in new tab
 						window.open(response.data.url, '_blank');
 						hideModal();
+					} else if (action === 'sign' && response.data.url) {
+						// Sign and download via AutoFirma (AutoScript.js).
+						handleSignAndDownload(response.data.url);
 					} else if (response.data.url) {
 						// Trigger download
 						hideModal();
@@ -679,6 +792,15 @@
 	function init() {
 		// Bind click handlers to action buttons
 		$(document).on('click', '[data-documentate-action]', handleActionClick);
+
+		// Initialize AutoFirma communication if AutoScript is available.
+		if (config.hasSignPlaceholder && typeof AutoScript !== 'undefined') {
+			try {
+				AutoScript.cargarAppAfirma();
+			} catch (e) {
+				console.warn('AutoFirma init warning:', e);
+			}
+		}
 	}
 
 	$(init);

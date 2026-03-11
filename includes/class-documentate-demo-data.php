@@ -151,6 +151,11 @@ class Documentate_Demo_Data {
 			return;
 		}
 
+		$should_seed = (bool) get_option('documentate_seed_demo_documents', false);
+		if (!$should_seed) {
+			return;
+		}
+
 		self::ensure_default_media();
 
 		$definitions = self::get_doc_type_definitions();

@@ -657,6 +657,13 @@ class Documentate_Admin_Helper {
 		$docx_template = Documentate_Document_Generator::get_template_path($post->ID, 'docx');
 		$odt_template = Documentate_Document_Generator::get_template_path($post->ID, 'odt');
 
+		// Detect [sign] placeholder in the active template.
+		$template_for_sign_check = '' !== $docx_template ? $docx_template : $odt_template;
+		$has_sign_placeholder = false;
+		if ('' !== $template_for_sign_check) {
+			$has_sign_placeholder = Documentate_Template_Parser::template_has_sign_placeholder($template_for_sign_check);
+		}
+
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-conversion-manager.php';
 
 		$conversion_ready = Documentate_Conversion_Manager::is_available();
@@ -765,7 +772,7 @@ class Documentate_Admin_Helper {
 			;
 		}
 
-		// Download PDF button (primary/blue).
+		// Download PDF button (always shown, primary/blue).
 		if ($pdf_available) {
 			$pdf_attrs = array(
 				'class' => 'button button-primary documentate-action-btn documentate-action-btn--pdf',
@@ -792,6 +799,24 @@ class Documentate_Admin_Helper {
 					. '"><span class="dashicons dashicons-pdf"></span> '
 					. esc_html__('Download PDF', 'documentate')
 					. '</button>'
+			;
+		}
+
+		// Sign and Download button (only when template has [sign] placeholder).
+		if ($has_sign_placeholder && $pdf_available) {
+			$sign_attrs = array(
+				'class' => 'button button-primary documentate-action-btn documentate-action-btn--sign',
+				'href' => '#',
+				'data-documentate-action' => 'sign',
+				'data-documentate-format' => 'pdf',
+			);
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
+			echo
+				'<a '
+					. $this->build_action_attributes($sign_attrs)
+					. '><span class="dashicons dashicons-lock"></span> '
+					. esc_html__('Sign and Download', 'documentate')
+					. '</a>'
 			;
 		}
 
@@ -979,6 +1004,18 @@ class Documentate_Admin_Helper {
 		);
 
 		$config = $this->build_actions_script_config($post_id);
+
+		// Enqueue AutoScript.js when the template has a [sign] placeholder.
+		if (!empty($config['hasSignPlaceholder'])) {
+			wp_enqueue_script(
+				'autoscript',
+				plugins_url('admin/js/vendor/autoscript.js', DOCUMENTATE_PLUGIN_FILE),
+				array(),
+				DOCUMENTATE_VERSION,
+				true,
+			);
+		}
+
 		wp_localize_script('documentate-actions', 'documentateActionsConfig', $config);
 	}
 
@@ -1009,9 +1046,21 @@ class Documentate_Admin_Helper {
 		$config = array(
 			'ajaxUrl' => admin_url('admin-ajax.php'),
 			'postId' => $post_id,
+			'postSlug' => sanitize_title(get_the_title($post_id)),
 			'nonce' => wp_create_nonce('documentate_generate_' . $post_id),
 			'strings' => $this->get_actions_script_strings(),
 		);
+
+		// Detect [sign] placeholder for AutoFirma integration.
+		$this->ensure_document_generator();
+		$docx_tpl = Documentate_Document_Generator::get_template_path($post_id, 'docx');
+		$odt_tpl = Documentate_Document_Generator::get_template_path($post_id, 'odt');
+		$sign_check_tpl = '' !== $docx_tpl ? $docx_tpl : $odt_tpl;
+		$sign_info = '' !== $sign_check_tpl ? Documentate_Template_Parser::get_sign_placeholder_info($sign_check_tpl) : false;
+		if (false !== $sign_info) {
+			$config['hasSignPlaceholder'] = true;
+			$config['signPosition'] = $sign_info;
+		}
 
 		return $this->add_conversion_mode_config($config);
 	}
@@ -1038,6 +1087,9 @@ class Documentate_Admin_Helper {
 				'You have unsaved changes. Do you want to generate the document with the last saved version?',
 				'documentate',
 			),
+			'signingInProgress' => __('Please select your certificate in AutoFirma...', 'documentate'),
+			'signErrorNoAutofirma' => __('AutoFirma is not installed or could not be started.', 'documentate'),
+			'downloadUnsigned' => __('Download unsigned PDF', 'documentate'),
 		);
 	}
 

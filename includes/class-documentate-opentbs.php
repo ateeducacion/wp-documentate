@@ -294,14 +294,20 @@ class Documentate_OpenTBS {
 
 			// Pre-process visibility blocks [onshow;block=begin;bloc=FIELD]...[onshow;block=end].
 			$tbs_engine->Source = self::process_visibility_blocks($tbs_engine->Source, $fields);
-			if ( null === $tbs_engine->Source ) {
-				return new \WP_Error( 'documentate_regex_error', __( 'Template pre-processing failed (visibility blocks).', 'documentate' ) );
+			if (null === $tbs_engine->Source) {
+				return new \WP_Error('documentate_regex_error', __(
+					'Template pre-processing failed (visibility blocks).',
+					'documentate',
+				));
 			}
 
 			// Collapse fragmented XML spans so TBS can match placeholders split across tags.
 			$tbs_engine->Source = self::normalize_template_placeholders($tbs_engine->Source, $template_path);
-			if ( null === $tbs_engine->Source ) {
-				return new \WP_Error( 'documentate_regex_error', __( 'Template pre-processing failed (placeholder normalization).', 'documentate' ) );
+			if (null === $tbs_engine->Source) {
+				return new \WP_Error('documentate_regex_error', __(
+					'Template pre-processing failed (placeholder normalization).',
+					'documentate',
+				));
 			}
 
 			$tbs_engine->ResetVarRef(false);
@@ -1605,8 +1611,11 @@ class Documentate_OpenTBS {
 		$row_elements = array();
 		$max_columns = 0;
 
+		// Track rowspan coverage: column_index => remaining rows needing covered cells.
+		$rowspan_map = array();
+
 		foreach ($row_nodes as $row) {
-			$row_data = self::convert_table_row_to_odt($doc, $row, $formatting, $style_require);
+			$row_data = self::convert_table_row_to_odt($doc, $row, $formatting, $style_require, $rowspan_map);
 			if ($row_data['element']) {
 				$row_elements[] = $row_data['element'];
 				if ($row_data['columns'] > $max_columns) {
@@ -1635,10 +1644,11 @@ class Documentate_OpenTBS {
 	/**
 	 * Convert a single table row to ODT.
 	 *
-	 * @param DOMDocument         $doc           Target document.
-	 * @param DOMElement          $row           Row element.
-	 * @param array<string,mixed> $formatting    Active formatting flags.
-	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @param DOMDocument          $doc           Target document.
+	 * @param DOMElement           $row           Row element.
+	 * @param array<string,mixed>  $formatting    Active formatting flags.
+	 * @param array<string,bool>   $style_require Styles required so far.
+	 * @param array<int,int>       $rowspan_map   Column index => remaining rows covered by rowspan.
 	 * @return array{element: DOMElement|null, columns: int}
 	 */
 	private static function convert_table_row_to_odt(
@@ -1646,22 +1656,76 @@ class Documentate_OpenTBS {
 		DOMElement $row,
 		$formatting,
 		array &$style_require,
+		array &$rowspan_map = array(),
 	) {
 		$row_element = $doc->createElementNS(self::ODF_TABLE_NS, 'table:table-row');
+		$column_index = 0;
 		$column_count = 0;
 
+		$cells = array();
 		foreach ($row->childNodes as $cell) {
 			if (!$cell instanceof DOMElement) {
 				continue;
 			}
-
 			$cell_tag = strtolower($cell->nodeName);
-			if ('td' !== $cell_tag && 'th' !== $cell_tag) {
-				continue;
+			if ('td' === $cell_tag || 'th' === $cell_tag) {
+				$cells[] = $cell;
+			}
+		}
+
+		$cell_iter = 0;
+		while ($cell_iter < count($cells) || isset($rowspan_map[ $column_index ])) {
+			// Insert covered cells for rowspan from previous rows.
+			while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+				$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
+				$row_element->appendChild($covered);
+				// Consume: decrement and remove if exhausted.
+				$rowspan_map[ $column_index ]--;
+				if (0 === $rowspan_map[ $column_index ]) {
+					unset($rowspan_map[ $column_index ]);
+				}
+				$column_index++;
+				$column_count++;
 			}
 
+			if ($cell_iter >= count($cells)) {
+				break;
+			}
+
+			$cell = $cells[ $cell_iter ];
 			$cell_element = self::convert_table_cell_to_odt($doc, $cell, $formatting, $style_require);
 			$row_element->appendChild($cell_element);
+
+			$colspan = max(1, (int) $cell->getAttribute('colspan'));
+			$rowspan = max(1, (int) $cell->getAttribute('rowspan'));
+
+			// Register rowspan for subsequent rows.
+			if ($rowspan > 1) {
+				for ($c = 0; $c < $colspan; $c++) {
+					$rowspan_map[ $column_index + $c ] = $rowspan - 1;
+				}
+			}
+
+			// Append covered-table-cell for extra columns from colspan.
+			for ($c = 1; $c < $colspan; $c++) {
+				$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
+				$row_element->appendChild($covered);
+			}
+
+			$column_index += $colspan;
+			$column_count += $colspan;
+			$cell_iter++;
+		}
+
+		// Handle any remaining covered columns after all cells.
+		while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+			$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
+			$row_element->appendChild($covered);
+			$rowspan_map[ $column_index ]--;
+			if (0 === $rowspan_map[ $column_index ]) {
+				unset($rowspan_map[ $column_index ]);
+			}
+			$column_index++;
 			$column_count++;
 		}
 
@@ -1673,6 +1737,10 @@ class Documentate_OpenTBS {
 
 	/**
 	 * Convert a single table cell to ODT.
+	 *
+	 * Handles block elements (p, div, ul, ol, table) as separate paragraphs
+	 * to avoid invalid nested text:p elements. Inline content outside block
+	 * elements is collected into a default paragraph.
 	 *
 	 * @param DOMDocument         $doc           Target document.
 	 * @param DOMElement          $cell          Cell element (td or th).
@@ -1692,11 +1760,11 @@ class Documentate_OpenTBS {
 		}
 
 		// Extract alignment from cell or first paragraph child.
-		$alignment = self::extract_text_alignment($cell);
-		if (null === $alignment) {
+		$cell_alignment = self::extract_text_alignment($cell);
+		if (null === $cell_alignment) {
 			foreach ($cell->childNodes as $child) {
 				if ($child instanceof DOMElement && 'p' === strtolower($child->nodeName)) {
-					$alignment = self::extract_text_alignment($child);
+					$cell_alignment = self::extract_text_alignment($child);
 					break;
 				}
 			}
@@ -1706,31 +1774,191 @@ class Documentate_OpenTBS {
 		$cell_element->setAttributeNS(self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTableCell');
 		$style_require['table_cell'] = true;
 
-		$paragraph = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
+		// Handle colspan attribute.
+		$colspan = (int) $cell->getAttribute('colspan');
+		if ($colspan > 1) {
+			$cell_element->setAttributeNS(self::ODF_TABLE_NS, 'table:number-columns-spanned', (string) $colspan);
+		}
+
+		// Handle rowspan attribute.
+		$rowspan = (int) $cell->getAttribute('rowspan');
+		if ($rowspan > 1) {
+			$cell_element->setAttributeNS(self::ODF_TABLE_NS, 'table:number-rows-spanned', (string) $rowspan);
+		}
+
+		// Walk cell children, separating block elements from inline content.
+		// This avoids creating nested <text:p> which is invalid ODF.
 		$cell_list_state = array(
 			'unordered' => 0,
-			'ordered' => array(),
+			'ordered'   => array(),
 		);
+		$current_inline = array();
+		$block_elements = array( 'p', 'div', 'ul', 'ol', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
 
-		// Apply alignment style to paragraph.
+		foreach ($cell->childNodes as $child) {
+			if (!$child instanceof DOMElement) {
+				// Text nodes or other non-element nodes: collect as inline.
+				$inline_nodes = self::convert_html_node_to_odt(
+					$doc,
+					$child,
+					$cell_formatting,
+					$style_require,
+					$cell_list_state,
+				);
+				$current_inline = array_merge($current_inline, $inline_nodes);
+				continue;
+			}
+
+			$tag = strtolower($child->nodeName);
+
+			if (!in_array($tag, $block_elements, true)) {
+				// Inline element (strong, em, span, a, br, etc.): collect.
+				$inline_nodes = self::convert_html_node_to_odt(
+					$doc,
+					$child,
+					$cell_formatting,
+					$style_require,
+					$cell_list_state,
+				);
+				// Filter out any text:p elements that inline converters may return
+				// (e.g. from nested block content) and append them separately.
+				foreach ($inline_nodes as $inline_node) {
+					if ($inline_node instanceof DOMElement && 'text:p' === $inline_node->nodeName) {
+						// Flush current inline content first.
+						if (!empty($current_inline)) {
+							$cell_element->appendChild(
+								self::create_odt_paragraph_from_inline($doc, $current_inline, $cell_alignment, $style_require)
+							);
+							$current_inline = array();
+						}
+						$cell_element->appendChild($inline_node);
+					} else {
+						$current_inline[] = $inline_node;
+					}
+				}
+				continue;
+			}
+
+			// Block element: flush any accumulated inline content first.
+			if (!empty($current_inline)) {
+				$cell_element->appendChild(
+					self::create_odt_paragraph_from_inline($doc, $current_inline, $cell_alignment, $style_require)
+				);
+				$current_inline = array();
+			}
+
+			if ('table' === $tag) {
+				$table_nodes = self::convert_table_node_to_odt($doc, $child, $cell_formatting, $style_require);
+				foreach ($table_nodes as $table_node) {
+					$cell_element->appendChild($table_node);
+				}
+			} elseif ('ul' === $tag || 'ol' === $tag) {
+				// Lists inside cells: convert and wrap in paragraphs.
+				$list_nodes = self::convert_html_node_to_odt(
+					$doc,
+					$child,
+					$cell_formatting,
+					$style_require,
+					$cell_list_state,
+				);
+				if (!empty($list_nodes)) {
+					$cell_element->appendChild(
+						self::create_odt_paragraph_from_inline($doc, $list_nodes, $cell_alignment, $style_require)
+					);
+				}
+			} else {
+				// p, div, h1-h6: extract alignment and create a paragraph with their content.
+				$p_alignment = self::extract_text_alignment($child);
+				if (null === $p_alignment) {
+					$p_alignment = $cell_alignment;
+				}
+				$p_nodes = self::collect_html_children_as_odt(
+					$doc,
+					$child,
+					$cell_formatting,
+					$style_require,
+					$cell_list_state,
+				);
+				// Filter: if collect returned text:p elements (from nested blocks), append directly.
+				$inline_part = array();
+				foreach ($p_nodes as $p_node) {
+					if ($p_node instanceof DOMElement && 'text:p' === $p_node->nodeName) {
+						if (!empty($inline_part)) {
+							$cell_element->appendChild(
+								self::create_odt_paragraph_from_inline($doc, $inline_part, $p_alignment, $style_require)
+							);
+							$inline_part = array();
+						}
+						$cell_element->appendChild($p_node);
+					} else {
+						$inline_part[] = $p_node;
+					}
+				}
+				// Create paragraph from inline content (or empty paragraph for spacing).
+				$is_spacing = self::is_nbsp_only_paragraph($child);
+				if (!empty($inline_part) || $is_spacing) {
+					$paragraph = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
+					if (null !== $p_alignment && 'left' !== $p_alignment) {
+						$style_name = 'DocumentateAlign' . ucfirst($p_alignment);
+						$paragraph->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', $style_name);
+						$style_require['align_' . $p_alignment] = true;
+					}
+					if (!empty($inline_part)) {
+						self::trim_odt_inline_nodes($inline_part);
+						foreach ($inline_part as $node) {
+							$paragraph->appendChild($node);
+						}
+					} elseif ($is_spacing) {
+						$paragraph->appendChild($doc->createTextNode("\xC2\xA0"));
+					}
+					$cell_element->appendChild($paragraph);
+				}
+			}
+		}
+
+		// Flush remaining inline content.
+		if (!empty($current_inline)) {
+			$cell_element->appendChild(
+				self::create_odt_paragraph_from_inline($doc, $current_inline, $cell_alignment, $style_require)
+			);
+		}
+
+		// Ensure cell has at least one paragraph (required by ODF spec).
+		if (0 === $cell_element->childNodes->length) {
+			$empty_p = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
+			$empty_p->appendChild($doc->createTextNode(''));
+			$cell_element->appendChild($empty_p);
+		}
+
+		return $cell_element;
+	}
+
+	/**
+	 * Create an ODT paragraph from inline nodes.
+	 *
+	 * @param DOMDocument         $doc           Target document.
+	 * @param array<int,DOMNode>  $nodes         Inline nodes.
+	 * @param string|null         $alignment     Text alignment.
+	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @return DOMElement
+	 */
+	private static function create_odt_paragraph_from_inline(
+		DOMDocument $doc,
+		array $nodes,
+		$alignment,
+		array &$style_require,
+	) {
+		$paragraph = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
 		if (null !== $alignment && 'left' !== $alignment) {
 			$style_name = 'DocumentateAlign' . ucfirst($alignment);
 			$paragraph->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', $style_name);
 			$style_require['align_' . $alignment] = true;
 		}
-
-		$cell_nodes = self::collect_html_children_as_odt($doc, $cell, $cell_formatting, $style_require, $cell_list_state);
-		if (!empty($cell_nodes)) {
-			self::trim_odt_inline_nodes($cell_nodes);
-			foreach ($cell_nodes as $cell_node) {
-				$paragraph->appendChild($cell_node);
-			}
-		} else {
-			$paragraph->appendChild($doc->createTextNode(''));
+		self::trim_odt_inline_nodes($nodes);
+		foreach ($nodes as $node) {
+			$paragraph->appendChild($node);
 		}
-
-		$cell_element->appendChild($paragraph);
-		return $cell_element;
+		return $paragraph;
 	}
 
 	/**
@@ -2671,20 +2899,84 @@ class Documentate_OpenTBS {
 		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tblPr matches WordprocessingML spec.
 		$tbl->appendChild($tblPr);
 
+		// Track rowspan coverage: column_index => remaining rows to cover.
+		$rowspan_map = array();
+
 		foreach ($rows as $row) {
 			$tr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tr');
+			$column_index = 0;
 
+			$cells = array();
 			foreach ($row->childNodes as $cell) {
 				if (!$cell instanceof DOMElement) {
 					continue;
 				}
-
 				$cell_tag = strtolower($cell->nodeName);
-				if ('td' !== $cell_tag && 'th' !== $cell_tag) {
-					continue;
+				if ('td' === $cell_tag || 'th' === $cell_tag) {
+					$cells[] = $cell;
+				}
+			}
+
+			$cell_iter = 0;
+			while ($cell_iter < count($cells) || isset($rowspan_map[ $column_index ])) {
+				// Insert continuation cells for rowspan from previous rows.
+				while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+					$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
+					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+					$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
+					$vmerge = $doc->createElementNS(self::WORD_NAMESPACE, 'w:vMerge');
+					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+					$tcPr->appendChild($vmerge);
+					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+					$tc->appendChild($tcPr);
+					$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
+					$tr->appendChild($tc);
+					// Consume: decrement and remove if exhausted.
+					$rowspan_map[ $column_index ]--;
+					if (0 === $rowspan_map[ $column_index ]) {
+						unset($rowspan_map[ $column_index ]);
+					}
+					$column_index++;
 				}
 
+				if ($cell_iter >= count($cells)) {
+					break;
+				}
+
+				$cell = $cells[ $cell_iter ];
+				$cell_tag = strtolower($cell->nodeName);
+
 				$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
+
+				$colspan = max(1, (int) $cell->getAttribute('colspan'));
+				$rowspan = max(1, (int) $cell->getAttribute('rowspan'));
+
+				// Build cell properties if colspan or rowspan are used.
+				if ($colspan > 1 || $rowspan > 1) {
+					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+					$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
+					if ($colspan > 1) {
+						$grid_span = $doc->createElementNS(self::WORD_NAMESPACE, 'w:gridSpan');
+						$grid_span->setAttribute('w:val', (string) $colspan);
+						// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+						$tcPr->appendChild($grid_span);
+					}
+					if ($rowspan > 1) {
+						$vmerge = $doc->createElementNS(self::WORD_NAMESPACE, 'w:vMerge');
+						$vmerge->setAttribute('w:val', 'restart');
+						// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+						$tcPr->appendChild($vmerge);
+					}
+					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+					$tc->appendChild($tcPr);
+				}
+
+				// Register rowspan for subsequent rows.
+				if ($rowspan > 1) {
+					for ($c = 0; $c < $colspan; $c++) {
+						$rowspan_map[ $column_index + $c ] = $rowspan - 1;
+					}
+				}
 
 				$cell_formatting = array();
 				if ('th' === $cell_tag) {
@@ -2718,11 +3010,40 @@ class Documentate_OpenTBS {
 				}
 
 				// Ensure cell has at least one paragraph (required by OOXML).
-				if (0 === $tc->childNodes->length) {
+				// Check if there's a paragraph after tcPr (tcPr doesn't count as content).
+				$has_content = false;
+				foreach ($tc->childNodes as $tc_child) {
+					if ($tc_child instanceof DOMElement && 'w:tcPr' !== $tc_child->nodeName) {
+						$has_content = true;
+						break;
+					}
+				}
+				if (!$has_content) {
 					$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
 				}
 
 				$tr->appendChild($tc);
+				$column_index += $colspan;
+				$cell_iter++;
+			}
+
+			// Handle any remaining covered columns after all cells.
+			while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+				$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
+				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+				$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
+				$vmerge = $doc->createElementNS(self::WORD_NAMESPACE, 'w:vMerge');
+				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+				$tcPr->appendChild($vmerge);
+				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
+				$tc->appendChild($tcPr);
+				$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
+				$tr->appendChild($tc);
+				$rowspan_map[ $column_index ]--;
+				if (0 === $rowspan_map[ $column_index ]) {
+					unset($rowspan_map[ $column_index ]);
+				}
+				$column_index++;
 			}
 
 			if ($tr->childNodes->length > 0) {

@@ -126,9 +126,9 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
-	 * Test table with colspan does not crash ODT generation.
+	 * Test table with colspan produces correct ODT attributes and covered cells.
 	 */
-	public function test_odt_table_colspan_does_not_crash() {
+	public function test_odt_table_colspan_produces_correct_attributes() {
 		$html = '<table><tr><th colspan="2">Wide Header</th></tr><tr><td>A</td><td>B</td></tr></table>';
 
 		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
@@ -144,12 +144,26 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 		$this->assertStringContainsString( 'Wide Header', $xml, 'Colspan header should be present.' );
 		$this->assertStringContainsString( 'A', $xml );
 		$this->assertStringContainsString( 'B', $xml );
+
+		// Verify colspan attribute.
+		$this->assertStringContainsString(
+			'table:number-columns-spanned="2"',
+			$xml,
+			'Cell should have number-columns-spanned attribute.'
+		);
+
+		// Verify covered-table-cell is present.
+		$this->assertStringContainsString(
+			'table:covered-table-cell',
+			$xml,
+			'Covered table cell should be present for colspan.'
+		);
 	}
 
 	/**
-	 * Test table with rowspan does not crash ODT generation.
+	 * Test table with rowspan produces correct ODT attributes and covered cells.
 	 */
-	public function test_odt_table_rowspan_does_not_crash() {
+	public function test_odt_table_rowspan_produces_correct_attributes() {
 		$html = '<table><tr><td rowspan="2">Tall Cell</td><td>R1</td></tr><tr><td>R2</td></tr></table>';
 
 		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
@@ -165,6 +179,20 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 		$this->assertStringContainsString( 'Tall Cell', $xml );
 		$this->assertStringContainsString( 'R1', $xml );
 		$this->assertStringContainsString( 'R2', $xml );
+
+		// Verify rowspan attribute.
+		$this->assertStringContainsString(
+			'table:number-rows-spanned="2"',
+			$xml,
+			'Cell should have number-rows-spanned attribute.'
+		);
+
+		// Verify covered-table-cell is present for the spanned row.
+		$this->assertStringContainsString(
+			'table:covered-table-cell',
+			$xml,
+			'Covered table cell should be present for rowspan.'
+		);
 	}
 
 	/**
@@ -361,9 +389,9 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
-	 * Test table with colspan does not crash DOCX generation.
+	 * Test table with colspan produces correct DOCX attributes.
 	 */
-	public function test_docx_table_colspan_does_not_crash() {
+	public function test_docx_table_colspan_produces_correct_attributes() {
 		$html = '<table><tr><th colspan="2">Wide Header</th></tr><tr><td>A</td><td>B</td></tr></table>';
 
 		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
@@ -379,12 +407,24 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 		$this->assertStringContainsString( 'Wide Header', $xml, 'Colspan header should be present.' );
 		$this->assertStringContainsString( 'A', $xml );
 		$this->assertStringContainsString( 'B', $xml );
+
+		// Verify gridSpan attribute for colspan.
+		$this->assertStringContainsString(
+			'w:gridSpan',
+			$xml,
+			'Cell should have w:gridSpan element for colspan.'
+		);
+		$this->assertMatchesRegularExpression(
+			'/w:gridSpan[^>]*w:val="2"/',
+			$xml,
+			'gridSpan should have val="2".'
+		);
 	}
 
 	/**
-	 * Test table with rowspan does not crash DOCX generation.
+	 * Test table with rowspan produces correct DOCX attributes.
 	 */
-	public function test_docx_table_rowspan_does_not_crash() {
+	public function test_docx_table_rowspan_produces_correct_attributes() {
 		$html = '<table><tr><td rowspan="2">Tall Cell</td><td>R1</td></tr><tr><td>R2</td></tr></table>';
 
 		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
@@ -400,6 +440,20 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 		$this->assertStringContainsString( 'Tall Cell', $xml );
 		$this->assertStringContainsString( 'R1', $xml );
 		$this->assertStringContainsString( 'R2', $xml );
+
+		// Verify vMerge restart for the first cell.
+		$this->assertMatchesRegularExpression(
+			'/w:vMerge[^>]*w:val="restart"/',
+			$xml,
+			'First rowspan cell should have vMerge restart.'
+		);
+
+		// Verify vMerge continuation (without val attribute) for covered cells.
+		$this->assertMatchesRegularExpression(
+			'/<w:vMerge\/>|<w:vMerge><\/w:vMerge>/',
+			$xml,
+			'Continuation cell should have vMerge without val attribute.'
+		);
 	}
 
 	/**
@@ -494,6 +548,244 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 
 		$this->assertIsString( $path, 'Empty table should not crash generation.' );
 		$this->assertFileExists( $path );
+	}
+
+	// =========================================================================
+	// Block Elements in Cells Tests
+	// =========================================================================
+
+	/**
+	 * Test that <p> tags inside ODT table cells do not create nested text:p.
+	 *
+	 * WordPress/TinyMCE editors typically wrap cell content in <p> tags.
+	 * This must produce valid ODF without nested text:p elements.
+	 */
+	public function test_odt_table_p_tags_in_cells_no_nested_text_p() {
+		$html = '<table><tr><td><p>Cell content</p></td><td><p>Other content</p></td></tr></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Cell content', $xml );
+		$this->assertStringContainsString( 'Other content', $xml );
+
+		// Verify no nested text:p (invalid ODF that causes blank tables).
+		$this->assertDoesNotMatchRegularExpression(
+			'/<text:p[^>]*>\s*<text:p/',
+			$xml,
+			'There should be no nested text:p elements (causes blank tables in LibreOffice).'
+		);
+	}
+
+	/**
+	 * Test that multiple <p> tags in an ODT cell create separate paragraphs.
+	 */
+	public function test_odt_table_multiple_p_tags_in_cell() {
+		$html = '<table><tr><td><p>First paragraph</p><p>Second paragraph</p></td></tr></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'First paragraph', $xml );
+		$this->assertStringContainsString( 'Second paragraph', $xml );
+
+		// Load as DOM to check structure.
+		$dom = new DOMDocument();
+		$dom->loadXML( $xml );
+		$xpath = new DOMXPath( $dom );
+		$xpath->registerNamespace( 'table', 'urn:oasis:names:tc:opendocument:xmlns:table:1.0' );
+		$xpath->registerNamespace( 'text', 'urn:oasis:names:tc:opendocument:xmlns:text:1.0' );
+
+		// Each <p> should result in a separate text:p as direct child of table:table-cell.
+		$cell_paragraphs = $xpath->query( '//table:table-cell/text:p' );
+		$this->assertGreaterThanOrEqual( 2, $cell_paragraphs->length, 'Cell should have at least 2 text:p children.' );
+	}
+
+	/**
+	 * Test combined colspan and rowspan in ODT (real-world header pattern).
+	 */
+	public function test_odt_table_combined_colspan_rowspan() {
+		$html = '<table>'
+			. '<tr><th colspan="3">Header spanning 3 columns</th><th rowspan="2">Tall header</th></tr>'
+			. '<tr><th>Col1</th><th>Col2</th><th>Col3</th></tr>'
+			. '<tr><td>A</td><td>B</td><td>C</td><td>D</td></tr>'
+			. '</table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Header spanning 3 columns', $xml );
+		$this->assertStringContainsString( 'Tall header', $xml );
+		$this->assertStringContainsString( 'table:number-columns-spanned="3"', $xml );
+		$this->assertStringContainsString( 'table:number-rows-spanned="2"', $xml );
+		$this->assertStringContainsString( 'table:covered-table-cell', $xml );
+
+		// Verify all data cells present.
+		foreach ( array( 'Col1', 'Col2', 'Col3', 'A', 'B', 'C', 'D' ) as $content ) {
+			$this->assertStringContainsString( $content, $xml );
+		}
+	}
+
+	/**
+	 * Test combined colspan and rowspan in DOCX (real-world header pattern).
+	 */
+	public function test_docx_table_combined_colspan_rowspan() {
+		$html = '<table>'
+			. '<tr><th colspan="3">Header spanning 3 columns</th><th rowspan="2">Tall header</th></tr>'
+			. '<tr><th>Col1</th><th>Col2</th><th>Col3</th></tr>'
+			. '<tr><td>A</td><td>B</td><td>C</td><td>D</td></tr>'
+			. '</table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'docx' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Header spanning 3 columns', $xml );
+		$this->assertStringContainsString( 'Tall header', $xml );
+
+		// Verify colspan via gridSpan.
+		$this->assertMatchesRegularExpression(
+			'/w:gridSpan[^>]*w:val="3"/',
+			$xml,
+			'Header should span 3 columns.'
+		);
+
+		// Verify rowspan via vMerge restart.
+		$this->assertMatchesRegularExpression(
+			'/w:vMerge[^>]*w:val="restart"/',
+			$xml,
+			'Tall header should start a vertical merge.'
+		);
+
+		// Verify all data cells present.
+		foreach ( array( 'Col1', 'Col2', 'Col3', 'A', 'B', 'C', 'D' ) as $content ) {
+			$this->assertStringContainsString( $content, $xml );
+		}
+	}
+
+	/**
+	 * Regression test: user's exact HTML with p tags in cells and mixed colspan/rowspan (ODT).
+	 *
+	 * This is the exact pattern that caused blank tables in LibreOffice due to
+	 * nested text:p elements and broken table structure from ignored spans.
+	 */
+	public function test_odt_regression_p_tags_with_colspan_rowspan() {
+		$html = '<table>'
+			. '<tr>'
+			. '<th colspan="3"><p>DATOS DE LAS ORGANIZACIONES</p></th>'
+			. '<th colspan="2"><p>REPRESENTANTES</p></th>'
+			. '<th rowspan="2"><p>FIRMAS</p></th>'
+			. '<th rowspan="2"><p>OBSERVACIONES</p></th>'
+			. '</tr>'
+			. '<tr>'
+			. '<th><p>CIF</p></th>'
+			. '<th><p>Organización</p></th>'
+			. '<th><p>Ámbito</p></th>'
+			. '<th><p>Nombre</p></th>'
+			. '<th><p>DNI</p></th>'
+			. '</tr>'
+			. '<tr>'
+			. '<td><p>A1234</p></td>'
+			. '<td><p>Org Name</p></td>'
+			. '<td><p>Nacional</p></td>'
+			. '<td><p>John</p></td>'
+			. '<td><p>12345678A</p></td>'
+			. '<td><p>[sign]</p></td>'
+			. '<td><p>None</p></td>'
+			. '</tr>'
+			. '</table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+
+		// Verify no nested text:p (the primary bug).
+		$this->assertDoesNotMatchRegularExpression(
+			'/<text:p[^>]*>\s*<text:p/',
+			$xml,
+			'No nested text:p elements should exist.'
+		);
+
+		// Verify colspan attributes.
+		$this->assertStringContainsString( 'table:number-columns-spanned="3"', $xml );
+		$this->assertStringContainsString( 'table:number-columns-spanned="2"', $xml );
+
+		// Verify rowspan attributes.
+		$this->assertStringContainsString( 'table:number-rows-spanned="2"', $xml );
+
+		// Verify key content is present.
+		foreach ( array( 'DATOS DE LAS ORGANIZACIONES', 'REPRESENTANTES', 'FIRMAS', 'OBSERVACIONES', 'CIF', 'A1234', 'Org Name' ) as $content ) {
+			$this->assertStringContainsString( $content, $xml, "Content '$content' should be present." );
+		}
+	}
+
+	/**
+	 * Regression test: user's exact HTML with p tags in cells and mixed colspan/rowspan (DOCX).
+	 */
+	public function test_docx_regression_p_tags_with_colspan_rowspan() {
+		$html = '<table>'
+			. '<tr>'
+			. '<th colspan="3"><p>DATOS DE LAS ORGANIZACIONES</p></th>'
+			. '<th colspan="2"><p>REPRESENTANTES</p></th>'
+			. '<th rowspan="2"><p>FIRMAS</p></th>'
+			. '<th rowspan="2"><p>OBSERVACIONES</p></th>'
+			. '</tr>'
+			. '<tr>'
+			. '<th><p>CIF</p></th>'
+			. '<th><p>Organización</p></th>'
+			. '<th><p>Ámbito</p></th>'
+			. '<th><p>Nombre</p></th>'
+			. '<th><p>DNI</p></th>'
+			. '</tr>'
+			. '<tr>'
+			. '<td><p>A1234</p></td>'
+			. '<td><p>Org Name</p></td>'
+			. '<td><p>Nacional</p></td>'
+			. '<td><p>John</p></td>'
+			. '<td><p>12345678A</p></td>'
+			. '<td><p>[sign]</p></td>'
+			. '<td><p>None</p></td>'
+			. '</tr>'
+			. '</table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'docx' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+
+		// Verify colspan via gridSpan.
+		$this->assertMatchesRegularExpression( '/w:gridSpan[^>]*w:val="3"/', $xml );
+		$this->assertMatchesRegularExpression( '/w:gridSpan[^>]*w:val="2"/', $xml );
+
+		// Verify rowspan via vMerge.
+		$this->assertMatchesRegularExpression( '/w:vMerge[^>]*w:val="restart"/', $xml );
+
+		// Verify key content.
+		foreach ( array( 'DATOS DE LAS ORGANIZACIONES', 'REPRESENTANTES', 'FIRMAS', 'CIF', 'A1234' ) as $content ) {
+			$this->assertStringContainsString( $content, $xml, "Content '$content' should be present." );
+		}
 	}
 
 	// =========================================================================
