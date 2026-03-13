@@ -297,11 +297,13 @@ class DocumentsMetaHandlerTest extends WP_UnitTestCase {
 	public function test_roundtrip_preserves_resolution_formatting_fixtures() {
 		$slug = 'resolution_body';
 		$type = 'rich';
-		$value = '<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.&nbsp;&nbsp;</p>'
-			. '<p>&nbsp;</p>'
-			. '<ol><li aria-level="1">La transición educativa entre etapas.</li></ol>'
-			. '<table><thead><tr><th><b>Distrito</b></th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>'
-			. '<p>Contra el presente acto, por ser de trámite, no cabe recurso alguno.</p>';
+		$value = <<<'HTML'
+<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.&nbsp;&nbsp;</p>
+<p>&nbsp;</p>
+<ol><li aria-level="1">La transición educativa entre etapas.</li></ol>
+<table><thead><tr><th><b>Distrito</b></th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>
+<p>Contra el presente acto, por ser de trámite, no cabe recurso alguno.</p>
+HTML;
 
 		$fragment = Documents_Meta_Handler::build_structured_field_fragment( $slug, $type, $value );
 		$parsed   = Documents_Meta_Handler::parse_structured_content( $fragment );
