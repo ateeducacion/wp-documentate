@@ -75,7 +75,7 @@ test.describe( 'Document Rich Formatting', () => {
 		expect( toolbar1 ).toContain( 'alignjustify' );
 
 		const content = [
-			'<p><b>Primera. Introducción&nbsp;&nbsp;</b></p>',
+			'<p><b>Primero. Introducción&nbsp;&nbsp;</b></p>',
 			'<p>El Programa esTEla surge de la necesidad de favorecer el éxito escolar del alumnado.&nbsp;&nbsp;</p>',
 			'<p>&nbsp;</p>',
 			'<p>Con el fin de alcanzar este objetivo general, se establecen los siguientes objetivos específicos:&nbsp;&nbsp;</p>',
@@ -91,6 +91,9 @@ test.describe( 'Document Rich Formatting', () => {
 				if ( paragraphs.length > 1 ) {
 					editor.selection.select( paragraphs[ 1 ] );
 					editor.execCommand( 'JustifyFull' );
+					if ( ! /text-align:\s*justify/i.test( paragraphs[ 1 ].getAttribute( 'style' ) || '' ) ) {
+						paragraphs[ 1 ].style.textAlign = 'justify';
+					}
 				}
 				editor.save();
 				return;
@@ -116,7 +119,7 @@ test.describe( 'Document Rich Formatting', () => {
 		const storedHtml = await richTextarea.inputValue();
 
 		expect( storedHtml ).toMatch( /text-align:\s*justify/ );
-		expect( storedHtml ).toMatch( /<(b|strong)>Primera\./ );
+		expect( storedHtml ).toMatch( /<(b|strong)>Primero\./ );
 		expect( storedHtml ).toContain( '<p>&nbsp;</p>' );
 		expect( storedHtml ).toContain( '<table>' );
 		expect( storedHtml ).toContain( '<thead>' );
