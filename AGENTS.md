@@ -1,98 +1,199 @@
-<!-- AGENTS.md -->
+# AGENTS.md — Documentate Plugin: Agent Instructions
 
-# Agents Coding Conventions for Plugin “Documentate”
+This is the **canonical instruction file** for all coding agents (GitHub Copilot,
+Claude Code, Gemini Code Assist, Codex, Aider, and others) working on this
+repository. Other agent files (`CLAUDE.md`, `GEMINI.md`,
+`.github/copilot-instructions.md`) point here.
 
-These are natural-language guidelines for agents to follow when developing the Documentate WordPress plugin.
+---
 
-## Project conventions
+## Project Overview
 
-- Follow **WordPress Coding Standards**:
-  - PHP code: indent blocks with **tabs** (WordPress default) and reserve spaces for alignment/continuations. Keep PSR‑12 compatibility when it does not contradict WP requirements. Always escape/sanitize properly and rely on WP APIs.
-  - Use English for source code (identifiers, comments, docblocks).
-  - Write all implementation notes, inline comments, and documentation in English.
-  - Use Spanish for user‑facing translations/strings and test assertions to check no untranslated strings remain.
-  - Keep class file names aligned with their class names (e.g., `class-documentate-admin-helper.php` for `Documentate_Admin_Helper`).
-  - Add `/* translators: */` comments immediately before translations containing placeholders such as `%s` or `%d`.
-  - Always unslash superglobals (e.g., `$_POST`) before sanitizing and storing their values.
-  - When emitting standalone pages, enqueue styles/scripts with WordPress APIs (`wp_enqueue_style`, `wp_enqueue_script`) and print them via `wp_print_*` helpers instead of hard-coding `<link>` or `<script>` tags.
-  - Ensure all code passes `phpcs --standard=WordPress` and is auto-fixable with `phpcbf --standard=WordPress` where applicable.
-  - Install coding standard tooling with Composer in the project root: `composer require --dev dealerdirect/phpcodesniffer-composer-installer:^1.0 wp-coding-standards/wpcs:^3.0`.
-  - After installation, run `vendor/bin/phpcbf --standard=WordPress .` to auto-fix violations before linting with `vendor/bin/phpcs --standard=WordPress .`; this step will also normalize any space-indented blocks back to tabs.
+**Documentate** is a WordPress plugin (PHP 8.3, wp-env, Docker) that generates
+official resolutions and structured administrative documents. It uses:
 
-## Testing and development workflow
+- Custom post type `documentate_document`
+- Custom taxonomy `documentate_doc_type` (template definitions)
+- OpenTBS for ODT/DOCX template merging
+- Collabora Online / ZetaJS (WASM) for optional format conversion
+- PHPUnit for unit tests, Playwright for E2E tests
+- `mago` (from `carthage-software/mago`) for PHP linting and formatting
+- `wp-env` (Docker) for local WordPress and test environments
 
-- Use **TDD** (Test‑Driven Development) with factories to create test fixtures.
-- Tests live under `/tests/` and use factory classes.
-- Run `phpcs --standard=WordPress` and `phpcbf --standard=WordPress` (or equivalent tooling) before submitting changes; the codebase must stay clean.
-- Use `make lint` (PHP lint) and `make fix` (beautifier) to enforce standards.
-- Use `make test` to run all unit tests.
-- Ensure all PHPUnit test suites pass locally before requesting review.
-- Use `make check-untranslated` to detect any untranslated Spanish strings.
+Read `ARCHITECTURE.md` before implementing new features or significant changes.
 
-## Tooling quick start
+---
 
-- Run `composer install` in the project root to install PHP_CodeSniffer, WordPress Coding Standards, and other developer tools (requires outbound network access).
-- Use `./vendor/bin/phpcbf --standard=.phpcs.xml.dist` first to apply automatic fixes (including converting stray spaces back to tabs), then `./vendor/bin/phpcs --standard=.phpcs.xml.dist` to ensure the codebase is clean.
-- Composer scripts mirror these commands: `composer phpcbf` and `composer phpcs` respect the repository ignore list defined in `.phpcs.xml.dist`.
-- The `.phpcs.xml.dist` ruleset bundles the WordPress standard, limits scanning to PHP files, enables colorized output, suppresses warnings, and excludes vendor, assets, node_modules, tests/js, wp, tests, and `.composer` directories.
-- When working outside the `wp-env` Docker environment, call the binaries from `./vendor/bin/` directly. Inside wp-env, reuse the Make targets (`make fix` and `make lint`) which wrap `phpcbf`/`phpcs` with the same `.phpcs.xml.dist` ruleset path (`wp-content/plugins/documentate/.phpcs.xml.dist`).
-- The repository `composer.json` already whitelists the `dealerdirect/phpcodesniffer-composer-installer` plugin and exposes the scripts `composer phpcbf` and `composer phpcs`; these call the local binaries under `./vendor/bin/` with the shared `.phpcs.xml.dist` ruleset, so prefer them to keep tooling consistent.
-- Run the beautifier before linting when fixing coding standards violations: `composer phpcbf` (or the equivalent binary invocation) followed by `composer phpcs`. `phpcbf` will repair mixed indentation before PHPCS evaluates the files.
-- After writing or updating code, always run `composer phpcbf` followed by `composer phpcs` (or their `./vendor/bin/` equivalents) to keep the codebase compliant with the configured standards.
+## Before Changing Code
 
-## Editor configuration
+- Make **small, focused diffs**. Do not refactor unrelated code.
+- Do not rename files, classes, hooks, or public APIs unless the task requires it.
+- Preserve all existing features and UI unless explicitly asked to change them.
+- Keep documentation and tests aligned with every code change.
+- Prefer existing project patterns over introducing new abstractions.
+- Follow existing naming, hook, and file-organisation conventions.
+- Avoid dead code, speculative abstractions, and broad rewrites.
 
-- Respect the root `.editorconfig`; it forces PHP files to use tabs for indentation (`indent_style = tab`, `tab_width = 4`). Most editors (and AI-assisted tooling) read this automatically, so leave it untouched.
-- **Sublime Text**: ensure your project/user settings include `{ "translate_tabs_to_spaces": false, "tab_size": 4 }` within the `"php"` scope to keep tabs. Enable `"ensure_newline_at_eof_on_save": true` to match repository style.
-- **Visual Studio Code**: add the following to your workspace `settings.json`:
-  ```json
-  {
-    "[php]": {
-      "editor.insertSpaces": false,
-      "editor.tabSize": 4
-    }
-  }
-  ```
-- When using other editors, disable "convert tabs to spaces" for PHP files and set the tab width to 4 characters.
+---
 
-## Linting workflow checklist
+## How to Validate Changes
 
-1. Install/update tooling with `composer install` (run once per environment).
-2. For automated fixes, execute `composer phpcbf` or `make fix` when inside wp-env.
-3. Validate coding standards with `composer phpcs` or `make lint` inside wp-env.
-4. Address any reported violations manually, then repeat steps 2 and 3 until clean.
-5. Commit only after the lint command returns without errors.
+### Environment setup (requires Docker)
 
-## Environment and tools
+```bash
+make up          # Start wp-env Docker containers (http://localhost:8888)
+make down        # Stop containers
+make clean       # Reset WordPress environment
+```
 
-- Develop plugin within `@wordpress/env` environment.
-- Use Alpine‑based Docker containers if setting up with Docker.
-- For Linux commands: assume **Ubuntu Server**.
-- On macOS desktop (when relevant): use **Homebrew** to install tools.
-- Use `vim` as terminal editor, not `nano`.
+### Full local verification (preferred when Docker is available)
 
-## Frontend technologies
+```bash
+make check       # Runs: fix -> lint -> check-plugin -> test -> check-untranslated -> mo
+```
 
-- In admin or public UI, use **Bootstrap 5** and **jQuery** consistently.
-- Keep frontend assets minimal: enqueue properly via WP APIs, use minified versions.
+### Individual commands
 
-## Code style and structure
+| Command                  | What it does                                             |
+|--------------------------|----------------------------------------------------------|
+| `make fix`               | Auto-format PHP with `mago format`                       |
+| `make lint`              | Lint PHP with `mago lint` — **always required**          |
+| `make check-plugin`      | Run WordPress plugin-check — **always required**         |
+| `make test`              | Run PHPUnit unit tests — **always required**             |
+| `make test-coverage`     | PHPUnit with Xdebug coverage (needs `--xdebug=coverage`) |
+| `make test-e2e`          | Run Playwright E2E tests against wp-env                  |
+| `make test-e2e-visual`   | Playwright with interactive UI                           |
+| `make check-untranslated`| Check all Spanish strings are translated                 |
 
-- All PHP functions and methods must have English docblock comments immediately before declaration.
-- Prefer simplicity and clarity: avoid overly complex abstractions.
-- Load translation strings properly (`__()`, `_e()`), text domain declared in main plugin file.
-- Keep plugin bootstrap file small (`documentate.php`), modularize into separate files/classes with specific responsibility.
+Targeted test runs:
 
-## Aider-specific usage
+```bash
+make test FILTER=MyTestClass      # run tests matching a pattern
+make test FILE=tests/unit/Foo.php # run a specific test file
+```
 
-- Always load `AGENTS.md` as conventions file: e.g. `/read AGENTS.md` or via config.
-- Do not expect Aider to modify `AGENTS.md` or `README.md` contents.
-- Use `/ask` mode to plan large changes, then use `/code` or `/architect` to apply.
-- Review every diff Aider produces, especially in architect mode before accepting.
-- After planning, say “go ahead” to proceed.
-- Avoid adding unnecessary files to the chat—add only those being modified.
+---
 
+## When to Run Which Checks
+
+| Situation                                           | Required checks                              |
+|-----------------------------------------------------|----------------------------------------------|
+| Any PHP change                                      | `make fix`, `make lint`, `make test`         |
+| Any PHP change merged to main                       | also `make check-plugin`                     |
+| New or changed user-facing strings                  | also `make check-untranslated`               |
+| UI, admin flows, editor flows, or browser behaviour | also `make test-e2e`                         |
+| Full pre-merge verification                         | `make check` (covers all of the above)       |
+
+If Docker / wp-env is unavailable, still write code that is designed to pass all
+checks, and state clearly which checks could not be run locally.
+
+---
+
+## Failure Policy
+
+A task is **not complete** if any of the following remain:
+
+- Lint errors reported by `make lint`
+- Plugin-check errors reported by `make check-plugin`
+- Untranslated string failures from `make check-untranslated`
+- Failing PHPUnit tests (`make test`)
+- Failing E2E tests relevant to the change (`make test-e2e`)
+- Warnings or errors that would break CI (see `.github/workflows/ci.yml`)
+
+---
+
+## Coding Expectations
+
+### PHP
+
+- **Indentation**: tab characters (tab-width = 4), as required by WordPress Coding Standards and
+  enforced by `.editorconfig`.
+- **Naming**: `snake_case` for functions/variables, `CamelCase` for classes,
+  `lowercase-with-hyphens` for file names (e.g. `class-documentate-admin.php`).
+- Every function and method must have an English PHPDoc block immediately above it.
+- Keep the main plugin file `documentate.php` minimal.
+- Each class lives in its own file: `class-documentate-component.php`.
+- Admin code -> `admin/`, core logic -> `includes/`, tests -> `tests/`.
+
+### Security (this plugin generates official documents — security is critical)
+
+- Escape output: `esc_html()`, `esc_attr()`, `esc_url()`, `wp_kses_post()`.
+- Sanitize input: `sanitize_text_field()`, `sanitize_textarea_field()`,
+  `absint()`, `sanitize_key()`.
+- Unslash superglobals before sanitising (e.g. `wp_unslash( $_POST )`).
+- Use WordPress nonces for all forms and AJAX endpoints.
+- Check capabilities with `current_user_can()` before privileged operations.
+- Use `$wpdb->prepare()` — never interpolate variables into SQL.
+
+### Translations
+
+- All user-facing text must be in **Spanish**, wrapped in i18n functions
+  (`__()`, `_e()`, `_n()`, `_x()`).
+- Text domain: `documentate`.
+- Add `/* translators: */` comments before strings containing placeholders.
+- When adding or changing user-facing strings, update
+  `languages/documentate-es_ES.po` in the same commit.
+- Run `make check-untranslated` to verify.
+
+### Frontend
+
+- Use Bootstrap 5 and jQuery for admin UI.
+- Enqueue assets via `wp_enqueue_script()` / `wp_enqueue_style()`.
+- Use minified assets in production.
+
+### Tests
+
+- Write tests for new behaviour (TDD preferred).
+- Tests live in `tests/unit/`; use factory classes from `tests/includes/`.
+- Run `make test` to execute the PHPUnit suite inside wp-env.
+
+---
+
+## Definition of Done
+
+A change is ready when **all** of the following are true:
+
+1. `make lint` passes with no errors.
+2. `make check-plugin` passes with no errors.
+3. `make test` passes with no failures.
+4. `make check-untranslated` passes (if strings were added or changed).
+5. `make test-e2e` passes for the affected flows (if UI/browser behaviour changed).
+6. PHPDoc is updated for any modified functions or classes.
+7. No unrelated files, classes, or hooks were renamed or removed.
+
+---
 
 ## Architecture Reference
 
-- **Before implementing new features or making significant changes**, please read `ARCHITECTURE.md` to understand the plugin's data flow, custom post types (`documentate_document`), taxonomy (`documentate_doc_type`), OpenTBS integration, and access control scopes.
+Read `ARCHITECTURE.md` for details on:
+
+- Data flow and CPT/taxonomy structure
+- OpenTBS document generation pipeline
+- Conversion engines (Collabora, ZetaJS/WASM)
+- Access control and scope filtering
+
+---
+
+## Tooling Reference
+
+The linter/formatter is **Mago** (`carthage-software/mago`), installed via
+Composer:
+
+```bash
+composer install          # installs mago and PHPUnit into ./vendor/
+./vendor/bin/mago format  # same as: make fix
+./vendor/bin/mago lint    # same as: make lint
+```
+
+The `composer.json` scripts `composer phpcs` and `composer phpcbf` are thin
+aliases for the Mago commands above — they do **not** invoke PHP_CodeSniffer.
+
+Always inspect the `Makefile` to understand exactly what each `make` target runs.
+
+---
+
+## Aider-specific Usage
+
+- Load this file as the conventions file: `/read AGENTS.md`.
+- Use `/ask` to plan, then `/code` or `/architect` to apply.
+- Review every diff before accepting, especially in architect mode.
