@@ -923,12 +923,12 @@ class Documentate_Documents {
 			echo '</div>';
 		} else {
 			$tinymce_config = array(
-				'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,searchreplace,removeformat',
+				'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
 				'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
 				// TinyMCE content filtering: remove elements not supported by OpenTBS.
-				'invalid_elements' => 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-				'valid_elements' => 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
-				'paste_remove_styles' => true,
+				'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
+				'valid_elements' => 'a[href|title|target],strong/b,em/i,u,p[style|class|align],br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing|style|class|align],thead,tbody,tfoot,tr,td[colspan|rowspan|style|class|align],th[colspan|rowspan|style|class|align]',
+				'paste_remove_styles' => false,
 				'paste_strip_class_attributes' => 'all',
 			);
 
@@ -2530,9 +2530,12 @@ class Documentate_Documents {
 					// TinyMCE content filtering: remove elements not supported by OpenTBS.
 					'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
 					'valid_elements' =>
-						'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,'
+						'a[href|title|target],strong/b,em/i,u,p[style|class|align],br,ul,ol,li,'
 							. 'h1,h2,h3,h4,h5,h6,blockquote,code,pre,'
-							. 'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
+							. 'table[border|cellpadding|cellspacing|style|class|align],thead,tbody,tfoot,tr,'
+							. 'td[colspan|rowspan|style|class|align],th[colspan|rowspan|style|class|align]',
+					'paste_remove_styles' => false,
+					'paste_strip_class_attributes' => 'all',
 				),
 				'quicktags' => true,
 				'editor_height' => 200,

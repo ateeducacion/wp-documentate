@@ -1345,6 +1345,61 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Test rich field save cycle preserves resolution formatting fixtures.
+	 */
+	public function test_rich_field_save_cycle_preserves_resolution_formatting_fixtures() {
+		$term    = wp_insert_term( 'Resolution Rich Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array( 'name' => 'Body', 'slug' => 'body', 'type' => 'rich' ),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		$resolution_html = '<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.&nbsp;&nbsp;</p>'
+			. '<p>&nbsp;</p>'
+			. '<p><b>Segundo. </b>Establecer el procedimiento de solicitud para la continuidad de los distritos participantes.&nbsp;&nbsp;</p>'
+			. '<table><thead><tr><th><b>Distrito</b></th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>'
+			. '<p>Contra el presente acto, por ser de trámite, no cabe recurso alguno.</p>';
+
+		$_POST['documentate_doc_type']   = (string) $term_id;
+		$_POST['documentate_field_body'] = $resolution_html;
+
+		$data    = array( 'post_type' => 'documentate_document' );
+		$postarr = array( 'ID' => $post->ID );
+
+		$first_result = $this->documents->filter_post_data_compose_content( $data, $postarr );
+		$first_parsed = Documentate_Documents::parse_structured_content( wp_unslash( $first_result['post_content'] ) );
+
+		$_POST['documentate_field_body'] = $first_parsed['body']['value'];
+
+		$second_result = $this->documents->filter_post_data_compose_content( $data, $postarr );
+		$second_parsed = Documentate_Documents::parse_structured_content( wp_unslash( $second_result['post_content'] ) );
+		$stored_html   = $second_parsed['body']['value'];
+
+		$this->assertStringContainsString( 'text-align: justify', $stored_html );
+		$this->assertMatchesRegularExpression( '/<(?:strong|b)>Primero\./', $stored_html );
+		$this->assertStringContainsString( '<p>&nbsp;</p>', $stored_html );
+		$this->assertStringContainsString( '<table>', $stored_html );
+		$this->assertStringContainsString( '<thead>', $stored_html );
+		$this->assertStringContainsString( '<tbody>', $stored_html );
+		$this->assertStringContainsString( '<th><b>Distrito</b></th>', $stored_html );
+		$this->assertStringContainsString( '<p>Contra el presente acto', $stored_html );
+
+		$_POST = array();
+	}
+
+	/**
 	 * Test multiple rich fields preserve HTML independently.
 	 */
 	public function test_multiple_rich_fields_preserve_html() {
@@ -2211,6 +2266,85 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Rich Field', $output );
+	}
+
+	/**
+	 * Test rich field editors expose alignment toolbar controls.
+	 */
+	public function test_render_sections_metabox_rich_field_exposes_alignment_toolbar_controls() {
+		$term = wp_insert_term( 'Rich Alignment Test', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'  => 'Resolution Body',
+						'slug'  => 'resolution_body',
+						'type'  => 'html',
+						'title' => 'Resolution Body',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'alignleft', $output );
+		$this->assertStringContainsString( 'aligncenter', $output );
+		$this->assertStringContainsString( 'alignright', $output );
+		$this->assertStringContainsString( 'alignjustify', $output );
+		$this->assertStringContainsString( 'paste_remove_styles', $output );
+		$this->assertStringNotContainsString( '"paste_remove_styles":true', $output );
+	}
+
+	/**
+	 * Test rich field editors allow alignment markers and table section markup.
+	 */
+	public function test_render_sections_metabox_rich_field_allows_alignment_and_table_markup() {
+		$term = wp_insert_term( 'Rich Valid Elements Test', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'  => 'Formatted Body',
+						'slug'  => 'formatted_body',
+						'type'  => 'html',
+						'title' => 'Formatted Body',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'p[style|class|align]', $output );
+		$this->assertStringContainsString( 'table[border|cellpadding|cellspacing|style|class|align]', $output );
+		$this->assertStringContainsString( 'thead', $output );
+		$this->assertStringContainsString( 'tbody', $output );
+		$this->assertStringContainsString( 'tfoot', $output );
+		$this->assertStringContainsString( 'td[colspan|rowspan|style|class|align]', $output );
+		$this->assertStringContainsString( 'th[colspan|rowspan|style|class|align]', $output );
 	}
 
 	/**
