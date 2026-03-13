@@ -49,12 +49,30 @@ test.describe( 'Document Rich Formatting', () => {
 		}
 
 		const textareaId = await richTextarea.getAttribute( 'id' );
-		const editorWrap = page.locator( `#wp-${ textareaId }-wrap` );
+		const visualTab = page.locator( `#${ textareaId }-tmce` );
+		if ( await visualTab.isVisible().catch( () => false ) ) {
+			await visualTab.click();
+		}
 
-		await expect( editorWrap.locator( '[id$="_alignleft"]' ) ).toBeVisible();
-		await expect( editorWrap.locator( '[id$="_aligncenter"]' ) ).toBeVisible();
-		await expect( editorWrap.locator( '[id$="_alignright"]' ) ).toBeVisible();
-		await expect( editorWrap.locator( '[id$="_alignjustify"]' ) ).toBeVisible();
+		await page.waitForFunction(
+			( id ) => window.tinyMCE && !! window.tinyMCE.get( id ),
+			textareaId,
+			{ timeout: 10000 }
+		).catch( () => {} );
+
+		const toolbar1 = await page.evaluate( ( id ) => {
+			const editor = window.tinyMCE && window.tinyMCE.get( id );
+			if ( ! editor || ! editor.settings ) {
+				return '';
+			}
+
+			return editor.settings.toolbar1 || '';
+		}, textareaId );
+
+		expect( toolbar1 ).toContain( 'alignleft' );
+		expect( toolbar1 ).toContain( 'aligncenter' );
+		expect( toolbar1 ).toContain( 'alignright' );
+		expect( toolbar1 ).toContain( 'alignjustify' );
 
 		const content = [
 			'<p><b>Primera. Introducción&nbsp;&nbsp;</b></p>',

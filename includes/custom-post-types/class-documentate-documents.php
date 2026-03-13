@@ -2583,11 +2583,12 @@ class Documentate_Documents {
 				'<div class="documentate-field documentate-field-warning" style="margin-bottom:16px;border:1px solid #dba617;padding:12px;background:#fffbea;">'
 			;
 			/* translators: %s: detected dynamic field key. */
+			$additional_field_label = sprintf(__('Additional field: %s', 'documentate'), $label);
 			echo
 				'<label for="'
 					. esc_attr($meta_key)
 					. '" style="font-weight:600;display:block;margin-bottom:4px;">'
-					. esc_html(sprintf(__('Additional field: %s', 'documentate'), $label))
+					. esc_html($additional_field_label)
 					. '</label>'
 			;
 			echo

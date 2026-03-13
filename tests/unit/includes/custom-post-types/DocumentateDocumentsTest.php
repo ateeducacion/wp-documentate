@@ -2297,16 +2297,19 @@ HTML;
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
 
-		ob_start();
-		$this->documents->render_sections_metabox( $post );
-		$output = ob_get_clean();
+		$reflection = new ReflectionClass( $this->documents );
+		$method     = $reflection->getMethod( 'get_rich_editor_tinymce_config' );
+		$method->setAccessible( true );
+		$config = $method->invoke( $this->documents );
 
-		$this->assertStringContainsString( 'alignleft', $output );
-		$this->assertStringContainsString( 'aligncenter', $output );
-		$this->assertStringContainsString( 'alignright', $output );
-		$this->assertStringContainsString( 'alignjustify', $output );
-		$this->assertStringContainsString( 'paste_remove_styles', $output );
-		$this->assertStringNotContainsString( '"paste_remove_styles":true', $output );
+		$this->assertIsArray( $config );
+		$this->assertArrayHasKey( 'toolbar1', $config );
+		$this->assertStringContainsString( 'alignleft', $config['toolbar1'] );
+		$this->assertStringContainsString( 'aligncenter', $config['toolbar1'] );
+		$this->assertStringContainsString( 'alignright', $config['toolbar1'] );
+		$this->assertStringContainsString( 'alignjustify', $config['toolbar1'] );
+		$this->assertArrayHasKey( 'paste_remove_styles', $config );
+		$this->assertFalse( $config['paste_remove_styles'] );
 	}
 
 	/**
@@ -2336,17 +2339,19 @@ HTML;
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
 
-		ob_start();
-		$this->documents->render_sections_metabox( $post );
-		$output = ob_get_clean();
+		$reflection = new ReflectionClass( $this->documents );
+		$method     = $reflection->getMethod( 'get_rich_editor_tinymce_config' );
+		$method->setAccessible( true );
+		$config         = $method->invoke( $this->documents );
+		$valid_elements = $config['valid_elements'];
 
-		$this->assertStringContainsString( 'p[style|class|align]', $output );
-		$this->assertStringContainsString( 'table[border|cellpadding|cellspacing|style|class|align]', $output );
-		$this->assertStringContainsString( 'thead', $output );
-		$this->assertStringContainsString( 'tbody', $output );
-		$this->assertStringContainsString( 'tfoot', $output );
-		$this->assertStringContainsString( 'td[colspan|rowspan|style|class|align]', $output );
-		$this->assertStringContainsString( 'th[colspan|rowspan|style|class|align]', $output );
+		$this->assertStringContainsString( 'p[style|class|align]', $valid_elements );
+		$this->assertStringContainsString( 'table[border|cellpadding|cellspacing|style|class|align]', $valid_elements );
+		$this->assertStringContainsString( 'thead', $valid_elements );
+		$this->assertStringContainsString( 'tbody', $valid_elements );
+		$this->assertStringContainsString( 'tfoot', $valid_elements );
+		$this->assertStringContainsString( 'td[colspan|rowspan|style|class|align]', $valid_elements );
+		$this->assertStringContainsString( 'th[colspan|rowspan|style|class|align]', $valid_elements );
 	}
 
 	/**
