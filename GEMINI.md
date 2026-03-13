@@ -1,7 +1,7 @@
-# CLAUDE.md — Documentate Plugin
+# GEMINI.md — Documentate Plugin
 
 > **Full instructions are in [`AGENTS.md`](AGENTS.md).** This file is a short
-> summary for Claude Code project memory.
+> summary for Gemini Code Assist.
 
 ---
 
