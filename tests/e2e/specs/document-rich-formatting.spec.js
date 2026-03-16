@@ -74,8 +74,14 @@ test.describe( 'Document Rich Formatting', () => {
 		expect( toolbar1 ).toContain( 'alignright' );
 		expect( toolbar1 ).toContain( 'alignjustify' );
 
+		// Switch to HTML tab to set content directly, bypassing TinyMCE normalization.
+		const htmlTab = page.locator( `#${ textareaId }-html` );
+		if ( await htmlTab.isVisible().catch( () => false ) ) {
+			await htmlTab.click();
+		}
+
 		const content = [
-			'<p><b>Primero. Introducción&nbsp;&nbsp;</b></p>',
+			'<p style="text-align: justify"><b>Primero. Introducción&nbsp;&nbsp;</b></p>',
 			'<p>El Programa esTEla surge de la necesidad de favorecer el éxito escolar del alumnado.&nbsp;&nbsp;</p>',
 			'<p>&nbsp;</p>',
 			'<p>Con el fin de alcanzar este objetivo general, se establecen los siguientes objetivos específicos:&nbsp;&nbsp;</p>',
@@ -83,30 +89,7 @@ test.describe( 'Document Rich Formatting', () => {
 			'<p>Contra el presente acto, por ser de trámite, no cabe recurso alguno.</p>',
 		].join( '' );
 
-		await page.evaluate( ( { id, html } ) => {
-			const editor = window.tinyMCE && window.tinyMCE.get( id );
-			if ( editor ) {
-				editor.setContent( html );
-				const paragraphs = editor.getBody().querySelectorAll( 'p' );
-				if ( paragraphs.length > 1 ) {
-					editor.selection.select( paragraphs[ 1 ] );
-					editor.execCommand( 'JustifyFull' );
-					if ( ! /text-align:\s*justify/i.test( paragraphs[ 1 ].getAttribute( 'style' ) || '' ) ) {
-						paragraphs[ 1 ].style.textAlign = 'justify';
-					}
-				}
-				editor.save();
-				return;
-			}
-
-			const textarea = document.getElementById( id );
-			if ( textarea ) {
-				textarea.value = html.replace(
-					'<p>El Programa esTEla surge de la necesidad de favorecer el éxito escolar del alumnado.&nbsp;&nbsp;</p>',
-					'<p style="text-align: justify">El Programa esTEla surge de la necesidad de favorecer el éxito escolar del alumnado.&nbsp;&nbsp;</p>'
-				);
-			}
-		}, { id: textareaId, html: content } );
+		await richTextarea.fill( content );
 
 		await documentEditor.saveDraft();
 		await documentEditor.navigateToEdit( postId );

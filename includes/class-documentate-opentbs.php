@@ -1674,15 +1674,15 @@ class Documentate_OpenTBS {
 		}
 
 		$cell_iter = 0;
-		while ($cell_iter < count($cells) || isset($rowspan_map[ $column_index ])) {
+		while ($cell_iter < count($cells) || isset($rowspan_map[$column_index])) {
 			// Insert covered cells for rowspan from previous rows.
-			while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+			while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
 				$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
 				$row_element->appendChild($covered);
 				// Consume: decrement and remove if exhausted.
-				$rowspan_map[ $column_index ]--;
-				if (0 === $rowspan_map[ $column_index ]) {
-					unset($rowspan_map[ $column_index ]);
+				$rowspan_map[$column_index]--;
+				if (0 === $rowspan_map[$column_index]) {
+					unset($rowspan_map[$column_index]);
 				}
 				$column_index++;
 				$column_count++;
@@ -1692,7 +1692,7 @@ class Documentate_OpenTBS {
 				break;
 			}
 
-			$cell = $cells[ $cell_iter ];
+			$cell = $cells[$cell_iter];
 			$cell_element = self::convert_table_cell_to_odt($doc, $cell, $formatting, $style_require);
 			$row_element->appendChild($cell_element);
 
@@ -1702,7 +1702,7 @@ class Documentate_OpenTBS {
 			// Register rowspan for subsequent rows.
 			if ($rowspan > 1) {
 				for ($c = 0; $c < $colspan; $c++) {
-					$rowspan_map[ $column_index + $c ] = $rowspan - 1;
+					$rowspan_map[$column_index + $c] = $rowspan - 1;
 				}
 			}
 
@@ -1718,12 +1718,12 @@ class Documentate_OpenTBS {
 		}
 
 		// Handle any remaining covered columns after all cells.
-		while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+		while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
 			$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
 			$row_element->appendChild($covered);
-			$rowspan_map[ $column_index ]--;
-			if (0 === $rowspan_map[ $column_index ]) {
-				unset($rowspan_map[ $column_index ]);
+			$rowspan_map[$column_index]--;
+			if (0 === $rowspan_map[$column_index]) {
+				unset($rowspan_map[$column_index]);
 			}
 			$column_index++;
 			$column_count++;
@@ -1790,21 +1790,15 @@ class Documentate_OpenTBS {
 		// This avoids creating nested <text:p> which is invalid ODF.
 		$cell_list_state = array(
 			'unordered' => 0,
-			'ordered'   => array(),
+			'ordered' => array(),
 		);
 		$current_inline = array();
-		$block_elements = array( 'p', 'div', 'ul', 'ol', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
+		$block_elements = array('p', 'div', 'ul', 'ol', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6');
 
 		foreach ($cell->childNodes as $child) {
 			if (!$child instanceof DOMElement) {
 				// Text nodes or other non-element nodes: collect as inline.
-				$inline_nodes = self::convert_html_node_to_odt(
-					$doc,
-					$child,
-					$cell_formatting,
-					$style_require,
-					$cell_list_state,
-				);
+				$inline_nodes = self::convert_html_node_to_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
 				$current_inline = array_merge($current_inline, $inline_nodes);
 				continue;
 			}
@@ -1813,22 +1807,19 @@ class Documentate_OpenTBS {
 
 			if (!in_array($tag, $block_elements, true)) {
 				// Inline element (strong, em, span, a, br, etc.): collect.
-				$inline_nodes = self::convert_html_node_to_odt(
-					$doc,
-					$child,
-					$cell_formatting,
-					$style_require,
-					$cell_list_state,
-				);
+				$inline_nodes = self::convert_html_node_to_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
 				// Filter out any text:p elements that inline converters may return
 				// (e.g. from nested block content) and append them separately.
 				foreach ($inline_nodes as $inline_node) {
 					if ($inline_node instanceof DOMElement && 'text:p' === $inline_node->nodeName) {
 						// Flush current inline content first.
 						if (!empty($current_inline)) {
-							$cell_element->appendChild(
-								self::create_odt_paragraph_from_inline($doc, $current_inline, $cell_alignment, $style_require)
-							);
+							$cell_element->appendChild(self::create_odt_paragraph_from_inline(
+								$doc,
+								$current_inline,
+								$cell_alignment,
+								$style_require,
+							));
 							$current_inline = array();
 						}
 						$cell_element->appendChild($inline_node);
@@ -1841,9 +1832,12 @@ class Documentate_OpenTBS {
 
 			// Block element: flush any accumulated inline content first.
 			if (!empty($current_inline)) {
-				$cell_element->appendChild(
-					self::create_odt_paragraph_from_inline($doc, $current_inline, $cell_alignment, $style_require)
-				);
+				$cell_element->appendChild(self::create_odt_paragraph_from_inline(
+					$doc,
+					$current_inline,
+					$cell_alignment,
+					$style_require,
+				));
 				$current_inline = array();
 			}
 
@@ -1854,17 +1848,14 @@ class Documentate_OpenTBS {
 				}
 			} elseif ('ul' === $tag || 'ol' === $tag) {
 				// Lists inside cells: convert and wrap in paragraphs.
-				$list_nodes = self::convert_html_node_to_odt(
-					$doc,
-					$child,
-					$cell_formatting,
-					$style_require,
-					$cell_list_state,
-				);
+				$list_nodes = self::convert_html_node_to_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
 				if (!empty($list_nodes)) {
-					$cell_element->appendChild(
-						self::create_odt_paragraph_from_inline($doc, $list_nodes, $cell_alignment, $style_require)
-					);
+					$cell_element->appendChild(self::create_odt_paragraph_from_inline(
+						$doc,
+						$list_nodes,
+						$cell_alignment,
+						$style_require,
+					));
 				}
 			} else {
 				// p, div, h1-h6: extract alignment and create a paragraph with their content.
@@ -1872,21 +1863,18 @@ class Documentate_OpenTBS {
 				if (null === $p_alignment) {
 					$p_alignment = $cell_alignment;
 				}
-				$p_nodes = self::collect_html_children_as_odt(
-					$doc,
-					$child,
-					$cell_formatting,
-					$style_require,
-					$cell_list_state,
-				);
+				$p_nodes = self::collect_html_children_as_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
 				// Filter: if collect returned text:p elements (from nested blocks), append directly.
 				$inline_part = array();
 				foreach ($p_nodes as $p_node) {
 					if ($p_node instanceof DOMElement && 'text:p' === $p_node->nodeName) {
 						if (!empty($inline_part)) {
-							$cell_element->appendChild(
-								self::create_odt_paragraph_from_inline($doc, $inline_part, $p_alignment, $style_require)
-							);
+							$cell_element->appendChild(self::create_odt_paragraph_from_inline(
+								$doc,
+								$inline_part,
+								$p_alignment,
+								$style_require,
+							));
 							$inline_part = array();
 						}
 						$cell_element->appendChild($p_node);
@@ -1918,9 +1906,12 @@ class Documentate_OpenTBS {
 
 		// Flush remaining inline content.
 		if (!empty($current_inline)) {
-			$cell_element->appendChild(
-				self::create_odt_paragraph_from_inline($doc, $current_inline, $cell_alignment, $style_require)
-			);
+			$cell_element->appendChild(self::create_odt_paragraph_from_inline(
+				$doc,
+				$current_inline,
+				$cell_alignment,
+				$style_require,
+			));
 		}
 
 		// Ensure cell has at least one paragraph (required by ODF spec).
@@ -2918,9 +2909,9 @@ class Documentate_OpenTBS {
 			}
 
 			$cell_iter = 0;
-			while ($cell_iter < count($cells) || isset($rowspan_map[ $column_index ])) {
+			while ($cell_iter < count($cells) || isset($rowspan_map[$column_index])) {
 				// Insert continuation cells for rowspan from previous rows.
-				while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+				while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
 					$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
 					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
 					$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
@@ -2932,9 +2923,9 @@ class Documentate_OpenTBS {
 					$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
 					$tr->appendChild($tc);
 					// Consume: decrement and remove if exhausted.
-					$rowspan_map[ $column_index ]--;
-					if (0 === $rowspan_map[ $column_index ]) {
-						unset($rowspan_map[ $column_index ]);
+					$rowspan_map[$column_index]--;
+					if (0 === $rowspan_map[$column_index]) {
+						unset($rowspan_map[$column_index]);
 					}
 					$column_index++;
 				}
@@ -2943,7 +2934,7 @@ class Documentate_OpenTBS {
 					break;
 				}
 
-				$cell = $cells[ $cell_iter ];
+				$cell = $cells[$cell_iter];
 				$cell_tag = strtolower($cell->nodeName);
 
 				$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
@@ -2974,7 +2965,7 @@ class Documentate_OpenTBS {
 				// Register rowspan for subsequent rows.
 				if ($rowspan > 1) {
 					for ($c = 0; $c < $colspan; $c++) {
-						$rowspan_map[ $column_index + $c ] = $rowspan - 1;
+						$rowspan_map[$column_index + $c] = $rowspan - 1;
 					}
 				}
 
@@ -3028,7 +3019,7 @@ class Documentate_OpenTBS {
 			}
 
 			// Handle any remaining covered columns after all cells.
-			while (isset($rowspan_map[ $column_index ]) && $rowspan_map[ $column_index ] > 0) {
+			while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
 				$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
 				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
 				$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
@@ -3039,9 +3030,9 @@ class Documentate_OpenTBS {
 				$tc->appendChild($tcPr);
 				$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
 				$tr->appendChild($tc);
-				$rowspan_map[ $column_index ]--;
-				if (0 === $rowspan_map[ $column_index ]) {
-					unset($rowspan_map[ $column_index ]);
+				$rowspan_map[$column_index]--;
+				if (0 === $rowspan_map[$column_index]) {
+					unset($rowspan_map[$column_index]);
 				}
 				$column_index++;
 			}
@@ -3640,9 +3631,11 @@ class Documentate_OpenTBS {
 		);
 		$hyperlink->setAttribute('w:history', '1');
 		foreach ($link_runs as $run) {
-			if ($run instanceof DOMElement) {
-				$hyperlink->appendChild($run);
+			if (!$run instanceof DOMElement) {
+				continue;
 			}
+
+			$hyperlink->appendChild($run);
 		}
 		return $hyperlink;
 	}
