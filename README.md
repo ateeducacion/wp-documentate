@@ -43,6 +43,41 @@ make up
 
 This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`.
 
+## Ayuda contextual en campos dinámicos
+
+Las definiciones de campos del esquema pueden mostrar texto de ayuda **antes** o **después** del control:
+
+- `before_description`: renderiza un bloque informativo antes del input, select o textarea.
+- `description`: mantiene el comportamiento existente y renderiza la ayuda después del control.
+
+Ejemplo básico:
+
+```php
+array(
+	'name'               => 'numero_solicitud',
+	'slug'               => 'numero_solicitud',
+	'type'               => 'text',
+	'before_description' => 'Introduce el número exactamente como aparece en el justificante.',
+	'description'        => 'Número de registro o expediente de la solicitud.',
+)
+```
+
+También puedes personalizar el bloque previo con clases CSS y estilos inline:
+
+```php
+array(
+	'name'                     => 'numero_solicitud',
+	'slug'                     => 'numero_solicitud',
+	'type'                     => 'text',
+	'before_description'       => 'Asegúrate de usar el formato correcto.',
+	'before_description_class' => 'notice-inline notice-warning',
+	'before_description_style' => 'font-weight:600;',
+	'before_description_color' => '#b32d2e',
+)
+```
+
+El bloque previo siempre incluye las clases `documentate-field-before-description` y `description`, además de una clase específica por campo con el formato `documentate-field-before-description-{slug}`.
+
 ## Access Control
 
 ### Template management (Document Types)

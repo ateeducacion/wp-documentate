@@ -215,6 +215,117 @@ class Documents_Field_Validator {
 	}
 
 	/**
+	 * Retrieve the field description rendered before the control.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	public static function get_field_before_description($raw_field) {
+		if (!is_array($raw_field)) {
+			return '';
+		}
+
+		$field_keys = array('before_description', 'before-description', 'pre_description', 'pre-description');
+		foreach ($field_keys as $key) {
+			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
+				return sanitize_text_field($raw_field[ $key ]);
+			}
+		}
+
+		return self::get_parameter_value(
+			$raw_field,
+			array(
+				'before_description',
+				'before-description',
+				'pre_description',
+				'pre-description',
+				'before_help',
+				'before-help',
+				'before_hint',
+				'before-hint',
+			)
+		);
+	}
+
+	/**
+	 * Retrieve custom CSS classes for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	public static function get_field_before_description_class($raw_field) {
+		if (!is_array($raw_field)) {
+			return '';
+		}
+
+		$field_keys = array(
+			'before_description_class',
+			'before-description-class',
+			'pre_description_class',
+			'pre-description-class',
+		);
+		foreach ($field_keys as $key) {
+			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
+				return sanitize_text_field($raw_field[ $key ]);
+			}
+		}
+
+		return self::get_parameter_value($raw_field, $field_keys);
+	}
+
+	/**
+	 * Retrieve custom inline styles for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	public static function get_field_before_description_style($raw_field) {
+		if (!is_array($raw_field)) {
+			return '';
+		}
+
+		$field_keys = array(
+			'before_description_style',
+			'before-description-style',
+			'pre_description_style',
+			'pre-description-style',
+		);
+		foreach ($field_keys as $key) {
+			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
+				return sanitize_text_field($raw_field[ $key ]);
+			}
+		}
+
+		return self::get_parameter_value($raw_field, $field_keys);
+	}
+
+	/**
+	 * Retrieve custom color for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	public static function get_field_before_description_color($raw_field) {
+		if (!is_array($raw_field)) {
+			return '';
+		}
+
+		$field_keys = array(
+			'before_description_color',
+			'before-description-color',
+			'pre_description_color',
+			'pre-description-color',
+		);
+		foreach ($field_keys as $key) {
+			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
+				return sanitize_text_field($raw_field[ $key ]);
+			}
+		}
+
+		return self::get_parameter_value($raw_field, $field_keys);
+	}
+
+	/**
 	 * Retrieve the validation message associated with the field.
 	 *
 	 * @param array $raw_field Raw field definition.
