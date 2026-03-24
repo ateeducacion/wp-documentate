@@ -1243,12 +1243,8 @@ class Documentate_OpenTBS {
 			return false;
 		}
 
-		$is_table =
-			self::ODF_TABLE_NS === $node->namespaceURI
-			&& 'table' === $node->localName;
-		$is_paragraph =
-			self::ODF_TEXT_NS === $node->namespaceURI
-			&& 'p' === $node->localName;
+		$is_table = self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName;
+		$is_paragraph = self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName;
 
 		return $is_table || $is_paragraph;
 	}
@@ -1278,11 +1274,7 @@ class Documentate_OpenTBS {
 				continue;
 			}
 
-			if (
-				$node instanceof DOMElement
-				&& self::ODF_TEXT_NS === $node->namespaceURI
-				&& 'p' === $node->localName
-			) {
+			if ($node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName) {
 				self::inherit_odt_paragraph_style($paragraph, $node);
 				if (!empty($inline_buffer)) {
 					self::prepend_odt_inline_nodes($node, $inline_buffer);

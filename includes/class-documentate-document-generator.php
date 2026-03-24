@@ -692,7 +692,7 @@ class Documentate_Document_Generator {
 	private static function convert_plain_textarea_to_html($value) {
 		$value = OpenTBS_HTML_Parser::normalize_text_newlines((string) $value);
 		$value = trim($value);
-		if ('' === $value || false === strpos($value, "\n")) {
+		if ('' === $value || !str_contains($value, "\n")) {
 			return null;
 		}
 
