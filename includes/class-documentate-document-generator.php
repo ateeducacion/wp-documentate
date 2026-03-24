@@ -671,13 +671,6 @@ class Documentate_Document_Generator {
 
 		$value = wp_strip_all_tags($value);
 
-		if ('textarea' === $field_type) {
-			$textarea_html = self::convert_plain_textarea_to_html($value);
-			if (null !== $textarea_html) {
-				return self::normalize_field_value($textarea_html, $data_type, $field_def);
-			}
-		}
-
 		return self::normalize_field_value($value, $data_type, $field_def);
 	}
 

@@ -6,6 +6,9 @@
  * @package Documentate
  */
 
+if (!defined('ABSPATH'))
+	exit();
+
 use Documentate\Export\Export_DOCX_Handler;
 use Documentate\Export\Export_ODT_Handler;
 use Documentate\Export\Export_PDF_Handler;
@@ -757,7 +760,7 @@ class Documentate_Admin_Helper {
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 			echo
 				'<a '
-					. $this->build_action_attributes($preview_attrs)
+					. $this->build_action_attributes($preview_attrs) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					. '><span class="dashicons dashicons-visibility"></span> '
 					. esc_html__('Preview', 'documentate')
 					. '</a>'
@@ -787,7 +790,7 @@ class Documentate_Admin_Helper {
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 			echo
 				'<a '
-					. $this->build_action_attributes($pdf_attrs)
+					. $this->build_action_attributes($pdf_attrs) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					. '><span class="dashicons dashicons-pdf"></span> '
 					. esc_html__('Download PDF', 'documentate')
 					. '</a>'
@@ -813,7 +816,7 @@ class Documentate_Admin_Helper {
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
 			echo
 				'<a '
-					. $this->build_action_attributes($sign_attrs)
+					. $this->build_action_attributes($sign_attrs) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					. '><span class="dashicons dashicons-lock"></span> '
 					. esc_html__('Sign and Download', 'documentate')
 					. '</a>'

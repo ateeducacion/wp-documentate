@@ -122,7 +122,8 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * It should convert plain textarea paragraph breaks into paragraph-aware HTML.
+	 * Textarea paragraph breaks should be preserved as plain text for TBS/ODT post-processing.
+	 * ODT splitting (apply_odt_paragraph_splitting) handles double newlines at render time.
 	 */
 	public function test_build_merge_fields_converts_textarea_paragraphs_to_html_blocks() {
 		$term    = wp_insert_term( 'Tipo Párrafos', 'documentate_doc_type' );
@@ -174,10 +175,11 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 		$method->setAccessible( true );
 		$fields = $method->invoke( null, $post_id );
 
-		$this->assertSame(
-			'<p>Primer bloque<br>con salto suave</p><p>Segundo bloque</p>',
-			$fields['respuesta']
-		);
+		// Plain text is preserved with its paragraph breaks for TBS to process.
+		$this->assertStringContainsString( 'Primer bloque', $fields['respuesta'] );
+		$this->assertStringContainsString( 'Segundo bloque', $fields['respuesta'] );
+		// No HTML tags should be added — ODT splitting handles paragraph separation at render time.
+		$this->assertStringNotContainsString( '<p>', $fields['respuesta'] );
 	}
 
 	/**

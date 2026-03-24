@@ -10,6 +10,9 @@
  * @package Documentate
  */
 
+if (!defined('ABSPATH'))
+	exit();
+
 // This template is included by Documentate_Admin_Helper::render_converter_page()
 // which handles headers, permission checks, and nonce validation.
 

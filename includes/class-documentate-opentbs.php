@@ -160,6 +160,9 @@ class Documentate_OpenTBS {
 			return $rich_result;
 		}
 
+		// Split any double-line-break sequences into real ODT paragraphs, fixing justified-text artifacts.
+		self::apply_odt_paragraph_splitting($dest_path);
+
 		// Final safety net to strip any remaining raw HTML tags
 		$clean_result = self::strip_unprocessed_html_from_archive($dest_path, array('content.xml', 'styles.xml'));
 		if (is_wp_error($clean_result)) {
@@ -3988,6 +3991,266 @@ class Documentate_OpenTBS {
 			$hyperlink->appendChild($run);
 		}
 		return $hyperlink;
+	}
+
+	/**
+	 * Post-process an ODT file splitting double-line-break sequences into real paragraphs.
+	 *
+	 * TBS converts "\n" to <text:line-break/>, so a blank-line paragraph separator ("\n\n")
+	 * becomes two consecutive line-break elements inside a single paragraph.  LibreOffice
+	 * justifies the visible line before each manual break, producing huge spaces.  This step
+	 * detects those sequences and reconstructs them as proper sibling <text:p> nodes.
+	 *
+	 * @param string $odt_path Path to the generated ODT file.
+	 */
+	private static function apply_odt_paragraph_splitting($odt_path) {
+		if (!class_exists('ZipArchive')) {
+			return;
+		}
+
+		$zip = new ZipArchive();
+		if (true !== $zip->open($odt_path)) {
+			return;
+		}
+
+		$xml = $zip->getFromName('content.xml');
+		if (false === $xml) {
+			$zip->close();
+			return;
+		}
+
+		$updated = self::split_odt_content_paragraphs($xml);
+
+		if ($updated !== $xml) {
+			$zip->addFromString('content.xml', $updated);
+		}
+
+		$zip->close();
+	}
+
+	/**
+	 * Split double-line-break sequences in an ODT content.xml string into real paragraphs.
+	 *
+	 * @param string $xml Raw content.xml XML string.
+	 * @return string Possibly-modified XML string.
+	 */
+	public static function split_odt_content_paragraphs($xml) {
+		$doc = self::create_xml_document($xml);
+		if (!$doc) {
+			return $xml;
+		}
+
+		$xpath = new DOMXPath($doc);
+		$xpath->registerNamespace('text', self::ODF_TEXT_NS);
+
+		$modified = false;
+
+		// Repeat until no more splits are needed: inserting new paragraphs invalidates the list.
+		do {
+			$changed = false;
+
+			$paragraphs = $xpath->query('//text:p');
+			if (!$paragraphs instanceof DOMNodeList) {
+				break;
+			}
+
+			$para_array = array();
+			foreach ($paragraphs as $para) {
+				$para_array[] = $para;
+			}
+
+			foreach ($para_array as $paragraph) {
+				if (!$paragraph instanceof DOMElement) {
+					continue;
+				}
+
+				// Look for the first span that contains any line-break.
+				foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+					if (!$child instanceof DOMElement || self::ODF_TEXT_NS !== $child->namespaceURI || 'span' !== $child->localName) {
+						continue;
+					}
+
+					if (!self::odt_span_has_any_linebreak($child)) {
+						continue;
+					}
+
+					if (self::split_odt_paragraph_at_span_linebreaks($paragraph, $child)) {
+						$changed = true;
+						$modified = true;
+					}
+					break; // Process one span at a time; restart the paragraph scan.
+				}
+			}
+		} while ($changed);
+
+		if ($modified) {
+			return $doc->saveXML();
+		}
+
+		return $xml;
+	}
+
+	/**
+	 * Return true when a <text:span> contains at least one <text:line-break/> element.
+	 *
+	 * @param DOMElement $span The span element to inspect.
+	 * @return bool
+	 */
+	private static function odt_span_has_any_linebreak(DOMElement $span) {
+		foreach ($span->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if (
+				$child instanceof DOMElement
+				&& self::ODF_TEXT_NS === $child->namespaceURI
+				&& 'line-break' === $child->localName
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Split a paragraph at line-break sequences inside one of its spans.
+	 *
+	 * Each <text:line-break/> becomes a paragraph boundary (tight, no gap).
+	 * Two or more consecutive <text:line-break/> elements become a paragraph boundary followed
+	 * by an empty gap paragraph (visual blank line between paragraphs).
+	 *
+	 * The original paragraph is replaced by the generated sibling paragraphs.  Paragraph style
+	 * and other sibling nodes (spans before/after the split span) are preserved.
+	 *
+	 * @param DOMElement $paragraph The paragraph that owns the span.
+	 * @param DOMElement $span      The span that contains line-break sequences.
+	 * @return bool True if the paragraph was actually split.
+	 */
+	private static function split_odt_paragraph_at_span_linebreaks(DOMElement $paragraph, DOMElement $span) {
+		$parent = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		if (!$parent instanceof DOMNode) {
+			return false;
+		}
+
+		$segments = self::split_span_content_at_linebreaks($span);
+		if (count($segments) <= 1) {
+			return false;
+		}
+
+		// Collect paragraph-level siblings before and after the target span.
+		$before_span = array();
+		$after_span = array();
+		$found = false;
+		foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ($child === $span) {
+				$found = true;
+				continue;
+			}
+			if (!$found) {
+				$before_span[] = $child;
+			} else {
+				$after_span[] = $child;
+			}
+		}
+
+		$segment_count = count($segments);
+		$new_paragraphs = array();
+
+		foreach ($segments as $idx => $segment) {
+			$new_para = $paragraph->cloneNode(false);
+
+			// The first new paragraph inherits any nodes that preceded the split span.
+			if (0 === $idx) {
+				foreach ($before_span as $node) {
+					$new_para->appendChild($node->cloneNode(true));
+				}
+			}
+
+			// Wrap segment content in a clone of the original span (preserving its style).
+			if (!empty($segment['nodes'])) {
+				$new_span = $span->cloneNode(false);
+				foreach ($segment['nodes'] as $node) {
+					$new_span->appendChild($node->cloneNode(true));
+				}
+				$new_para->appendChild($new_span);
+			}
+
+			// The last new paragraph inherits any nodes that followed the split span.
+			if ($idx === ($segment_count - 1)) {
+				foreach ($after_span as $node) {
+					$new_para->appendChild($node->cloneNode(true));
+				}
+			}
+
+			$new_paragraphs[] = $new_para;
+
+			// A double (or more) line-break separator means a visual gap: insert an empty paragraph.
+			if ($segment['gap_after']) {
+				$new_paragraphs[] = $paragraph->cloneNode(false);
+			}
+		}
+
+		foreach ($new_paragraphs as $new_para) {
+			$parent->insertBefore($new_para, $paragraph);
+		}
+		$parent->removeChild($paragraph);
+
+		return true;
+	}
+
+	/**
+	 * Split the child-node sequence of a span at every line-break boundary.
+	 *
+	 * A single <text:line-break/> is a tight paragraph separator (no gap).
+	 * Two or more consecutive <text:line-break/> elements are a gap separator (blank line follows).
+	 *
+	 * Returns an array of segments.  Each segment is an associative array:
+	 *   'nodes'     => DOMNode[]  Content nodes for this logical paragraph.
+	 *   'gap_after' => bool       True when a blank-line gap paragraph should follow this one.
+	 *
+	 * The line-break delimiters themselves are not included in any segment.
+	 *
+	 * @param DOMElement $span The span to analyse.
+	 * @return array<int,array{nodes:array<int,DOMNode>,gap_after:bool}>
+	 */
+	private static function split_span_content_at_linebreaks(DOMElement $span) {
+		// Index all children for look-ahead.
+		$children = array();
+		foreach ($span->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			$children[] = $child;
+		}
+		$n = count($children);
+
+		$segments = array();
+		$current = array();
+		$i = 0;
+
+		while ($i < $n) {
+			$child = $children[$i];
+			$is_lb =
+				$child instanceof DOMElement && self::ODF_TEXT_NS === $child->namespaceURI && 'line-break' === $child->localName;
+
+			if ($is_lb) {
+				// Count how many consecutive line-breaks follow.
+				$lb_count = 0;
+				while ($i < $n) {
+					$c = $children[$i];
+					if (!($c instanceof DOMElement && self::ODF_TEXT_NS === $c->namespaceURI && 'line-break' === $c->localName)) {
+						break;
+					}
+					$lb_count++;
+					$i++;
+				}
+				// Close current segment; gap_after = true for 2+ consecutive line-breaks.
+				$segments[] = array('nodes' => $current, 'gap_after' => $lb_count >= 2);
+				$current = array();
+			} else {
+				$current[] = $child;
+				$i++;
+			}
+		}
+
+		// Push the last (or only) segment.
+		$segments[] = array('nodes' => $current, 'gap_after' => false);
+
+		return $segments;
 	}
 }
 

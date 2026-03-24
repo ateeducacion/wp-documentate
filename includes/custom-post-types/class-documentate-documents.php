@@ -14,6 +14,9 @@
  * @subpackage Documentate/includes/custom-post-types
  */
 
+if (!defined('ABSPATH'))
+	exit();
+
 use Documentate\DocType\SchemaConverter;
 use Documentate\DocType\SchemaStorage;
 use Documentate\Documents\Documents_CPT_Registration;
@@ -517,7 +520,7 @@ class Documentate_Documents {
 
 		// Move author metabox to side with low priority.
 		remove_meta_box('authordiv', 'documentate_document', 'normal');
-		add_meta_box('authordiv', __('Author'), 'post_author_meta_box', 'documentate_document', 'side', 'low');
+		add_meta_box('authordiv', __('Author', 'documentate'), 'post_author_meta_box', 'documentate_document', 'side', 'low');
 	}
 
 	/**
@@ -716,11 +719,7 @@ class Documentate_Documents {
 			$validation = $this->get_field_validation_message($raw_field);
 			$description_id = '' !== $description ? $meta_key . '-description' : '';
 			$validation_id = '' !== $validation ? $meta_key . '-validation' : '';
-			$describedby = $this->build_describedby_ids(
-				$before_description['id'],
-				$description_id,
-				$validation_id
-			);
+			$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 
 			echo
 				'<tr class="documentate-field documentate-field-'
@@ -830,7 +829,7 @@ class Documentate_Documents {
 					. '" value="'
 					. esc_attr($normalized_value)
 					. '" '
-					. $attribute_string
+					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					. ' />'
 			;
 		}
@@ -849,7 +848,7 @@ class Documentate_Documents {
 		$options = $this->parse_select_options($raw_field);
 		$placeholder = $this->get_select_placeholder($raw_field);
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-		echo '<select id="' . esc_attr($meta_key) . '" name="' . esc_attr($meta_key) . '" ' . $attribute_string . '>';
+		echo '<select id="' . esc_attr($meta_key) . '" name="' . esc_attr($meta_key) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		if ('' !== $placeholder) {
 			echo '<option value="">' . esc_html($placeholder) . '</option>';
 		} elseif (empty($attributes['required'])) {
@@ -890,7 +889,7 @@ class Documentate_Documents {
 				. '" value="1" '
 				. checked('1', $value, false)
 				. ' '
-				. $attribute_string
+				. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				. ' />'
 		;
 		echo '<span class="screen-reader-text">' . esc_html($label) . '</span>';
@@ -999,7 +998,7 @@ class Documentate_Documents {
 		$is_locked = false,
 		$raw_field = array(),
 		$describedby = array(),
-		$validation = ''
+		$validation = '',
 	) {
 		$is_collaborative = $this->is_collaborative_editing_enabled();
 		$is_required = \Documentate\Documents\Documents_Field_Validator::is_field_required($raw_field);
@@ -1051,7 +1050,7 @@ class Documentate_Documents {
 					'/<textarea\b/',
 					'<textarea aria-describedby="' . esc_attr($describedby_attribute) . '"',
 					$editor_html,
-					1
+					1,
 				);
 			}
 
@@ -1060,7 +1059,7 @@ class Documentate_Documents {
 					'/<textarea\b/',
 					'<textarea data-validation-message="' . esc_attr($validation) . '"',
 					$editor_html,
-					1
+					1,
 				);
 			}
 
@@ -1102,7 +1101,7 @@ class Documentate_Documents {
 				. '" name="'
 				. esc_attr($meta_key)
 				. '" '
-				. $attribute_string
+				. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				. '>'
 				. esc_textarea($value)
 				. '</textarea>'
@@ -1461,11 +1460,7 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	private function render_before_description($before_description) {
-		if (
-			!is_array($before_description)
-			|| !isset($before_description['text'])
-			|| '' === $before_description['text']
-		) {
+		if (!is_array($before_description) || !isset($before_description['text']) || '' === $before_description['text']) {
 			return;
 		}
 
@@ -1699,11 +1694,7 @@ class Documentate_Documents {
 				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
 				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = $this->build_describedby_ids(
-					$before_description['id'],
-					$description_id,
-					$validation_id
-				);
+				$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 				if (!empty($describedby)) {
 					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
@@ -1718,7 +1709,7 @@ class Documentate_Documents {
 					$options = $this->parse_select_options($raw_field);
 					$placeholder = $this->get_select_placeholder($raw_field);
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" ' . $attribute_string . '>';
+					echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					if ('' !== $placeholder) {
 						echo '<option value="">' . esc_html($placeholder) . '</option>';
 					} elseif (empty($attributes['required'])) {
@@ -1748,7 +1739,7 @@ class Documentate_Documents {
 							. '" value="1" '
 							. checked('1', $normalized_value, false)
 							. ' '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' />'
 					;
 					echo '<span class="screen-reader-text">' . esc_html($label) . '</span>';
@@ -1765,7 +1756,7 @@ class Documentate_Documents {
 							. '" value="'
 							. esc_attr($normalized_value)
 							. '" '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' />'
 					;
 				}
@@ -1787,11 +1778,7 @@ class Documentate_Documents {
 				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
 				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = $this->build_describedby_ids(
-					$before_description['id'],
-					$description_id,
-					$validation_id
-				);
+				$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 				$attributes = $this->build_scalar_input_attributes($raw_field, 'textarea');
 				if (!empty($describedby)) {
 					$attributes['aria-describedby'] = implode(' ', $describedby);
@@ -1820,7 +1807,7 @@ class Documentate_Documents {
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 					echo
 						'<textarea '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' id="'
 							. esc_attr($field_id)
 							. '" name="'
@@ -1842,7 +1829,7 @@ class Documentate_Documents {
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 					echo
 						'<textarea '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' id="'
 							. esc_attr($field_id)
 							. '" name="'
@@ -1872,11 +1859,7 @@ class Documentate_Documents {
 				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
 				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = $this->build_describedby_ids(
-					$before_description['id'],
-					$description_id,
-					$validation_id
-				);
+				$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 				if (!empty($describedby)) {
 					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
@@ -1892,7 +1875,7 @@ class Documentate_Documents {
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 				echo
 					'<textarea '
-						. $attribute_string
+						. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 						. ' id="'
 						. esc_attr($field_id)
 						. '" name="'

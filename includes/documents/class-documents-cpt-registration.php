@@ -12,6 +12,9 @@
 
 namespace Documentate\Documents;
 
+if (!defined('ABSPATH'))
+	exit();
+
 /**
  * Handles Custom Post Type and Taxonomy registration for documents.
  */
