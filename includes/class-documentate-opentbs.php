@@ -3334,6 +3334,7 @@ class Documentate_OpenTBS {
 	 * @param array<int,DOMElement> $runs      Runs to append.
 	 * @param DOMElement|null       $base_rpr  Base run properties reference.
 	 * @param string|null           $alignment Text alignment (left, center, right, justify).
+	 * @param DOMElement|null       $base_ppr  Base paragraph properties reference.
 	 * @return DOMElement
 	 */
 	private static function create_paragraph_from_runs(
