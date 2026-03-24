@@ -126,6 +126,45 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
+	 * Test paragraph before table is preserved in ODT.
+	 */
+	public function test_odt_paragraph_before_table_is_preserved() {
+		$html = '<p>Primera. Introducción</p><table><thead><tr><th>Distrito</th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Primera. Introducción', $xml );
+		$this->assertStringContainsString( 'Distrito', $xml );
+		$this->assertStringContainsString( 'Activo', $xml );
+		$this->asserter->assertNoRawHtmlTags( $xml );
+	}
+
+	/**
+	 * Test table followed by paragraph is preserved in ODT.
+	 */
+	public function test_odt_table_followed_by_paragraph_is_preserved() {
+		$html = '<table><tbody><tr><td><strong>Distrito</strong></td><td>Activo</td></tr></tbody></table><p>Contra el presente acto no cabe recurso alguno.</p>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Distrito', $xml );
+		$this->assertStringContainsString( 'Activo', $xml );
+		$this->assertStringContainsString( 'Contra el presente acto no cabe recurso alguno.', $xml );
+		$this->assertStringContainsString( 'DocumentateRichBold', $xml );
+		$this->asserter->assertNoRawHtmlTags( $xml );
+	}
+
+	/**
 	 * Test table with colspan produces correct ODT attributes and covered cells.
 	 */
 	public function test_odt_table_colspan_produces_correct_attributes() {
@@ -385,6 +424,45 @@ class DocumentHtmlTablesTest extends Documentate_Generation_Test_Base {
 		$this->assertStringContainsString( 'Italic', $xml, 'Italic text should be present.' );
 		$this->assertStringContainsString( '<w:b', $xml, 'Bold formatting should be present.' );
 		$this->assertStringContainsString( '<w:i', $xml, 'Italic formatting should be present.' );
+		$this->asserter->assertNoRawHtmlTags( $xml );
+	}
+
+	/**
+	 * Test paragraph before table is preserved in DOCX.
+	 */
+	public function test_docx_paragraph_before_table_is_preserved() {
+		$html = '<p>Primera. Introducción</p><table><thead><tr><th>Distrito</th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'docx' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Primera. Introducción', $xml );
+		$this->assertStringContainsString( 'Distrito', $xml );
+		$this->assertStringContainsString( 'Activo', $xml );
+		$this->asserter->assertNoRawHtmlTags( $xml );
+	}
+
+	/**
+	 * Test table followed by paragraph is preserved in DOCX.
+	 */
+	public function test_docx_table_followed_by_paragraph_is_preserved() {
+		$html = '<table><tbody><tr><td><strong>Distrito</strong></td><td>Activo</td></tr></tbody></table><p>Contra el presente acto no cabe recurso alguno.</p>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'docx' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'Distrito', $xml );
+		$this->assertStringContainsString( 'Activo', $xml );
+		$this->assertStringContainsString( 'Contra el presente acto no cabe recurso alguno.', $xml );
+		$this->assertStringContainsString( '<w:b', $xml );
 		$this->asserter->assertNoRawHtmlTags( $xml );
 	}
 

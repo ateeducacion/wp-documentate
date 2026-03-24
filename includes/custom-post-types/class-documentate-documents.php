@@ -896,6 +896,92 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Get TinyMCE invalid elements for Documentate rich editors.
+	 *
+	 * @return string
+	 */
+	private function get_rich_editor_invalid_elements() {
+		return implode(',', array(
+			'article',
+			'span',
+			'button',
+			'form',
+			'select',
+			'input',
+			'textarea',
+			'div',
+			'iframe',
+			'embed',
+			'object',
+			'label',
+			'font',
+			'img',
+			'video',
+			'audio',
+			'canvas',
+			'svg',
+			'script',
+			'style',
+			'noscript',
+			'map',
+			'area',
+			'applet',
+		));
+	}
+
+	/**
+	 * Get TinyMCE valid elements for Documentate rich editors.
+	 *
+	 * @return string
+	 */
+	private function get_rich_editor_valid_elements() {
+		return implode(',', array(
+			'a[href|title|target]',
+			'strong/b',
+			'em/i',
+			'u',
+			'p[style|class|align]',
+			'br',
+			'ul',
+			'ol',
+			'li',
+			'h1',
+			'h2',
+			'h3',
+			'h4',
+			'h5',
+			'h6',
+			'blockquote',
+			'code',
+			'pre',
+			'table[border|cellpadding|cellspacing|style|class|align]',
+			'thead',
+			'tbody',
+			'tfoot',
+			'tr',
+			'td[colspan|rowspan|style|class|align]',
+			'th[colspan|rowspan|style|class|align]',
+		));
+	}
+
+	/**
+	 * Get TinyMCE configuration for Documentate rich editors.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_rich_editor_tinymce_config() {
+		return array(
+			'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
+			'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
+			// TinyMCE content filtering: remove elements not supported by OpenTBS.
+			'invalid_elements' => $this->get_rich_editor_invalid_elements(),
+			'valid_elements' => $this->get_rich_editor_valid_elements(),
+			'paste_remove_styles' => false,
+			'paste_strip_class_attributes' => 'all',
+		);
+	}
+
+	/**
 	 * Render a rich text editor control.
 	 *
 	 * @param string              $meta_key  The meta key for the field.
@@ -922,15 +1008,7 @@ class Documentate_Documents {
 			;
 			echo '</div>';
 		} else {
-			$tinymce_config = array(
-				'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,searchreplace,removeformat',
-				'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
-				// TinyMCE content filtering: remove elements not supported by OpenTBS.
-				'invalid_elements' => 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-				'valid_elements' => 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
-				'paste_remove_styles' => true,
-				'paste_strip_class_attributes' => 'all',
-			);
+			$tinymce_config = $this->get_rich_editor_tinymce_config();
 
 			if ($is_locked) {
 				$tinymce_config['readonly'] = 1;
@@ -2505,11 +2583,12 @@ class Documentate_Documents {
 				'<div class="documentate-field documentate-field-warning" style="margin-bottom:16px;border:1px solid #dba617;padding:12px;background:#fffbea;">'
 			;
 			/* translators: %s: detected dynamic field key. */
+			$additional_field_label = sprintf(__('Additional field: %s', 'documentate'), $label);
 			echo
 				'<label for="'
 					. esc_attr($meta_key)
 					. '" style="font-weight:600;display:block;margin-bottom:4px;">'
-					. esc_html(sprintf(__('Additional field: %s', 'documentate'), $label))
+					. esc_html($additional_field_label)
 					. '</label>'
 			;
 			echo
@@ -2517,6 +2596,7 @@ class Documentate_Documents {
 					. esc_html__('This field is not defined in the current document type taxonomy.', 'documentate')
 					. '</p>'
 			;
+			$tinymce_config = $this->get_rich_editor_tinymce_config();
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles escaping.
 			wp_editor($value, $meta_key, array(
 				'textarea_name' => $meta_key,
@@ -2524,16 +2604,7 @@ class Documentate_Documents {
 				'media_buttons' => false,
 				'teeny' => false,
 				'wpautop' => false,
-				'tinymce' => array(
-					'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
-					'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
-					// TinyMCE content filtering: remove elements not supported by OpenTBS.
-					'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-					'valid_elements' =>
-						'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,'
-							. 'h1,h2,h3,h4,h5,h6,blockquote,code,pre,'
-							. 'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
-				),
+				'tinymce' => $tinymce_config,
 				'quicktags' => true,
 				'editor_height' => 200,
 			));
