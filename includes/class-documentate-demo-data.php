@@ -1953,10 +1953,10 @@ class Documentate_Demo_Data {
 		if (false !== strpos($slug, 'body') || false !== strpos($slug, 'cuerpo')) {
 			$rich = '<h3>' . __('Test heading', 'documentate') . '</h3>';
 			$rich .= '<p>' . __('First paragraph with example text.', 'documentate') . '</p>';
-			/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
 			$rich .=
 				'<p>'
 				. sprintf(
+					/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
 					__('Second paragraph with %1$s, %2$s and %3$s.', 'documentate'),
 					'<strong>' . __('bold', 'documentate') . '</strong>',
 					'<em>' . __('italics', 'documentate') . '</em>',
@@ -1985,10 +1985,10 @@ class Documentate_Demo_Data {
 		if (false !== strpos($slug, 'content') || false !== strpos($slug, 'contenido') || false !== strpos($slug, 'html')) {
 			$rich = '<h3>' . __('Test heading', 'documentate') . '</h3>';
 			$rich .= '<p>' . __('First paragraph with example text.', 'documentate') . '</p>';
-			/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
 			$rich .=
 				'<p>'
 				. sprintf(
+					/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
 					__('Second paragraph with %1$s, %2$s and %3$s.', 'documentate'),
 					'<strong>' . __('bold', 'documentate') . '</strong>',
 					'<em>' . __('italics', 'documentate') . '</em>',

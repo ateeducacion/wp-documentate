@@ -11,6 +11,7 @@
 
 use Documentate\Document\Meta\Document_Meta;
 use Documentate\Documents\Documents_Meta_Handler;
+use Documentate\OpenTBS\OpenTBS_HTML_Parser;
 
 /**
  * Documentate document generator service.
@@ -377,10 +378,11 @@ class Documentate_Document_Generator {
 					$type = 'rich';
 				}
 				$prepared = self::prepare_field_value($value, $type, $data_type, $def);
+				$prepared_has_html = Documents_Meta_Handler::value_contains_block_html($prepared);
 
 				// Apply case transformation if specified (skip for HTML content).
 				$field_case = isset($def['case']) ? sanitize_key($def['case']) : '';
-				if ('' !== $field_case && !in_array($type, array('rich', 'html'), true)) {
+				if ('' !== $field_case && !in_array($type, array('rich', 'html'), true) && !$prepared_has_html) {
 					$prepared = self::apply_case_transformation($prepared, $field_case);
 				}
 
@@ -390,8 +392,7 @@ class Documentate_Document_Generator {
 				}
 				// Register for rich text conversion if typed as rich/html.
 				// Also check if prepared value still contains HTML as a safety net.
-				$has_html_in_prepared = Documents_Meta_Handler::value_contains_block_html($prepared);
-				if (in_array($type, array('rich', 'html'), true) || $has_html_in_prepared) {
+				if (in_array($type, array('rich', 'html'), true) || $prepared_has_html) {
 					self::remember_rich_field_value($prepared);
 				}
 				// Debug logging - enable with WP_DEBUG.
@@ -402,7 +403,7 @@ class Documentate_Document_Generator {
 						$original_type,
 						$type,
 						Documents_Meta_Handler::value_contains_block_html($value) ? 'YES' : 'NO',
-						$has_html_in_prepared ? 'YES' : 'NO',
+						$prepared_has_html ? 'YES' : 'NO',
 						strlen($value),
 						strlen($prepared),
 					));
@@ -668,7 +669,40 @@ class Documentate_Document_Generator {
 			return self::normalize_field_value('', $data_type, $field_def);
 		}
 
-		return self::normalize_field_value(wp_strip_all_tags($value), $data_type, $field_def);
+		$value = wp_strip_all_tags($value);
+
+		return self::normalize_field_value($value, $data_type, $field_def);
+	}
+
+	/**
+	 * Convert plain textarea content with newlines into paragraph-aware HTML.
+	 *
+	 * Blank lines become new paragraphs and single newlines remain soft breaks.
+	 *
+	 * @param string $value Plain textarea value.
+	 * @return string|null HTML fragment or null when no paragraph conversion is needed.
+	 */
+	private static function convert_plain_textarea_to_html($value) {
+		$value = OpenTBS_HTML_Parser::normalize_text_newlines((string) $value);
+		$value = trim($value);
+		if ('' === $value || !str_contains($value, "\n")) {
+			return null;
+		}
+
+		$paragraphs = preg_split("/\n\s*\n+/u", $value);
+		if (!is_array($paragraphs) || empty($paragraphs)) {
+			return null;
+		}
+
+		$html = array();
+		foreach ($paragraphs as $paragraph) {
+			$paragraph = trim((string) $paragraph, "\n");
+			$lines = explode("\n", $paragraph);
+			$escaped_lines = array_map('esc_html', $lines);
+			$html[] = '<p>' . implode('<br>', $escaped_lines) . '</p>';
+		}
+
+		return implode('', $html);
 	}
 
 	/**

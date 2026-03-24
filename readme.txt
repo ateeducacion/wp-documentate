@@ -2,13 +2,13 @@
 Contributors: ateeducacion
 Tags: ate, tasks, board, kanban
 Requires at least: 6.1
-Tested up to: 6.8
+Tested up to: 6.9
 Requires PHP: 8.4
 Stable tag: 0.0.0
 License: GPL-3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Generador de resoluciones oficiales con secciones y exportación a DOCX.
+Official resolution generator with structured sections and DOCX export.
 
 == Description ==
 

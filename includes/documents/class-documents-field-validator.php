@@ -227,24 +227,21 @@ class Documents_Field_Validator {
 
 		$field_keys = array('before_description', 'before-description', 'pre_description', 'pre-description');
 		foreach ($field_keys as $key) {
-			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
-				return sanitize_text_field($raw_field[ $key ]);
+			if (isset($raw_field[$key]) && is_string($raw_field[$key]) && '' !== $raw_field[$key]) {
+				return sanitize_text_field($raw_field[$key]);
 			}
 		}
 
-		return self::get_parameter_value(
-			$raw_field,
-			array(
-				'before_description',
-				'before-description',
-				'pre_description',
-				'pre-description',
-				'before_help',
-				'before-help',
-				'before_hint',
-				'before-hint',
-			)
-		);
+		return self::get_parameter_value($raw_field, array(
+			'before_description',
+			'before-description',
+			'pre_description',
+			'pre-description',
+			'before_help',
+			'before-help',
+			'before_hint',
+			'before-hint',
+		));
 	}
 
 	/**
@@ -265,8 +262,8 @@ class Documents_Field_Validator {
 			'pre-description-class',
 		);
 		foreach ($field_keys as $key) {
-			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
-				return sanitize_text_field($raw_field[ $key ]);
+			if (isset($raw_field[$key]) && is_string($raw_field[$key]) && '' !== $raw_field[$key]) {
+				return sanitize_text_field($raw_field[$key]);
 			}
 		}
 
@@ -291,8 +288,8 @@ class Documents_Field_Validator {
 			'pre-description-style',
 		);
 		foreach ($field_keys as $key) {
-			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
-				return sanitize_text_field($raw_field[ $key ]);
+			if (isset($raw_field[$key]) && is_string($raw_field[$key]) && '' !== $raw_field[$key]) {
+				return sanitize_text_field($raw_field[$key]);
 			}
 		}
 
@@ -317,8 +314,8 @@ class Documents_Field_Validator {
 			'pre-description-color',
 		);
 		foreach ($field_keys as $key) {
-			if (isset($raw_field[ $key ]) && is_string($raw_field[ $key ]) && '' !== $raw_field[ $key ]) {
-				return sanitize_text_field($raw_field[ $key ]);
+			if (isset($raw_field[$key]) && is_string($raw_field[$key]) && '' !== $raw_field[$key]) {
+				return sanitize_text_field($raw_field[$key]);
 			}
 		}
 

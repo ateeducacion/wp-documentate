@@ -12,6 +12,9 @@
 
 namespace Documentate\Documents;
 
+if (!defined('ABSPATH'))
+	exit();
+
 /**
  * Handles revision management for document custom post type.
  */

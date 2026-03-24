@@ -54,6 +54,81 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * It should split inline DOCX placeholders with multiple paragraphs into real paragraphs.
+	 */
+	public function test_convert_docx_part_rich_text_splits_inline_multi_paragraph_placeholders() {
+		$html = '<p>Primer párrafo</p><p>Segundo párrafo</p>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+			. '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+			. '<w:body><w:p><w:pPr><w:jc w:val="both"/></w:pPr><w:r><w:t>Antes '
+			. htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 )
+			. ' Después</w:t></w:r></w:p></w:body></w:document>';
+
+		$result = Documentate_OpenTBS::convert_docx_part_rich_text( $xml, array( $html ) );
+		$doc    = $this->load_docx_dom( $result );
+		$xpath  = $this->create_word_xpath( $doc );
+
+		$paragraphs = $xpath->query( '//w:body/w:p' );
+
+		$this->assertSame( 2, $paragraphs->length );
+		$this->assertSame( 'Antes Primer párrafo', trim( $paragraphs->item( 0 )->textContent ) );
+		$this->assertSame( 'Segundo párrafo Después', trim( $paragraphs->item( 1 )->textContent ) );
+		$this->assertSame( 0, $xpath->query( '//w:body//w:br' )->length );
+		$this->assertSame(
+			'both',
+			$xpath->query( './w:pPr/w:jc', $paragraphs->item( 0 ) )->item( 0 )->getAttributeNS(
+				'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+				'val'
+			)
+		);
+		$this->assertSame(
+			'both',
+			$xpath->query( './w:pPr/w:jc', $paragraphs->item( 1 ) )->item( 0 )->getAttributeNS(
+				'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+				'val'
+			)
+		);
+	}
+
+	/**
+	 * It should convert standalone DOCX multi-paragraph placeholders into separate paragraphs.
+	 */
+	public function test_convert_docx_part_rich_text_keeps_standalone_multi_paragraph_placeholders_as_paragraphs() {
+		$html = '<p>Primer párrafo</p><p>Segundo párrafo</p>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+			. '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+			. '<w:body><w:p><w:r><w:t>' . htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 ) . '</w:t></w:r></w:p></w:body></w:document>';
+
+		$result = Documentate_OpenTBS::convert_docx_part_rich_text( $xml, array( $html ) );
+		$doc    = $this->load_docx_dom( $result );
+		$xpath  = $this->create_word_xpath( $doc );
+
+		$paragraphs = $xpath->query( '//w:body/w:p' );
+
+		$this->assertSame( 2, $paragraphs->length );
+		$this->assertSame( 'Primer párrafo', trim( $paragraphs->item( 0 )->textContent ) );
+		$this->assertSame( 'Segundo párrafo', trim( $paragraphs->item( 1 )->textContent ) );
+		$this->assertSame( 0, $xpath->query( '//w:body//w:br' )->length );
+	}
+
+	/**
+	 * It should keep soft line breaks inside a single DOCX paragraph.
+	 */
+	public function test_convert_docx_part_rich_text_keeps_soft_breaks_within_single_paragraph() {
+		$html = '<p>Primera línea<br>Segunda línea</p>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+			. '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+			. '<w:body><w:p><w:r><w:t>' . htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 ) . '</w:t></w:r></w:p></w:body></w:document>';
+
+		$result = Documentate_OpenTBS::convert_docx_part_rich_text( $xml, array( $html ) );
+		$doc    = $this->load_docx_dom( $result );
+		$xpath  = $this->create_word_xpath( $doc );
+
+		$this->assertSame( 1, $xpath->query( '//w:body/w:p' )->length );
+		$this->assertSame( 1, $xpath->query( '//w:body//w:br' )->length );
+	}
+
+	/**
 	 * It should convert HTML lists into individual Word paragraphs with bullet prefixes.
 	 */
 	public function test_convert_docx_part_rich_text_converts_lists() {
@@ -204,6 +279,75 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * It should split inline ODT placeholders with multiple paragraphs into real text:p nodes.
+	 */
+	public function test_convert_odt_part_rich_text_splits_inline_multi_paragraph_placeholders() {
+		$html = '<p>Primer párrafo</p><p>Segundo párrafo</p>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+			. ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+			. '<office:body><office:text><text:p text:style-name="BodyJustified">Antes '
+			. htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 )
+			. ' Después</text:p></office:text></office:body></office:document-content>';
+
+		$result = (string) Documentate_OpenTBS::convert_odt_part_rich_text( $xml, array( $html ) );
+		$xpath  = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		$paragraphs = $xpath->query( '//office:text/text:p' );
+
+		$this->assertSame( 2, $paragraphs->length );
+		$this->assertSame( 'Antes Primer párrafo', trim( $paragraphs->item( 0 )->textContent ) );
+		$this->assertSame( 'Segundo párrafo Después', trim( $paragraphs->item( 1 )->textContent ) );
+		$this->assertSame( 0, $xpath->query( '//office:text//text:line-break' )->length );
+		$this->assertSame(
+			'BodyJustified',
+			$paragraphs->item( 0 )->getAttributeNS( 'urn:oasis:names:tc:opendocument:xmlns:text:1.0', 'style-name' )
+		);
+		$this->assertSame(
+			'BodyJustified',
+			$paragraphs->item( 1 )->getAttributeNS( 'urn:oasis:names:tc:opendocument:xmlns:text:1.0', 'style-name' )
+		);
+	}
+
+	/**
+	 * It should convert standalone ODT multi-paragraph placeholders into separate paragraphs.
+	 */
+	public function test_convert_odt_part_rich_text_keeps_standalone_multi_paragraph_placeholders_as_paragraphs() {
+		$html = '<p>Primer párrafo</p><p>Segundo párrafo</p>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+			. ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+			. '<office:body><office:text><text:p>' . htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 ) . '</text:p></office:text></office:body></office:document-content>';
+
+		$result = (string) Documentate_OpenTBS::convert_odt_part_rich_text( $xml, array( $html ) );
+		$xpath  = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		$paragraphs = $xpath->query( '//office:text/text:p' );
+
+		$this->assertSame( 2, $paragraphs->length );
+		$this->assertSame( 'Primer párrafo', trim( $paragraphs->item( 0 )->textContent ) );
+		$this->assertSame( 'Segundo párrafo', trim( $paragraphs->item( 1 )->textContent ) );
+		$this->assertSame( 0, $xpath->query( '//office:text//text:line-break' )->length );
+	}
+
+	/**
+	 * It should keep soft line breaks inside a single ODT paragraph.
+	 */
+	public function test_convert_odt_part_rich_text_keeps_soft_breaks_within_single_paragraph() {
+		$html = '<p>Primera línea<br>Segunda línea</p>';
+		$xml  = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+			. ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+			. '<office:body><office:text><text:p>' . htmlspecialchars( $html, ENT_QUOTES | ENT_XML1 ) . '</text:p></office:text></office:body></office:document-content>';
+
+		$result = (string) Documentate_OpenTBS::convert_odt_part_rich_text( $xml, array( $html ) );
+		$xpath  = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		$this->assertSame( 1, $xpath->query( '//office:text/text:p' )->length );
+		$this->assertSame( 1, $xpath->query( '//office:text//text:line-break' )->length );
+	}
+
+	/**
 	 * It should convert HTML tables into ODF table markup when processing ODT fragments.
 	 */
 	public function test_convert_odt_part_rich_text_converts_tables() {
@@ -291,6 +435,20 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * Load an ODT XML string into a DOMDocument for assertions.
+	 *
+	 * @param string $xml XML string.
+	 * @return DOMDocument
+	 */
+	private function load_odt_dom( $xml ) {
+		libxml_use_internal_errors( true );
+		$dom = new DOMDocument();
+		$dom->loadXML( $xml );
+		libxml_clear_errors();
+		return $dom;
+	}
+
+	/**
 	 * Create a WordprocessingML XPath helper.
 	 *
 	 * @param DOMDocument $dom DOMDocument instance.
@@ -299,6 +457,19 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 	private function create_word_xpath( DOMDocument $dom ) {
 		$xpath = new DOMXPath( $dom );
 		$xpath->registerNamespace( 'w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main' );
+		return $xpath;
+	}
+
+	/**
+	 * Create an ODT XPath helper.
+	 *
+	 * @param DOMDocument $dom DOMDocument instance.
+	 * @return DOMXPath
+	 */
+	private function create_odt_xpath( DOMDocument $dom ) {
+		$xpath = new DOMXPath( $dom );
+		$xpath->registerNamespace( 'office', 'urn:oasis:names:tc:opendocument:xmlns:office:1.0' );
+		$xpath->registerNamespace( 'text', 'urn:oasis:names:tc:opendocument:xmlns:text:1.0' );
 		return $xpath;
 	}
 
@@ -757,5 +928,163 @@ class DocumentateOpenTBSTest extends PHPUnit\Framework\TestCase {
 		$method     = $reflection->getMethod( 'process_visibility_blocks' );
 		$method->setAccessible( true );
 		return $method->invoke( null, $content, $fields );
+	}
+
+	// -----------------------------------------------------------------------
+	// split_odt_content_paragraphs: double-line-break → real paragraphs
+	// -----------------------------------------------------------------------
+
+	/**
+	 * Helper: build a minimal content.xml string with a single justified paragraph.
+	 *
+	 * @param string $span_content Raw XML content for the span (may include line-break elements).
+	 * @param string $style        Paragraph style name.
+	 * @param string $before_span  Optional XML placed before the main span inside the paragraph.
+	 * @return string
+	 */
+	private function make_odt_xml( $span_content, $style = 'P8', $before_span = '' ) {
+		return '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<office:document-content'
+			. ' xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+			. ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+			. '<office:body><office:text>'
+			. '<text:p text:style-name="' . $style . '">'
+			. $before_span
+			. '<text:span text:style-name="T1">' . $span_content . '</text:span>'
+			. '</text:p>'
+			. '</office:text></office:body>'
+			. '</office:document-content>';
+	}
+
+	/**
+	 * A single line-break inside a span must produce two tight paragraphs (no gap between them).
+	 */
+	public function test_split_odt_single_linebreak_creates_new_paragraph() {
+		$xml    = $this->make_odt_xml( 'Línea uno<text:line-break xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"/>Línea dos' );
+		$result = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+		$xpath  = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		$paragraphs = $xpath->query( '//text:p' );
+		$this->assertSame( 2, $paragraphs->length, 'Single line-break should split into two paragraphs' );
+		$this->assertStringContainsString( 'Línea uno', $paragraphs->item( 0 )->textContent );
+		$this->assertStringContainsString( 'Línea dos', $paragraphs->item( 1 )->textContent );
+		$this->assertSame( 0, $xpath->query( '//text:line-break' )->length, 'Line-break element should be consumed' );
+	}
+
+	/**
+	 * A double line-break must produce two content paragraphs with an empty gap paragraph between them.
+	 */
+	public function test_split_odt_double_linebreak_produces_two_paragraphs_with_gap() {
+		$lb  = '<text:line-break xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"/>';
+		$xml = $this->make_odt_xml( 'Párrafo uno' . $lb . $lb . 'Párrafo dos' );
+
+		$result = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+		$xpath  = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		// double LB → 2 content paragraphs + 1 empty gap paragraph = 3 total.
+		$paragraphs = $xpath->query( '//text:p' );
+		$this->assertSame( 3, $paragraphs->length );
+		$this->assertStringContainsString( 'Párrafo uno', $paragraphs->item( 0 )->textContent );
+		$this->assertSame( '', trim( $paragraphs->item( 1 )->textContent ), 'Middle paragraph should be empty (gap)' );
+		$this->assertStringContainsString( 'Párrafo dos', $paragraphs->item( 2 )->textContent );
+		$this->assertSame( 0, $xpath->query( '//text:line-break' )->length, 'Paragraph-separator line-breaks must be removed' );
+	}
+
+	/**
+	 * When the split span has a preceding span (inline prefix), the prefix must
+	 * appear in the first generated paragraph and not be duplicated.
+	 */
+	public function test_split_odt_inline_prefix_preserved_in_first_paragraph() {
+		$lb         = '<text:line-break xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"/>';
+		$before     = '<text:span xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" text:style-name="T0">Prefijo </text:span>';
+		$xml        = $this->make_odt_xml( 'Párrafo uno' . $lb . $lb . 'Párrafo dos', 'P8', $before );
+
+		$result     = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+		$xpath      = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		// double LB → 3 paragraphs (content + empty gap + content).
+		$paragraphs = $xpath->query( '//text:p' );
+		$this->assertSame( 3, $paragraphs->length );
+		$this->assertStringContainsString( 'Prefijo', $paragraphs->item( 0 )->textContent );
+		$this->assertStringNotContainsString( 'Prefijo', $paragraphs->item( 1 )->textContent );
+		$this->assertStringNotContainsString( 'Prefijo', $paragraphs->item( 2 )->textContent );
+	}
+
+	/**
+	 * Two double line-breaks must produce three content paragraphs with empty gap paragraphs between them.
+	 */
+	public function test_split_odt_two_double_linebreaks_produce_three_paragraphs() {
+		$lb  = '<text:line-break xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"/>';
+		$xml = $this->make_odt_xml( 'Uno' . $lb . $lb . 'Dos' . $lb . $lb . 'Tres' );
+
+		$result     = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+		$xpath      = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+		$paragraphs = $xpath->query( '//text:p' );
+
+		// 3 content + 2 empty gap paragraphs = 5 total.
+		$this->assertSame( 5, $paragraphs->length );
+		$this->assertStringContainsString( 'Uno',  $paragraphs->item( 0 )->textContent );
+		$this->assertSame( '', trim( $paragraphs->item( 1 )->textContent ) );
+		$this->assertStringContainsString( 'Dos',  $paragraphs->item( 2 )->textContent );
+		$this->assertSame( '', trim( $paragraphs->item( 3 )->textContent ) );
+		$this->assertStringContainsString( 'Tres', $paragraphs->item( 4 )->textContent );
+	}
+
+	/**
+	 * Generated paragraphs must inherit the style of the source paragraph.
+	 */
+	public function test_split_odt_new_paragraphs_inherit_source_style() {
+		$lb     = '<text:line-break xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"/>';
+		$xml    = $this->make_odt_xml( 'A' . $lb . $lb . 'B', 'JustifiedStyle' );
+		$result = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+
+		$dom   = $this->load_odt_dom( $result );
+		$xpath = $this->create_odt_xpath( $dom );
+
+		foreach ( $xpath->query( '//text:p' ) as $para ) {
+			$this->assertSame(
+				'JustifiedStyle',
+				$para->getAttributeNS( 'urn:oasis:names:tc:opendocument:xmlns:text:1.0', 'style-name' ),
+				'Each split paragraph (including gap) should carry the original style'
+			);
+		}
+	}
+
+	/**
+	 * A paragraph with no line-breaks at all must pass through unchanged.
+	 */
+	public function test_split_odt_no_linebreaks_unchanged() {
+		$xml    = $this->make_odt_xml( 'Texto sin saltos' );
+		$result = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+
+		$this->assertSame( $xml, $result, 'XML without line-breaks should be returned unchanged' );
+	}
+
+	/**
+	 * Regression: a justified paragraph with plain-text paragraph breaks converted by TBS to
+	 * line-break sequences must produce separate text:p elements with no remaining line-breaks.
+	 */
+	public function test_split_odt_regression_justified_paragraph_no_double_linebreaks() {
+		$lb  = '<text:line-break xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"/>';
+		$xml = $this->make_odt_xml(
+			'Primer párrafo con texto largo que debería estar justificado correctamente.'
+			. $lb . $lb
+			. 'Segundo párrafo que no debería mostrar espacios enormes en la última línea.'
+			. $lb . $lb
+			. 'Tercer párrafo.',
+			'JustifiedBody'
+		);
+
+		$result = Documentate_OpenTBS::split_odt_content_paragraphs( $xml );
+		$xpath  = $this->create_odt_xpath( $this->load_odt_dom( $result ) );
+
+		// 3 content paragraphs + 2 empty gap paragraphs = 5 total.
+		$this->assertSame( 5, $xpath->query( '//text:p' )->length );
+
+		// No line-breaks may remain.
+		$this->assertSame( 0, $xpath->query( '//text:line-break' )->length );
+
+		// Original XML should differ from result (transformation happened).
+		$this->assertNotSame( $xml, $result );
 	}
 }
