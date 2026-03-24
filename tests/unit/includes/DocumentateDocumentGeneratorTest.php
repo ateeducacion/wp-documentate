@@ -122,6 +122,65 @@ class DocumentateDocumentGeneratorTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * It should convert plain textarea paragraph breaks into paragraph-aware HTML.
+	 */
+	public function test_build_merge_fields_converts_textarea_paragraphs_to_html_blocks() {
+		$term    = wp_insert_term( 'Tipo Párrafos', 'documentate_doc_type' );
+		$term_id = intval( $term['term_id'] );
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'        => 'Respuesta',
+						'slug'        => 'respuesta',
+						'type'        => 'textarea',
+						'title'       => 'Respuesta',
+						'placeholder' => 'respuesta',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Documento párrafos',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
+
+		$doc = new Documentate_Documents();
+		$_POST['documentate_doc_type']              = (string) $term_id;
+		$_POST['documentate_field_respuesta'] = "Primer bloque\ncon salto suave\r\n\r\nSegundo bloque";
+
+		$data    = array( 'post_type' => 'documentate_document' );
+		$postarr = array( 'ID' => $post_id );
+		$result  = $doc->filter_post_data_compose_content( $data, $postarr );
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => $result['post_content'],
+			)
+		);
+		$_POST = array();
+
+		$ref    = new ReflectionClass( Documentate_Document_Generator::class );
+		$method = $ref->getMethod( 'build_merge_fields' );
+		$method->setAccessible( true );
+		$fields = $method->invoke( null, $post_id );
+
+		$this->assertSame(
+			'<p>Primer bloque<br>con salto suave</p><p>Segundo bloque</p>',
+			$fields['respuesta']
+		);
+	}
+
+	/**
 	 * Test get_template_path returns empty for invalid format.
 	 */
 	public function test_get_template_path_invalid_format() {
