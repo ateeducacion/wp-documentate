@@ -26,6 +26,7 @@ class Documents_CPT_Registration {
 		add_action('init', array($this, 'register_post_type'));
 		add_action('init', array($this, 'register_taxonomies'));
 		add_filter('use_block_editor_for_post_type', array($this, 'disable_gutenberg'), 10, 2);
+		add_filter('get_default_comment_status', array($this, 'set_default_comment_status_open'), 10, 3);
 	}
 
 	/**
@@ -113,5 +114,20 @@ class Documents_CPT_Registration {
 			return false;
 		}
 		return $use_block_editor;
+	}
+
+	/**
+	 * Set default comment status to open for documentate_document.
+	 *
+	 * @param string $status       Default comment status ('open' or 'closed').
+	 * @param string $post_type    Post type being queried.
+	 * @param string $comment_type Comment type.
+	 * @return string Modified default comment status.
+	 */
+	public function set_default_comment_status_open($status, $post_type, $comment_type) {
+		if ('documentate_document' === $post_type) {
+			return 'open';
+		}
+		return $status;
 	}
 }
