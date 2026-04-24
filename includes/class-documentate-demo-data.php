@@ -137,7 +137,7 @@ class Documentate_Demo_Data {
 		self::import_fixture_file('gastossuplidos.odt');
 		self::import_fixture_file('propuestagasto.odt');
 		self::import_fixture_file('convocatoriareunion.odt');
-		self::import_fixture_file('memoria_pago.odt');
+		self::import_fixture_file('memoria_pago_cep.odt');
 		self::import_fixture_file('respuesta_escrito.odt');
 	}
 
@@ -342,7 +342,7 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$memoria_pago_id = self::import_fixture_file('memoria_pago.odt');
+		$memoria_pago_id = self::import_fixture_file('memoria_pago_cep.odt');
 		if ($memoria_pago_id > 0) {
 			$definitions[] = array(
 				'slug' => 'memoria-pago',
