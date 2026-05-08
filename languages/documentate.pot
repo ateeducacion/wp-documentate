@@ -750,6 +750,94 @@ msgstr ""
 msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
 msgstr ""
 
+msgid "Pendiente de revisión"
+msgstr ""
+
+msgid "Documento enviado a revisión"
+msgstr ""
+
+msgid "Documento publicado"
+msgstr ""
+
+msgid "Documento devuelto a borrador"
+msgstr ""
+
+msgid "Documento archivado"
+msgstr ""
+
+msgid "Documento enviado a la papelera"
+msgstr ""
+
+msgid "Cambio de estado del documento"
+msgstr ""
+
+msgid "Borrador"
+msgstr ""
+
+msgid "Publicado"
+msgstr ""
+
+msgid "Archivado"
+msgstr ""
+
+msgid "Papelera"
+msgstr ""
+
+msgid "Borrador inicial"
+msgstr ""
+
+msgid "Nuevo"
+msgstr ""
+
+msgid "Sistema"
+msgstr ""
+
+#. translators: %s: document title
+#, php-format
+msgid "Documento: %s"
+msgstr ""
+
+#. translators: 1: previous status, 2: new status
+#, php-format
+msgid "Cambio de estado: %1$s → %2$s"
+msgstr ""
+
+#. translators: %s: post status label
+#, php-format
+msgid "Estado: %s"
+msgstr ""
+
+#. translators: %s: name of the user who made the change
+#, php-format
+msgid "Realizado por: %s"
+msgstr ""
+
+#. translators: %s: edit URL of the document
+#, php-format
+msgid "Enlace al documento: %s"
+msgstr ""
+
+msgid "Cuando uno de mis documentos se envía a revisión."
+msgstr ""
+
+msgid "Cuando uno de mis documentos se publica."
+msgstr ""
+
+msgid "Otros cambios de estado de mis documentos (devueltos a borrador, archivados, etc.)."
+msgstr ""
+
+msgid "Cuando un documento de otra persona pasa a revisión (solo administradores)."
+msgstr ""
+
+msgid "Notificaciones de Documentate"
+msgstr ""
+
+msgid "Notificaciones por correo"
+msgstr ""
+
+msgid "Selecciona los avisos que quieres recibir por correo electrónico."
+msgstr ""
+
 msgid "Could not open the archive to sanitize HTML."
 msgstr ""
 
