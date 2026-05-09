@@ -3,7 +3,7 @@
 /**
  * Class Documentate_Disable_Comment_Notifications
  *
- * Disables automatic comment notification emails for the documentate_task custom post type.
+ * Disables automatic comment notification emails for the documentate_document custom post type.
  *
  * @package Documentate
  */
@@ -15,14 +15,14 @@ defined('ABSPATH') || exit();
  * Class Documentate_Disable_Comment_Notifications
  *
  * Hooks into WordPress comment notifications and returns an empty recipient
- * list for 'documentate_task' posts. Prevents any email notifications on new comments.
+ * list for 'documentate_document' posts. Prevents any email notifications on new comments.
  */
 class Documentate_Disable_Comment_Notifications {
 	/**
 	 * Constructor.
 	 *
 	 * Initializes filters to disable comment notifications and moderation emails
-	 * for the custom post type 'documentate_task'.
+	 * for the custom post type 'documentate_document'.
 	 */
 	public function __construct() {
 		add_filter('comment_notification_recipients', array($this, 'disable_comment_notifications'), 10, 2);
@@ -30,15 +30,15 @@ class Documentate_Disable_Comment_Notifications {
 	}
 
 	/**
-	 * Disables comment notification emails for documentate_task.
+	 * Disables comment notification emails for documentate_document.
 	 *
 	 * @param string[] $emails List of email addresses scheduled to be notified.
 	 * @param int      $comment_id The comment ID.
-	 * @return string[] Filtered list of email recipients (empty array if documentate_task).
+	 * @return string[] Filtered list of email recipients (empty array if documentate_document).
 	 */
 	public function disable_comment_notifications($emails, $comment_id) {
 		$comment = get_comment($comment_id);
-		if ($comment && 'documentate_task' === get_post_type($comment->comment_post_ID)) {
+		if ($comment && 'documentate_document' === get_post_type($comment->comment_post_ID)) {
 			// Return an empty array to disable all notifications for this CPT.
 			return array();
 		}

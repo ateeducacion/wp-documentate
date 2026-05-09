@@ -19,6 +19,7 @@ if (!defined('ABSPATH'))
 
 use Documentate\DocType\SchemaConverter;
 use Documentate\DocType\SchemaStorage;
+use Documentate\Documents\Documents_Comments_Handler;
 use Documentate\Documents\Documents_CPT_Registration;
 use Documentate\Documents\Documents_Field_Renderer;
 use Documentate\Documents\Documents_Field_Validator;
@@ -69,6 +70,7 @@ class Documentate_Documents {
 	public function __construct() {
 		$this->cpt_registration = new Documents_CPT_Registration();
 		$this->revision_handler = new Documents_Revision_Handler();
+		(new Documents_Comments_Handler())->register_hooks();
 		$this->define_hooks();
 	}
 
@@ -83,6 +85,7 @@ class Documentate_Documents {
 		add_action('init', array($this, 'register_post_type'));
 		add_action('init', array($this, 'register_taxonomies'));
 		add_filter('use_block_editor_for_post_type', array($this, 'disable_gutenberg'), 10, 2);
+		add_filter('get_default_comment_status', array($this, 'set_default_comment_status_open'), 10, 3);
 
 		// Meta boxes.
 		add_action('add_meta_boxes', array($this, 'register_meta_boxes'));
@@ -492,6 +495,18 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Set default comment status to open for documentate_document.
+	 *
+	 * @param string $status       Default comment status ('open' or 'closed').
+	 * @param string $post_type    Post type being queried.
+	 * @param string $comment_type Comment type.
+	 * @return string Modified default comment status.
+	 */
+	public function set_default_comment_status_open($status, $post_type, $comment_type) {
+		return $this->cpt_registration->set_default_comment_status_open($status, $post_type, $comment_type);
+	}
+
+	/**
 	 * Set custom placeholder for the title field.
 	 *
 	 * @param string  $placeholder Default placeholder text.
@@ -517,6 +532,10 @@ class Documentate_Documents {
 			'normal',
 			'high',
 		);
+
+		if (post_type_supports('documentate_document', 'comments')) {
+			add_meta_box('commentsdiv', __('Comments', 'default'), 'post_comment_meta_box', 'documentate_document', 'normal', 'core');
+		}
 
 		// Move author metabox to side with low priority.
 		remove_meta_box('authordiv', 'documentate_document', 'normal');
