@@ -129,11 +129,52 @@ A task is **not complete** if any of the following remain:
 
 - All user-facing text must be in **Spanish**, wrapped in i18n functions
   (`__()`, `_e()`, `_n()`, `_x()`).
-- Text domain: `documentate`.
-- Add `/* translators: */` comments before strings containing placeholders.
-- When adding or changing user-facing strings, update
-  `languages/documentate-es_ES.po` in the same commit.
+- Text domain: `documentate`. Strings reused verbatim from WordPress core
+  (e.g. `__('Comments', 'default')`) may use the `default` domain.
+- **Required (CI fails otherwise):** any `__()`/`_e()`/`_n()`/`_x()` call
+  whose string contains placeholders (`%s`, `%d`, `%1$s`, …) must have a
+  `/* translators: */` comment on the line directly above, naming each
+  placeholder. Plugin-check / WPCS reports this as
+  `WordPress.WP.I18n.MissingTranslatorsComment` and treats it as an error.
+
+  ```php
+  /* translators: %1$s: old status, %2$s: new status. */
+  sprintf(__('Cambio de estado: %1$s → %2$s', 'documentate'), $old, $new);
+  ```
+
+- **Required:** every time you add, change, or remove a translatable string,
+  update `languages/documentate-es_ES.po` (and any other `.po` files present)
+  in the same commit. A change that touches `__()`/`_e()`/`_n()`/`_x()` and
+  ships without a `.po` update is incomplete.
 - Run `make check-untranslated` to verify.
+
+### PHPDoc
+
+- Every function and method needs an English PHPDoc block.
+- Align `@param`/`@return` tags so variable names line up, with at least one
+  space after the longest type name. WPCS / plugin-check enforces this as
+  `WordPress.Commenting.FunctionComment.SpacingAfterParamType`. Mago's
+  formatter does **not** fix it for you, so verify alignment by hand.
+
+  ```php
+  /**
+   * @param string $title  Document title.
+   * @param int    $count  Number of revisions.
+   * @param array  $extra  Optional metadata.
+   * @return WP_Post|WP_Error
+   */
+  ```
+
+### Complexity budget
+
+- Keep methods small. PHPMD enforces an **NPath complexity threshold of 500**
+  and a cyclomatic complexity threshold of 10 in CI; do not commit code that
+  exceeds them.
+- When a method approaches either threshold, extract pure helpers (input
+  parsing, authorization checks, response building) instead of disabling the
+  rule or raising the threshold.
+- A long sequence of `if`/ternary guards multiplies NPath quickly — split
+  them into focused private methods with descriptive names.
 
 ### Frontend
 

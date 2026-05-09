@@ -47,6 +47,15 @@ class DocumentsCPTRegistrationTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Test register_hooks adds default comment status filter.
+	 */
+	public function test_register_hooks_adds_default_comment_status_filter() {
+		$this->registration->register_hooks();
+
+		$this->assertIsInt( has_filter( 'get_default_comment_status', array( $this->registration, 'set_default_comment_status_open' ) ) );
+	}
+
+	/**
 	 * Test register_post_type registers CPT.
 	 */
 	public function test_register_post_type_creates_cpt() {
@@ -221,5 +230,24 @@ class DocumentsCPTRegistrationTest extends WP_UnitTestCase {
 
 		$taxonomies = get_object_taxonomies( 'documentate_document' );
 		$this->assertContains( 'category', $taxonomies );
+	}
+
+	/**
+	 * Test set_default_comment_status_open returns open for documentate_document.
+	 */
+	public function test_default_comment_status_open_for_cpt() {
+		$result = $this->registration->set_default_comment_status_open( 'closed', 'documentate_document', 'comment' );
+		$this->assertSame( 'open', $result );
+	}
+
+	/**
+	 * Test set_default_comment_status_open passes through for other post types.
+	 */
+	public function test_default_comment_status_unchanged_for_other_post_types() {
+		$result = $this->registration->set_default_comment_status_open( 'closed', 'post', 'comment' );
+		$this->assertSame( 'closed', $result );
+
+		$result = $this->registration->set_default_comment_status_open( 'open', 'page', 'comment' );
+		$this->assertSame( 'open', $result );
 	}
 }

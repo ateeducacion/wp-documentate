@@ -55,6 +55,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$this->assertNotFalse( has_action( 'init', array( $this->documents, 'register_post_type' ) ) );
 		$this->assertNotFalse( has_action( 'init', array( $this->documents, 'register_taxonomies' ) ) );
 		$this->assertNotFalse( has_filter( 'use_block_editor_for_post_type', array( $this->documents, 'disable_gutenberg' ) ) );
+		$this->assertNotFalse( has_filter( 'get_default_comment_status', array( $this->documents, 'set_default_comment_status_open' ) ) );
 		$this->assertNotFalse( has_action( 'add_meta_boxes', array( $this->documents, 'register_meta_boxes' ) ) );
 		$this->assertNotFalse( has_action( 'save_post_documentate_document', array( $this->documents, 'save_meta_boxes' ) ) );
 		$this->assertNotFalse( has_action( 'wp_save_post_revision', array( $this->documents, 'copy_meta_to_revision' ) ) );
@@ -185,6 +186,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 		$this->assertArrayHasKey( 'documentate_document', $wp_meta_boxes );
 		$this->assertArrayHasKey( 'documentate_sections', $wp_meta_boxes['documentate_document']['normal']['high'] );
+		$this->assertArrayHasKey( 'commentsdiv', $wp_meta_boxes['documentate_document']['normal']['core'] );
 		// Doc type metabox is now rendered inside the workflow Document Management metabox.
 		$this->assertFalse(
 			isset( $wp_meta_boxes['documentate_document']['side']['high']['documentate_doc_type'] ),
