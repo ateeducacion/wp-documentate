@@ -12,6 +12,7 @@
     "plugins":  [
         "https://downloads.wordpress.org/plugins/tinymce-advanced.zip",
         "https://downloads.wordpress.org/plugins/sql-buddy.zip",
-        "https://downloads.wordpress.org/plugins/user-switching.zip"
+        "https://downloads.wordpress.org/plugins/user-switching.zip",
+        "https://downloads.wordpress.org/plugin/wp-mail-logging.zip"
     ]
 }
