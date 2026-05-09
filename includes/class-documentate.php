@@ -154,6 +154,11 @@ class Documentate {
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-disable-comment-notifications.php';
 
 		/**
+		 * The class responsible for sending email notifications on document state changes.
+		 */
+		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-notifications.php';
+
+		/**
 		 * The class responsible for protecting comments on custom post types via the REST API.
 		 */
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-rest-comment-protection.php';
