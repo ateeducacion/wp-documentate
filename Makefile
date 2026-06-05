@@ -14,18 +14,33 @@ check-docker:
 install-requirements:
 	npm -g i @wordpress/env
 
-start-if-not-running:
-	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
-		echo "wp-env is NOT running. Starting (previous updating) containers..."; \
-		npx wp-env start --update; \
+# Ensure the environment is running. Used as a prerequisite by the test/check
+# targets: the probe keeps repeated `make test` runs fast, and `wp-env start`
+# is idempotent so re-running it is safe. Probes the development site (8888).
+start-if-not-running: check-docker
+	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
+		echo "wp-env is not running. Starting..."; \
+		npx wp-env start; \
 		npx wp-env run cli wp plugin activate documentate; \
 		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
 	else \
-		echo "wp-env is already running, skipping start."; \
+		echo "wp-env is already running."; \
 	fi
 
-# Bring up Docker containers
-up: check-docker start-if-not-running
+# Bring up the environment. Always calls `wp-env start` (idempotent), so it
+# (re)syncs the containers instead of skipping when something only looks alive.
+up: check-docker
+	npx wp-env start
+	-npx wp-env run cli wp plugin activate documentate
+	@echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."
+
+# Alias for `up` (some folks type `make start`).
+start: up
+
+# Update WordPress core/themes and (re)start the environment.
+wp-update: check-docker
+	npx wp-env start --update
+	-npx wp-env run cli wp plugin activate documentate
 
 flush-permalinks:
 	#npx wp-env run cli wp rewrite flush --hard
@@ -39,9 +54,13 @@ create-user:
 	fi
 	npx wp-env run cli sh -c 'wp user list --field=user_login | grep -q "^$(USER)$$" || wp user create $(USER) $(EMAIL) --role=$(ROLE) --user_pass=$(PASSWORD)'
 
-# Stop and remove Docker containers
+# Stop the environment (containers are stopped; data is preserved — use
+# `destroy` to remove containers and volumes entirely).
 down: check-docker
 	npx wp-env stop
+
+# Alias for `down` (some folks type `make stop`).
+stop: down
 
 # Clean the environments, the same that running "npx wp-env clean all"
 clean:
@@ -53,11 +72,14 @@ clean:
 
 
 
+# Remove the environment (containers and volumes).
 destroy:
 	npx wp-env destroy
 
-reset:
+# Reset the WordPress databases to a fresh install, then reactivate the plugin.
+reset: check-docker
 	npx wp-env reset
+	-npx wp-env run cli wp plugin activate documentate
 
 # Pass the wp plugin-check
 check-plugin-old: check-docker start-if-not-running
@@ -208,7 +230,7 @@ lint-no-tty: install-mago
 	./vendor/bin/mago lint
 
 
-# Update Composer dependencies
+# Update Composer and npm dependencies
 update: check-docker
 	composer update --no-cache --with-all-dependencies
 	npm update
@@ -253,12 +275,14 @@ help:
 	@echo "Available commands:"
 	@echo ""
 	@echo "General:"
-	@echo "  up                 - Bring up Docker containers in interactive mode"
-	@echo "  down               - Stop and remove Docker containers"
+	@echo "  up / start         - Start the WordPress environment (idempotent)"
+	@echo "  down / stop        - Stop the environment (data preserved)"
+	@echo "  wp-update          - Update WordPress core/themes and restart"
 	@echo "  logs               - Show the docker container logs"
 	@echo "  logs-test          - Show logs from test environment"
-	@echo "  clean              - Clean up WordPress environment"
-	@echo "  destroy            - Destroy the WordPress environment"
+	@echo "  clean              - Reset both environments' databases"
+	@echo "  reset              - Reset the development database to a fresh install"
+	@echo "  destroy            - Remove the environment (containers and volumes)"
 	@echo "  flush-permalinks   - Flush the created permalinks"
 	@echo "  create-user        - Create a WordPress user if it doesn't exist."
 	@echo "                       Usage: make create-user USER=<username> EMAIL=<email> ROLE=<role> PASSWORD=<password>"
@@ -300,7 +324,7 @@ help:
 	@echo "  mo                 - Generate .mo files from .po files"
 	@echo ""
 	@echo "Packaging & Updates:"
-	@echo "  update             - Update Composer dependencies"
+	@echo "  update             - Update Composer and npm dependencies"
 	@echo "  package            - Create ZIP package. Usage: make package VERSION=x.y.z"
 	@echo ""
 	@echo "  help               - Show this help message"
