@@ -43,6 +43,22 @@ make up
 
 This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`.
 
+## Testing
+
+The PHPUnit suite can run two ways:
+
+- **Docker (default):** `make test` — runs the suite inside the wp-env `tests-cli` container against MySQL.
+- **WordPress Playground (no Docker):** `make test-playground` — runs the same suite under [WordPress Playground](https://wordpress.github.io/wordpress-playground/) (WebAssembly PHP on SQLite). It reuses the WordPress instance Playground boots in-process (`WP_TESTS_SKIP_INSTALL`), so neither MySQL nor Docker is required.
+
+Both accept the same `FILE=` / `FILTER=` options:
+
+```bash
+make test-playground
+make test-playground FILE=tests/unit/includes/DocumentateTest.php
+```
+
+The Playground runner uses `@wp-playground/cli` plus the `wp-phpunit/wp-phpunit` dev dependency. A few integration tests that depend on MySQL-specific behaviour may still need the Docker runner.
+
 ## Ayuda contextual en campos dinámicos
 
 Las definiciones de campos del esquema pueden mostrar texto de ayuda **antes** o **después** del control:

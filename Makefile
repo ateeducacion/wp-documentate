@@ -115,6 +115,14 @@ test: start-docker-if-not-running
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
 	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
+# Run PHPUnit on WordPress Playground (WebAssembly, SQLite) — no Docker required.
+# Reuses Playground's in-process WP on SQLite (WP_TESTS_SKIP_INSTALL); same FILE / FILTER as `make test`.
+test-playground:
+	@CMD="/wordpress/wp-content/plugins/documentate/vendor/bin/phpunit -c /wordpress/wp-content/plugins/documentate/phpunit-playground.xml.dist"; \
+	if [ -n "$(FILE)" ]; then CMD="$$CMD /wordpress/wp-content/plugins/documentate/$(FILE)"; fi; \
+	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
+	cd "$${TMPDIR:-/tmp}" && npx --yes @wp-playground/cli@latest php --mount="$(CURDIR):/wordpress/wp-content/plugins/documentate" -- $$CMD --colors=always
+
 # Run document generation tests only
 test-generation: start-docker-if-not-running
 	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
@@ -342,6 +350,7 @@ help:
 	@echo "  test               - Run PHPUnit tests (Docker, port 8889)"
 	@echo "                       FILTER=<pattern> (run tests matching the pattern)"
 	@echo "                       FILE=<path>      (run tests in specific file)"
+	@echo "  test-playground    - Run PHPUnit on Playground (WASM/SQLite, no Docker). Same FILE/FILTER."
 	@echo "  test-generation    - Run document generation tests only (Docker)"
 	@echo "  test-coverage      - Run PHPUnit with coverage (Docker, requires --xdebug=coverage)"
 	@echo ""
