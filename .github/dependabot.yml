@@ -29,4 +29,15 @@ updates:
       prefix: "chore"
       include: "scope"
     open-pull-requests-limit: 5
+    # These two packages must stay below the versions where @wordpress switched
+    # their package "exports" to TypeScript source (./src/index.ts), which the
+    # Playwright runner cannot load under node_modules and breaks the E2E job:
+    #   @wordpress/e2e-test-utils-playwright >= 1.47.0
+    #   @wordpress/scripts >= 32.3.0 (depends on e2e-test-utils >= 1.47.0)
+    # Remove these ignores once upstream ships a compiled (CJS) entry point again.
+    ignore:
+      - dependency-name: "@wordpress/e2e-test-utils-playwright"
+        versions: [">=1.47.0"]
+      - dependency-name: "@wordpress/scripts"
+        versions: [">=32.3.0"]
 
