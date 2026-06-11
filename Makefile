@@ -27,31 +27,43 @@ install-requirements:
 # The Playground (WASM) runtime runs PHP inside Node and needs the native
 # fs-ext module, which only ships prebuilt binaries for certain Node majors.
 # Newer Node (e.g. 26) has no prebuilt and dies with a cryptic
-# "Failed to load fs-ext native module" error, so fail fast with guidance.
-# Self-updating: asks the package's own loader whether a usable binary exists,
-# and stays quiet when node_modules isn't installed yet.
-check-node-playground:
-	@node -e "let m;try{m=require('fs-ext-extra-prebuilt/load-prebuilt.js')}catch(e){process.exit(0)}process.exit(m.loadNativeModule()?0:1)" 2>/dev/null || { \
-		echo ""; \
-		echo "✖ Node $$(node -v) can't run the Playground (WASM) runtime:"; \
-		echo "  the native fs-ext module has no prebuilt binary for it."; \
-		echo "  Playground needs Node 22 (see .nvmrc). Options:"; \
-		echo "    • nvm / fnm:  nvm use   (or: fnm use)   then re-run make"; \
-		echo "    • Homebrew:   PATH=\"/opt/homebrew/opt/node@22/bin:\$$PATH\" make up"; \
-		echo "  Docker targets (make up-docker, make test) work on any Node."; \
-		echo ""; \
-		exit 1; \
-	}
+# "Failed to load fs-ext native module" error. So before starting we pick a
+# Node that works (the current one if it can, otherwise a Homebrew node@22 /
+# node@20), and only fail — with guidance — if none is found. The probe asks
+# the package's own loader, so it self-updates once Node-26 prebuilts ship.
+PLAYGROUND_NODE_PROBE = node -e "let m;try{m=require('fs-ext-extra-prebuilt/load-prebuilt.js')}catch(e){process.exit(0)}process.exit(m.loadNativeModule()?0:1)"
 
 start-if-not-running:
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
-		$(MAKE) --no-print-directory check-node-playground; \
+		if ! $(PLAYGROUND_NODE_PROBE) >/dev/null 2>&1; then \
+			BIN=""; \
+			for d in /opt/homebrew/opt/node@22/bin /usr/local/opt/node@22/bin "$$(brew --prefix node@22 2>/dev/null)/bin" /opt/homebrew/opt/node@20/bin /usr/local/opt/node@20/bin; do \
+				[ -x "$$d/node" ] && BIN="$$d" && break; \
+			done; \
+			if [ -z "$$BIN" ]; then \
+				echo ""; \
+				echo "✖ Node $$(node -v) can't run the Playground (WASM) runtime and no"; \
+				echo "  compatible Node was found. Install one (brew install node@22) or"; \
+				echo "  use nvm/fnm (see .nvmrc): nvm use. Then re-run make up."; \
+				echo "  Docker targets (make up-docker, make test) work on any Node."; \
+				echo ""; \
+				exit 1; \
+			fi; \
+			export PATH="$$BIN:$$PATH"; \
+			echo "Using Playground-compatible Node $$(node -v) from $$BIN."; \
+		fi; \
 		echo "Playground is NOT running. Starting..."; \
 		$(WP_ENV) start --runtime=playground --update; \
 		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
 	else \
 		echo "Playground is already running on port 8888, skipping start."; \
 	fi
+
+# Diagnostic: report whether the current Node can run the Playground runtime.
+check-node-playground:
+	@$(PLAYGROUND_NODE_PROBE) >/dev/null 2>&1 \
+		&& echo "✓ Node $$(node -v) can run the Playground (WASM) runtime." \
+		|| { echo "✖ Node $$(node -v) cannot run Playground; use Node 22 (see .nvmrc)."; exit 1; }
 
 # Bring up Playground (no Docker required)
 up: start-if-not-running
