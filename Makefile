@@ -24,8 +24,28 @@ install-requirements:
 
 # ─── Playground (port 8888, no Docker) ───────────────────────────────────────
 
+# The Playground (WASM) runtime runs PHP inside Node and needs the native
+# fs-ext module, which only ships prebuilt binaries for certain Node majors.
+# Newer Node (e.g. 26) has no prebuilt and dies with a cryptic
+# "Failed to load fs-ext native module" error, so fail fast with guidance.
+# Self-updating: asks the package's own loader whether a usable binary exists,
+# and stays quiet when node_modules isn't installed yet.
+check-node-playground:
+	@node -e "let m;try{m=require('fs-ext-extra-prebuilt/load-prebuilt.js')}catch(e){process.exit(0)}process.exit(m.loadNativeModule()?0:1)" 2>/dev/null || { \
+		echo ""; \
+		echo "✖ Node $$(node -v) can't run the Playground (WASM) runtime:"; \
+		echo "  the native fs-ext module has no prebuilt binary for it."; \
+		echo "  Playground needs Node 22 (see .nvmrc). Options:"; \
+		echo "    • nvm / fnm:  nvm use   (or: fnm use)   then re-run make"; \
+		echo "    • Homebrew:   PATH=\"/opt/homebrew/opt/node@22/bin:\$$PATH\" make up"; \
+		echo "  Docker targets (make up-docker, make test) work on any Node."; \
+		echo ""; \
+		exit 1; \
+	}
+
 start-if-not-running:
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
+		$(MAKE) --no-print-directory check-node-playground; \
 		echo "Playground is NOT running. Starting..."; \
 		$(WP_ENV) start --runtime=playground --update; \
 		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
