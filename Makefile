@@ -183,20 +183,22 @@ check-plugin: check-docker start-docker-if-not-running
 	# Install plugin-check if needed (don't fail if already active)
 	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin install plugin-check --activate --color || true
 
-	# Run plugin check with colored output, capture exit code, and fail if needed
+	# Run plugin check; wp-env run always exits 0, so we grep the output for ERRORs.
 	@echo "Running WordPress Plugin Check..."
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin check documentate \
+	@TMPFILE=$$(mktemp); \
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
-		--color; \
-	EXIT_CODE=$$?; \
+		--color 2>&1 | tee $$TMPFILE; \
+	ERRORS=$$(sed 's/\x1B\[[0-9;]*[mK]//g' $$TMPFILE | grep -cE '\bERROR\b' || true); \
+	rm -f $$TMPFILE; \
 	echo ""; \
-	if [ $$EXIT_CODE -eq 0 ]; then \
-		echo "Plugin Check: ✓ No errors found."; \
+	if [ "$$ERRORS" -gt 0 ]; then \
+		echo "Plugin Check: ✗ $$ERRORS error(s) found."; \
+		exit 1; \
 	else \
-		echo "Plugin Check: ✗ Errors found (exit code: $$EXIT_CODE)."; \
-		exit $$EXIT_CODE; \
+		echo "Plugin Check: ✓ No errors found."; \
 	fi
 
 # ─── Linting & Code Quality ──────────────────────────────────────────────────

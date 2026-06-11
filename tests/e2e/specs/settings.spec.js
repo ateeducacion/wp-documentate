@@ -7,6 +7,9 @@
 const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Settings Page', () => {
+	// Settings modify shared state — run serially to avoid conflicts with parallel workers.
+	test.describe.configure( { mode: 'serial' } );
+
 	test( 'can navigate to settings page', async ( { settingsPage } ) => {
 		await settingsPage.navigate();
 

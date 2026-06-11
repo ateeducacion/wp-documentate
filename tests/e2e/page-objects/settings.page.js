@@ -165,10 +165,7 @@ class SettingsPage {
 	 */
 	async save() {
 		await this.saveButton.click();
-		await this.page.waitForSelector(
-			'.notice-success, .updated, #setting-error-settings_updated',
-			{ timeout: 10000 }
-		);
+		await this.successNotice.first().waitFor( { state: 'visible', timeout: 10000 } );
 	}
 
 	/**

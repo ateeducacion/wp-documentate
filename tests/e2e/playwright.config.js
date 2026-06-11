@@ -23,7 +23,10 @@ const timeoutMultiplier = parseInt( process.env.TIMEOUT_MULTIPLIER || '1', 10 );
 module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'github' ] ] : [ [ 'list' ] ],
 	forbidOnly: !! process.env.CI,
-	workers: 1,
+	fullyParallel: false,
+	workers: process.env.CI
+		? '100%'
+		: parseInt( process.env.PLAYWRIGHT_WORKERS || '', 10 ) || 2,
 	retries: process.env.CI ? 2 : 0,
 	timeout:
 		( parseInt( process.env.TIMEOUT || '', 10 ) || 100_000 ) *

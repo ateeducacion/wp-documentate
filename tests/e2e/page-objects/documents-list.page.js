@@ -189,7 +189,7 @@ class DocumentsListPage {
 		await trashAction.click();
 
 		// Wait for redirect or page update
-		await this.page.waitForLoadState( 'networkidle' );
+		await this.page.waitForLoadState( 'domcontentloaded' );
 	}
 
 	/**

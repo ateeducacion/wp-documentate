@@ -54,3 +54,4 @@ artifacts/
 # Ignore Sass source maps
 public/style/workarea/*.css.maptest-results/
 test-results/*
+.omc/

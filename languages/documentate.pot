@@ -162,10 +162,19 @@ msgstr ""
 msgid "Closing"
 msgstr ""
 
-msgid "Select file"
+#. translators: Title of the WordPress Media Library frame for selecting attachment files
+msgid "Select files"
 msgstr ""
 
+#. translators: Button label in the Media Library to confirm selection of attachment files
+msgid "Add to document"
+msgstr ""
+
+#. translators: Tooltip for the remove attachment button
 msgid "Remove"
+msgstr ""
+
+msgid "Select file"
 msgstr ""
 
 msgid "Detected fields"
@@ -285,6 +294,9 @@ msgstr ""
 msgid "Validation"
 msgstr ""
 
+msgid "(mandatory field)"
+msgstr ""
+
 msgid "(regex) and"
 msgstr ""
 
@@ -355,6 +367,21 @@ msgid "Quick examples:"
 msgstr ""
 
 msgid "-- Table row:"
+msgstr ""
+
+msgid "Digital signature (AutoFirma):"
+msgstr ""
+
+msgid "add [sign] to enable the \"Sign and Download\" button. Optional parameters x and y set the signature position in PDF points from the bottom-left corner of the page. Use page to specify the page number (-1 = last page)."
+msgstr ""
+
+msgid "default position (bottom-left, last page)"
+msgstr ""
+
+msgid "custom position on last page"
+msgstr ""
+
+msgid "custom position on page 2"
 msgstr ""
 
 msgid "Tip: in ODT/DOCX the text can be fragmented internally. To ensure each marker"
@@ -486,9 +513,16 @@ msgstr ""
 msgid "Preview"
 msgstr ""
 
-#. translators: %s: converter engine label.
-#, php-format
-msgid "Additional conversions are performed with %s."
+msgid "Download PDF"
+msgstr ""
+
+msgid "Sign and Download"
+msgstr ""
+
+msgid "ODT (Source)"
+msgstr ""
+
+msgid "Other download formats:"
 msgstr ""
 
 msgid "Could not determine the generated file."
@@ -524,6 +558,18 @@ msgid "Converting in browser..."
 msgstr ""
 
 msgid "Error loading LibreOffice."
+msgstr ""
+
+msgid "You have unsaved changes. Do you want to generate the document with the last saved version?"
+msgstr ""
+
+msgid "Please select your certificate in AutoFirma..."
+msgstr ""
+
+msgid "AutoFirma is not installed or could not be started."
+msgstr ""
+
+msgid "Download unsigned PDF"
 msgstr ""
 
 msgid "Configure the Collabora Online service base URL in settings."
@@ -644,15 +690,12 @@ msgstr ""
 msgid "Second paragraph with %1$s, %2$s and %3$s."
 msgstr ""
 
-#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
 msgid "bold"
 msgstr ""
 
-#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
 msgid "italics"
 msgstr ""
 
-#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
 msgid "underline"
 msgstr ""
 
@@ -707,10 +750,107 @@ msgstr ""
 msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
 msgstr ""
 
+msgid "Pendiente de revisión"
+msgstr ""
+
+msgid "Documento enviado a revisión"
+msgstr ""
+
+msgid "Documento publicado"
+msgstr ""
+
+msgid "Documento devuelto a borrador"
+msgstr ""
+
+msgid "Documento archivado"
+msgstr ""
+
+msgid "Documento enviado a la papelera"
+msgstr ""
+
+msgid "Cambio de estado del documento"
+msgstr ""
+
+msgid "Borrador"
+msgstr ""
+
+msgid "Publicado"
+msgstr ""
+
+msgid "Archivado"
+msgstr ""
+
+msgid "Papelera"
+msgstr ""
+
+msgid "Borrador inicial"
+msgstr ""
+
+msgid "Nuevo"
+msgstr ""
+
+msgid "Sistema"
+msgstr ""
+
+#. translators: %s: document title
+#, php-format
+msgid "Documento: %s"
+msgstr ""
+
+#. translators: 1: previous status, 2: new status
+#, php-format
+msgid "Cambio de estado: %1$s → %2$s"
+msgstr ""
+
+#. translators: %s: post status label
+#, php-format
+msgid "Estado: %s"
+msgstr ""
+
+#. translators: %s: name of the user who made the change
+#, php-format
+msgid "Realizado por: %s"
+msgstr ""
+
+#. translators: %s: edit URL of the document
+#, php-format
+msgid "Enlace al documento: %s"
+msgstr ""
+
+msgid "Cuando uno de mis documentos se envía a revisión."
+msgstr ""
+
+msgid "Cuando uno de mis documentos se publica."
+msgstr ""
+
+msgid "Otros cambios de estado de mis documentos (devueltos a borrador, archivados, etc.)."
+msgstr ""
+
+msgid "Cuando un documento de otra persona pasa a revisión (solo administradores)."
+msgstr ""
+
+msgid "Notificaciones de Documentate"
+msgstr ""
+
+msgid "Notificaciones por correo"
+msgstr ""
+
+msgid "Selecciona los avisos que quieres recibir por correo electrónico."
+msgstr ""
+
+msgid "Could not open the archive to sanitize HTML."
+msgstr ""
+
 msgid "OpenTBS is not available."
 msgstr ""
 
 msgid "Template not found."
+msgstr ""
+
+msgid "Template pre-processing failed (visibility blocks)."
+msgstr ""
+
+msgid "Template pre-processing failed (placeholder normalization)."
 msgstr ""
 
 msgid "ZipArchive is not available for rich text formatting."
@@ -814,6 +954,9 @@ msgstr ""
 msgid "This document is archived and read-only. Only an administrator can unarchive it."
 msgstr ""
 
+msgid "This document is pending review and read-only. An administrator will review it."
+msgstr ""
+
 msgid "Change status to Draft to enable editing."
 msgstr ""
 
@@ -826,37 +969,40 @@ msgstr ""
 msgid "Editors can only save as Draft or Pending Review."
 msgstr ""
 
-msgid "Editors can save as Draft or submit for Pending Review."
+msgid "Are you sure you want to send this document to review? Once submitted, you will not be able to edit it until an administrator returns it to draft."
 msgstr ""
 
-msgid "Document is published. Change to Draft to enable editing."
+msgid "Document Management"
 msgstr ""
 
-msgid "Document is published and locked. Contact an administrator to edit."
+msgid "Save"
 msgstr ""
 
-msgid "Workflow Status"
+msgid "No document types defined. Create one in Document Types."
 msgstr ""
 
-msgid "New"
+msgid "Choose the type when creating the document. It cannot be changed later."
+msgstr ""
+
+msgid "Selected type:"
+msgstr ""
+
+msgid "Select a type…"
 msgstr ""
 
 msgid "Draft"
 msgstr ""
 
-msgid "Pending Review"
+msgid "In Review"
 msgstr ""
 
-msgid "Published"
-msgstr ""
-
-msgid "Archived"
+msgid "Approved"
 msgstr ""
 
 msgid "No document type selected. Must assign a type before publishing."
 msgstr ""
 
-msgid "Document is read-only. Change status to Draft to edit."
+msgid "Document is read-only. Return to Review to enable editing."
 msgstr ""
 
 msgid "Document is locked. Contact an administrator."
@@ -868,29 +1014,57 @@ msgstr ""
 msgid "Document is archived. Contact an administrator to unarchive."
 msgstr ""
 
+msgid "Document is pending review. Approve or return to draft."
+msgstr ""
+
+msgid "Document is pending review. An administrator will review it."
+msgstr ""
+
 msgid "Submit for Pending Review when ready. An administrator will publish."
 msgstr ""
 
-msgid "Archive Document"
+msgid "Save Draft"
 msgstr ""
 
-msgid "Unarchive Document"
+msgid "Send to Review"
 msgstr ""
 
-msgid "Workflow:"
+msgid "Document is pending review. No actions available."
 msgstr ""
 
-msgid "Draft - Work in progress"
+msgid "Return to Draft"
 msgstr ""
 
-msgid "Pending - Ready for review"
+msgid "Save Review"
 msgstr ""
 
-msgid "Published - Final (locked)"
+msgid "Approve & Publish"
 msgstr ""
 
-msgid "Archived - Historical record"
+msgid "Document is published and locked."
 msgstr ""
+
+msgid "Return to Review"
+msgstr ""
+
+msgid "Document is archived and locked."
+msgstr ""
+
+msgid "Move to Trash"
+msgstr ""
+
+msgid "You do not have permission to restore revisions for this document."
+msgstr ""
+
+msgid "Revision Restore Blocked"
+msgstr ""
+
+#. translators: %d: Number of revisions
+#, php-format
+msgid "%d Revision"
+msgid_plural "%d Revisions"
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
 msgstr ""
@@ -971,16 +1145,7 @@ msgstr ""
 msgid "Document Sections"
 msgstr ""
 
-msgid "No document types defined. Create one in Document Types."
-msgstr ""
-
-msgid "Choose the type when creating the document. It cannot be changed later."
-msgstr ""
-
-msgid "Selected type:"
-msgstr ""
-
-msgid "Select a type…"
+msgid "Author"
 msgstr ""
 
 msgid "Configure a document type with fields to edit its content."
@@ -1018,6 +1183,9 @@ msgstr ""
 msgid "All categories"
 msgstr ""
 
+msgid "Archived"
+msgstr ""
+
 msgid "Category"
 msgstr ""
 
@@ -1033,6 +1201,12 @@ msgstr ""
 msgid "The template file could not be opened."
 msgstr ""
 
+msgid "Attachments"
+msgstr ""
+
+msgid "Add files"
+msgstr ""
+
 msgid "Document Metadata"
 msgstr ""
 
@@ -1040,9 +1214,6 @@ msgid "Title"
 msgstr ""
 
 msgid "The subject is derived from the post title."
-msgstr ""
-
-msgid "Author"
 msgstr ""
 
 msgid "Keywords"

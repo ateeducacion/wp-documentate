@@ -40,7 +40,7 @@ class UninstallTest extends WP_UnitTestCase {
 		$content = file_get_contents( $file );
 
 		// Verify the guard clause pattern.
-		$this->assertStringContainsString( "if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) )", $content );
+		$this->assertStringContainsString( "if (!defined('WP_UNINSTALL_PLUGIN'))", $content );
 	}
 
 	/**

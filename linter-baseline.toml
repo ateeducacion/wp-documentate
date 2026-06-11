@@ -25,12 +25,6 @@ message = "Nested ternary expressions are confusing due to PHP's operator associ
 count = 1
 
 [[issues]]
-file = "includes/class-documentate-admin-helper.php"
-code = "no-sprintf-concat"
-message = "String concatenation with `sprintf` can be simplified."
-count = 1
-
-[[issues]]
 file = "includes/class-documentate-collabora-converter.php"
 code = "str-contains"
 message = "Consider replacing `strpos` with `str_contains` for improved readability and intent clarity."

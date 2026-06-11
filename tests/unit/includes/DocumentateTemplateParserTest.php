@@ -598,4 +598,81 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 		$result = $method->invoke( null, 'my_field', array( 'frm' => 'd/m/Y' ) );
 		$this->assertSame( 'date', $result );
 	}
+
+	/**
+	 * Test template_has_sign_placeholder returns false for missing file.
+	 */
+	public function test_template_has_sign_placeholder_missing_file() {
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( '/nonexistent/path/file.odt' );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns false for empty path.
+	 */
+	public function test_template_has_sign_placeholder_empty_path() {
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( '' );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns false for template without [sign].
+	 */
+	public function test_template_has_sign_placeholder_without_sign() {
+		$template_path = $this->fixtures_path . 'resolucion.odt';
+
+		if ( ! file_exists( $template_path ) ) {
+			$this->markTestSkipped( 'Test fixture resolucion.odt not found.' );
+		}
+
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( $template_path );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns true for template with [sign].
+	 */
+	public function test_template_has_sign_placeholder_with_sign() {
+		$template_path = $this->fixtures_path . 'test-sign-placeholder.odt';
+
+		if ( ! file_exists( $template_path ) ) {
+			$this->markTestSkipped( 'Test fixture test-sign-placeholder.odt not found.' );
+		}
+
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( $template_path );
+		$this->assertTrue( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder is case-insensitive for [SIGN].
+	 */
+	public function test_template_has_sign_placeholder_case_insensitive() {
+		// Create a temporary ODT with [SIGN] in uppercase.
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			$this->markTestSkipped( 'ZipArchive not available.' );
+		}
+
+		$temp_path = sys_get_temp_dir() . '/test_sign_upper_' . uniqid() . '.odt';
+		$zip       = new ZipArchive();
+		if ( true !== $zip->open( $temp_path, ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
+			$this->markTestSkipped( 'Could not create temporary ODT.' );
+		}
+
+		$content = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+			. 'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+			. '<office:body><office:text>'
+			. '<text:p>[SIGN]</text:p>'
+			. '</office:text></office:body>'
+			. '</document-content>';
+		$zip->addFromString( 'content.xml', $content );
+		$zip->addFromString( 'mimetype', 'application/vnd.oasis.opendocument.text' );
+		$zip->close();
+
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( $temp_path );
+
+		unlink( $temp_path );
+
+		$this->assertTrue( $result );
+	}
 }

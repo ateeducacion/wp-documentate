@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Template Access Restriction for Documentate.
  *
@@ -10,7 +11,7 @@
  * @subpackage Documentate/includes
  */
 
-defined( 'ABSPATH' ) || exit;
+defined('ABSPATH') || exit();
 
 /**
  * Class Documentate_Template_Access
@@ -20,7 +21,6 @@ defined( 'ABSPATH' ) || exit;
  * - Removes the taxonomy submenu for non-admins.
  */
 class Documentate_Template_Access {
-
 	/**
 	 * The taxonomy slug for document types (templates).
 	 *
@@ -39,8 +39,8 @@ class Documentate_Template_Access {
 	 * Register hooks.
 	 */
 	public function __construct() {
-		add_action( 'admin_init', array( $this, 'block_non_admin_access' ) );
-		add_action( 'admin_menu', array( $this, 'remove_menu_for_non_admins' ), 999 );
+		add_action('admin_init', array($this, 'block_non_admin_access'));
+		add_action('admin_menu', array($this, 'remove_menu_for_non_admins'), 999);
 	}
 
 	/**
@@ -52,12 +52,12 @@ class Documentate_Template_Access {
 	 * @return void
 	 */
 	public function block_non_admin_access() {
-		if ( current_user_can( self::REQUIRED_CAP ) ) {
+		if (current_user_can(self::REQUIRED_CAP)) {
 			return;
 		}
 
 		$screen = get_current_screen();
-		if ( ! $screen ) {
+		if (!$screen) {
 			return;
 		}
 
@@ -68,13 +68,13 @@ class Documentate_Template_Access {
 		);
 
 		// For edit-tags and term screens, also check the taxonomy param.
-		$is_taxonomy_screen = isset( $_GET['taxonomy'] ) && self::TAXONOMY === sanitize_key( wp_unslash( $_GET['taxonomy'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$is_taxonomy_screen = isset($_GET['taxonomy']) && self::TAXONOMY === sanitize_key(wp_unslash($_GET['taxonomy'])); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		if ( in_array( $screen->id, $blocked_ids, true ) || $is_taxonomy_screen ) {
+		if (in_array($screen->id, $blocked_ids, true) || $is_taxonomy_screen) {
 			wp_die(
-				esc_html__( 'You do not have permission to manage templates.', 'documentate' ),
-				esc_html__( 'Access Denied', 'documentate' ),
-				array( 'response' => 403 )
+				esc_html__('You do not have permission to manage templates.', 'documentate'),
+				esc_html__('Access Denied', 'documentate'),
+				array('response' => 403),
 			);
 		}
 	}
@@ -85,13 +85,13 @@ class Documentate_Template_Access {
 	 * @return void
 	 */
 	public function remove_menu_for_non_admins() {
-		if ( current_user_can( self::REQUIRED_CAP ) ) {
+		if (current_user_can(self::REQUIRED_CAP)) {
 			return;
 		}
 
 		remove_submenu_page(
 			'edit.php?post_type=documentate_document',
-			'edit-tags.php?taxonomy=' . self::TAXONOMY . '&post_type=documentate_document'
+			'edit-tags.php?taxonomy=' . self::TAXONOMY . '&post_type=documentate_document',
 		);
 	}
 }

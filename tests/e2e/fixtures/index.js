@@ -45,10 +45,9 @@ const documentHelpers = {
 		await page.waitForLoadState( 'domcontentloaded' );
 
 		// Wait for custom title textarea
-		await page.waitForSelector( '#documentate_title_textarea', {
-			state: 'visible',
-			timeout: 5000,
-		} ).catch( () => {} );
+		await page.locator( '#documentate_title_textarea' )
+			.waitFor( { state: 'visible', timeout: 5000 } )
+			.catch( () => {} );
 
 		// Fill title
 		const customTitle = page.locator( '#documentate_title_textarea' );
@@ -62,15 +61,32 @@ const documentHelpers = {
 
 		// Save or publish based on status
 		if ( status === 'publish' ) {
-			await page.locator( '#publish' ).click();
+			// Follow the workflow: Send to Review → Approve & Publish.
+			const sendReviewBtn = page.locator( '#documentate-send-review' );
+			const approveBtn = page.locator( '#documentate-approve-publish' );
+
+			if ( await approveBtn.isVisible().catch( () => false ) ) {
+				await approveBtn.click();
+			} else if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+				await sendReviewBtn.click();
+				await page.locator( '#message.updated, .notice-success' )
+					.first()
+					.waitFor( { state: 'visible', timeout: 10000 } )
+					.catch( () => {} );
+				await approveBtn.click();
+			}
 		} else {
-			await page.locator( '#save-post' ).click();
+			const draftBtn = page.locator( '#documentate-save-draft' ).or(
+				page.getByRole( 'button', { name: /save draft|guardar borrador/i } )
+			);
+			await draftBtn.click();
 		}
 
 		// Wait for save to complete
-		await page.waitForSelector( '#message.updated, .notice-success', {
-			timeout: 10000,
-		} ).catch( () => {} );
+		await page.locator( '#message.updated, .notice-success' )
+			.first()
+			.waitFor( { state: 'visible', timeout: 10000 } )
+			.catch( () => {} );
 
 		// Get post ID from URL
 		const url = page.url();
