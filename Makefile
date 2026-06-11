@@ -66,10 +66,10 @@ check-node-playground:
 		|| { echo "✖ Node $$(node -v) cannot run Playground; use Node 22 (see .nvmrc)."; exit 1; }
 
 # Bring up Playground (no Docker required)
-up: start-if-not-running
+up-playground: start-if-not-running
 
 # Stop Playground
-down:
+down-playground:
 	$(WP_ENV) stop
 
 # ─── Docker (port 8889, requires Docker) ─────────────────────────────────────
@@ -84,12 +84,14 @@ start-docker-if-not-running: check-docker
 		echo "Docker env is already running on port 8889, skipping start."; \
 	fi
 
-# Bring up Docker containers
-up-docker: check-docker start-docker-if-not-running
+# Bring up Docker containers (this is the default `up`)
+up: check-docker start-docker-if-not-running
+up-docker: up
 
-# Stop Docker containers
-down-docker: check-docker
+# Stop Docker containers (this is the default `down`)
+down: check-docker
 	$(WP_ENV) stop $(DOCKER_CONFIG)
+down-docker: down
 
 # ─── Clean / Destroy ─────────────────────────────────────────────────────────
 
@@ -172,17 +174,20 @@ setup-e2e-env:
 	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
 	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
+# Run E2E tests against Docker (port 8889) — the default.
+test-e2e: start-docker-if-not-running setup-e2e-env
+	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
+
+# Alias kept for CI / back-compat.
+test-e2e-docker: test-e2e
+
 # Run E2E tests against Playground (port 8888, no Docker)
-test-e2e: start-if-not-running
+test-e2e-playground: start-if-not-running
 	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- $(ARGS)
 
 # Run E2E tests with visual UI against Playground (port 8888)
 test-e2e-visual: start-if-not-running
 	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- --ui
-
-# Run E2E tests against Docker (port 8889)
-test-e2e-docker: start-docker-if-not-running setup-e2e-env
-	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
 
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
@@ -324,10 +329,10 @@ help:
 	@echo "Available commands:"
 	@echo ""
 	@echo "Environments:"
-	@echo "  up                 - Start Playground on port 8888 (no Docker needed)"
-	@echo "  down               - Stop Playground"
-	@echo "  up-docker          - Start Docker environment on port 8889"
-	@echo "  down-docker        - Stop Docker environment"
+	@echo "  up / up-docker     - Start the Docker environment on port 8889"
+	@echo "  down / down-docker - Stop the Docker environment"
+	@echo "  up-playground      - Start Playground on port 8888 (no Docker needed)"
+	@echo "  down-playground    - Stop Playground"
 	@echo "  logs               - Show Docker container logs"
 	@echo "  logs-test          - Show logs from Docker test environment"
 	@echo "  clean              - Reset Docker environment"
@@ -354,9 +359,9 @@ help:
 	@echo "  test-generation    - Run document generation tests only (Docker)"
 	@echo "  test-coverage      - Run PHPUnit with coverage (Docker, requires --xdebug=coverage)"
 	@echo ""
-	@echo "  test-e2e           - Run E2E tests against Playground (port 8888)"
+	@echo "  test-e2e           - Run E2E tests against Docker (port 8889)"
+	@echo "  test-e2e-playground- Run E2E tests against Playground (port 8888)"
 	@echo "  test-e2e-visual    - Run E2E tests with visual UI (Playground)"
-	@echo "  test-e2e-docker    - Run E2E tests against Docker (port 8889)"
 	@echo ""
 	@echo "Translations:"
 	@echo "  pot                - Generate a .pot file for translations"
