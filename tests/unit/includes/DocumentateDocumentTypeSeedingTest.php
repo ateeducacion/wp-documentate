@@ -23,6 +23,7 @@ class DocumentateDocumentTypeSeedingTest extends WP_UnitTestCase {
         $this->delete_term_if_exists( 'documentate-demo-wp-documentate-docx' );
 
         Documentate_Demo_Data::ensure_default_media();
+        update_option('documentate_seed_demo_documents', true);
         Documentate_Demo_Data::maybe_seed_default_doc_types();
 
         $storage = new SchemaStorage();

@@ -425,9 +425,17 @@ test.describe( 'Document Preview and Download', () => {
 			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
-			// Modal should have spinner
+			// Modal should render its loading UI, but spinner may be hidden if it
+			// transitions immediately into the documented error state.
 			const spinner = modal.locator( '.documentate-loading-modal__spinner' );
-			await expect( spinner ).toBeVisible();
+			await expect( spinner ).toHaveCount( 1 );
+
+			if ( await modal.evaluate( ( element ) => element.classList.contains( 'is-error' ) ) ) {
+				await expect( spinner ).not.toBeVisible();
+				await expect( modal.locator( '.documentate-loading-modal__close' ) ).toBeVisible();
+			} else {
+				await expect( spinner ).toBeVisible();
+			}
 		} );
 	} );
 } );

@@ -52,7 +52,7 @@ jobs:
           echo "BASE64_BLUEPRINT=$(base64 -w 0 blueprint.json)" >> $GITHUB_ENV
 
       - name: Create Playground deployment
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const playgroundUrl = `https://playground.wordpress.net/#${process.env.BASE64_BLUEPRINT}`;
@@ -188,7 +188,7 @@ jobs:
           retention-days: 30
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: artifacts/coverage/clover.xml

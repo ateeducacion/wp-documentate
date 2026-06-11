@@ -172,6 +172,52 @@ class DocumentsFieldValidatorTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Test get_field_before_description extracts supported aliases.
+	 */
+	public function test_get_field_before_description() {
+		$raw_field = array( 'before_description' => 'Read this first' );
+		$result    = Documents_Field_Validator::get_field_before_description( $raw_field );
+		$this->assertSame( 'Read this first', $result );
+
+		$raw_field = array(
+			'parameters' => array(
+				'pre-description' => 'Before help text',
+			),
+		);
+		$result    = Documents_Field_Validator::get_field_before_description( $raw_field );
+		$this->assertSame( 'Before help text', $result );
+
+		$result = Documents_Field_Validator::get_field_before_description( array() );
+		$this->assertSame( '', $result );
+	}
+
+	/**
+	 * Test before description presentation helpers extract raw values.
+	 */
+	public function test_get_before_description_presentation_values() {
+		$raw_field = array(
+			'before_description_class' => 'notice-inline notice-warning',
+			'before_description_style' => 'font-weight:600;',
+			'parameters'               => array(
+				'before_description_color' => '#b32d2e',
+			),
+		);
+
+		$this->assertSame(
+			'notice-inline notice-warning',
+			Documents_Field_Validator::get_field_before_description_class( $raw_field )
+		);
+		$this->assertSame(
+			'font-weight:600;',
+			Documents_Field_Validator::get_field_before_description_style( $raw_field )
+		);
+		$this->assertSame(
+			'#b32d2e',
+			Documents_Field_Validator::get_field_before_description_color( $raw_field )
+		);
+	}
+
+	/**
 	 * Test get_field_title extracts title.
 	 */
 	public function test_get_field_title() {

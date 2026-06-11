@@ -141,6 +141,23 @@ class Documentate_Doctype_Help_Notice {
 		$markup .= esc_html("| [items.name;block=tbs:row;type='text'] | [items.qty;type='number'] |");
 		$markup .= '</pre>';
 
+		$markup .= '<p><strong>' . esc_html__('Digital signature (AutoFirma):', 'documentate') . '</strong> ';
+		$markup .=
+			esc_html__(
+				'add [sign] to enable the "Sign and Download" button. Optional parameters x and y set the signature position in PDF points from the bottom-left corner of the page. Use page to specify the page number (-1 = last page).',
+				'documentate',
+			) . '</p>';
+
+		$markup .= '<pre style="white-space:pre-wrap;">';
+		$markup .=
+			esc_html('[sign]                          -- ')
+			. esc_html__('default position (bottom-left, last page)', 'documentate')
+			. "\n";
+		$markup .=
+			esc_html('[sign;x=100;y=200]             -- ') . esc_html__('custom position on last page', 'documentate') . "\n";
+		$markup .= esc_html('[sign;x=50;y=80;page=2]        -- ') . esc_html__('custom position on page 2', 'documentate');
+		$markup .= '</pre>';
+
 		$markup .=
 			'<p>'
 			. esc_html__('Tip: in ODT/DOCX the text can be fragmented internally. To ensure each marker', 'documentate')

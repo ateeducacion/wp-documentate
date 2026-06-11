@@ -14,8 +14,12 @@
  * @subpackage Documentate/includes/custom-post-types
  */
 
+if (!defined('ABSPATH'))
+	exit();
+
 use Documentate\DocType\SchemaConverter;
 use Documentate\DocType\SchemaStorage;
+use Documentate\Documents\Documents_Comments_Handler;
 use Documentate\Documents\Documents_CPT_Registration;
 use Documentate\Documents\Documents_Field_Renderer;
 use Documentate\Documents\Documents_Field_Validator;
@@ -66,6 +70,7 @@ class Documentate_Documents {
 	public function __construct() {
 		$this->cpt_registration = new Documents_CPT_Registration();
 		$this->revision_handler = new Documents_Revision_Handler();
+		(new Documents_Comments_Handler())->register_hooks();
 		$this->define_hooks();
 	}
 
@@ -80,6 +85,7 @@ class Documentate_Documents {
 		add_action('init', array($this, 'register_post_type'));
 		add_action('init', array($this, 'register_taxonomies'));
 		add_filter('use_block_editor_for_post_type', array($this, 'disable_gutenberg'), 10, 2);
+		add_filter('get_default_comment_status', array($this, 'set_default_comment_status_open'), 10, 3);
 
 		// Meta boxes.
 		add_action('add_meta_boxes', array($this, 'register_meta_boxes'));
@@ -489,6 +495,18 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Set default comment status to open for documentate_document.
+	 *
+	 * @param string $status       Default comment status ('open' or 'closed').
+	 * @param string $post_type    Post type being queried.
+	 * @param string $comment_type Comment type.
+	 * @return string Modified default comment status.
+	 */
+	public function set_default_comment_status_open($status, $post_type, $comment_type) {
+		return $this->cpt_registration->set_default_comment_status_open($status, $post_type, $comment_type);
+	}
+
+	/**
 	 * Set custom placeholder for the title field.
 	 *
 	 * @param string  $placeholder Default placeholder text.
@@ -515,9 +533,13 @@ class Documentate_Documents {
 			'high',
 		);
 
+		if (post_type_supports('documentate_document', 'comments')) {
+			add_meta_box('commentsdiv', __('Comments', 'default'), 'post_comment_meta_box', 'documentate_document', 'normal', 'core');
+		}
+
 		// Move author metabox to side with low priority.
 		remove_meta_box('authordiv', 'documentate_document', 'normal');
-		add_meta_box('authordiv', __('Author'), 'post_author_meta_box', 'documentate_document', 'side', 'low');
+		add_meta_box('authordiv', __('Author', 'documentate'), 'post_author_meta_box', 'documentate_document', 'side', 'low');
 	}
 
 	/**
@@ -657,7 +679,8 @@ class Documentate_Documents {
 				}
 
 				// Mark repeater meta key as known so it does not appear under unknown fields.
-				$known_meta_keys[] = 'documentate_field_' . $slug;
+				$meta_key = 'documentate_field_' . $slug;
+				$known_meta_keys[] = $meta_key;
 
 				if (
 					isset($stored_fields[$slug])
@@ -671,6 +694,7 @@ class Documentate_Documents {
 					$items = array(array());
 				}
 
+				$before_description = $this->get_before_description_context($meta_key, $slug, $raw_field);
 				$description = $this->get_field_description($raw_field);
 				$validation = $this->get_field_validation_message($raw_field);
 
@@ -681,6 +705,7 @@ class Documentate_Documents {
 				}
 				echo '>' . esc_html($label) . '</label></th>';
 				echo '<td>';
+				$this->render_before_description($before_description);
 				$this->render_array_field($slug, $label, $item_schema, $items, $raw_repeater);
 				if ('' !== $description) {
 					echo '<p class="description">' . esc_html($description) . '</p>';
@@ -708,18 +733,12 @@ class Documentate_Documents {
 				$value = (string) $stored_fields[$slug]['value'];
 			}
 
+			$before_description = $this->get_before_description_context($meta_key, $slug, $raw_field);
 			$description = $this->get_field_description($raw_field);
 			$validation = $this->get_field_validation_message($raw_field);
 			$description_id = '' !== $description ? $meta_key . '-description' : '';
 			$validation_id = '' !== $validation ? $meta_key . '-validation' : '';
-			$describedby = array();
-
-			if ('' !== $description_id) {
-				$describedby[] = $description_id;
-			}
-			if ('' !== $validation_id) {
-				$describedby[] = $validation_id;
-			}
+			$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 
 			echo
 				'<tr class="documentate-field documentate-field-'
@@ -734,6 +753,7 @@ class Documentate_Documents {
 			}
 			echo '>' . esc_html($label) . '</label></th>';
 			echo '<td>';
+			$this->render_before_description($before_description);
 
 			if ('single' === $type) {
 				$this->render_single_input_control(
@@ -748,7 +768,7 @@ class Documentate_Documents {
 				);
 			} elseif ('rich' === $type) {
 				$is_locked = in_array($post->post_status, array('publish', 'archived'), true);
-				$this->render_rich_editor_control($meta_key, $value, $is_locked, $raw_field);
+				$this->render_rich_editor_control($meta_key, $value, $is_locked, $raw_field, $describedby, $validation);
 			} else {
 				$this->render_textarea_control($meta_key, $value, $raw_field, $describedby, $validation);
 			}
@@ -828,7 +848,7 @@ class Documentate_Documents {
 					. '" value="'
 					. esc_attr($normalized_value)
 					. '" '
-					. $attribute_string
+					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					. ' />'
 			;
 		}
@@ -847,7 +867,7 @@ class Documentate_Documents {
 		$options = $this->parse_select_options($raw_field);
 		$placeholder = $this->get_select_placeholder($raw_field);
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-		echo '<select id="' . esc_attr($meta_key) . '" name="' . esc_attr($meta_key) . '" ' . $attribute_string . '>';
+		echo '<select id="' . esc_attr($meta_key) . '" name="' . esc_attr($meta_key) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		if ('' !== $placeholder) {
 			echo '<option value="">' . esc_html($placeholder) . '</option>';
 		} elseif (empty($attributes['required'])) {
@@ -888,7 +908,7 @@ class Documentate_Documents {
 				. '" value="1" '
 				. checked('1', $value, false)
 				. ' '
-				. $attribute_string
+				. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				. ' />'
 		;
 		echo '<span class="screen-reader-text">' . esc_html($label) . '</span>';
@@ -896,16 +916,112 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Get TinyMCE invalid elements for Documentate rich editors.
+	 *
+	 * @return string
+	 */
+	private function get_rich_editor_invalid_elements() {
+		return implode(',', array(
+			'article',
+			'span',
+			'button',
+			'form',
+			'select',
+			'input',
+			'textarea',
+			'div',
+			'iframe',
+			'embed',
+			'object',
+			'label',
+			'font',
+			'img',
+			'video',
+			'audio',
+			'canvas',
+			'svg',
+			'script',
+			'style',
+			'noscript',
+			'map',
+			'area',
+			'applet',
+		));
+	}
+
+	/**
+	 * Get TinyMCE valid elements for Documentate rich editors.
+	 *
+	 * @return string
+	 */
+	private function get_rich_editor_valid_elements() {
+		return implode(',', array(
+			'a[href|title|target]',
+			'strong/b',
+			'em/i',
+			'u',
+			'p[style|class|align]',
+			'br',
+			'ul',
+			'ol',
+			'li',
+			'h1',
+			'h2',
+			'h3',
+			'h4',
+			'h5',
+			'h6',
+			'blockquote',
+			'code',
+			'pre',
+			'table[border|cellpadding|cellspacing|style|class|align]',
+			'thead',
+			'tbody',
+			'tfoot',
+			'tr',
+			'td[colspan|rowspan|style|class|align]',
+			'th[colspan|rowspan|style|class|align]',
+		));
+	}
+
+	/**
+	 * Get TinyMCE configuration for Documentate rich editors.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function get_rich_editor_tinymce_config() {
+		return array(
+			'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
+			'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
+			// TinyMCE content filtering: remove elements not supported by OpenTBS.
+			'invalid_elements' => $this->get_rich_editor_invalid_elements(),
+			'valid_elements' => $this->get_rich_editor_valid_elements(),
+			'paste_remove_styles' => false,
+			'paste_strip_class_attributes' => 'all',
+		);
+	}
+
+	/**
 	 * Render a rich text editor control.
 	 *
-	 * @param string              $meta_key  The meta key for the field.
-	 * @param string              $value     The current field value.
-	 * @param bool                $is_locked Whether the editor should be readonly (default false).
-	 * @param array<string,mixed> $raw_field Raw field definition (default empty).
+	 * @param string              $meta_key    The meta key for the field.
+	 * @param string              $value       The current field value.
+	 * @param bool                $is_locked   Whether the editor should be readonly (default false).
+	 * @param array<string,mixed> $raw_field   Raw field definition (default empty).
+	 * @param array<string>       $describedby Aria describedby IDs.
+	 * @param string              $validation  Validation message.
 	 */
-	private function render_rich_editor_control($meta_key, $value, $is_locked = false, $raw_field = array()) {
+	private function render_rich_editor_control(
+		$meta_key,
+		$value,
+		$is_locked = false,
+		$raw_field = array(),
+		$describedby = array(),
+		$validation = '',
+	) {
 		$is_collaborative = $this->is_collaborative_editing_enabled();
 		$is_required = \Documentate\Documents\Documents_Field_Validator::is_field_required($raw_field);
+		$describedby_attribute = !empty($describedby) ? implode(' ', $describedby) : '';
 
 		if ($is_collaborative) {
 			echo '<div class="documentate-collab-container">';
@@ -915,6 +1031,8 @@ class Documentate_Documents {
 					. '" name="'
 					. esc_attr($meta_key)
 					. '" class="documentate-collab-textarea" rows="8"'
+					. ('' !== $describedby_attribute ? ' aria-describedby="' . esc_attr($describedby_attribute) . '"' : '')
+					. ('' !== $validation ? ' data-validation-message="' . esc_attr($validation) . '"' : '')
 					. ($is_required ? ' data-required="true"' : '')
 					. '>'
 					. esc_textarea($value)
@@ -922,15 +1040,7 @@ class Documentate_Documents {
 			;
 			echo '</div>';
 		} else {
-			$tinymce_config = array(
-				'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,table,undo,redo,searchreplace,removeformat',
-				'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
-				// TinyMCE content filtering: remove elements not supported by OpenTBS.
-				'invalid_elements' => 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-				'valid_elements' => 'a[href|title|target],strong/b,em/i,u,p,br,ul,ol,li,h1,h2,h3,h4,h5,h6,blockquote,table[border|cellpadding|cellspacing],tr,td[colspan|rowspan],th[colspan|rowspan]',
-				'paste_remove_styles' => true,
-				'paste_strip_class_attributes' => 'all',
-			);
+			$tinymce_config = $this->get_rich_editor_tinymce_config();
 
 			if ($is_locked) {
 				$tinymce_config['readonly'] = 1;
@@ -940,6 +1050,7 @@ class Documentate_Documents {
 				echo '<div class="documentate-rich-editor-wrap" data-required="true">';
 			}
 
+			ob_start();
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles output escaping.
 			wp_editor($value, $meta_key, array(
 				'textarea_name' => $meta_key,
@@ -951,6 +1062,28 @@ class Documentate_Documents {
 				'quicktags' => true,
 				'editor_height' => 220,
 			));
+			$editor_html = ob_get_clean();
+
+			if ('' !== $describedby_attribute) {
+				$editor_html = preg_replace(
+					'/<textarea\b/',
+					'<textarea aria-describedby="' . esc_attr($describedby_attribute) . '"',
+					$editor_html,
+					1,
+				);
+			}
+
+			if ('' !== $validation) {
+				$editor_html = preg_replace(
+					'/<textarea\b/',
+					'<textarea data-validation-message="' . esc_attr($validation) . '"',
+					$editor_html,
+					1,
+				);
+			}
+
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles output escaping.
+			echo $editor_html;
 
 			if ($is_required) {
 				echo '</div>';
@@ -987,7 +1120,7 @@ class Documentate_Documents {
 				. '" name="'
 				. esc_attr($meta_key)
 				. '" '
-				. $attribute_string
+				. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				. '>'
 				. esc_textarea($value)
 				. '</textarea>'
@@ -1111,6 +1244,46 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Retrieve the field description rendered before the control.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	private function get_field_before_description($raw_field) {
+		return Documents_Field_Validator::get_field_before_description($raw_field);
+	}
+
+	/**
+	 * Retrieve custom CSS classes for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	private function get_field_before_description_class($raw_field) {
+		return Documents_Field_Validator::get_field_before_description_class($raw_field);
+	}
+
+	/**
+	 * Retrieve custom inline styles for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	private function get_field_before_description_style($raw_field) {
+		return Documents_Field_Validator::get_field_before_description_style($raw_field);
+	}
+
+	/**
+	 * Retrieve custom color for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	private function get_field_before_description_color($raw_field) {
+		return Documents_Field_Validator::get_field_before_description_color($raw_field);
+	}
+
+	/**
 	 * Retrieve the validation message associated with the field.
 	 *
 	 * Delegates to Documents_Field_Validator.
@@ -1193,6 +1366,125 @@ class Documentate_Documents {
 	 */
 	private function format_field_attributes($attributes) {
 		return Documents_Field_Renderer::format_field_attributes($attributes);
+	}
+
+	/**
+	 * Build the list of IDs referenced by aria-describedby.
+	 *
+	 * @param string ...$ids Candidate element IDs.
+	 * @return array<string>
+	 */
+	private function build_describedby_ids(...$ids) {
+		$describedby = array();
+
+		foreach ($ids as $id) {
+			$id = is_string($id) ? trim($id) : '';
+			if ('' !== $id) {
+				$describedby[] = $id;
+			}
+		}
+
+		return $describedby;
+	}
+
+	/**
+	 * Build the sanitized inline style for the before description block.
+	 *
+	 * @param array $raw_field Raw field definition.
+	 * @return string
+	 */
+	private function build_before_description_style($raw_field) {
+		$style = trim($this->get_field_before_description_style($raw_field));
+		$color = trim($this->get_field_before_description_color($raw_field));
+		$declarations = array();
+
+		if ('' !== $style) {
+			$declarations[] = rtrim($style, ';');
+		}
+
+		if ('' !== $color) {
+			$declarations[] = 'color:' . $color;
+		}
+
+		if (empty($declarations)) {
+			return '';
+		}
+
+		$style_value = implode(';', $declarations) . ';';
+
+		if (function_exists('safecss_filter_attr')) {
+			return trim((string) safecss_filter_attr($style_value));
+		}
+
+		return sanitize_text_field($style_value);
+	}
+
+	/**
+	 * Build before description rendering metadata for a field.
+	 *
+	 * @param string              $field_id  Field ID base.
+	 * @param string              $field_slug Field slug for CSS hooks.
+	 * @param array<string,mixed> $raw_field Raw field definition.
+	 * @return array{text:string,id:string,attributes:string}
+	 */
+	private function get_before_description_context($field_id, $field_slug, $raw_field) {
+		$text = $this->get_field_before_description($raw_field);
+		if ('' === $text) {
+			return array(
+				'text' => '',
+				'id' => '',
+				'attributes' => '',
+			);
+		}
+
+		$classes = array(
+			'documentate-field-before-description',
+			'description',
+		);
+		$field_slug = sanitize_key($field_slug);
+		if ('' !== $field_slug) {
+			$classes[] = 'documentate-field-before-description-' . $field_slug;
+		}
+
+		$custom_classes = preg_split('/\s+/', trim($this->get_field_before_description_class($raw_field)));
+		if (is_array($custom_classes)) {
+			foreach ($custom_classes as $custom_class) {
+				$custom_class = sanitize_html_class($custom_class);
+				if ('' !== $custom_class) {
+					$classes[] = $custom_class;
+				}
+			}
+		}
+
+		$attributes = array(
+			'id' => $field_id . '-before-description',
+			'class' => implode(' ', array_unique($classes)),
+		);
+		$style = $this->build_before_description_style($raw_field);
+		if ('' !== $style) {
+			$attributes['style'] = $style;
+		}
+
+		return array(
+			'text' => $text,
+			'id' => $attributes['id'],
+			'attributes' => $this->format_field_attributes($attributes),
+		);
+	}
+
+	/**
+	 * Render the before description block when configured.
+	 *
+	 * @param array{text:string,id:string,attributes:string} $before_description Before description context.
+	 * @return void
+	 */
+	private function render_before_description($before_description) {
+		if (!is_array($before_description) || !isset($before_description['text']) || '' === $before_description['text']) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+		echo '<p ' . $before_description['attributes'] . '>' . esc_html($before_description['text']) . '</p>';
 	}
 
 	/**
@@ -1416,17 +1708,12 @@ class Documentate_Documents {
 				$input_type = $this->map_single_input_type($raw_field_type, $raw_data_type);
 				$normalized_value = $this->normalize_scalar_value($value, $input_type);
 				$attributes = $this->build_scalar_input_attributes($raw_field, $input_type);
+				$before_description = $this->get_before_description_context($field_id, $item_key, $raw_field);
 				$description = $this->get_field_description($raw_field);
 				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
 				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = array();
-				if ('' !== $description_id) {
-					$describedby[] = $description_id;
-				}
-				if ('' !== $validation_id) {
-					$describedby[] = $validation_id;
-				}
+				$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 				if (!empty($describedby)) {
 					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
@@ -1435,12 +1722,13 @@ class Documentate_Documents {
 				}
 				$attributes['class'] = $this->build_input_class($input_type);
 				$attribute_string = $this->format_field_attributes($attributes);
+				$this->render_before_description($before_description);
 
 				if ('select' === $input_type) {
 					$options = $this->parse_select_options($raw_field);
 					$placeholder = $this->get_select_placeholder($raw_field);
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" ' . $attribute_string . '>';
+					echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					if ('' !== $placeholder) {
 						echo '<option value="">' . esc_html($placeholder) . '</option>';
 					} elseif (empty($attributes['required'])) {
@@ -1470,7 +1758,7 @@ class Documentate_Documents {
 							. '" value="1" '
 							. checked('1', $normalized_value, false)
 							. ' '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' />'
 					;
 					echo '<span class="screen-reader-text">' . esc_html($label) . '</span>';
@@ -1487,11 +1775,10 @@ class Documentate_Documents {
 							. '" value="'
 							. esc_attr($normalized_value)
 							. '" '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' />'
 					;
 				}
-
 				if ('' !== $description) {
 					echo '<p id="' . esc_attr($description_id) . '" class="description">' . esc_html($description) . '</p>';
 				}
@@ -1505,17 +1792,12 @@ class Documentate_Documents {
 					;
 				}
 			} elseif ('rich' === $type) {
+				$before_description = $this->get_before_description_context($field_id, $item_key, $raw_field);
 				$description = $this->get_field_description($raw_field);
 				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
 				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = array();
-				if ('' !== $description_id) {
-					$describedby[] = $description_id;
-				}
-				if ('' !== $validation_id) {
-					$describedby[] = $validation_id;
-				}
+				$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 				$attributes = $this->build_scalar_input_attributes($raw_field, 'textarea');
 				if (!empty($describedby)) {
 					$attributes['aria-describedby'] = implode(' ', $describedby);
@@ -1529,6 +1811,7 @@ class Documentate_Documents {
 
 				// Check if collaborative editing is enabled.
 				$is_collaborative = $this->is_collaborative_editing_enabled();
+				$this->render_before_description($before_description);
 
 				if ($is_collaborative) {
 					// Render TipTap collaborative editor container for array fields.
@@ -1543,7 +1826,7 @@ class Documentate_Documents {
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 					echo
 						'<textarea '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' id="'
 							. esc_attr($field_id)
 							. '" name="'
@@ -1565,7 +1848,7 @@ class Documentate_Documents {
 					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 					echo
 						'<textarea '
-							. $attribute_string
+							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							. ' id="'
 							. esc_attr($field_id)
 							. '" name="'
@@ -1590,17 +1873,12 @@ class Documentate_Documents {
 				}
 			} else {
 				$attributes = $this->build_scalar_input_attributes($raw_field, 'textarea');
+				$before_description = $this->get_before_description_context($field_id, $item_key, $raw_field);
 				$description = $this->get_field_description($raw_field);
 				$validation = $this->get_field_validation_message($raw_field);
 				$description_id = '' !== $description ? $field_id . '-description' : '';
 				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = array();
-				if ('' !== $description_id) {
-					$describedby[] = $description_id;
-				}
-				if ('' !== $validation_id) {
-					$describedby[] = $validation_id;
-				}
+				$describedby = $this->build_describedby_ids($before_description['id'], $description_id, $validation_id);
 				if (!empty($describedby)) {
 					$attributes['aria-describedby'] = implode(' ', $describedby);
 				}
@@ -1612,10 +1890,11 @@ class Documentate_Documents {
 				}
 				$attributes['class'] = $this->build_input_class('textarea');
 				$attribute_string = $this->format_field_attributes($attributes);
+				$this->render_before_description($before_description);
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 				echo
 					'<textarea '
-						. $attribute_string
+						. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 						. ' id="'
 						. esc_attr($field_id)
 						. '" name="'
@@ -2505,11 +2784,12 @@ class Documentate_Documents {
 				'<div class="documentate-field documentate-field-warning" style="margin-bottom:16px;border:1px solid #dba617;padding:12px;background:#fffbea;">'
 			;
 			/* translators: %s: detected dynamic field key. */
+			$additional_field_label = sprintf(__('Additional field: %s', 'documentate'), $label);
 			echo
 				'<label for="'
 					. esc_attr($meta_key)
 					. '" style="font-weight:600;display:block;margin-bottom:4px;">'
-					. esc_html(sprintf(__('Additional field: %s', 'documentate'), $label))
+					. esc_html($additional_field_label)
 					. '</label>'
 			;
 			echo
@@ -2517,6 +2797,7 @@ class Documentate_Documents {
 					. esc_html__('This field is not defined in the current document type taxonomy.', 'documentate')
 					. '</p>'
 			;
+			$tinymce_config = $this->get_rich_editor_tinymce_config();
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_editor handles escaping.
 			wp_editor($value, $meta_key, array(
 				'textarea_name' => $meta_key,
@@ -2524,16 +2805,7 @@ class Documentate_Documents {
 				'media_buttons' => false,
 				'teeny' => false,
 				'wpautop' => false,
-				'tinymce' => array(
-					'toolbar1' => 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
-					'content_style' => 'table{border-collapse:collapse}th,td{border:1px solid #000;padding:2px}',
-					// TinyMCE content filtering: remove elements not supported by OpenTBS.
-					'invalid_elements' => 'article,span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
-					'valid_elements' =>
-						'a[href|title|target],strong/b,em/i,p,br,ul,ol,li,'
-							. 'h1,h2,h3,h4,h5,h6,blockquote,code,pre,'
-							. 'table[border|cellpadding|cellspacing],tr,td[colspan|rowspan|align],th[colspan|rowspan|align]',
-				),
+				'tinymce' => $tinymce_config,
 				'quicktags' => true,
 				'editor_height' => 200,
 			));

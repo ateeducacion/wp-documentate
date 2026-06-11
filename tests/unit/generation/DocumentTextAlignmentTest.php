@@ -326,6 +326,40 @@ class DocumentTextAlignmentTest extends Documentate_Generation_Test_Base {
 		$this->assertStringContainsString( '<w:jc w:val="both"', $xml, 'Justify (both) justification should be applied to standalone paragraph.' );
 	}
 
+	/**
+	 * Test standalone justified paragraph preserves bold content in ODT.
+	 */
+	public function test_odt_paragraph_justify_alignment_with_bold_text() {
+		$html = '<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.</p>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.odt' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'odt' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( 'DocumentateAlignJustify', $xml, 'Justify alignment style should be preserved with bold text.' );
+		$this->assertStringContainsString( 'DocumentateRichBold', $xml, 'Bold formatting should be preserved inside justified paragraphs.' );
+	}
+
+	/**
+	 * Test standalone justified paragraph preserves bold content in DOCX.
+	 */
+	public function test_docx_paragraph_justify_alignment_with_bold_text() {
+		$html = '<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.</p>';
+
+		$type_data = $this->create_doc_type_with_template( 'minimal-table.docx' );
+		$post_id   = $this->create_document_with_data( $type_data['term_id'], array( 'contenido' => $html ) );
+
+		$path = $this->generate_document( $post_id, 'docx' );
+		$xml  = $this->extract_document_xml( $path );
+
+		$this->assertNotFalse( $xml );
+		$this->assertStringContainsString( '<w:jc w:val="both"', $xml, 'Justify alignment should be preserved with bold text.' );
+		$this->assertStringContainsString( '<w:b/>', $xml, 'Bold formatting should be preserved inside justified paragraphs.' );
+	}
+
 	// =========================================================================
 	// Edge Case Tests
 	// =========================================================================

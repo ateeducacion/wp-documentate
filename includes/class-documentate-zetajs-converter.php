@@ -153,8 +153,8 @@ class Documentate_Zetajs_Converter {
 
 		if (!$fs->exists($output_path)) {
 			$context = $stderr ? $stderr : $stdout;
-			/* translators: %s: raw message captured from the ZetaJS converter output. */
 			return new WP_Error('documentate_zetajs_output_missing', sprintf(
+				/* translators: %s: raw message captured from the ZetaJS converter output. */
 				__('Conversion finished but the output file was not generated. Details: %s', 'documentate'),
 				$context,
 			));

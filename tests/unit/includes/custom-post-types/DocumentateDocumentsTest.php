@@ -55,6 +55,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$this->assertNotFalse( has_action( 'init', array( $this->documents, 'register_post_type' ) ) );
 		$this->assertNotFalse( has_action( 'init', array( $this->documents, 'register_taxonomies' ) ) );
 		$this->assertNotFalse( has_filter( 'use_block_editor_for_post_type', array( $this->documents, 'disable_gutenberg' ) ) );
+		$this->assertNotFalse( has_filter( 'get_default_comment_status', array( $this->documents, 'set_default_comment_status_open' ) ) );
 		$this->assertNotFalse( has_action( 'add_meta_boxes', array( $this->documents, 'register_meta_boxes' ) ) );
 		$this->assertNotFalse( has_action( 'save_post_documentate_document', array( $this->documents, 'save_meta_boxes' ) ) );
 		$this->assertNotFalse( has_action( 'wp_save_post_revision', array( $this->documents, 'copy_meta_to_revision' ) ) );
@@ -185,6 +186,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 		$this->assertArrayHasKey( 'documentate_document', $wp_meta_boxes );
 		$this->assertArrayHasKey( 'documentate_sections', $wp_meta_boxes['documentate_document']['normal']['high'] );
+		$this->assertArrayHasKey( 'commentsdiv', $wp_meta_boxes['documentate_document']['normal']['core'] );
 		// Doc type metabox is now rendered inside the workflow Document Management metabox.
 		$this->assertFalse(
 			isset( $wp_meta_boxes['documentate_document']['side']['high']['documentate_doc_type'] ),
@@ -655,6 +657,18 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 		$result = $method->invoke( $this->documents, array( 'parameters' => array( 'help' => 'Help text' ) ) );
 		$this->assertSame( 'Help text', $result );
+	}
+
+	/**
+	 * Test get_field_before_description via reflection.
+	 */
+	public function test_get_field_before_description() {
+		$reflection = new ReflectionClass( $this->documents );
+		$method = $reflection->getMethod( 'get_field_before_description' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->documents, array( 'before_description' => 'Read this first' ) );
+		$this->assertSame( 'Read this first', $result );
 	}
 
 	/**
@@ -1340,6 +1354,63 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$this->assertStringContainsString( '<ul>', $parsed2['description']['value'] );
 		$this->assertStringContainsString( '<li>Item one</li>', $parsed2['description']['value'] );
 		$this->assertStringContainsString( '<table>', $parsed2['description']['value'] );
+
+		$_POST = array();
+	}
+
+	/**
+	 * Test rich field save cycle preserves resolution formatting fixtures.
+	 */
+	public function test_rich_field_save_cycle_preserves_resolution_formatting_fixtures() {
+		$term    = wp_insert_term( 'Resolution Rich Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array( 'name' => 'Body', 'slug' => 'body', 'type' => 'rich' ),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		$resolution_html = <<<'HTML'
+<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.&nbsp;&nbsp;</p>
+<p>&nbsp;</p>
+<p><b>Segundo. </b>Establecer el procedimiento de solicitud para la continuidad de los distritos participantes.&nbsp;&nbsp;</p>
+<table><thead><tr><th><b>Distrito</b></th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>
+<p>Contra el presente acto, por ser de trámite, no cabe recurso alguno.</p>
+HTML;
+
+		$_POST['documentate_doc_type']   = (string) $term_id;
+		$_POST['documentate_field_body'] = $resolution_html;
+
+		$data    = array( 'post_type' => 'documentate_document' );
+		$postarr = array( 'ID' => $post->ID );
+
+		$first_result = $this->documents->filter_post_data_compose_content( $data, $postarr );
+		$first_parsed = Documentate_Documents::parse_structured_content( wp_unslash( $first_result['post_content'] ) );
+
+		$_POST['documentate_field_body'] = $first_parsed['body']['value'];
+
+		$second_result = $this->documents->filter_post_data_compose_content( $data, $postarr );
+		$second_parsed = Documentate_Documents::parse_structured_content( wp_unslash( $second_result['post_content'] ) );
+		$stored_html   = $second_parsed['body']['value'];
+
+		$this->assertStringContainsString( 'text-align: justify', $stored_html );
+		$this->assertMatchesRegularExpression( '/<(?:strong|b)>Primero\./', $stored_html );
+		$this->assertStringContainsString( '<p>&nbsp;</p>', $stored_html );
+		$this->assertStringContainsString( '<table>', $stored_html );
+		$this->assertStringContainsString( '<thead>', $stored_html );
+		$this->assertStringContainsString( '<tbody>', $stored_html );
+		$this->assertStringContainsString( '<th><b>Distrito</b></th>', $stored_html );
+		$this->assertStringContainsString( '<p>Contra el presente acto', $stored_html );
 
 		$_POST = array();
 	}
@@ -2146,6 +2217,271 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Test render_sections_metabox keeps description after the control.
+	 */
+	public function test_render_sections_metabox_description_only_sets_aria_describedby() {
+		$term = wp_insert_term( 'Description Only Test ' . uniqid(), 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'        => 'Request Number',
+						'slug'        => 'request_number',
+						'type'        => 'text',
+						'description' => 'Rendered after the control.',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString(
+			'aria-describedby="documentate_field_request_number-description"',
+			$output
+		);
+		$this->assertStringContainsString(
+			'<p id="documentate_field_request_number-description" class="description">Rendered after the control.</p>',
+			$output
+		);
+		$this->assertStringNotContainsString( 'documentate_field_request_number-before-description', $output );
+	}
+
+	/**
+	 * Test render_sections_metabox prints before description before the input.
+	 */
+	public function test_render_sections_metabox_before_description_only_renders_before_control() {
+		$term = wp_insert_term( 'Before Description Test ' . uniqid(), 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'               => 'Request Number',
+						'slug'               => 'request_number',
+						'type'               => 'text',
+						'before_description' => 'Read this before typing.',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$before_markup_position = strpos(
+			$output,
+			'<p id="documentate_field_request_number-before-description" class="documentate-field-before-description description documentate-field-before-description-request_number">Read this before typing.</p>'
+		);
+		$input_position = strpos( $output, 'id="documentate_field_request_number"' );
+
+		$this->assertNotFalse( $before_markup_position );
+		$this->assertNotFalse( $input_position );
+		$this->assertLessThan( $input_position, $before_markup_position );
+		$this->assertStringContainsString(
+			'aria-describedby="documentate_field_request_number-before-description"',
+			$output
+		);
+		$this->assertStringNotContainsString( 'documentate_field_request_number-description', $output );
+	}
+
+	/**
+	 * Test render_sections_metabox merges before and after descriptions.
+	 */
+	public function test_render_sections_metabox_merges_before_and_after_description_ids() {
+		$term = wp_insert_term( 'Before And After Test ' . uniqid(), 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'               => 'Request Number',
+						'slug'               => 'request_number',
+						'type'               => 'text',
+						'before_description' => 'Instruction first.',
+						'description'        => 'Explanation after.',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$before_position = strpos(
+			$output,
+			'<p id="documentate_field_request_number-before-description"'
+		);
+		$input_position = strpos( $output, 'id="documentate_field_request_number"' );
+		$description_position = strpos(
+			$output,
+			'<p id="documentate_field_request_number-description" class="description">Explanation after.</p>'
+		);
+
+		$this->assertNotFalse( $before_position );
+		$this->assertNotFalse( $input_position );
+		$this->assertNotFalse( $description_position );
+		$this->assertLessThan( $input_position, $before_position );
+		$this->assertGreaterThan( $input_position, $description_position );
+		$this->assertStringContainsString(
+			'aria-describedby="documentate_field_request_number-before-description documentate_field_request_number-description"',
+			$output
+		);
+	}
+
+	/**
+	 * Test render_sections_metabox supports before description classes and styles.
+	 */
+	public function test_render_sections_metabox_before_description_supports_custom_class_and_style() {
+		$term = wp_insert_term( 'Before Description Styles Test ' . uniqid(), 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'                     => 'Request Number',
+						'slug'                     => 'request_number',
+						'type'                     => 'text',
+						'before_description'       => 'Styled instruction.',
+						'before_description_class' => 'notice-inline notice-warning',
+						'before_description_style' => 'font-weight:600;',
+						'before_description_color' => '#b32d2e',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString(
+			'class="documentate-field-before-description description documentate-field-before-description-request_number notice-inline notice-warning"',
+			$output
+		);
+		$this->assertStringContainsString( 'style="', $output );
+		$this->assertStringContainsString( 'font-weight:600', $output );
+		$this->assertStringContainsString( 'color:#b32d2e', $output );
+	}
+
+	/**
+	 * Test render_sections_metabox skips empty before description markup.
+	 */
+	public function test_render_sections_metabox_ignores_empty_before_description() {
+		$term = wp_insert_term( 'Empty Before Description Test ' . uniqid(), 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'               => 'Request Number',
+						'slug'               => 'request_number',
+						'type'               => 'text',
+						'before_description' => '',
+						'description'        => 'Only the trailing description remains.',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringNotContainsString( 'documentate_field_request_number-before-description', $output );
+		$this->assertStringContainsString(
+			'aria-describedby="documentate_field_request_number-description"',
+			$output
+		);
+	}
+
+	/**
+	 * Test render_sections_metabox adds before description support to textarea fields.
+	 */
+	public function test_render_sections_metabox_textarea_before_description_sets_aria_describedby() {
+		$term = wp_insert_term( 'Textarea Before Description Test ' . uniqid(), 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'               => 'Notes',
+						'slug'               => 'notes',
+						'type'               => 'textarea',
+						'before_description' => 'Add a short summary first.',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		ob_start();
+		$this->documents->render_sections_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString(
+			'<p id="documentate_field_notes-before-description" class="documentate-field-before-description description documentate-field-before-description-notes">Add a short summary first.</p>',
+			$output
+		);
+		$this->assertStringContainsString(
+			'aria-describedby="documentate_field_notes-before-description"',
+			$output
+		);
+	}
+
+	/**
 	 * Test render_sections_metabox with textarea field.
 	 */
 	public function test_render_sections_metabox_textarea_field() {
@@ -2211,6 +2547,90 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Rich Field', $output );
+	}
+
+	/**
+	 * Test rich field editors expose alignment toolbar controls.
+	 */
+	public function test_render_sections_metabox_rich_field_exposes_alignment_toolbar_controls() {
+		$term = wp_insert_term( 'Rich Alignment Test', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'  => 'Resolution Body',
+						'slug'  => 'resolution_body',
+						'type'  => 'html',
+						'title' => 'Resolution Body',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		$reflection = new ReflectionClass( $this->documents );
+		$method     = $reflection->getMethod( 'get_rich_editor_tinymce_config' );
+		$method->setAccessible( true );
+		$config = $method->invoke( $this->documents );
+
+		$this->assertIsArray( $config );
+		$this->assertArrayHasKey( 'toolbar1', $config );
+		$this->assertStringContainsString( 'alignleft', $config['toolbar1'] );
+		$this->assertStringContainsString( 'aligncenter', $config['toolbar1'] );
+		$this->assertStringContainsString( 'alignright', $config['toolbar1'] );
+		$this->assertStringContainsString( 'alignjustify', $config['toolbar1'] );
+		$this->assertArrayHasKey( 'paste_remove_styles', $config );
+		$this->assertFalse( $config['paste_remove_styles'] );
+	}
+
+	/**
+	 * Test rich field editors allow alignment markers and table section markup.
+	 */
+	public function test_render_sections_metabox_rich_field_allows_alignment_and_table_markup() {
+		$term = wp_insert_term( 'Rich Valid Elements Test', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$storage = new SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array(
+						'name'  => 'Formatted Body',
+						'slug'  => 'formatted_body',
+						'type'  => 'html',
+						'title' => 'Formatted Body',
+					),
+				),
+				'repeaters' => array(),
+			)
+		);
+
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
+
+		$reflection = new ReflectionClass( $this->documents );
+		$method     = $reflection->getMethod( 'get_rich_editor_tinymce_config' );
+		$method->setAccessible( true );
+		$config         = $method->invoke( $this->documents );
+		$valid_elements = $config['valid_elements'];
+
+		$this->assertStringContainsString( 'p[style|class|align]', $valid_elements );
+		$this->assertStringContainsString( 'table[border|cellpadding|cellspacing|style|class|align]', $valid_elements );
+		$this->assertStringContainsString( 'thead', $valid_elements );
+		$this->assertStringContainsString( 'tbody', $valid_elements );
+		$this->assertStringContainsString( 'tfoot', $valid_elements );
+		$this->assertStringContainsString( 'td[colspan|rowspan|style|class|align]', $valid_elements );
+		$this->assertStringContainsString( 'th[colspan|rowspan|style|class|align]', $valid_elements );
 	}
 
 	/**

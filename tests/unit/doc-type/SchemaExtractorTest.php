@@ -297,24 +297,23 @@ class SchemaExtractorTest extends WP_UnitTestCase {
 		$repeater_names = array_column( $schema['repeaters'], 'name' );
 		$this->assertNotContains( 'onshow', $repeater_names, 'onshow should NOT be a repeater (it is a visibility directive).' );
 
-		// Check that g_libramientos repeater exists with its fields.
-		$g_libramientos = null;
-		foreach ( $schema['repeaters'] as $repeater ) {
-			if ( 'g_libramientos' === $repeater['name'] ) {
-				$g_libramientos = $repeater;
-				break;
+		// Visibility gatekeepers must remain scalar fields (not repeaters).
+		$this->assertNotContains( 'servicios_proveedor', $repeater_names, 'servicios_proveedor is a visibility gatekeeper, not a repeater.' );
+		$this->assertNotContains( 'suministros_proveedor', $repeater_names, 'suministros_proveedor is a visibility gatekeeper, not a repeater.' );
+		$this->assertNotContains( 'expertos_proveedor', $repeater_names, 'expertos_proveedor is a visibility gatekeeper, not a repeater.' );
+
+		// Each visibility block still owns a tbs:row line-items repeater.
+		foreach ( array( 'g_servicios', 'g_suministros', 'g_expertos' ) as $expected ) {
+			$repeater = null;
+			foreach ( $schema['repeaters'] as $candidate ) {
+				if ( $expected === $candidate['name'] ) {
+					$repeater = $candidate;
+					break;
+				}
 			}
+			$this->assertNotNull( $repeater, sprintf( '%s repeater must exist.', $expected ) );
+			$field_names = array_column( $repeater['fields'], 'name' );
+			$this->assertContains( 'concepto', $field_names, sprintf( '%s must have concepto field.', $expected ) );
 		}
-
-		$this->assertNotNull( $g_libramientos, 'g_libramientos repeater must exist.' );
-
-		$field_names = array_column( $g_libramientos['fields'], 'name' );
-		$this->assertContains( 'centro', $field_names, 'g_libramientos must have centro field.' );
-		$this->assertContains( 'finalidad', $field_names, 'g_libramientos must have finalidad field.' );
-		$this->assertContains( 'importe', $field_names, 'g_libramientos must have importe field.' );
-
-		// Check that libramientos_total is a standalone root field.
-		$root_field_names = array_column( $schema['fields'], 'name' );
-		$this->assertContains( 'libramientos_total', $root_field_names, 'libramientos_total should be a standalone root field.' );
 	}
 }

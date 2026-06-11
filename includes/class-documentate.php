@@ -12,6 +12,9 @@
  * @subpackage Documentate/includes
  */
 
+if (!defined('ABSPATH'))
+	exit();
+
 /**
  * The core plugin class.
  *
@@ -98,6 +101,7 @@ class Documentate {
 		 */
 		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-meta-handler.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-cpt-registration.php';
+		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-comments-handler.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-revision-handler.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-field-validator.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-field-renderer.php';
@@ -149,6 +153,11 @@ class Documentate {
 		// Removed email-to-post, mailer/notification, and calendar modules.
 
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-disable-comment-notifications.php';
+
+		/**
+		 * The class responsible for sending email notifications on document state changes.
+		 */
+		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-notifications.php';
 
 		/**
 		 * The class responsible for protecting comments on custom post types via the REST API.
