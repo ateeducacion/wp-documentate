@@ -11,7 +11,8 @@
         "yoast/phpunit-polyfills": "*",
         "yoast/wp-test-utils": "*",
         "brianium/paratest": "^6.11",
-        "phpmd/phpmd": "^2.15"
+        "phpmd/phpmd": "^2.15",
+        "wp-phpunit/wp-phpunit": "*"
     },
     "scripts": {
         "post-install-cmd": [

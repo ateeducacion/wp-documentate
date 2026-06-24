@@ -12,8 +12,13 @@ process.env.STORAGE_STATE_PATH ??= path.join(
 	'storage-states/admin.json'
 );
 
-// Use wp-env tests environment (port 8889) by default.
-const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8889';
+// Use Playground (port 8888) by default for E2E tests.
+// Override with WP_BASE_URL=http://localhost:8889 for Docker.
+const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8888';
+
+// Playground (WASM) runtime is ~3x slower than native PHP in Docker.
+// Set TIMEOUT_MULTIPLIER=3 when running E2E tests against Playground.
+const timeoutMultiplier = parseInt( process.env.TIMEOUT_MULTIPLIER || '1', 10 );
 
 module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'github' ] ] : [ [ 'list' ] ],
@@ -23,8 +28,10 @@ module.exports = defineConfig( {
 		? '100%'
 		: parseInt( process.env.PLAYWRIGHT_WORKERS || '', 10 ) || 2,
 	retries: process.env.CI ? 2 : 0,
-	timeout: parseInt( process.env.TIMEOUT || '', 10 ) || 60_000,
-	reportSlowTests: { max: 5, threshold: 15_000 },
+	timeout:
+		( parseInt( process.env.TIMEOUT || '', 10 ) || 100_000 ) *
+		timeoutMultiplier,
+	reportSlowTests: null,
 	testDir: path.join( __dirname, 'specs' ),
 	outputDir: path.join( process.env.WP_ARTIFACTS_PATH, 'test-results' ),
 	snapshotPathTemplate:
@@ -46,13 +53,13 @@ module.exports = defineConfig( {
 			strictSelectors: true,
 		},
 		storageState: process.env.STORAGE_STATE_PATH,
-		actionTimeout: 10_000,
+		actionTimeout: 10_000 * timeoutMultiplier,
 		trace: 'retain-on-failure',
 		screenshot: 'only-on-failure',
 		video: 'on-first-retry',
 	},
 	webServer: {
-		command: 'npm run wp-env start',
+		command: 'npx wp-env start --runtime=playground',
 		url: baseUrl,
 		timeout: 120_000,
 		reuseExistingServer: true,

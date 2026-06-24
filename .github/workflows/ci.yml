@@ -136,7 +136,7 @@ jobs:
       - name: Start wp-env with coverage
         run: |
           npm ci
-          npx wp-env start --xdebug=coverage
+          npx wp-env start --config=.wp-env.test.json --xdebug=coverage
 
       - name: Run plugin check
         run: make check-plugin
@@ -225,10 +225,10 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Start wp-env
-        run: npx wp-env start
+        run: npx wp-env start --config=.wp-env.test.json
 
       - name: Run E2E tests
-        run: make test-e2e
+        run: make test-e2e-docker
         env:
           CI: true
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1

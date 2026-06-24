@@ -7,6 +7,13 @@ else
   SED_INPLACE = sed -i
 endif
 
+# Use npx so CI (no global install) and local dev both work.
+# Override with: make up WP_ENV="wp-env"
+WP_ENV = npx wp-env
+
+# Docker test config used for all wp-env run commands
+DOCKER_CONFIG = --config=.wp-env.test.json
+
 # Check if Docker is running
 check-docker:
 	@docker version  > /dev/null || (echo "" && echo "Error: Docker is not running. Please ensure Docker is installed and running." && echo "" && exit 1)
@@ -14,37 +21,178 @@ check-docker:
 install-requirements:
 	npm -g i @wordpress/env
 
-# Ensure the environment is running. Used as a prerequisite by the test/check
-# targets: the probe keeps repeated `make test` runs fast, and `wp-env start`
-# is idempotent so re-running it is safe. Probes the development site (8888).
-start-if-not-running: check-docker
+
+# ─── Playground (port 8888, no Docker) ───────────────────────────────────────
+
+# The Playground (WASM) runtime runs PHP inside Node and needs the native
+# fs-ext module, which only ships prebuilt binaries for certain Node majors.
+# Newer Node (e.g. 26) has no prebuilt and dies with a cryptic
+# "Failed to load fs-ext native module" error. So before starting we pick a
+# Node that works (the current one if it can, otherwise a Homebrew node@22 /
+# node@20), and only fail — with guidance — if none is found. The probe asks
+# the package's own loader, so it self-updates once Node-26 prebuilts ship.
+PLAYGROUND_NODE_PROBE = node -e "let m;try{m=require('fs-ext-extra-prebuilt/load-prebuilt.js')}catch(e){process.exit(0)}process.exit(m.loadNativeModule()?0:1)"
+
+start-if-not-running:
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
-		echo "wp-env is not running. Starting..."; \
-		npx wp-env start; \
-		npx wp-env run cli wp plugin activate documentate; \
+		if ! $(PLAYGROUND_NODE_PROBE) >/dev/null 2>&1; then \
+			BIN=""; \
+			for d in /opt/homebrew/opt/node@22/bin /usr/local/opt/node@22/bin "$$(brew --prefix node@22 2>/dev/null)/bin" /opt/homebrew/opt/node@20/bin /usr/local/opt/node@20/bin; do \
+				[ -x "$$d/node" ] && BIN="$$d" && break; \
+			done; \
+			if [ -z "$$BIN" ]; then \
+				echo ""; \
+				echo "✖ Node $$(node -v) can't run the Playground (WASM) runtime and no"; \
+				echo "  compatible Node was found. Install one (brew install node@22) or"; \
+				echo "  use nvm/fnm (see .nvmrc): nvm use. Then re-run make up."; \
+				echo "  Docker targets (make up-docker, make test) work on any Node."; \
+				echo ""; \
+				exit 1; \
+			fi; \
+			export PATH="$$BIN:$$PATH"; \
+			echo "Using Playground-compatible Node $$(node -v) from $$BIN."; \
+		fi; \
+		echo "Playground is NOT running. Starting..."; \
+		$(WP_ENV) start --runtime=playground --update; \
 		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
 	else \
-		echo "wp-env is already running."; \
+		echo "Playground is already running on port 8888, skipping start."; \
 	fi
 
-# Bring up the environment. Always calls `wp-env start` (idempotent), so it
-# (re)syncs the containers instead of skipping when something only looks alive.
-up: check-docker
-	npx wp-env start
-	-npx wp-env run cli wp plugin activate documentate
-	@echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."
+# Diagnostic: report whether the current Node can run the Playground runtime.
+check-node-playground:
+	@$(PLAYGROUND_NODE_PROBE) >/dev/null 2>&1 \
+		&& echo "✓ Node $$(node -v) can run the Playground (WASM) runtime." \
+		|| { echo "✖ Node $$(node -v) cannot run Playground; use Node 22 (see .nvmrc)."; exit 1; }
 
-# Alias for `up` (some folks type `make start`).
-start: up
+# Bring up Playground (no Docker required)
+up-playground: start-if-not-running
 
-# Update WordPress core/themes and (re)start the environment.
-wp-update: check-docker
-	npx wp-env start --update
-	-npx wp-env run cli wp plugin activate documentate
+# Stop Playground
+down-playground:
+	$(WP_ENV) stop
+
+# ─── Docker (port 8889, requires Docker) ─────────────────────────────────────
+
+start-docker-if-not-running: check-docker
+	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
+		echo "Docker env is NOT running. Starting..."; \
+		$(WP_ENV) start $(DOCKER_CONFIG) --update; \
+		$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate; \
+		echo "Visit http://localhost:8889/wp-admin/ to access the Docker environment."; \
+	else \
+		echo "Docker env is already running on port 8889, skipping start."; \
+	fi
+
+# Bring up Docker containers (this is the default `up`)
+up: check-docker start-docker-if-not-running
+up-docker: up
+
+# Stop Docker containers (this is the default `down`)
+down: check-docker
+	$(WP_ENV) stop $(DOCKER_CONFIG)
+down-docker: down
+
+# ─── Clean / Destroy ─────────────────────────────────────────────────────────
+
+# Clean the Docker environment (wp-env v11 replaced "clean" with "reset")
+clean: check-docker
+	$(WP_ENV) reset $(DOCKER_CONFIG) development
+	$(WP_ENV) reset $(DOCKER_CONFIG) tests
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp language core install es_ES --activate
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp site switch-language es_ES
+
+destroy:
+	$(WP_ENV) destroy
+
+# ─── PHPUnit tests (Docker, port 8889) ───────────────────────────────────────
+
+tests: test
+
+# Run unit tests with PHPUnit. Use FILE or FILTER (or both).
+test: start-docker-if-not-running
+	@CMD="./vendor/bin/phpunit"; \
+	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
+	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
+
+# Run PHPUnit on WordPress Playground (WebAssembly, SQLite) — no Docker required.
+# Reuses Playground's in-process WP on SQLite (WP_TESTS_SKIP_INSTALL); same FILE / FILTER as `make test`.
+test-playground:
+	@CMD="/wordpress/wp-content/plugins/documentate/vendor/bin/phpunit -c /wordpress/wp-content/plugins/documentate/phpunit-playground.xml.dist"; \
+	if [ -n "$(FILE)" ]; then CMD="$$CMD /wordpress/wp-content/plugins/documentate/$(FILE)"; fi; \
+	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
+	cd "$${TMPDIR:-/tmp}" && npx --yes @wp-playground/cli@latest php --mount="$(CURDIR):/wordpress/wp-content/plugins/documentate" -- $$CMD --colors=always
+
+# Run document generation tests only
+test-generation: start-docker-if-not-running
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
+
+# Run unit tests in verbose mode. Honor TEST filter if provided.
+test-verbose: start-docker-if-not-running
+	@CMD="./vendor/bin/phpunit"; \
+	if [ -n "$(TEST)" ]; then CMD="$$CMD --filter $(TEST)"; fi; \
+	CMD="$$CMD --debug --verbose"; \
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
+
+# Run tests with code coverage report.
+# IMPORTANT: Requires wp-env started with Xdebug enabled:
+#   wp-env start --config=.wp-env.test.json --xdebug=coverage
+# If coverage shows 0%, restart wp-env with the --xdebug=coverage flag.
+test-coverage: start-docker-if-not-running
+	@mkdir -p artifacts/coverage
+	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
+	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
+	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
+	$(WP_ENV) run tests-cli $(DOCKER_CONFIG) --env-cwd=wp-content/plugins/documentate $$CMD; \
+	EXIT_CODE=$$?; \
+	echo ""; \
+	echo "════════════════════════════════════════════════════════════"; \
+	echo "                    COVERAGE SUMMARY                        "; \
+	echo "════════════════════════════════════════════════════════════"; \
+	grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
+	echo "════════════════════════════════════════════════════════════"; \
+	echo "Full report: artifacts/coverage/html/index.html"; \
+	echo ""; \
+	exit $$EXIT_CODE
+
+# ─── E2E tests ────────────────────────────────────────────────────────────────
+
+# Ensure dev environment (port 8889) has admin user and plugin active for E2E
+setup-e2e-env:
+	@echo "Setting up E2E environment..."
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp core install \
+		--url=http://localhost:8889 \
+		--title="Documentate Tests" \
+		--admin_user=admin \
+		--admin_password=password \
+		--admin_email=admin@example.com \
+		--skip-email 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp language core install es_ES --activate 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp site switch-language es_ES 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
+
+# Run E2E tests against Docker (port 8889) — the default.
+test-e2e: start-docker-if-not-running setup-e2e-env
+	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
+
+# Alias kept for CI / back-compat.
+test-e2e-docker: test-e2e
+
+# Run E2E tests against Playground (port 8888, no Docker)
+test-e2e-playground: start-if-not-running
+	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- $(ARGS)
+
+# Run E2E tests with visual UI against Playground (port 8888)
+test-e2e-visual: start-if-not-running
+	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- --ui
+
+# ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
 flush-permalinks:
-	#npx wp-env run cli wp rewrite flush --hard
-	npx wp-env run cli wp rewrite structure '/%postname%/'
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/'
 
 # Function to create a user only if it does not exist
 create-user:
@@ -52,49 +200,35 @@ create-user:
 		echo "Error: Please, specify USER, EMAIL, ROLE and PASSWORD. Usage: make create-user USER=test1 EMAIL=test1@example.org ROLE=editor PASSWORD=password"; \
 		exit 1; \
 	fi
-	npx wp-env run cli sh -c 'wp user list --field=user_login | grep -q "^$(USER)$$" || wp user create $(USER) $(EMAIL) --role=$(ROLE) --user_pass=$(PASSWORD)'
+	$(WP_ENV) run cli $(DOCKER_CONFIG) sh -c 'wp user list --field=user_login | grep -q "^$(USER)$$" || wp user create $(USER) $(EMAIL) --role=$(ROLE) --user_pass=$(PASSWORD)'
 
-# Stop the environment (containers are stopped; data is preserved — use
-# `destroy` to remove containers and volumes entirely).
-down: check-docker
-	npx wp-env stop
+logs:
+	$(WP_ENV) logs $(DOCKER_CONFIG)
 
-# Alias for `down` (some folks type `make stop`).
-stop: down
+logs-test:
+	$(WP_ENV) logs $(DOCKER_CONFIG) --environment=tests
 
-# Clean the environments, the same that running "npx wp-env clean all"
-clean:
-	npx wp-env clean development
-	npx wp-env clean tests
-	npx wp-env run cli wp plugin activate documentate
-	npx wp-env run cli wp language core install es_ES --activate
-	npx wp-env run cli wp site switch-language es_ES
+# Finds the CLI container used by wp-env (Docker)
+cli-container:
+	@docker ps --format "{{.Names}}" \
+	| grep "\-cli\-" \
+	| grep -v "tests-cli" \
+	|| ( \
+		echo "No main CLI container found. Please run 'make up-docker' first." ; \
+		exit 1 \
+	)
 
-
-
-# Remove the environment (containers and volumes).
-destroy:
-	npx wp-env destroy
-
-# Reset the WordPress databases to a fresh install, then reactivate the plugin.
-reset: check-docker
-	npx wp-env reset
-	-npx wp-env run cli wp plugin activate documentate
-
-# Pass the wp plugin-check
-check-plugin-old: check-docker start-if-not-running
-	npx wp-env run cli wp plugin install plugin-check --activate --color
-	npx wp-env run cli wp plugin check documentate --exclude-directories=tests --exclude-checks=file_type,image_functions --ignore-warnings --color
+# ─── Plugin check (Docker) ───────────────────────────────────────────────────
 
 # Pass the wp plugin-check with proper error handling
-check-plugin: check-docker start-if-not-running
+check-plugin: check-docker start-docker-if-not-running
 	# Install plugin-check if needed (don't fail if already active)
-	@npx wp-env run cli wp plugin install plugin-check --activate --color || true
+	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin install plugin-check --activate --color || true
 
 	# Run plugin check; wp-env run always exits 0, so we grep the output for ERRORs.
 	@echo "Running WordPress Plugin Check..."
 	@TMPFILE=$$(mktemp); \
-	npx wp-env run cli wp plugin check documentate \
+	$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
@@ -109,84 +243,12 @@ check-plugin: check-docker start-if-not-running
 		echo "Plugin Check: ✓ No errors found."; \
 	fi
 
+# ─── Linting & Code Quality ──────────────────────────────────────────────────
 
 # Combined check for lint, tests, untranslated, and more
 check: fix lint check-plugin test check-untranslated mo
 
 check-all: check
-
-tests: test
-
-# Run unit tests with PHPUnit. Use FILE or FILTER (or both).
-test: start-if-not-running
-	@CMD="./vendor/bin/phpunit"; \
-	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
-	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
-
-# Run document generation tests only
-test-generation: start-if-not-running
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
-
-# Run unit tests in verbose mode. Honor TEST filter if provided.
-test-verbose: start-if-not-running
-	@CMD="./vendor/bin/phpunit"; \
-	if [ -n "$(TEST)" ]; then CMD="$$CMD --filter $(TEST)"; fi; \
-	CMD="$$CMD --debug --verbose"; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
-
-# Run tests with code coverage report.
-# IMPORTANT: Requires wp-env started with Xdebug enabled:
-#   npx wp-env start --xdebug=coverage
-# If coverage shows 0%, restart wp-env with the --xdebug=coverage flag.
-# NOTE: Uses PHPUnit (not ParaTest) because WordPress tests share a single
-# database and don't support parallel execution reliably.
-test-coverage: start-if-not-running
-	@mkdir -p artifacts/coverage
-	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
-	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
-	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD; \
-	EXIT_CODE=$$?; \
-	echo ""; \
-	echo "════════════════════════════════════════════════════════════"; \
-	echo "                    COVERAGE SUMMARY                        "; \
-	echo "════════════════════════════════════════════════════════════"; \
-	grep -E "^\s*(Lines|Functions|Classes|Methods):" artifacts/coverage/coverage.txt 2>/dev/null || echo "Coverage data not available"; \
-	echo "════════════════════════════════════════════════════════════"; \
-	echo "Full report: artifacts/coverage/html/index.html"; \
-	echo ""; \
-	exit $$EXIT_CODE
-
-# Ensure tests environment has admin user and plugin active
-setup-tests-env:
-	@echo "Setting up tests environment..."
-	@npx wp-env run tests-cli wp core install \
-		--url=http://localhost:8889 \
-		--title="Documentate Tests" \
-		--admin_user=admin \
-		--admin_password=password \
-		--admin_email=admin@example.com \
-		--skip-email 2>/dev/null || true
-	@npx wp-env run tests-cli wp language core install es_ES --activate 2>/dev/null || true
-	@npx wp-env run tests-cli wp site switch-language es_ES 2>/dev/null || true
-	@npx wp-env run tests-cli wp plugin activate documentate 2>/dev/null || true
-	@npx wp-env run tests-cli wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
-
-# Run E2E tests with Playwright against wp-env tests environment (port 8889)
-test-e2e: start-if-not-running setup-tests-env
-	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
-
-test-e2e-visual: start-if-not-running setup-tests-env
-	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- --ui
-
-
-logs:
-	npx wp-env logs
-
-logs-test:
-	npx wp-env logs --environment=tests
-
 
 # Install Mago PHP toolchain via Composer
 install-mago:
@@ -197,7 +259,6 @@ install-mago:
 	else \
 		echo "Mago is already installed."; \
 	fi
-
 
 # Check code style with Mago linter
 lint: install-mago
@@ -211,16 +272,6 @@ fix: install-mago
 phpmd:
 	phpmd . text cleancode,codesize,controversial,design,naming,unusedcode --exclude vendor,node_modules,tests
 
-# Finds the CLI container used by wp-env
-cli-container:
-	@docker ps --format "{{.Names}}" \
-	| grep "\-cli\-" \
-	| grep -v "tests-cli" \
-	|| ( \
-		echo "No main CLI container found. Please run 'make up' first." ; \
-		exit 1 \
-	)
-
 # Fix without tty for use on git hooks
 fix-no-tty: install-mago
 	./vendor/bin/mago format
@@ -229,8 +280,9 @@ fix-no-tty: install-mago
 lint-no-tty: install-mago
 	./vendor/bin/mago lint
 
+# ─── Composer / Translations / Packaging ─────────────────────────────────────
 
-# Update Composer and npm dependencies
+# Update Composer dependencies
 update: check-docker
 	composer update --no-cache --with-all-dependencies
 	npm update
@@ -259,7 +311,7 @@ package:
 	fi
 	# Update the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" documentate.php
-	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
+	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
 	# Create the ZIP package
@@ -267,56 +319,49 @@ package:
 
 	# Restore the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
-	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '0.0.0')/" documentate.php
+	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: 0.0.0/" readme.txt
+
+# ─── Help ─────────────────────────────────────────────────────────────────────
 
 # Show help with available commands
 help:
 	@echo "Available commands:"
 	@echo ""
-	@echo "General:"
-	@echo "  up / start         - Start the WordPress environment (idempotent)"
-	@echo "  down / stop        - Stop the environment (data preserved)"
-	@echo "  wp-update          - Update WordPress core/themes and restart"
-	@echo "  logs               - Show the docker container logs"
-	@echo "  logs-test          - Show logs from test environment"
-	@echo "  clean              - Reset both environments' databases"
-	@echo "  reset              - Reset the development database to a fresh install"
-	@echo "  destroy            - Remove the environment (containers and volumes)"
-	@echo "  flush-permalinks   - Flush the created permalinks"
-	@echo "  create-user        - Create a WordPress user if it doesn't exist."
+	@echo "Environments:"
+	@echo "  up / up-docker     - Start the Docker environment on port 8889"
+	@echo "  down / down-docker - Stop the Docker environment"
+	@echo "  up-playground      - Start Playground on port 8888 (no Docker needed)"
+	@echo "  down-playground    - Stop Playground"
+	@echo "  logs               - Show Docker container logs"
+	@echo "  logs-test          - Show logs from Docker test environment"
+	@echo "  clean              - Reset Docker environment"
+	@echo "  destroy            - Destroy all wp-env environments"
+	@echo "  flush-permalinks   - Flush permalinks (Docker)"
+	@echo "  create-user        - Create a WordPress user (Docker)"
 	@echo "                       Usage: make create-user USER=<username> EMAIL=<email> ROLE=<role> PASSWORD=<password>"
-	@echo ""
-	@echo "Assets (SCSS / CSS):"
-	@echo ""
-	@echo "  css                   - Build production CSS (compressed, no source map)"
-	@echo "  css-dev               - Build development CSS (expanded, with source map)"
-	@echo "  css-watch             - Start watcher to recompile SCSS on changes (dev mode)"
-	@echo "  css-clean             - Remove generated CSS and source map files"
 	@echo ""
 	@echo "Linting & Code Quality:"
 	@echo "  fix                - Automatically fix code style with Mago formatter"
 	@echo "  lint               - Check code style with Mago linter"
 	@echo "  fix-no-tty         - Same as 'fix' but without TTY (for git hooks)"
 	@echo "  lint-no-tty        - Same as 'lint' but without TTY (for git hooks)"
-	@echo "  check-plugin       - Run WordPress plugin-check tests"
+	@echo "  check-plugin       - Run WordPress plugin-check (Docker)"
 	@echo "  check-untranslated - Check for untranslated strings"
 	@echo "  check              - Run fix, lint, plugin-check, tests, untranslated, and mo"
 	@echo "  check-all          - Alias for 'check'"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test               - Run PHPUnit tests. Accepts optional variables:"
+	@echo "  test               - Run PHPUnit tests (Docker, port 8889)"
 	@echo "                       FILTER=<pattern> (run tests matching the pattern)"
 	@echo "                       FILE=<path>      (run tests in specific file)"
-	@echo "                       Examples:"
-	@echo "                         make test FILTER=MyTest"
-	@echo "                         make test FILE=tests/MyTest.php"
-	@echo "                         make test FILE=tests/MyTest.php FILTER=test_my_feature"
-	@echo "  test-generation    - Run document generation tests only"
-	@echo "  test-coverage      - Run PHPUnit with coverage (requires: npx wp-env start --xdebug=coverage)"
+	@echo "  test-playground    - Run PHPUnit on Playground (WASM/SQLite, no Docker). Same FILE/FILTER."
+	@echo "  test-generation    - Run document generation tests only (Docker)"
+	@echo "  test-coverage      - Run PHPUnit with coverage (Docker, requires --xdebug=coverage)"
 	@echo ""
-	@echo "  test-e2e           - Run E2E tests (non-interactive)"
-	@echo "  test-e2e-visual    - Run E2E tests with visual test UI"
+	@echo "  test-e2e           - Run E2E tests against Docker (port 8889)"
+	@echo "  test-e2e-playground- Run E2E tests against Playground (port 8888)"
+	@echo "  test-e2e-visual    - Run E2E tests with visual UI (Playground)"
 	@echo ""
 	@echo "Translations:"
 	@echo "  pot                - Generate a .pot file for translations"
@@ -324,7 +369,7 @@ help:
 	@echo "  mo                 - Generate .mo files from .po files"
 	@echo ""
 	@echo "Packaging & Updates:"
-	@echo "  update             - Update Composer and npm dependencies"
+	@echo "  update             - Update Composer dependencies"
 	@echo "  package            - Create ZIP package. Usage: make package VERSION=x.y.z"
 	@echo ""
 	@echo "  help               - Show this help message"
