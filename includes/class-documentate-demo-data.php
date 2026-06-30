@@ -139,6 +139,7 @@ class Documentate_Demo_Data {
 		self::import_fixture_file('convocatoriareunion.odt');
 		self::import_fixture_file('memoria_pago_cep.odt');
 		self::import_fixture_file('respuesta_escrito.odt');
+		self::import_fixture_file('haceconstar.odt');
 	}
 
 	/**
@@ -378,6 +379,18 @@ class Documentate_Demo_Data {
 			);
 		}
 
+		$hace_constar_id = self::import_fixture_file('haceconstar.odt');
+		if ($hace_constar_id > 0) {
+			$definitions[] = array(
+				'slug' => 'hace-constar',
+				'name' => 'Hace constar',
+				'description' => 'Plantilla de certificado «Hace constar» que acredita la participación de una persona en determinadas actividades.',
+				'color' => '#c0392b',
+				'template_id' => $hace_constar_id,
+				'fixture_key' => 'hace-constar',
+			);
+		}
+
 		return $definitions;
 	}
 
@@ -471,6 +484,12 @@ class Documentate_Demo_Data {
 			self::create_specific_demo_documents($modelo_informe_term, self::get_modelo_informe_demo());
 		}
 
+		// Create specific demo document for Hace constar.
+		$hace_constar_term = get_term_by('slug', 'hace-constar', 'documentate_doc_type');
+		if ($hace_constar_term instanceof WP_Term) {
+			self::create_specific_demo_documents($hace_constar_term, self::get_hace_constar_demo());
+		}
+
 		// Also create demo documents for other document types (advanced demos).
 		$exclude_ids = array();
 		if ($term instanceof WP_Term) {
@@ -496,6 +515,9 @@ class Documentate_Demo_Data {
 		}
 		if ($modelo_informe_term instanceof WP_Term) {
 			$exclude_ids[] = $modelo_informe_term->term_id;
+		}
+		if ($hace_constar_term instanceof WP_Term) {
+			$exclude_ids[] = $hace_constar_term->term_id;
 		}
 
 		$terms = get_terms(array(
@@ -1582,6 +1604,51 @@ class Documentate_Demo_Data {
 					'firma_cargo' => array(
 						'type' => 'single',
 						'value' => 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS, INCLUSIÓN E INNOVACIÓN',
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Get demo data for "Hace constar".
+	 *
+	 * @return array
+	 */
+	private static function get_hace_constar_demo() {
+		return array(
+			'hace-constar-prueba' => array(
+				'title' => 'Ejemplo: Certificado de participación',
+				'author' => 'Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación',
+				'keywords' => 'hace constar, certificado, participación',
+				'fields' => array(
+					'firmante' => array(
+						'type' => 'single',
+						'value' => 'Ivonne Piñero Montesdeoca',
+					),
+					'cargo' => array(
+						'type' => 'single',
+						'value' => 'RESPONSABLE DEL SERVICIO DE ORDENACIÓN DE LAS ENSEÑANZAS Y EDUCACIÓN DE PERSONAS ADULTAS',
+					),
+					'tratamiento' => array(
+						'type' => 'single',
+						'value' => 'Doña',
+					),
+					'nombre_completo' => array(
+						'type' => 'single',
+						'value' => 'Beatriz Oliver Taño',
+					),
+					'dni' => array(
+						'type' => 'single',
+						'value' => '12345678A',
+					),
+					'participaciones' => array(
+						'type' => 'rich',
+						'value' => '<ul><li>Comisión de evaluación del programa de innovación educativa, durante el curso 2024-2025.</li><li>Tribunal de selección de materiales didácticos para la educación de personas adultas.</li><li>Grupo de trabajo para la elaboración de la guía de buenas prácticas docentes.</li></ul>',
+					),
+					'lugar_firma' => array(
+						'type' => 'single',
+						'value' => 'Santa Cruz de Tenerife',
 					),
 				),
 			),
