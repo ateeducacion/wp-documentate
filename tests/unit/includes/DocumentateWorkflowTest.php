@@ -7,6 +7,8 @@
  * - Editors can only save as draft/pending (cannot publish)
  * - Admins have full control
  * - Published documents locked for non-admins
+ * - Pending documents locked for non-admins
+ * - Unified Document Management meta box
  *
  * @package Documentate
  */
@@ -604,148 +606,7 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test hide_schedule_publication_css on wrong screen.
-	 */
-	public function test_hide_schedule_publication_css_wrong_screen() {
-		$screen = WP_Screen::get( 'post' );
-		$screen->post_type = 'post';
-		$GLOBALS['current_screen'] = $screen;
-
-		ob_start();
-		$this->workflow->hide_schedule_publication_css();
-		$output = ob_get_clean();
-
-		$this->assertEmpty( $output );
-	}
-
-	/**
-	 * Test hide_schedule_publication_css on correct screen.
-	 */
-	public function test_hide_schedule_publication_css_correct_screen() {
-		$screen = WP_Screen::get( 'documentate_document' );
-		$screen->post_type = 'documentate_document';
-		$GLOBALS['current_screen'] = $screen;
-
-		ob_start();
-		$this->workflow->hide_schedule_publication_css();
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( '<style>', $output );
-		$this->assertStringContainsString( 'timestampdiv', $output );
-	}
-
-	/**
-	 * Test modify_publish_box for other post types.
-	 */
-	public function test_modify_publish_box_other_type() {
-		$post = $this->factory->post->create_and_get( array( 'post_type' => 'post' ) );
-
-		ob_start();
-		$this->workflow->modify_publish_box( $post );
-		$output = ob_get_clean();
-
-		$this->assertEmpty( $output );
-	}
-
-	/**
-	 * Test modify_publish_box for editor.
-	 */
-	public function test_modify_publish_box_editor() {
-		wp_set_current_user( $this->editor_user_id );
-
-		$post = $this->factory->post->create_and_get(
-			array(
-				'post_type'   => 'documentate_document',
-				'post_status' => 'draft',
-			)
-		);
-
-		ob_start();
-		$this->workflow->modify_publish_box( $post );
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( 'documentate-editor-notice', $output );
-	}
-
-	/**
-	 * Test modify_publish_box for published document as admin.
-	 */
-	public function test_modify_publish_box_published_admin() {
-		wp_set_current_user( $this->admin_user_id );
-
-		// Create draft first.
-		$post_id = $this->factory->post->create(
-			array(
-				'post_type'   => 'documentate_document',
-				'post_status' => 'draft',
-			)
-		);
-
-		// Assign doc_type so we can publish.
-		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
-		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
-
-		// Now update to publish.
-		wp_update_post(
-			array(
-				'ID'          => $post_id,
-				'post_status' => 'publish',
-			)
-		);
-
-		$post = get_post( $post_id );
-		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
-
-		ob_start();
-		$this->workflow->modify_publish_box( $post );
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( 'documentate-published-notice', $output );
-		$this->assertStringContainsString( 'Change to Draft', $output );
-	}
-
-	/**
-	 * Test modify_publish_box for published document as editor.
-	 */
-	public function test_modify_publish_box_published_editor() {
-		// Admin creates and publishes the post first.
-		wp_set_current_user( $this->admin_user_id );
-
-		$post_id = $this->factory->post->create(
-			array(
-				'post_type'   => 'documentate_document',
-				'post_status' => 'draft',
-			)
-		);
-
-		// Assign doc_type so we can publish.
-		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
-		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
-
-		// Publish as admin.
-		wp_update_post(
-			array(
-				'ID'          => $post_id,
-				'post_status' => 'publish',
-			)
-		);
-
-		$post = get_post( $post_id );
-		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
-
-		// Now switch to editor.
-		wp_set_current_user( $this->editor_user_id );
-
-		ob_start();
-		$this->workflow->modify_publish_box( $post );
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( 'documentate-published-notice', $output );
-		$this->assertStringContainsString( 'Contact an administrator', $output );
-	}
-
-	/**
-	 * Test add_workflow_metabox registers metabox.
+	 * Test add_workflow_metabox registers the document management metabox.
 	 */
 	public function test_add_workflow_metabox() {
 		global $wp_meta_boxes;
@@ -755,13 +616,13 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 		$this->assertArrayHasKey( 'documentate_document', $wp_meta_boxes );
 		$this->assertArrayHasKey( 'side', $wp_meta_boxes['documentate_document'] );
 		$this->assertArrayHasKey( 'high', $wp_meta_boxes['documentate_document']['side'] );
-		$this->assertArrayHasKey( 'documentate_workflow_status', $wp_meta_boxes['documentate_document']['side']['high'] );
+		$this->assertArrayHasKey( 'documentate_document_management', $wp_meta_boxes['documentate_document']['side']['high'] );
 	}
 
 	/**
-	 * Test render_workflow_metabox for draft.
+	 * Test render_document_management_metabox for draft shows stepper and buttons.
 	 */
-	public function test_render_workflow_metabox_draft() {
+	public function test_render_document_management_metabox_draft() {
 		wp_set_current_user( $this->admin_user_id );
 
 		$post = $this->factory->post->create_and_get(
@@ -772,17 +633,20 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 		);
 
 		ob_start();
-		$this->workflow->render_workflow_metabox( $post );
+		$this->workflow->render_document_management_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'documentate-workflow-status', $output );
+		$this->assertStringContainsString( 'documentate-stepper', $output );
 		$this->assertStringContainsString( 'Draft', $output );
+		$this->assertStringContainsString( 'Save Draft', $output );
+		$this->assertStringContainsString( 'Send to Review', $output );
+		$this->assertStringContainsString( 'post_status', $output );
 	}
 
 	/**
-	 * Test render_workflow_metabox for pending.
+	 * Test render_document_management_metabox for pending as admin.
 	 */
-	public function test_render_workflow_metabox_pending() {
+	public function test_render_document_management_metabox_pending_admin() {
 		wp_set_current_user( $this->admin_user_id );
 
 		// Create draft first.
@@ -809,16 +673,59 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 		$this->assertEquals( 'pending', $post->post_status, 'Post should be pending' );
 
 		ob_start();
-		$this->workflow->render_workflow_metabox( $post );
+		$this->workflow->render_document_management_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'Pending Review', $output );
+		$this->assertStringContainsString( 'In Review', $output );
+		$this->assertStringContainsString( 'Approve &amp; Publish', $output );
+		$this->assertStringContainsString( 'Return to Draft', $output );
+		$this->assertStringContainsString( 'documentate-save-pending', $output );
 	}
 
 	/**
-	 * Test render_workflow_metabox for published as admin.
+	 * Test render_document_management_metabox for pending as editor (locked).
 	 */
-	public function test_render_workflow_metabox_published_admin() {
+	public function test_render_document_management_metabox_pending_editor_locked() {
+		// Admin creates and sets to pending.
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'pending', $post->post_status );
+
+		// Switch to editor.
+		wp_set_current_user( $this->editor_user_id );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'pending review', $output );
+		$this->assertStringContainsString( 'documentate-mgmt-locked-notice', $output );
+		$this->assertStringNotContainsString( 'Approve &amp; Publish', $output );
+		$this->assertStringNotContainsString( 'Save Draft', $output );
+	}
+
+	/**
+	 * Test render_document_management_metabox for published as admin.
+	 */
+	public function test_render_document_management_metabox_published_admin() {
 		wp_set_current_user( $this->admin_user_id );
 
 		// Create draft first.
@@ -845,17 +752,19 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
 
 		ob_start();
-		$this->workflow->render_workflow_metabox( $post );
+		$this->workflow->render_document_management_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'Published', $output );
+		$this->assertStringContainsString( 'Approved', $output );
 		$this->assertStringContainsString( 'read-only', $output );
+		$this->assertStringContainsString( 'Return to Review', $output );
+		$this->assertStringContainsString( 'Archive', $output );
 	}
 
 	/**
-	 * Test render_workflow_metabox for published as editor.
+	 * Test render_document_management_metabox for published as editor.
 	 */
-	public function test_render_workflow_metabox_published_editor() {
+	public function test_render_document_management_metabox_published_editor() {
 		// Admin creates and publishes the post first.
 		wp_set_current_user( $this->admin_user_id );
 
@@ -885,16 +794,17 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 		wp_set_current_user( $this->editor_user_id );
 
 		ob_start();
-		$this->workflow->render_workflow_metabox( $post );
+		$this->workflow->render_document_management_metabox( $post );
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Contact an administrator', $output );
+		$this->assertStringContainsString( 'documentate-mgmt-locked-notice', $output );
 	}
 
 	/**
-	 * Test render_workflow_metabox for draft as editor.
+	 * Test render_document_management_metabox for draft as editor.
 	 */
-	public function test_render_workflow_metabox_draft_editor() {
+	public function test_render_document_management_metabox_draft_editor() {
 		wp_set_current_user( $this->editor_user_id );
 
 		$post = $this->factory->post->create_and_get(
@@ -905,10 +815,39 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 		);
 
 		ob_start();
-		$this->workflow->render_workflow_metabox( $post );
+		$this->workflow->render_document_management_metabox( $post );
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Submit for Pending Review', $output );
+		$this->assertStringContainsString( 'documentate-mgmt-message--draft', $output );
+		$this->assertStringContainsString( 'Save Draft', $output );
+		$this->assertStringContainsString( 'Send to Review', $output );
+		// No Publish button — flow is always Draft → Review → Approved.
+		$this->assertStringNotContainsString( 'documentate-publish', $output );
+	}
+
+	/**
+	 * Test render_document_management_metabox for draft as admin has no Publish shortcut.
+	 *
+	 * Admins must follow the same workflow: Draft → Review → Approved.
+	 */
+	public function test_render_document_management_metabox_draft_admin_no_publish() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-save-draft', $output );
+		$this->assertStringContainsString( 'Send to Review', $output );
+		$this->assertStringNotContainsString( 'documentate-publish', $output );
 	}
 
 	/**
@@ -943,5 +882,742 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 
 		$result = $this->workflow->check_publish_capability( true, array() );
 		$this->assertTrue( $result );
+	}
+
+	/**
+	 * Test that archived post status is registered.
+	 */
+	public function test_archived_status_registered() {
+		$this->workflow->register_archived_status();
+
+		$status = get_post_status_object( 'archived' );
+		$this->assertNotNull( $status, 'Archived status should be registered.' );
+		$this->assertFalse( $status->public, 'Archived status should not be public.' );
+		$this->assertTrue( $status->show_in_admin_status_list, 'Archived status should show in admin status list.' );
+	}
+
+	/**
+	 * Test that only admin can archive a document.
+	 */
+	public function test_only_admin_can_archive() {
+		// Admin creates and publishes document.
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Document to archive',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type and publish.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		// Verify it's published.
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'publish', $stored->post_status );
+
+		// Switch to editor and try to archive.
+		wp_set_current_user( $this->editor_user_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'publish', $stored->post_status, 'Editor should not be able to archive documents.' );
+
+		// Now admin archives.
+		wp_set_current_user( $this->admin_user_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'archived', $stored->post_status, 'Admin should be able to archive documents.' );
+	}
+
+	/**
+	 * Test that only published documents can be archived.
+	 */
+	public function test_only_published_can_be_archived() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Draft document',
+				'post_status' => 'draft',
+			)
+		);
+
+		// Assign doc_type.
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Try to archive from draft.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'draft', $stored->post_status, 'Draft documents should not be archivable.' );
+
+		// Set to pending and try to archive.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'pending', $stored->post_status, 'Pending documents should not be archivable.' );
+
+		// Publish and then archive.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'archived', $stored->post_status, 'Published documents should be archivable.' );
+	}
+
+	/**
+	 * Test that archived documents are locked for non-admins.
+	 */
+	public function test_archived_documents_locked_for_non_admins() {
+		// Admin creates, publishes, and archives document.
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Archived document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'archived', $stored->post_status );
+
+		// Editor tries to modify.
+		wp_set_current_user( $this->editor_user_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'draft',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'archived', $stored->post_status, 'Editor should not be able to modify archived documents.' );
+	}
+
+	/**
+	 * Test that admin can unarchive to publish only.
+	 */
+	public function test_admin_can_unarchive_to_publish_only() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Document to unarchive',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'archived', $stored->post_status );
+
+		// Try to unarchive to draft (should become publish).
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'draft',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'publish', $stored->post_status, 'Admin should only be able to unarchive to publish.' );
+
+		// Re-archive.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		// Unarchive to publish.
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertEquals( 'publish', $stored->post_status, 'Admin should be able to unarchive to publish.' );
+	}
+
+	/**
+	 * Test render_document_management_metabox for archived as admin.
+	 */
+	public function test_render_document_management_metabox_archived_admin() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'archived', $post->post_status, 'Post should be archived' );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'archived', $output );
+		$this->assertStringContainsString( 'Unarchive', $output );
+	}
+
+	/**
+	 * Test render_document_management_metabox for archived as editor.
+	 */
+	public function test_render_document_management_metabox_archived_editor() {
+		// Admin creates and archives the post.
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'archived', $post->post_status, 'Post should be archived' );
+
+		// Switch to editor.
+		wp_set_current_user( $this->editor_user_id );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'archived', $output );
+		$this->assertStringContainsString( 'Contact an administrator', $output );
+		$this->assertStringNotContainsString( '>Unarchive<', $output );
+	}
+
+	/**
+	 * Test render_document_management_metabox shows archive link for published document.
+	 */
+	public function test_render_document_management_metabox_shows_archive_link() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'publish', $post->post_status, 'Post should be published' );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Archive', $output );
+	}
+
+	/**
+	 * Test display_workflow_notices with archived_locked reason.
+	 */
+	public function test_display_workflow_notices_archived_locked() {
+		wp_set_current_user( $this->admin_user_id );
+		set_current_screen( 'documentate_document' );
+		$screen = get_current_screen();
+		$screen->post_type = 'documentate_document';
+
+		set_transient(
+			'documentate_workflow_notice_' . get_current_user_id(),
+			array(
+				'reason'          => 'archived_locked',
+				'original_status' => 'draft',
+				'post_id'         => 1,
+			),
+			30
+		);
+
+		ob_start();
+		$this->workflow->display_workflow_notices();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'Archived', $output );
+	}
+
+	/**
+	 * Test display_workflow_notices with archive_requires_publish reason.
+	 */
+	public function test_display_workflow_notices_archive_requires_publish() {
+		wp_set_current_user( $this->admin_user_id );
+		set_current_screen( 'documentate_document' );
+		$screen = get_current_screen();
+		$screen->post_type = 'documentate_document';
+
+		set_transient(
+			'documentate_workflow_notice_' . get_current_user_id(),
+			array(
+				'reason'          => 'archive_requires_publish',
+				'original_status' => 'archived',
+				'post_id'         => 1,
+			),
+			30
+		);
+
+		ob_start();
+		$this->workflow->display_workflow_notices();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'published', $output );
+	}
+
+	/**
+	 * Test display_workflow_notices with archive_admin_only reason.
+	 */
+	public function test_display_workflow_notices_archive_admin_only() {
+		wp_set_current_user( $this->editor_user_id );
+		set_current_screen( 'documentate_document' );
+		$screen = get_current_screen();
+		$screen->post_type = 'documentate_document';
+
+		set_transient(
+			'documentate_workflow_notice_' . get_current_user_id(),
+			array(
+				'reason'          => 'archive_admin_only',
+				'original_status' => 'archived',
+				'post_id'         => 1,
+			),
+			30
+		);
+
+		ob_start();
+		$this->workflow->display_workflow_notices();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'notice-error', $output );
+		$this->assertStringContainsString( 'administrators', $output );
+	}
+
+	/**
+	 * Test stepper only has 3 steps (Draft, In Review, Approved).
+	 */
+	public function test_stepper_has_three_steps() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Draft', $output );
+		$this->assertStringContainsString( 'In Review', $output );
+		$this->assertStringContainsString( 'Approved', $output );
+		// Archived step should NOT appear in stepper.
+		$this->assertStringNotContainsString( 'is-status-archived', $output );
+	}
+
+	/**
+	 * Test stepper highlights only the current step (draft = red class).
+	 */
+	public function test_stepper_current_step_has_status_class() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'is-current is-status-draft', $output );
+		// No is-completed class should exist.
+		$this->assertStringNotContainsString( 'is-completed', $output );
+	}
+
+	/**
+	 * Test non-admin cannot trash pending documents.
+	 */
+	public function test_non_admin_cannot_trash_pending() {
+		// Admin creates pending doc.
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'pending', $post->post_status );
+
+		// Switch to editor.
+		wp_set_current_user( $this->editor_user_id );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringNotContainsString( 'Move to Trash', $output );
+	}
+
+	/**
+	 * Test admin can trash pending documents.
+	 */
+	public function test_admin_can_trash_pending() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		$post = get_post( $post_id );
+		$this->assertEquals( 'pending', $post->post_status );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Move to Trash', $output );
+	}
+
+	/**
+	 * Test revision link is rendered for documents with revisions.
+	 */
+	public function test_render_revision_link() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_title'  => 'Revision Test',
+			)
+		);
+
+		// Create a revision by updating.
+		wp_update_post(
+			array(
+				'ID'         => $post_id,
+				'post_title' => 'Revision Test Updated',
+			)
+		);
+
+		$post = get_post( $post_id );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-mgmt-revisions', $output );
+		$this->assertStringContainsString( 'revision.php', $output );
+	}
+
+	/**
+	 * Test restrict_revision_restore hook is registered.
+	 */
+	public function test_revision_restore_hook_registered() {
+		$this->assertNotFalse(
+			has_action( 'wp_restore_post_revision', array( $this->workflow, 'restrict_revision_restore' ) ),
+			'wp_restore_post_revision hook should be registered.'
+		);
+	}
+
+	/**
+	 * Test pending non-admin is locked in localized data.
+	 */
+	public function test_pending_non_admin_is_locked() {
+		wp_set_current_user( $this->editor_user_id );
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		// Set to pending (admin sets it).
+		wp_set_current_user( $this->admin_user_id );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		// Switch back to editor.
+		wp_set_current_user( $this->editor_user_id );
+
+		$GLOBALS['post'] = get_post( $post_id );
+
+		$this->workflow->enqueue_workflow_assets( 'post.php' );
+
+		$data = wp_scripts()->get_data( 'documentate-workflow', 'data' );
+		// wp_localize_script outputs "1" for true values.
+		$this->assertStringContainsString( '"isLocked":"1"', $data );
+	}
+
+	/**
+	 * Test pending admin is not locked in localized data.
+	 */
+	public function test_pending_admin_not_locked() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		$GLOBALS['post'] = get_post( $post_id );
+
+		// Reset enqueued to re-localize.
+		wp_dequeue_script( 'documentate-workflow' );
+		wp_deregister_script( 'documentate-workflow' );
+
+		$this->workflow->enqueue_workflow_assets( 'post.php' );
+
+		$data = wp_scripts()->get_data( 'documentate-workflow', 'data' );
+		// wp_localize_script outputs "" for false values.
+		$this->assertStringContainsString( '"isLocked":""', $data );
+	}
+
+	/**
+	 * Test render_document_management_metabox includes doc type section.
+	 */
+	public function test_render_document_management_metabox_includes_doc_type_section() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'auto-draft',
+			)
+		);
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-doc-type-section', $output );
+		$this->assertStringContainsString( 'documentate_type_nonce', $output );
+		$this->assertStringContainsString( 'Select a type', $output );
+	}
+
+	/**
+	 * Test render_document_management_metabox shows locked doc type.
+	 */
+	public function test_render_document_management_metabox_shows_locked_doc_type() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+
+		$post = get_post( $post_id );
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-doc-type-section', $output );
+		$this->assertStringContainsString( 'Selected type:', $output );
+		$this->assertStringNotContainsString( '<select', $output );
 	}
 }

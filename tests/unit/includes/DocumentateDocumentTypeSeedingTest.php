@@ -18,31 +18,24 @@ class DocumentateDocumentTypeSeedingTest extends WP_UnitTestCase {
      * Ensure default document types are created with templates.
      */
     public function test_default_document_types_seeded() {
-        $this->delete_term_if_exists( 'documentate-demo-odt' );
-        $this->delete_term_if_exists( 'documentate-demo-docx' );
+        $this->delete_term_if_exists( 'resolucion-administrativa' );
         $this->delete_term_if_exists( 'documentate-demo-wp-documentate-odt' );
         $this->delete_term_if_exists( 'documentate-demo-wp-documentate-docx' );
 
-        documentate_ensure_default_media();
-        documentate_maybe_seed_default_doc_types();
+        Documentate_Demo_Data::ensure_default_media();
+        update_option('documentate_seed_demo_documents', true);
+        Documentate_Demo_Data::maybe_seed_default_doc_types();
 
         $storage = new SchemaStorage();
 
-        $odt = get_term_by( 'slug', 'documentate-demo-odt', 'documentate_doc_type' );
-        $this->assertInstanceOf( WP_Term::class, $odt );
-        $this->assertSame( 'documentate-demo-odt', get_term_meta( $odt->term_id, '_documentate_fixture', true ) );
-        $odt_schema = $storage->get_schema( $odt->term_id );
-        $this->assertIsArray( $odt_schema );
-        $this->assertSame( 2, $odt_schema['version'], 'Basic ODT schema must be version 2.' );
-		$this->assertSchemaHasFields( $odt_schema, array( 'antecedentes', 'resuelvo', 'fundamentos', 'objeto', 'post_title' ) );
-
-        $docx = get_term_by( 'slug', 'documentate-demo-docx', 'documentate_doc_type' );
-        $this->assertInstanceOf( WP_Term::class, $docx );
-        $this->assertSame( 'documentate-demo-docx', get_term_meta( $docx->term_id, '_documentate_fixture', true ) );
-        $docx_schema = $storage->get_schema( $docx->term_id );
-        $this->assertIsArray( $docx_schema );
-        $this->assertSame( 2, $docx_schema['version'], 'Basic DOCX schema must be version 2.' );
-		$this->assertSchemaHasFields( $docx_schema, array( 'antecedentes', 'resuelvo', 'fundamentos', 'objeto', 'post_title' ) );
+        // Test the main resolution template (resolucion.odt).
+        $resolucion = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
+        $this->assertInstanceOf( WP_Term::class, $resolucion );
+        $this->assertSame( 'resolucion-administrativa', get_term_meta( $resolucion->term_id, '_documentate_fixture', true ) );
+        $resolucion_schema = $storage->get_schema( $resolucion->term_id );
+        $this->assertIsArray( $resolucion_schema );
+        $this->assertSame( 2, $resolucion_schema['version'], 'Resolution schema must be version 2.' );
+        $this->assertSchemaHasFields( $resolucion_schema, array( 'antecedentes', 'resuelvo', 'fundamentos', 'objeto', 'post_title' ) );
 
         $advanced_odt = get_term_by( 'slug', 'documentate-demo-wp-documentate-odt', 'documentate_doc_type' );
         $this->assertInstanceOf( WP_Term::class, $advanced_odt );
@@ -106,9 +99,9 @@ class DocumentateDocumentTypeSeedingTest extends WP_UnitTestCase {
         $this->assertIsArray( $converted_schema, 'CPT must be able to read the stored schema.' );
         $this->assertNotEmpty( $converted_schema );
 
-        documentate_maybe_seed_default_doc_types();
-        $odt_after = get_term_by( 'slug', 'documentate-demo-odt', 'documentate_doc_type' );
-        $this->assertSame( $odt->term_id, $odt_after->term_id );
+        Documentate_Demo_Data::maybe_seed_default_doc_types();
+        $resolucion_after = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
+        $this->assertSame( $resolucion->term_id, $resolucion_after->term_id );
         $advanced_odt_after = get_term_by( 'slug', 'documentate-demo-wp-documentate-odt', 'documentate_doc_type' );
         $this->assertSame( $advanced_odt->term_id, $advanced_odt_after->term_id );
         $advanced_docx_after = get_term_by( 'slug', 'documentate-demo-wp-documentate-docx', 'documentate_doc_type' );

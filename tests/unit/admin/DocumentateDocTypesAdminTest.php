@@ -791,4 +791,283 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 
 		$this->assertSame( 'updated', $flash['type'] );
 	}
+
+	/**
+	 * Test handle_reparse_schema dies without permissions.
+	 */
+	public function test_handle_reparse_schema_dies_without_permission() {
+		// Switch to subscriber.
+		$subscriber_id = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		wp_set_current_user( $subscriber_id );
+
+		$this->expectException( WPDieException::class );
+		$this->expectExceptionMessage( 'Insufficient permissions.' );
+
+		$this->admin->handle_reparse_schema();
+	}
+
+	/**
+	 * Test handle_reparse_schema dies with invalid term_id.
+	 */
+	public function test_handle_reparse_schema_dies_with_invalid_term_id() {
+		$_GET['term_id'] = 0;
+
+		$this->expectException( WPDieException::class );
+		$this->expectExceptionMessage( 'Invalid document type ID.' );
+
+		$this->admin->handle_reparse_schema();
+	}
+
+	/**
+	 * Test handle_reparse_schema dies with negative term_id.
+	 */
+	public function test_handle_reparse_schema_dies_with_negative_term_id() {
+		$_GET['term_id'] = -5;
+
+		$this->expectException( WPDieException::class );
+		$this->expectExceptionMessage( 'Invalid document type ID.' );
+
+		$this->admin->handle_reparse_schema();
+	}
+
+	/**
+	 * Test enqueue_assets localizes script with correct data.
+	 */
+	public function test_enqueue_assets_localizes_script_data() {
+		$term = wp_insert_term( 'Localize Test Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$_GET['tag_ID'] = $term_id;
+
+		$screen = WP_Screen::get( 'edit-documentate_doc_type' );
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->admin->enqueue_assets( 'term.php' );
+
+		$this->assertTrue( wp_script_is( 'documentate-doc-types', 'enqueued' ) );
+
+		// Get localized data.
+		global $wp_scripts;
+		$data = $wp_scripts->get_data( 'documentate-doc-types', 'data' );
+
+		$this->assertStringContainsString( 'documentateDocTypes', $data );
+		$this->assertStringContainsString( 'ajax', $data );
+		$this->assertStringContainsString( 'nonce', $data );
+
+		unset( $_GET['tag_ID'] );
+	}
+
+	/**
+	 * Test enqueue_assets extracts schema slugs from repeaters.
+	 */
+	public function test_enqueue_assets_extracts_repeater_slugs() {
+		$term = wp_insert_term( 'Repeater Slugs Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Save schema with repeaters.
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version'   => 2,
+				'fields'    => array(
+					array( 'slug' => 'main_field', 'name' => 'Main', 'type' => 'text' ),
+				),
+				'repeaters' => array(
+					array(
+						'slug'   => 'items',
+						'name'   => 'Items',
+						'fields' => array(
+							array( 'slug' => 'item_title', 'name' => 'Item Title', 'type' => 'text' ),
+						),
+					),
+				),
+			)
+		);
+
+		$_GET['tag_ID'] = $term_id;
+
+		$screen = WP_Screen::get( 'edit-documentate_doc_type' );
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->admin->enqueue_assets( 'term.php' );
+
+		global $wp_scripts;
+		$data = $wp_scripts->get_data( 'documentate-doc-types', 'data' );
+
+		// Should include both field slugs.
+		$this->assertStringContainsString( 'main_field', $data );
+		$this->assertStringContainsString( 'item_title', $data );
+
+		unset( $_GET['tag_ID'] );
+	}
+
+	/**
+	 * Test enqueue_assets with no tag_ID in URL.
+	 */
+	public function test_enqueue_assets_without_tag_id() {
+		unset( $_GET['tag_ID'] );
+
+		$screen = WP_Screen::get( 'edit-documentate_doc_type' );
+		$GLOBALS['current_screen'] = $screen;
+
+		wp_dequeue_script( 'documentate-doc-types' );
+		$this->admin->enqueue_assets( 'edit-tags.php' );
+
+		$this->assertTrue( wp_script_is( 'documentate-doc-types', 'enqueued' ) );
+
+		// Should have empty schema.
+		global $wp_scripts;
+		$data = $wp_scripts->get_data( 'documentate-doc-types', 'data' );
+		$this->assertStringContainsString( '"schema":[]', $data );
+	}
+
+	/**
+	 * Test save_term with valid template creates schema.
+	 */
+	public function test_save_term_with_valid_template_extracts_schema() {
+		$term = wp_insert_term( 'Template Extract Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Create a real attachment with a test template file.
+		$template_path = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'fixtures/resolucion.odt';
+		if ( ! file_exists( $template_path ) ) {
+			$this->markTestSkipped( 'Test template not found.' );
+		}
+
+		$attachment_id = $this->factory->attachment->create(
+			array(
+				'post_mime_type' => 'application/vnd.oasis.opendocument.text',
+			)
+		);
+		update_post_meta( $attachment_id, '_wp_attached_file', $template_path );
+
+		$_POST['documentate_type_color'] = '#37517e';
+		$_POST['documentate_type_template_id'] = $attachment_id;
+
+		$this->admin->save_term( $term_id );
+
+		// Check template type was detected.
+		$saved_type = get_term_meta( $term_id, 'documentate_type_template_type', true );
+		$this->assertSame( 'odt', $saved_type );
+	}
+
+	/**
+	 * Test save_term with missing template file shows error.
+	 */
+	public function test_save_term_with_missing_template_file() {
+		$term = wp_insert_term( 'Missing File Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Create attachment pointing to non-existent file.
+		$attachment_id = $this->factory->attachment->create(
+			array(
+				'post_mime_type' => 'application/vnd.oasis.opendocument.text',
+			)
+		);
+		update_post_meta( $attachment_id, '_wp_attached_file', '/non/existent/file.odt' );
+
+		$_POST['documentate_type_color'] = '#37517e';
+		$_POST['documentate_type_template_id'] = $attachment_id;
+
+		$this->admin->save_term( $term_id );
+
+		// Schema should be cleared.
+		$storage = new Documentate\DocType\SchemaStorage();
+		$schema = $storage->get_schema( $term_id );
+		$this->assertEmpty( $schema );
+	}
+
+	/**
+	 * Test render_schema_preview_fallback with array type field.
+	 */
+	public function test_render_schema_preview_fallback_array_type() {
+		$reflection = new ReflectionClass( $this->admin );
+		$method = $reflection->getMethod( 'render_schema_preview_fallback' );
+		$method->setAccessible( true );
+
+		$schema = array(
+			'fields'    => array(),
+			'repeaters' => array(
+				array(
+					'name'   => 'attendees',
+					'slug'   => 'attendees',
+					'label'  => 'Attendees List',
+					'fields' => array(
+						array( 'slug' => 'name', 'name' => 'Name', 'type' => 'text' ),
+						array( 'slug' => 'email', 'name' => 'Email', 'type' => 'email' ),
+					),
+				),
+			),
+		);
+
+		ob_start();
+		$method->invoke( $this->admin, $schema );
+		$output = ob_get_clean();
+
+		// Should show repeater label and nested fields.
+		$this->assertStringContainsString( 'Attendees List', $output );
+		$this->assertStringContainsString( 'documentate-schema-list', $output );
+	}
+
+	/**
+	 * Test output_notices without type defaults to updated.
+	 */
+	public function test_output_notices_default_type() {
+		// Store a flash message without explicit type.
+		$flash_key = 'documentate_schema_flash_' . get_current_user_id();
+		set_transient(
+			$flash_key,
+			array(
+				'message' => 'Message without type',
+				// 'type' intentionally omitted.
+			),
+			60
+		);
+
+		$reflection = new ReflectionClass( $this->admin );
+		$method = $reflection->getMethod( 'output_notices' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke( $this->admin );
+		$output = ob_get_clean();
+
+		// Should output with default 'updated' type.
+		$this->assertStringContainsString( 'Message without type', $output );
+	}
+
+	/**
+	 * Test edit_fields uses default color when empty.
+	 */
+	public function test_edit_fields_uses_default_color_when_empty() {
+		$term = wp_insert_term( 'Empty Color Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		// Do not set any color meta.
+		$term_obj = get_term( $term_id, 'documentate_doc_type' );
+
+		ob_start();
+		$this->admin->edit_fields( $term_obj, 'documentate_doc_type' );
+		$output = ob_get_clean();
+
+		// Should contain default color.
+		$this->assertStringContainsString( '#37517e', $output );
+	}
+
+	/**
+	 * Test save_term clears negative template ID.
+	 */
+	public function test_save_term_clears_negative_template_id() {
+		$term = wp_insert_term( 'Negative Template Type', 'documentate_doc_type' );
+		$term_id = $term['term_id'];
+
+		$_POST['documentate_type_color'] = '#37517e';
+		$_POST['documentate_type_template_id'] = -100;
+
+		$this->admin->save_term( $term_id );
+
+		$saved_template = get_term_meta( $term_id, 'documentate_type_template_id', true );
+		$this->assertEmpty( $saved_template );
+	}
 }

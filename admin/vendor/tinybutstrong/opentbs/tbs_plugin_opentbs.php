@@ -7,8 +7,8 @@
  * This TBS plug-in can open a zip file, read the central directory,
  * and retrieve the content of a zipped file which is not compressed.
  *
- * @version 1.12.2
- * @date 2025-11-01
+ * @version 1.12.3
+ * @date 2026-04-23
  * @see     http://www.tinybutstrong.com/plugins.php
  * @author  Skrol29 http://www.tinybutstrong.com/onlyyou.html
  * @license LGPL-3.0
@@ -126,7 +126,7 @@ class clsOpenTBS extends clsTbsZip {
 	private $MsExcel_KeepRelative;
 	private $MsExcel_Formulas;
 	private $MsExcel_Sheets_WkbIdx;
-	private $MsWord_HeaderFooter;
+	private $MsWord_DispHeaderFooter;
 	private $MsWord_DocPrId;
 	private $OpenXmlMap;
 	private $_ModeSave;
@@ -147,7 +147,7 @@ class clsOpenTBS extends clsTbsZip {
 		if (!isset($TBS->OtbsClearMsPowerpoint))    $TBS->OtbsClearMsPowerpoint = true;
 		if (!isset($TBS->OtbsGarbageCollector))     $TBS->OtbsGarbageCollector = true;
 		if (!isset($TBS->OtbsMsExcelCompatibility)) $TBS->OtbsMsExcelCompatibility = true;
-		$this->Version = '1.12.2';
+		$this->Version = '1.12.3';
 		$this->DebugLst = false; // deactivate the debug mode
 		$this->ExtInfo = false;
 		$TBS->TbsZip = &$this; // a shortcut
@@ -722,13 +722,14 @@ class clsOpenTBS extends clsTbsZip {
 			switch ($this->ExtEquiv) {
 			case 'docx':
 				$x2 = intval($x2); // 0 by default
-				$file = $this->MsWord_GetHeaderFooterFile($Cmd, $x1, $x2);
+				$file = $this->MsWord_GetDispHeaderFooterFile($Cmd, $x1, $x2);
+				if ($file === false) return false;
 				break;
-			case 'odt':
+			case 'odt': case 'ods':
 				$file = 'styles.xml';
 				break;
-			case 'ods': case 'odp':
-				$this->ExtInfo['main'];
+			case 'odp':
+				$file = $this->ExtInfo['main'];
 				break;
 			case 'xlsx': case 'pptx': 
 				return false;
@@ -743,8 +744,8 @@ class clsOpenTBS extends clsTbsZip {
 		
 			switch ($this->ExtEquiv) {
 			case 'docx':
-				$this->MsWord_InitHeaderFooter();
-				foreach ($this->MsWord_HeaderFooter as $info) {
+				$this->MsWord_InitDispHeaderFooter();
+				foreach ($this->MsWord_DispHeaderFooter as $info) {
 					$res[] = $info['file'];
 				}				
 				break;
@@ -771,7 +772,7 @@ class clsOpenTBS extends clsTbsZip {
 
 		} elseif ($Cmd==OPENTBS_SYSTEM_CREDIT) {
 
-			$x1 = (boolean) $x1;
+			$x1 = (bool) $x1;
 			$this->TbsSystemCredits = $x1;
 			return $x1;
 
@@ -781,7 +782,7 @@ class clsOpenTBS extends clsTbsZip {
 			
 		} elseif ($Cmd==OPENTBS_RELATIVE_CELLS) {
 
-			$KeepRelative = (boolean) $x1;
+			$KeepRelative = (bool) $x1;
 			if ($x2 == OPENTBS_ALL) {
 				// Al$ sheets
 				$this->TBS->OtbsMsExcelExplicitRef = (!$KeepRelative);
@@ -797,7 +798,7 @@ class clsOpenTBS extends clsTbsZip {
 			
 		} elseif ($Cmd==OPENTBS_EDIT_ENTITY) {
 			
-			$AddElIfMissing = (boolean) $x5;
+			$AddElIfMissing = (bool) $x5;
 			return $this->XML_ReadWriteAtt($x1, $x2, $x3, $x4, $AddElIfMissing);
 			
 		} elseif ($Cmd==OPENTBS_READ_ENTITY) {
@@ -835,8 +836,8 @@ class clsOpenTBS extends clsTbsZip {
 				// We convert alias into short types
 				$alias = array(
 					'main'     => array('wordprocessingml.document.main+xml'),
-					'header'   => array('wordprocessingml.header+xml'),
-					'footer'   => array('wordprocessingml.footer+xml'),
+					'header'   => array('wordprocessingml.header+xml#CANCELED'), // special proces below
+					'footer'   => array('wordprocessingml.footer+xml#CANCELED'), // special proces below
 					'chart'    => array('drawingml.chart+xml'),
 					'slide'    => array('presentationml.slide+xml'),
 					'slidem'   => array('presentationml.slideMaster+xml'),
@@ -844,7 +845,7 @@ class clsOpenTBS extends clsTbsZip {
 					'comments' => array('presentationml.notesSlide+xml', 'wordprocessingml.comments+xml', 'spreadsheetml.comments+xml'),
 				);
 
-				$types_conv = array();
+				$types_conv = array(); // all xml types, included those converted from alias
 				if (in_array('all', $types)) {
 					$types = array_merge($types, array_keys($alias));
 				}
@@ -858,6 +859,20 @@ class clsOpenTBS extends clsTbsZip {
 				}
 
 				$files = $this->OpenXML_MapGetFiles($types_conv);
+
+				// Special process for header/footer docx, because some of them can be hidden contents, and should not be given in the result (see the function below for more details).
+				if ($this->ExtEquiv == 'docx') {
+					$sub_types = array_intersect($types, ['header', 'footer']);
+					if (count($sub_types) > 0) {
+						$this->MsWord_InitDispHeaderFooter();
+						foreach ($this->MsWord_DispHeaderFooter as $info) {
+							if (in_array($info['place'], $sub_types)) {
+								$files[] = $info['file'];
+							}
+						}
+					}
+				}
+
 
 			}
 
@@ -962,7 +977,7 @@ class clsOpenTBS extends clsTbsZip {
 		$this->MsExcel_NoTBS = array(); // shared string containing no TBS field
 		$this->MsExcel_KeepRelative = array();
 		$this->MsExcel_Formulas = array();
-		$this->MsWord_HeaderFooter = false;
+		$this->MsWord_DispHeaderFooter = false;
 		$this->MsWord_DocPrId = 0;
 
 		$this->Ext_PrepareInfo(); // Set extension information
@@ -1080,9 +1095,9 @@ class clsOpenTBS extends clsTbsZip {
 	/**
 	 * Save a given source in the store.
 	 * 
-	 * @param integer      $idx     Index of the sub-file.
-	 * @param string       $src     New contents.
-	 * @param boolean|null $onshow  (optional, default is null) Null means unchanged, of false for new files.  
+	 * @param int        $idx     Index of the sub-file.
+	 * @param string     $src     New contents.
+	 * @param bool|null  $onshow  (optional, default is null) Null means unchanged, of false for new files.  
 	 *                               true means that TBS->Show() will be processed for the sub-file before the output.
 	 *                               true aslo means the the sub-file will be considered as opened for the commands that return opened files.
 	 */
@@ -1104,8 +1119,9 @@ class clsOpenTBS extends clsTbsZip {
 	/**
 	 * Return a source from the current merging, the store, or the archive.
 	 * Take care that if the source it taken from the archive, then it is not saved in the store.
-	 * @param {integer} $idx The index of the file to read.
-	 * @param {string|false} $caller A text describing the calling function, for error reporting purpose. If caller=false it means TbsStoreLoad().
+	 * 
+	 * @param int          $idx     The index of the file to read.
+	 * @param string|false $caller  A text describing the calling function, for error reporting purpose. If caller=false it means TbsStoreLoad().
 	 */
 	function TbsStoreGet($idx, $caller) {
 		$this->LastReadNotStored = false;
@@ -1185,8 +1201,8 @@ class clsOpenTBS extends clsTbsZip {
 	 * Tells if optimisation marker is prensent in the current source, eventually add it if it is not.
 	 * The optimization marker is a simple space (' ') before the closing chars of the "<? ?>" element.
 	 * @param  string  $Txt  The text source to check
-	 * @param  boolean $mark Set to true to mark the source as done if it is not the case.
-	 * @return boolean True if the current source has just been marked done. Null if it is not possible to telle if it is done or note. Fasle if is is done before.
+	 * @param  bool    $mark Set to true to mark the source as done if it is not the case.
+	 * @return bool    True if the current source has just been marked done. Null if it is not possible to telle if it is done or note. Fasle if is is done before.
 	 */
 	function TbsApplyOptim(&$Txt, $mark) {
 		if (substr($Txt, 0, 2) === '<?') {
@@ -1264,8 +1280,8 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	/**
 	 * echo() info about modified and added files.
 	 *
-	 * @param boolean $XmlFormat  format XML contents
-	 * @param boolean $Current    true to start the debug with the current subtemplate, false to start when Show is called.
+	 * @param bool $XmlFormat  format XML contents
+	 * @param bool $Current    true to start the debug with the current subtemplate, false to start when Show is called.
 	 */
 	function TbsDebug_Merge($XmlFormat, $Current) {
 
@@ -1396,10 +1412,11 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 
 	/**
 	 * Raise an error message and return false.
-	 * @param {string}  $Msg      
-	 * @param {boolean} $NoErrMsg Add the TBS message about noerr option.
+	 * 
+	 * @param string  $Msg      
+	 * @param bool    $NoErrMsg Add the TBS message about noerr option.
 	 *
-	 * @return {boolean} Always return false.
+	 * @return bool Always return false.
 	 */
 	function RaiseError($Msg, $NoErrMsg=false) {
 		// Overwrite the parent RaiseError() method.
@@ -1432,7 +1449,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * This is done only once when it is a block merging.
 	 * The actual image replacement is done by $this->TbsPicAdd()
 	 *
-	 * @return boolean Return true if the preparation ends correctly or if it as already been ended correctly before.
+	 * @return bool Return true if the preparation ends correctly or if it as already been ended correctly before.
 	 */
 	function TbsPicPrepare(&$Txt, &$Loc, $IsCaching) {
 
@@ -1747,7 +1764,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * @param object  $Loc
 	 * @param array   $Prm     Caller parameter. Only used for error messages.
 	 *
-	 * @return boolean Returne true if the picture is correcly replaced or deleted.
+	 * @return bool Return true if the picture is correcly replaced or deleted.
 	 */
 	function TbsPicAdd(&$Value, &$PrmLst, &$Txt, &$Loc, $Prm) {
 		
@@ -1964,8 +1981,8 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * @param string|array $files            An associated array of sub-files to scann or a pattern using 1 wildcard '*'.
 	 * @param string|array $strLst           The strings that must be all present in the content of the file.
 	 *                                         It can be a array of strings, or a single string.
-	 * @param boolean      $returnFirstFind  true to return only the first record found.
-	 * @param boolean      $any              true to search for any of the string, false to search for all of the strings.
+	 * @param bool         $returnFirstFind  true to return only the first record found.
+	 * @param bool         $any              true to search for any of the string, false to search for all of the strings.
 	 *
 	 * @return array Return a single record or a recordset structured like: array('key'=>, 'idx'=>, 'src'=>, 'pos'=>, 'curr'=>)
 	 */
@@ -2059,9 +2076,9 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 *
 	 * @param string   $txt     The string to search into.
 	 * @param array    $strLst  An array of strings to search in $txt.
-	 * @param boolean  $any     True to search for any of the string, false to search for all of the strings.
+	 * @param bool     $any     True to search for any of the string, false to search for all of the strings.
 	 *
-	 * @return integer|false    The position of the first item found, or false if none.
+	 * @return int|false The position of the first item found, or false if none.
 	 */
 	function TbsSearchInTxt($txt, $strLst, $any) {
 		
@@ -2262,7 +2279,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 
 		$ext = $this->ExtEquiv;
 
-		$ok = (boolean) $ok;
+		$ok = (bool) $ok;
 		if (!is_array($id_or_name)) $id_or_name = array($id_or_name);
 
 		foreach ($id_or_name as $item=>$action) {
@@ -2528,10 +2545,12 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 
 	/**
 	 * Search the next tag of the asked type searching forward. (Not specific to MsWord, works for any XML)
+	 * 
 	 * @param string  $Txt
 	 * @param string  $Tag     must be prefixed with '<' or '</'.
-	 * @param integer $PosBeg 
-	 * @return integer|false
+	 * @param int     $PosBeg
+	 * 
+	 * @return int|false
 	 */
 	function XML_SearchTagForward($Txt, $Tag, $PosBeg) {
 		$len = strlen($Tag);
@@ -2551,9 +2570,10 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	
 	/**
 	 * Delete all tags of the types given in the list.
-	 * @param {string} $Txt The text content to search into.
-	 * @param {array} $TagLst List of tag names to delete.
-	 * @param {boolean} $OnlyInner Set to true to keep the content inside the element. Set to false to delete the entire element. Default is false.
+	 * 
+	 * @param string $Txt        The text content to search into.
+	 * @param array  $TagLst     List of tag names to delete.
+	 * @param bool   $OnlyInner  Set to true to keep the content inside the element. Set to false to delete the entire element. Default is false.
 	 */
 	function XML_DeleteElements(&$Txt, $TagLst, $OnlyInner=false) {
 		$nb = 0;
@@ -2617,12 +2637,12 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	/**
 	 * Read or write an attribute's value or an entity's value in the first element in a given sub-file.
 	 *
-	 * @param {mixed}  $SubFile : the name or the index of the sub-file. Use value false to get the current sub-file.
-	 * @param {string} $ElPath  : path of the element. For example : 'w:document/w:body/w:p'.
-	 * @param {string|boolean} $Att    : the attribute, or false to replace the entity's value.
-	 * @param {string|boolean} $NewVal : the new value, or false to delete the attribute, or null to return the attribute’s value without writing.
+	 * @param mixed       $SubFile The name or the index of the sub-file. Use value false to get the current sub-file.
+	 * @param string      $ElPath  The path of the element. For example : 'w:document/w:body/w:p'.
+	 * @param string|bool $Att     The attribute, or false to replace the entity's value.
+	 * @param string|bool $NewVal  The new value, or false to delete the attribute, or null to return the attribute’s value without writing.
 	 *
-	 * @return {string|boolean} Reading : return true if the attribute is found and processed. False otherwise.
+	 * @return string|bool Reading : return true if the attribute is found and processed. False otherwise.
 	 *                          Writing : return the value as a string, of false if the attribute or the entity is not found.
 	 *                                    return false if $Att = false and the entity is a self-closing tag.
 	 */
@@ -2697,7 +2717,11 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 				if ($Att === false) {
 					// read the entity
 					$loc->FindEndTag();
-					return $loc->GetInnerSrc();
+					if ($loc->SelfClosing) {
+						return true;
+					} else {
+						return $loc->GetInnerSrc();
+					}
 				} else {
 					// read the attribute
 					return $loc->GetAttLazy($Att);
@@ -2766,7 +2790,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * @param object         $PrevLoc  The previous locator returned by the function.
 	 * @param string         $RowEl    Name of the XML entity for rows.
 	 * @param string         $CellEl   Name of the XML entity for cells.
-	 * @param boolean        $AddMissRow True means that an empty row in inserted in order to finish the range visit.
+	 * @param bool           $AddMissRow True means that an empty row in inserted in order to finish the range visit.
 	 *
 	 * @return object The clsTbsXmlCellReader object of the cell element, with extra properties info : cellCol, cellRow
 	 *                Note that is can be a not existing item if the asked range goes out of the sheet.
@@ -2984,9 +3008,9 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * Return '' for the row num if it is not specified.
 	 *
 	 * @param string  $CellRef  The reference of a cell. Like "B3" or "AZ48".
-	 * @param boolean $WithRow  (optional) Use true in order to return both col and row numbers.
+	 * @param bool    $WithRow  (optional) Use true in order to return both col and row numbers.
 	 *
-	 * @return integer|array|false  The column number, or an array with both the colum number and the row number.
+	 * @return int|array|false  The column number, or an array with both the colum number and the row number.
 	 */
 	function Sheet_ColNum($CellRef, $WithRow = false) {
 
@@ -3022,9 +3046,11 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	
 	/**
 	 * Return the reference of the cell, such as 'A10'.
-	 * @param integer $Col  The column number (first is 1)
-	 * @param integer $Row  The row    number (first is 1)
+	 * 
+	 * @param int     $Col  The column number (first is 1)
+	 * @param int     $Row  The row    number (first is 1)
 	 * @param string  $Char (optional) The prefix for col and row num.
+	 * 
 	 * @return string
 	 */
 	function Sheet_CellRef($Col, $Row, $Char = '') {
@@ -3421,8 +3447,8 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * Return the new credit text if succeed.
 	 * Return false if the expected file is not found.
 	 * @param string  $NewCredit  The text to set.
-	 * @param boolean $Add        Add the item.
-	 * @param boolean $System     Automatic system information.
+	 * @param bool    $Add        Add the item.
+	 * @param bool    $System     Automatic system information.
 	 * @param string  $Type       (optional) type of the item to add.
 	 */
 	function Misc_EditCredits($NewCredit, $Add, $System, $Type = null) {
@@ -3580,9 +3606,11 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	/**
 	 * Delete an XML file in the OpenXML archive.
 	 * The file is delete from the declaration file [Content_Types].xml and from the relationships of the specified files.
-	 * @param {string} $FullPath The full path of the file to delete.
-	 * @param {array}  $RelatedTo List of the the full paths of the files than may have relationship with the file to delete.
-	 * @return {mixed} False if it is not possible to delete the file, or the number of modifier relations ship in case of success (may be 0). 
+	 * 
+	 * @param string $FullPath The full path of the file to delete.
+	 * @param array  $RelatedTo List of the the full paths of the files than may have relationship with the file to delete.
+	 * 
+	 * @return mixed False if it is not possible to delete the file, or the number of modifier relations ship in case of success (may be 0). 
 	 */
 	function OpenXML_DeleteFile($FullPath, $RelatedTo) {
 
@@ -3622,7 +3650,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * Take car that there is another technic for listing and adding targets wish is working with a persistent object which is commit at the end of the merge..
 	 * @param string $DocPath   The fullpath of the document file.
 	 * @param string $AttExpr   The target att expression to find.
-	 * @param string|boolean $ReturnAttLst The list of att values to return.
+	 * @param string|bool    $ReturnAttLst The list of att values to return.
 	 * @return mixed $ReturnAttVal (or True) if the change is applied.
 	 */
 	function OpenXML_Rels_DeleteRel($DocPath, $AttExpr, $ReturnAttLst = false) {
@@ -4423,10 +4451,12 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 
 	/**
 	 * Delete one, sveral or all categories in the chart.
+	 * 
 	 * @param string       $ChartRef       The chart reference.
 	 * @param string|array $del_categories An array of categories to delete, on the name of a category, all the keywork '*' that means all categories.
-	 * @param boolean      $no_err         Indicate if an error is return when a searched category is not found.
-	 * @return boolean Return true if all the searched categories are deleted.
+	 * @param bool         $no_err         Indicate if an error is return when a searched category is not found.
+	 * 
+	 * @return bool Return true if all the searched categories are deleted.
 	 */
 	function OpenXML_ChartDelCategories($ChartRef, $del_categories, $no_err) {
 
@@ -4752,7 +4782,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * @param string $tagR tag name of a Run element
 	 * @param string $tagT tag name of a Text element
 	 * 
-	 * @return integer the number of deleted dublicates.
+	 * @return int The number of deleted dublicates.
 	 */
 	function OpenMXL_CleanDuplicatedLayout(&$Txt, $tagR, $tagT) {
 
@@ -5263,9 +5293,11 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 
 	/**
 	 * Return the sheet info corresponding to the name, number or internal id.
-	 * @param string|integer $IdOrName
+	 * 
+	 * @param string|int     $IdOrName
 	 * @param array          $SearchBy    A list of search condition, in order. Supported items : 'name' , 'sheetId', 'num' 
-	 * @param boolean        $RaiseError  Set true if an error is raised if the sheet is not found.
+	 * @param bool           $RaiseError  Set true if an error is raised if the sheet is not found.
+	 * 
 	 * @param object A special object. See MsExcel_SheetInit(). 
 	 */
 	function MsExcel_SheetGetConf($IdOrName, $SearchBy, $RaiseError) {
@@ -5503,7 +5535,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 			if ($v !== false) {
 				switch ($type) {
 				case 'b': // boolean: 0=false
-					$x = (boolean) $v; break;
+					$x = (bool) $v; break;
 				case 's': // shared string
 					$x = $this->OpenXML_SharedStrings_GetVal($v);
 					$this->XML_DeleteElements($x, array('t'), true);
@@ -5534,8 +5566,10 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	
 	/**
 	 * Return the list of slides in the Ms Powerpoint presentation.
-	 * @param {boolean} $Master Trye to operate on master slides.
-	 * @return {array} The list of the slides, of false if an error occurs.
+	 * 
+	 * @param  bool  $Master Trye to operate on master slides.
+	 * 
+	 * @return array The list of the slides, of false if an error occurs.
 	 */
 	function MsPowerpoint_InitSlideLst($Master = false) {
 
@@ -6059,61 +6093,89 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 
 	/**
 	 * Initialize information about header and footer files
+	 * Note : A first header or an even header can be saved but not displayed because of the options.  
+	 *        This function feeds only displayed headers and footer.
+	 *        It is important to return only displayed contents because other contents may have old or unvalid TBS tags, that may produce
+	 *        error whe attempt to be merged automatically.
 	 */
-	function MsWord_InitHeaderFooter() {
-	
-		if ($this->MsWord_HeaderFooter!==false) return;
+	function MsWord_InitDispHeaderFooter() {
 
-		$types_ok = array('default' => true, 'first' => false, 'even' => false);
-		
-		// Is there a different header/footer for odd an even pages ?
+		if ($this->MsWord_DispHeaderFooter!==false) return;
+
+		$hf_options = array('default' => true, 'first' => false, 'even' => false);
+
+		// This option for different header/footer for odd an even pages
+		// It is set for the entire document.
 		$idx = $this->FileGetIdx('word/settings.xml');
-		if ($idx!==false) {		
-			$Txt = $this->TbsStoreGet($idx, 'GetHeaderFooterFile');
-			$types_ok['even'] = (strpos($Txt, '<w:evenAndOddHeaders/>')!==false);
+		if ($idx!==false) {
+			$Txt = $this->TbsStoreGet($idx, 'InitHeaderFooter');
+			$hf_options['even'] = (strpos($Txt, '<w:evenAndOddHeaders/>')!==false);
 			unset($Txt);
 		}
 
-		// Is there a different header/footer for the first page ?
+		// Retrieve the main contents source
 		$idx = $this->FileGetIdx('word/document.xml');
 		if ($idx===false) return false;
-		$Txt = $this->TbsStoreGet($idx, 'GetHeaderFooterFile');
-		$types_ok['first'] = (strpos($Txt, '<w:titlePg/>')!==false);
+		$Txt = $this->TbsStoreGet($idx, 'InitHeaderFooter');
 
+		// Prepare
 		$places = array('header', 'footer');
-		$files = array();
+		$files = array(); // files found
 		$rels = $this->OpenXML_Rels_GetObj('word/document.xml', '');
-		
-		foreach ($places as $place) {
-			$p = 0;
-			$entity = 'w:' . $place . 'Reference';
-			while ($loc = clsTbsXmlLoc::FindStartTag($Txt, $entity, $p)) {
-				$p = $loc->PosEnd;
-				$type = $loc->GetAttLazy('w:type');
-				if (isset($types_ok[$type]) && $types_ok[$type]) {
-					$rid = $loc->GetAttLazy('r:id');
-					if (isset($rels->TargetLst[$rid])) {
-						$target = $rels->TargetLst[$rid];
-						$files[] = array('file' => ('word/'.$target), 'type' => $type, 'place' => $place);
+
+		// Note : <w:headerReference> and <w:footerReference> are placed in each section property element (<w:sectPr>) of the document.
+		// The document has at least one section.
+		// The <w:sectPr> is placed at the end of its corresponding section, not the start.
+
+		// We scann each section property <w:sectPr> in the document 
+		$sec_num = 0; // section number, (first is 1)
+		$p_sp = 0;
+		while ($loc_sp = clsTbsXmlLoc::FindElement($Txt, 'w:sectPr', $p_sp)) {
+
+			$p_sp = $loc_sp->PosEnd;
+			$sec_num++;
+
+			$sp_src = $loc_sp->GetInnerSrc(); // source of the <w:sectPr> element
+			// Option for a different header/footer for the first page (<w:titlePg/>).
+			// <w:titlePg/> must be placed in the <w:sectPr>, but even if Ms Word seems to set this option for entire document, the <w:titlePg/> can be present in different <w:sectPr>.
+			// It is consitent because, w:type="first" is present only in the first section.
+			$hf_options['first'] = (strpos($sp_src, '<w:titlePg/>') !== false);
+
+			// We scann each header/footer reference
+			foreach ($places as $place) {
+				$p_ref = 0;
+				$entity = 'w:' . $place . 'Reference'; // <w:headerReference> or <w:footerReference>
+				while ($loc_ref = clsTbsXmlLoc::FindStartTag($sp_src, $entity, $p_ref)) {
+					$p_ref = $loc_ref->PosEnd;
+					$type = $loc_ref->GetAttLazy('w:type');
+					if (isset($hf_options[$type]) && $hf_options[$type]) {
+						$rid = $loc_ref->GetAttLazy('r:id');
+						if (isset($rels->TargetLst[$rid])) {
+							$target = $rels->TargetLst[$rid];
+							$files[] = array('file' => ('word/'.$target), 'type' => $type, 'place' => $place, 'sec_num' => $sec_num);
+						}
 					}
 				}
 			}
+
 		}
 
-		$this->MsWord_HeaderFooter = $files;
-	
+		$this->MsWord_DispHeaderFooter = $files;
+
 	}
 	
 	/**
-	 * Retrieve the header/footer sub-file.
+	 * Retrieve the header/footer sub-files that are displayed.
+	 *
 	 * @param mixed $TbsCmd  OPENTBS_SELECT_HEADER or OPENTBS_SELECT_FOOTER.
 	 * @param mixed $TbsType OPENTBS_DEFAULT, OPENTBS_FIRST or OPENTBS_EVEN. 
-	 * @param int [$Offset] Since a DCX can have several sections, and each section can have its own header/footer, this options 
+	 * @param int   [$Offset] Since a DCX can have several sections, and each section can have its own header/footer, this options 
+	 *
 	 * @return mixed The name of the file of false if no file is found. 
 	 */
-	function MsWord_GetHeaderFooterFile($TbsCmd, $TbsType, $Offset = 0) {
+	function MsWord_GetDispHeaderFooterFile($TbsCmd, $TbsType, $Offset = 0) {
 
-		$this->MsWord_InitHeaderFooter();
+		$this->MsWord_InitDispHeaderFooter();
 
 		$Place = 'header';
 		if ($TbsCmd==OPENTBS_SELECT_FOOTER) {
@@ -6128,7 +6190,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 		}
 
 		$nb = 0;
-		foreach($this->MsWord_HeaderFooter as $info) {
+		foreach($this->MsWord_DispHeaderFooter as $info) {
 			if ( ($info['type']==$Type) && ($info['place']==$Place) ) {
 				if ($nb==$Offset) {
 					return $info['file'];
@@ -7155,9 +7217,9 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 *
 	 * @param string  $RangeRef    The reference of a range. Like "local-table.$B$2:.$B$5"
 	 * @param string  $LocTblName  The local table name. The function will return false if the range is prefixed with the wrong table name.
-	 * @param integer $def_col_idx The index return if the range is not referenced to the local table name.
+	 * @param int     $def_col_idx The index return if the range is not referenced to the local table name.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	function OpenDoc_FirstColIdx($RangeRef, $LocTblName, $def_col_idx) {
 
@@ -7194,8 +7256,8 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * Delete one, sveral or all categories in the chart.
 	 * @param string       $ChartRef       The chart reference.
 	 * @param string|array $del_categories An array of categories to delete, on the name of a category, all the keywork '*' that means all categories.
-	 * @param boolean      $no_err         Indicate if an error is return when a searched category is not found.
-	 * @return boolean Return true if all the searched categories are deleted.
+	 * @param bool         $no_err         Indicate if an error is return when a searched category is not found.
+	 * @return bool    Return true if all the searched categories are deleted.
 	 */
 	function OpenDoc_ChartDelCategories($ChartRef, $del_categories, $no_err) {
 
@@ -7516,7 +7578,7 @@ If they are blank spaces, line beaks, or other unexpected characters, then you h
 	 * Apply a, OpenTBS trick in order to manage covered cells as if there are normal cells.
 	 *
 	 * @param string|object $src A string or an clsTbsXmlLoc object
-	 * @param boolean       $do  True to apply, false to unapply.
+	 * @param bool          $do  True to apply, false to unapply.
 	 */
 	function OpenDoc_CoveredCells_Replace(&$src, $do) {
 	
@@ -7563,7 +7625,8 @@ class clsTbsXmlLoc {
 	public $pST_Src = false;    // Cached source of the start tag, false if not cached
 	public $pET_PosBeg = false; // Position of the begining of the end tag. False means the end tag has not been searched.
 
-	public $Parent = false; // Parent object
+	/** @var self|false Parent object */
+	public $Parent = false;
 
 	// For relative mode
 	public $rel_Txt = false;
@@ -7649,8 +7712,8 @@ class clsTbsXmlLoc {
 	 * The function does check if the attribute is inside an XML element.
 	 * @param  string  &$Txt    The source to search into.
 	 * @param  string  $Att     The attribute name of full definition to search. Example: 'visible' or 'visible="1"'
-	 * @param  integer $PosBeg  The offset position of the search.
-	 * @param  boolean $Forward (optional) Indicate the direction of the search.
+	 * @param  int     $PosBeg  The offset position of the search.
+	 * @param  bool    $Forward (optional) Indicate the direction of the search.
 	 * @return false|object
 	 */
 	static function FindStartTagHavingAtt(&$Txt, $Att, $PosBeg, $Forward=true) {
@@ -7684,9 +7747,9 @@ class clsTbsXmlLoc {
 	 * Search an element in the TXT contents which has the asked attribute, and return an object if it is found.
 	 * @param  string  &$Txt    The source to search into.
 	 * @param  string  $Att     The attribute name of full definition to search. Example: 'visible' or 'visible="1"'
-	 * @param  integer $PosBeg  The offset position of the search.
-	 * @param  boolean $Forward (optional) Indicate the direction of the search.
-	 * @param  boolean $Encaps  (optional, false by default) Indicates if the element can be self encapsulated (like <div>).
+	 * @param  int     $PosBeg  The offset position of the search.
+	 * @param  bool    $Forward (optional) Indicate the direction of the search.
+	 * @param  bool    $Encaps  (optional, false by default) Indicates if the element can be self encapsulated (like <div>).
 	 * @return false|object
 	 */
 	static function FindElementHavingAtt(&$Txt, $Att, $PosBeg, $Forward = true, $Encaps = false) {
@@ -7799,7 +7862,7 @@ class clsTbsXmlLoc {
 	 * That is the length between including '<' and '>'.
 	 * It may include only the start tag if the end tag has never been searched.
 	 *
-	 * @return integer
+	 * @return int
 	 */
 	function GetLen() {
 		return $this->PosEnd - $this->PosBeg + 1;
@@ -7848,7 +7911,7 @@ class clsTbsXmlLoc {
 	 * Return the position for appending at the end of the inner contents (that is the string between start and end tags).
 	 * Return false if SelfClosing.
 	 *
-	 * @return integer|false
+	 * @return int|false
 	 */
 	function GetInnerAppendPos() {
 		return $this->pET_PosBeg;
@@ -7858,7 +7921,7 @@ class clsTbsXmlLoc {
 	 * Return the start of the inner content.
 	 * Return false if SelfClosing.
 	 *
-	 * @return integer|false
+	 * @return int|false
 	 */
 	function GetInnerStart() {
 		return ($this->pST_PosEnd===false) ? false : $this->pST_PosEnd + 1;
@@ -7869,7 +7932,7 @@ class clsTbsXmlLoc {
 	 * Assume FindEndTag() is previously called.
 	 * Return false if SelfClosing.
 	 *
-	 * @return integer|false
+	 * @return int|false
 	 */
 	function GetInnerLen() {
 		return ($this->pET_PosBeg===false) ? false : $this->pET_PosBeg - $this->pST_PosEnd - 1;
@@ -7926,7 +7989,7 @@ class clsTbsXmlLoc {
 	/**
 	 * Update the parent object, if any.
 	 *
-	 * @param boolean  $Cascading  (optional, false by default) Also update all the parents of the tree.
+	 * @param bool     $Cascading  (optional, false by default) Also update all the parents of the tree.
 	 *
 	 * @return void
 	 */
@@ -7956,9 +8019,9 @@ class clsTbsXmlLoc {
 	 *
 	 * @param string   $Att          The name of the attribute.
 	 * @param string   $Value        The new value of the attribute. You have to protect the contents before.
-	 * @param boolean  $AddIfMissing (optional, false by default) True means the attribute is added if missing. 
+	 * @param bool     $AddIfMissing (optional, false by default) True means the attribute is added if missing. 
 	 *
-	 * @return boolean Return True if the value has been replaced or inserted.
+	 * @return bool    Return True if the value has been replaced or inserted.
 	 */
 	function ReplaceAtt($Att, $Value, $AddIfMissing = false) {
 
@@ -7989,7 +8052,7 @@ class clsTbsXmlLoc {
 	/**
 	 * Delete the element with or without the content.
 	 *
-	 * @param boolean $Contents (optional, true by default) If False, then only the inner contents (excluding start and end tags) is deleted.
+	 * @param bool    $Contents (optional, true by default) If False, then only the inner contents (excluding start and end tags) is deleted.
 	 * 
 	 * @return void
 	 */
@@ -8006,7 +8069,7 @@ class clsTbsXmlLoc {
 	/**
 	 * Return true if the attribute existed and is deleted, otherwise return false.
 	 *
-	 * @return boolean
+	 * @return bool   
 	 */
 	function DeleteAtt($Att) {
 		$z = $this->_GetAttValPos($Att);
@@ -8037,9 +8100,9 @@ class clsTbsXmlLoc {
 	 * Find the ending tag of the entity.
      * The result is put in cache for other calls.
 	 * 
-	 * @param boolean $Encaps (optional, false by default) Indicates if the element can be self encapsulated (like <div>).
+	 * @param bool    $Encaps (optional, false by default) Indicates if the element can be self encapsulated (like <div>).
 	 *
-	 * @return boolean  Return True if the end is found, or False otherwise.
+	 * @return bool     Return True if the end is found, or False otherwise.
 	 */
 	function FindEndTag($Encaps = false) {
 		if (is_null($this->SelfClosing)) {
@@ -8598,7 +8661,8 @@ class clsTbsZip {
 
 	/**
 	 * Cancel added, modified or deleted modifications on a file in the archive.
-	 * @return integer The number of cancellations.
+	 * 
+	 * @return int The number of cancellations.
 	 */
 	function FileCancelModif($NameOrIdx, $ReplacedAndDeleted=true) {
 

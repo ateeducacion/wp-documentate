@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Document converter template for ZetaJS WASM mode.
  *
@@ -9,28 +10,31 @@
  * @package Documentate
  */
 
+if (!defined('ABSPATH'))
+	exit();
+
 // This template is included by Documentate_Admin_Helper::render_converter_page()
 // which handles headers, permission checks, and nonce validation.
 
 // Get conversion parameters from the validated request.
-$document_id   = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
-$target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
-$source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
-$output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
-$nonce         = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
-$use_channel   = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
+$documentate_document_id = isset($_GET['post_id']) ? absint($_GET['post_id']) : 0;
+$documentate_target_format = isset($_GET['format']) ? sanitize_key($_GET['format']) : 'pdf';
+$documentate_source_format = isset($_GET['source']) ? sanitize_key($_GET['source']) : 'odt';
+$documentate_output_action = isset($_GET['output']) ? sanitize_key($_GET['output']) : 'preview';
+$documentate_nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash($_GET['_wpnonce'])) : '';
+$documentate_use_channel = isset($_GET['use_channel']) && '1' === $_GET['use_channel'];
 
 // Iframe mode parameters (for WordPress Playground compatibility).
-$is_iframe_mode = isset( $_GET['mode'] ) && 'iframe' === sanitize_key( $_GET['mode'] );
-$parent_origin  = isset( $_GET['parent_origin'] ) ? esc_url_raw( wp_unslash( $_GET['parent_origin'] ) ) : '';
-$request_id     = isset( $_GET['request_id'] ) ? sanitize_text_field( wp_unslash( $_GET['request_id'] ) ) : '';
+$documentate_is_iframe_mode = isset( $_GET['mode'] ) && 'iframe' === sanitize_key( $_GET['mode'] );
+$documentate_parent_origin  = isset( $_GET['parent_origin'] ) ? esc_url_raw( wp_unslash( $_GET['parent_origin'] ) ) : '';
+$documentate_request_id     = isset( $_GET['request_id'] ) ? sanitize_text_field( wp_unslash( $_GET['request_id'] ) ) : '';
 
 // Helper and thread URLs are local, WASM loads from CDN.
-$helper_url = plugins_url( 'admin/vendor/zetajs/zetaHelper.js', DOCUMENTATE_PLUGIN_FILE );
-$thread_url = plugins_url( 'admin/vendor/zetajs/converterThread.js', DOCUMENTATE_PLUGIN_FILE );
+$documentate_helper_url = plugins_url('admin/vendor/zetajs/zetaHelper.js', DOCUMENTATE_PLUGIN_FILE);
+$documentate_thread_url = plugins_url('admin/vendor/zetajs/converterThread.js', DOCUMENTATE_PLUGIN_FILE);
 
 // Service Worker URL for Cross-Origin Isolation (iframe mode).
-$coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_FILE );
+$documentate_coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_FILE );
 
 ?>
 <!DOCTYPE html>
@@ -38,12 +42,12 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 <head>
 	<meta charset="utf-8">
 	<title><?php esc_html_e( 'Documentate Converter', 'documentate' ); ?></title>
-	<?php if ( $is_iframe_mode ) : ?>
+	<?php if ( $documentate_is_iframe_mode ) : ?>
 	<!-- Service Worker for Cross-Origin Isolation in iframe mode.
 		 Must load before anything else to intercept requests and add COOP/COEP headers.
 		 Cannot use wp_enqueue_script() as this must execute synchronously before page load. -->
 	<?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Service Worker must load first. ?>
-	<script src="<?php echo esc_url( $coi_sw_url ); ?>"></script>
+	<script src="<?php echo esc_url( $documentate_coi_sw_url ); ?>"></script>
 	<?php endif; ?>
 	<style>
 		body {
@@ -98,26 +102,26 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 
 	<div class="status" id="status">
 		<div class="spinner" id="spinner"></div>
-		<h2 id="status-title"><?php esc_html_e( 'Starting...', 'documentate' ); ?></h2>
-		<p id="status-message"><?php esc_html_e( 'Preparing document converter.', 'documentate' ); ?></p>
+		<h2 id="status-title"><?php esc_html_e('Starting...', 'documentate'); ?></h2>
+		<p id="status-message"><?php esc_html_e('Preparing document converter.', 'documentate'); ?></p>
 	</div>
 
 	<script type="module">
 		// Conversion parameters from URL (validated by PHP).
 		const conversionConfig = {
-			postId: <?php echo (int) $document_id; ?>,
-			targetFormat: <?php echo wp_json_encode( $target_format ); ?>,
-			sourceFormat: <?php echo wp_json_encode( $source_format ); ?>,
-			outputAction: <?php echo wp_json_encode( $output_action ); ?>,
-			nonce: <?php echo wp_json_encode( $nonce ); ?>,
+			postId: <?php echo (int) $documentate_document_id; ?>,
+			targetFormat: <?php echo wp_json_encode( $documentate_target_format ); ?>,
+			sourceFormat: <?php echo wp_json_encode( $documentate_source_format ); ?>,
+			outputAction: <?php echo wp_json_encode( $documentate_output_action ); ?>,
+			nonce: <?php echo wp_json_encode( $documentate_nonce ); ?>,
 			ajaxUrl: <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
-			helperUrl: <?php echo wp_json_encode( $helper_url ); ?>,
-			threadUrl: <?php echo wp_json_encode( $thread_url ); ?>,
-			useChannel: <?php echo $use_channel ? 'true' : 'false'; ?>,
+			helperUrl: <?php echo wp_json_encode( $documentate_helper_url ); ?>,
+			threadUrl: <?php echo wp_json_encode( $documentate_thread_url ); ?>,
+			useChannel: <?php echo $documentate_use_channel ? 'true' : 'false'; ?>,
 			// Iframe mode parameters (for WordPress Playground).
-			isIframeMode: <?php echo $is_iframe_mode ? 'true' : 'false'; ?>,
-			parentOrigin: <?php echo wp_json_encode( $parent_origin ); ?> || '*',
-			requestId: <?php echo wp_json_encode( $request_id ); ?> || Date.now().toString()
+			isIframeMode: <?php echo $documentate_is_iframe_mode ? 'true' : 'false'; ?>,
+			parentOrigin: <?php echo wp_json_encode( $documentate_parent_origin ); ?> || '*',
+			requestId: <?php echo wp_json_encode( $documentate_request_id ); ?> || Date.now().toString()
 		};
 
 		// Detect if we're in an iframe
@@ -196,8 +200,10 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 			try {
 				// Step 1: Load ZetaJS from CDN
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Loading LibreOffice...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Downloading WASM components (~50MB). This may take a while the first time.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Loading LibreOffice...', 'documentate')); ?>,
+					<?php echo
+						wp_json_encode(__('Downloading WASM components (~50MB). This may take a while the first time.', 'documentate'))
+					; ?>
 				);
 
 				const { ZetaHelperMain } = await import(conversionConfig.helperUrl);
@@ -258,8 +264,8 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 
 				// Step 2: Generate source document via AJAX
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Generating document...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Processing template on server.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Generating document...', 'documentate')); ?>,
+					<?php echo wp_json_encode(__('Processing template on server.', 'documentate')); ?>
 				);
 
 				const formData = new FormData();
@@ -282,8 +288,8 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 
 				// Step 3: Fetch the source document
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Downloading document...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Fetching source document.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Downloading document...', 'documentate')); ?>,
+					<?php echo wp_json_encode(__('Fetching source document.', 'documentate')); ?>
 				);
 
 				const sourceResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
@@ -294,8 +300,8 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 
 				// Step 4: Convert using WASM worker
 				updateStatus(
-					<?php echo wp_json_encode( __( 'Converting to PDF...', 'documentate' ) ); ?>,
-					<?php echo wp_json_encode( __( 'Processing with LibreOffice WASM.', 'documentate' ) ); ?>
+					<?php echo wp_json_encode(__('Converting to PDF...', 'documentate')); ?>,
+					<?php echo wp_json_encode(__('Processing with LibreOffice WASM.', 'documentate')); ?>
 				);
 
 				const result = await convertDocument(sourceBuffer, conversionConfig.sourceFormat, conversionConfig.targetFormat);
@@ -364,8 +370,8 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 						});
 
 						updateStatus(
-							<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
-							<?php echo wp_json_encode( __( 'Document converted.', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode(__('Completed!', 'documentate')); ?>,
+							<?php echo wp_json_encode(__('Document converted.', 'documentate')); ?>,
 							false,
 							true
 						);
@@ -388,8 +394,8 @@ $coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_F
 						document.body.removeChild(a);
 
 						updateStatus(
-							<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
-							<?php echo wp_json_encode( __( 'Document downloaded.', 'documentate' ) ); ?>,
+							<?php echo wp_json_encode(__('Completed!', 'documentate')); ?>,
+							<?php echo wp_json_encode(__('Document downloaded.', 'documentate')); ?>,
 							false,
 							true
 						);

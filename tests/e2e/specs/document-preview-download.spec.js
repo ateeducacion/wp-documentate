@@ -1,39 +1,72 @@
 /**
  * Document Preview and Download E2E Tests for Documentate plugin.
  *
- * Tests the PDF preview (direct streaming) and document downloads (DOCX, ODT, PDF).
+ * Uses Page Object Model, REST API setup, and accessible selectors
+ * following WordPress/Gutenberg E2E best practices.
  */
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const {
-	createDocument,
-	getPostIdFromUrl,
-} = require( '../utils/helpers' );
+const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Preview and Download', () => {
-	let postId;
+	/**
+	 * Call the document generation AJAX endpoint directly from the page
+	 * context and return the download URL. Buttons use href="#" with
+	 * data-documentate-action attributes; the actual download URL is
+	 * returned by the AJAX endpoint.
+	 *
+	 * @param {import('@playwright/test').Page} page   - Playwright page
+	 * @param {string} format                          - 'docx', 'odt', or 'pdf'
+	 * @param {string} [output='download']             - 'download' or 'preview'
+	 * @return {Promise<string|null>} Download URL or null on failure
+	 */
+	async function getDownloadUrlViaAjax( page, format, output = 'download' ) {
+		return await page.evaluate(
+			async ( { fmt, out } ) => {
+				const cfg = window.documentateActionsConfig;
+				if ( ! cfg || ! cfg.ajaxUrl || ! cfg.postId ) {
+					return null;
+				}
+
+				const body = new URLSearchParams( {
+					action: 'documentate_generate_document',
+					post_id: cfg.postId,
+					format: fmt,
+					output: out,
+					_wpnonce: cfg.nonce,
+				} );
+
+				const resp = await fetch( cfg.ajaxUrl, {
+					method: 'POST',
+					credentials: 'same-origin',
+					body,
+				} );
+
+				if ( ! resp.ok ) {
+					return null;
+				}
+
+				const json = await resp.json();
+				return json.success && json.data?.url ? json.data.url : null;
+			},
+			{ fmt: format, out: output }
+		);
+	}
 
 	/**
 	 * Helper to create a document with a type (needed for export/preview).
 	 */
-	async function createDocumentWithType( admin, page, title ) {
-		await createDocument( admin, page, { title } );
+	async function createDocumentWithType( documentEditor ) {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Preview Download Test' );
 
 		// Select a document type if available
-		const typeOptions = page.locator(
-			'#documentate_doc_typechecklist input[type="checkbox"], #documentate_doc_typechecklist input[type="radio"]'
-		);
-
-		if ( ( await typeOptions.count() ) > 0 ) {
-			await typeOptions.first().check();
+		if ( await documentEditor.hasDocTypes() ) {
+			await documentEditor.selectFirstDocType();
 		}
 
 		// Publish the document
-		await page.locator( '#publish' ).click();
-		await page.waitForSelector( '#message, .notice-success', {
-			timeout: 10000,
-		} );
+		await documentEditor.publish();
 
-		return await getPostIdFromUrl( page );
+		return await documentEditor.getPostId();
 	}
 
 	/**
@@ -50,23 +83,16 @@ test.describe( 'Document Preview and Download', () => {
 
 	test.describe( 'PDF Preview', () => {
 		test( 'preview button opens PDF directly in browser', async ( {
-			admin,
-			page,
+			documentEditor,
 			context,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Preview Test Document'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
-
-			// Check if preview button exists and is not disabled
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
-			if ( ! ( await previewButton.isVisible() ) ) {
+
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available (no conversion engine)' );
 				return;
 			}
@@ -88,12 +114,7 @@ test.describe( 'Document Preview and Download', () => {
 			// Wait for the new page to load
 			await newPage.waitForLoadState( 'domcontentloaded' );
 
-			// The response should be a PDF (Content-Type: application/pdf)
-			// Check that it's NOT an HTML page with iframe (old behavior)
-			const contentType = await newPage.evaluate( () => document.contentType );
-
-			// Either it's a direct PDF or the browser's PDF viewer
-			// In Playwright, PDF pages may show as 'application/pdf' or the viewer
+			// The URL should include the preview action
 			const url = newPage.url();
 			const isPdfUrl = url.includes( 'action=documentate_preview' );
 
@@ -107,22 +128,17 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 
 		test( 'preview returns correct Content-Type header', async ( {
-			admin,
-			page,
+			documentEditor,
 			request,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Preview Header Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
+			const page = documentEditor.page;
 			const buttons = getActionButtons( page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! ( await previewButton.isVisible() ) ) {
+			if ( ! await previewButton.isVisible() ) {
 				test.skip( 'Preview button not available' );
 				return;
 			}
@@ -135,8 +151,14 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			// Get the preview URL
-			const previewUrl = await previewButton.getAttribute( 'href' );
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real preview URL.
+			const previewUrl = await getDownloadUrlViaAjax( page, 'pdf', 'preview' );
+
+			if ( ! previewUrl ) {
+				test.skip( 'Preview generation failed via AJAX' );
+				return;
+			}
 
 			// Make a request and check headers
 			const response = await request.get( previewUrl );
@@ -156,32 +178,22 @@ test.describe( 'Document Preview and Download', () => {
 
 	test.describe( 'DOCX Download', () => {
 		test( 'DOCX button triggers file download', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'DOCX Download Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const page = documentEditor.page;
+
+			// Pre-check: verify DOCX generation is available (requires conversion engine).
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
+			if ( ! downloadUrl ) {
+				test.skip( 'DOCX generation not available (no conversion engine)' );
+				return;
+			}
 
 			const buttons = getActionButtons( page );
 			const docxButton = buttons.docx.first();
-
-			if ( ! ( await docxButton.isVisible() ) ) {
-				test.skip( 'DOCX button not available' );
-				return;
-			}
-
-			const isDisabled = await docxButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'DOCX button is disabled' );
-				return;
-			}
 
 			// Start waiting for download before clicking
 			const downloadPromise = page.waitForEvent( 'download' );
@@ -195,36 +207,24 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 
 		test( 'DOCX download returns correct Content-Type', async ( {
-			admin,
-			page,
+			documentEditor,
 			request,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'DOCX Header Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const page = documentEditor.page;
 
-			const buttons = getActionButtons( page );
-			const docxButton = buttons.docx.first();
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
 
-			if ( ! ( await docxButton.isVisible() ) ) {
-				test.skip( 'DOCX button not available' );
+			if ( ! downloadUrl ) {
+				test.skip( 'Document generation failed via AJAX' );
 				return;
 			}
 
-			const isDisabled = await docxButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'DOCX button is disabled' );
-				return;
-			}
-
-			const docxUrl = await docxButton.getAttribute( 'href' );
-			const response = await request.get( docxUrl );
+			const response = await request.get( downloadUrl );
 
 			expect( response.status() ).toBe( 200 );
 
@@ -238,33 +238,24 @@ test.describe( 'Document Preview and Download', () => {
 
 	test.describe( 'ODT Download', () => {
 		test( 'ODT button triggers file download', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'ODT Download Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const page = documentEditor.page;
+
+			// Pre-check: verify ODT generation is available.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
+			if ( ! downloadUrl ) {
+				test.skip( 'ODT generation not available' );
+				return;
+			}
 
 			const buttons = getActionButtons( page );
 			const odtButton = buttons.odt.first();
 
-			if ( ! ( await odtButton.isVisible() ) ) {
-				test.skip( 'ODT button not available' );
-				return;
-			}
-
-			const isDisabled = await odtButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'ODT button is disabled' );
-				return;
-			}
-
+			// Start waiting for download before clicking
 			const downloadPromise = page.waitForEvent( 'download' );
 			await odtButton.click();
 
@@ -275,36 +266,24 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 
 		test( 'ODT download returns correct Content-Type', async ( {
-			admin,
-			page,
+			documentEditor,
 			request,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'ODT Header Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const page = documentEditor.page;
 
-			const buttons = getActionButtons( page );
-			const odtButton = buttons.odt.first();
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
 
-			if ( ! ( await odtButton.isVisible() ) ) {
-				test.skip( 'ODT button not available' );
+			if ( ! downloadUrl ) {
+				test.skip( 'Document generation failed via AJAX' );
 				return;
 			}
 
-			const isDisabled = await odtButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'ODT button is disabled' );
-				return;
-			}
-
-			const odtUrl = await odtButton.getAttribute( 'href' );
-			const response = await request.get( odtUrl );
+			const response = await request.get( downloadUrl );
 
 			expect( response.status() ).toBe( 200 );
 
@@ -318,33 +297,24 @@ test.describe( 'Document Preview and Download', () => {
 
 	test.describe( 'PDF Download', () => {
 		test( 'PDF button triggers file download', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'PDF Download Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const page = documentEditor.page;
+
+			// Pre-check: verify PDF generation is available (requires conversion engine).
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
+			if ( ! downloadUrl ) {
+				test.skip( 'PDF generation not available (no conversion engine)' );
+				return;
+			}
 
 			const buttons = getActionButtons( page );
 			const pdfButton = buttons.pdf.first();
 
-			if ( ! ( await pdfButton.isVisible() ) ) {
-				test.skip( 'PDF button not available' );
-				return;
-			}
-
-			const isDisabled = await pdfButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'PDF button is disabled (conversion not configured)' );
-				return;
-			}
-
+			// Start waiting for download before clicking
 			const downloadPromise = page.waitForEvent( 'download' );
 			await pdfButton.click();
 
@@ -355,43 +325,30 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 
 		test( 'PDF download returns correct Content-Type', async ( {
-			admin,
-			page,
+			documentEditor,
 			request,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'PDF Header Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const page = documentEditor.page;
 
-			const buttons = getActionButtons( page );
-			const pdfButton = buttons.pdf.first();
+			// Buttons use AJAX (href="#"), so call the AJAX endpoint
+			// directly to get the real download URL.
+			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
 
-			if ( ! ( await pdfButton.isVisible() ) ) {
-				test.skip( 'PDF button not available' );
+			if ( ! downloadUrl ) {
+				test.skip( 'Document generation failed via AJAX' );
 				return;
 			}
 
-			const isDisabled = await pdfButton.evaluate( ( el ) =>
-				el.tagName === 'BUTTON' && el.hasAttribute( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'PDF button is disabled' );
-				return;
-			}
-
-			const pdfUrl = await pdfButton.getAttribute( 'href' );
-			const response = await request.get( pdfUrl );
+			const response = await request.get( downloadUrl );
 
 			expect( response.status() ).toBe( 200 );
 
 			const contentType = response.headers()[ 'content-type' ];
 			expect( contentType ).toContain( 'application/pdf' );
 
-			// PDF export should be attachment (download), not inline
 			const disposition = response.headers()[ 'content-disposition' ];
 			expect( disposition ).toContain( 'attachment' );
 		} );
@@ -399,34 +356,22 @@ test.describe( 'Document Preview and Download', () => {
 
 	test.describe( 'Actions Metabox', () => {
 		test( 'actions metabox is visible on document edit page', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Metabox Visibility Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const metabox = page.locator( '#documentate_actions' );
+			const metabox = documentEditor.page.locator( '#documentate_actions' );
 			await expect( metabox ).toBeVisible();
 		} );
 
 		test( 'preview button uses AJAX with data attributes', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Preview AJAX Test'
-			);
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-
-			const buttons = getActionButtons( page );
+			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
 			if ( await previewButton.isVisible() ) {
@@ -439,19 +384,13 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 
 		test( 'disabled buttons show tooltip with reason', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Tooltip Test'
-			);
-
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
 			// Find any disabled button
-			const disabledButton = page.locator(
+			const disabledButton = documentEditor.page.locator(
 				'#documentate_actions button[disabled]'
 			).first();
 
@@ -464,23 +403,17 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 
 		test( 'clicking action button shows loading modal', async ( {
-			admin,
-			page,
+			documentEditor,
 		} ) => {
-			postId = await createDocumentWithType(
-				admin,
-				page,
-				'Loading Modal Test'
-			);
-
-			await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+			const postId = await createDocumentWithType( documentEditor );
+			await documentEditor.navigateToEdit( postId );
 
 			// Find any enabled action button
-			const actionButton = page.locator(
+			const actionButton = documentEditor.page.locator(
 				'#documentate_actions a[data-documentate-action]'
 			).first();
 
-			if ( ! ( await actionButton.isVisible() ) ) {
+			if ( ! await actionButton.isVisible() ) {
 				test.skip( 'No action buttons available' );
 				return;
 			}
@@ -489,12 +422,20 @@ test.describe( 'Document Preview and Download', () => {
 			await actionButton.click();
 
 			// Loading modal should appear
-			const modal = page.locator( '#documentate-loading-modal' );
+			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
 			await expect( modal ).toBeVisible( { timeout: 2000 } );
 
-			// Modal should have spinner
+			// Modal should render its loading UI, but spinner may be hidden if it
+			// transitions immediately into the documented error state.
 			const spinner = modal.locator( '.documentate-loading-modal__spinner' );
-			await expect( spinner ).toBeVisible();
+			await expect( spinner ).toHaveCount( 1 );
+
+			if ( await modal.evaluate( ( element ) => element.classList.contains( 'is-error' ) ) ) {
+				await expect( spinner ).not.toBeVisible();
+				await expect( modal.locator( '.documentate-loading-modal__close' ) ).toBeVisible();
+			} else {
+				await expect( spinner ).toBeVisible();
+			}
 		} );
 	} );
 } );

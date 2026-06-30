@@ -5,11 +5,9 @@
 
     },
     "require-dev": {
-        "phpcompatibility/phpcompatibility-wp": "*",
+        "carthage-software/mago": "^1.13",
         "phpunit/phpunit": "*",
-        "squizlabs/php_codesniffer": "*",
         "wp-cli/i18n-command": "*",
-        "wp-coding-standards/wpcs": "*",
         "yoast/phpunit-polyfills": "*",
         "yoast/wp-test-utils": "*",
         "brianium/paratest": "^6.11",
@@ -29,8 +27,8 @@
         "test:coverage": "XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml --coverage-filter=admin --coverage-filter=includes --coverage-filter=public --coverage-filter=documentate.php --coverage-filter=uninstall.php",
         "test:e2e": "wp-scripts test-playwright",
         "test:e2e:ui": "wp-scripts test-playwright --ui",
-        "phpcs": "@php ./vendor/bin/phpcs --standard=.phpcs.xml.dist",
-        "phpcbf": "@php ./vendor/bin/phpcbf --standard=.phpcs.xml.dist",
+        "phpcs": "@php ./vendor/bin/mago lint",
+        "phpcbf": "@php ./vendor/bin/mago format",
         "make-pot": "wp i18n make-pot . languages/documentate.pot --domain=documentate --exclude=vendor,assets,node_modules,tests,wp,wp-content --include=**/*.php",
         "pot-remove-refs": "sed -i.bak '/^#: /d' languages/documentate.pot && rm languages/documentate.pot.bak",
         "update-po": "wp i18n update-po languages/documentate.pot languages/documentate-es_ES.po",
@@ -41,7 +39,6 @@
     },
     "config": {
         "allow-plugins": {
-            "dealerdirect/phpcodesniffer-composer-installer": true,
             "composer/installers": true
         }
     },

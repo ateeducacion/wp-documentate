@@ -185,9 +185,12 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * It should strip literal newline markers (n/rn) accidentally injected between tags on save.
+	 * It should preserve HTML as-is on save (cleanup happens at document generation time).
+	 *
+	 * HTML content is stored without modification at save time.
+	 * The remove_linebreak_artifacts() cleanup now occurs during document generation.
 	 */
-	public function test_repeater_rich_text_removes_spurious_n_artifacts() {
+	public function test_repeater_rich_text_preserves_html_on_save() {
 		$term    = wp_insert_term( 'Tipo Limpieza', 'documentate_doc_type' );
 		$term_id = intval( $term['term_id'] );
 		$storage = new Documentate\DocType\SchemaStorage();
@@ -202,15 +205,11 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 		);
 		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
 
-		// Simulate a payload already contaminated with stray 'n' artifacts.
-		$contaminated = '<h3>Encabezado de prueba</h3>'
-			. '<p>n</p>'
+		// Content with HTML that should be preserved as-is.
+		$html_content = '<h3>Encabezado de prueba</h3>'
 			. '<p>Primer párrafo con texto de ejemplo.</p>'
-			. '<p>n</p>'
 			. '<p>Segundo párrafo con <strong>negritas</strong>, <em>cursivas</em> y <u>subrayado</u>.</p>'
-			. '<p>n</p>'
-			. '<ul>n<li>Elemento uno</li>n<li>Elemento dos</li>n</ul>'
-			. '<p>n</p>'
+			. '<ul><li>Elemento uno</li><li>Elemento dos</li></ul>'
 			. '<table><tbody><tr><th>Col 1</th><th>Col 2</th></tr>'
 			. '<tr><td>Dato A1</td><td>Dato A2</td></tr>'
 			. '<tr><td>Dato B1</td><td>Dato B2</td></tr></tbody></table>';
@@ -223,8 +222,8 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 				'annexes' => array(
 					array(
 						'number'  => '1',
-						'title'   => 'Limpieza',
-						'content' => $contaminated,
+						'title'   => 'Preservación HTML',
+						'content' => $html_content,
 					),
 				),
 			)
@@ -240,9 +239,13 @@ class DocumentateDocumentsArrayFieldsTest extends WP_UnitTestCase {
 		$decoded      = json_decode( $structured['annexes']['value'], true );
 		$stored       = $decoded[0]['content'];
 
-		$this->assertStringNotContainsString( '<p>n</p>', $stored );
-		$this->assertStringNotContainsString( '>n<' , $stored );
+		// HTML structure should be fully preserved.
+		$this->assertStringContainsString( '<h3>Encabezado de prueba</h3>', $stored );
+		$this->assertStringContainsString( '<strong>negritas</strong>', $stored );
+		$this->assertStringContainsString( '<em>cursivas</em>', $stored );
+		$this->assertStringContainsString( '<u>subrayado</u>', $stored );
 		$this->assertStringContainsString( '<table>', $stored );
+		$this->assertStringContainsString( '<ul>', $stored );
 
 		$_POST = array();
 		remove_filter( 'wp_insert_post_data', array( $doc, 'filter_post_data_compose_content' ), 10 );

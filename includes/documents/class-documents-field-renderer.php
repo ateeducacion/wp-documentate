@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Field rendering utilities for Documentate documents.
  *
@@ -16,7 +17,6 @@ namespace Documentate\Documents;
  * Handles field rendering utilities for document fields.
  */
 class Documents_Field_Renderer {
-
 	/**
 	 * Map of input types to additional CSS classes.
 	 *
@@ -25,7 +25,7 @@ class Documents_Field_Renderer {
 	private static $input_class_map = array(
 		'textarea' => 'large-text',
 		'checkbox' => 'documentate-field-checkbox',
-		'select'   => 'regular-text',
+		'select' => 'regular-text',
 	);
 
 	/**
@@ -36,30 +36,25 @@ class Documents_Field_Renderer {
 	 * @param string $input_type Input type.
 	 * @return string
 	 */
-	public static function build_input_class( $input_type ) {
-		$input_type = sanitize_key( $input_type );
-		$classes    = array(
+	public static function build_input_class($input_type) {
+		$input_type = sanitize_key($input_type);
+		$classes = array(
 			'documentate-field-input',
 			'documentate-field-input-' . $input_type,
 		);
 
 		// Use lookup array instead of switch.
-		if ( isset( self::$input_class_map[ $input_type ] ) ) {
-			$classes[] = self::$input_class_map[ $input_type ];
+		if (isset(self::$input_class_map[$input_type])) {
+			$classes[] = self::$input_class_map[$input_type];
 		} else {
 			$classes[] = 'regular-text';
 		}
 
-		$classes = array_filter(
-			array_map(
-				static function ( $class ) {
-					return preg_replace( '/[^a-z0-9_\-]/', '', (string) $class );
-				},
-				array_unique( $classes )
-			)
-		);
+		$classes = array_filter(array_map(static function ($class) {
+			return preg_replace('/[^a-z0-9_\-]/', '', (string) $class);
+		}, array_unique($classes)));
 
-		return implode( ' ', $classes );
+		return implode(' ', $classes);
 	}
 
 	/**
@@ -68,34 +63,34 @@ class Documents_Field_Renderer {
 	 * @param array<string,string> $attributes Attribute map.
 	 * @return string
 	 */
-	public static function format_field_attributes( $attributes ) {
-		if ( empty( $attributes ) || ! is_array( $attributes ) ) {
+	public static function format_field_attributes($attributes) {
+		if (empty($attributes) || !is_array($attributes)) {
 			return '';
 		}
 
 		$parts = array();
-		foreach ( $attributes as $name => $value ) {
-			$name = strtolower( (string) $name );
-			$name = preg_replace( '/[^a-z0-9_\-:]/', '', $name );
-			if ( '' === $name ) {
+		foreach ($attributes as $name => $value) {
+			$name = strtolower((string) $name);
+			$name = preg_replace('/[^a-z0-9_\-:]/', '', $name);
+			if ('' === $name) {
 				continue;
 			}
 
-			if ( is_bool( $value ) ) {
-				if ( $value ) {
-					$parts[] = esc_attr( $name );
+			if (is_bool($value)) {
+				if ($value) {
+					$parts[] = esc_attr($name);
 				}
 				continue;
 			}
 
-			if ( null === $value ) {
+			if (null === $value) {
 				continue;
 			}
 
-			$parts[] = esc_attr( $name ) . '="' . esc_attr( (string) $value ) . '"';
+			$parts[] = esc_attr($name) . '="' . esc_attr((string) $value) . '"';
 		}
 
-		return implode( ' ', $parts );
+		return implode(' ', $parts);
 	}
 
 	/**
@@ -104,24 +99,24 @@ class Documents_Field_Renderer {
 	 * @param array $raw_field Raw field definition.
 	 * @return array<string,string>
 	 */
-	public static function parse_select_options( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
+	public static function parse_select_options($raw_field) {
+		if (!is_array($raw_field)) {
 			return array();
 		}
 
 		$options = array();
 
-		if ( ! isset( $raw_field['parameters'] ) || ! is_array( $raw_field['parameters'] ) ) {
+		if (!isset($raw_field['parameters']) || !is_array($raw_field['parameters'])) {
 			return $options;
 		}
 
-		$params    = $raw_field['parameters'];
-		$candidate = self::find_options_candidate( $params );
+		$params = $raw_field['parameters'];
+		$candidate = self::find_options_candidate($params);
 
-		if ( is_array( $candidate ) ) {
-			$options = self::parse_array_options( $candidate );
-		} elseif ( is_string( $candidate ) && '' !== $candidate ) {
-			$options = self::parse_string_options( $candidate );
+		if (is_array($candidate)) {
+			$options = self::parse_array_options($candidate);
+		} elseif (is_string($candidate) && '' !== $candidate) {
+			$options = self::parse_string_options($candidate);
 		}
 
 		return $options;
@@ -133,12 +128,12 @@ class Documents_Field_Renderer {
 	 * @param array $params Parameters array.
 	 * @return mixed Options candidate or null.
 	 */
-	private static function find_options_candidate( $params ) {
-		$option_keys = array( 'options', 'choices', 'values' );
+	private static function find_options_candidate($params) {
+		$option_keys = array('options', 'choices', 'values');
 
-		foreach ( $option_keys as $key ) {
-			if ( isset( $params[ $key ] ) && '' !== $params[ $key ] ) {
-				return $params[ $key ];
+		foreach ($option_keys as $key) {
+			if (isset($params[$key]) && '' !== $params[$key]) {
+				return $params[$key];
 			}
 		}
 
@@ -151,13 +146,13 @@ class Documents_Field_Renderer {
 	 * @param array $candidate Array of options.
 	 * @return array<string,string>
 	 */
-	private static function parse_array_options( $candidate ) {
+	private static function parse_array_options($candidate) {
 		$options = array();
 
-		foreach ( $candidate as $value => $label ) {
-			$option_value = is_int( $value ) ? (string) $label : (string) $value;
+		foreach ($candidate as $value => $label) {
+			$option_value = is_int($value) ? (string) $label : (string) $value;
 			$option_label = (string) $label;
-			$options[ sanitize_text_field( $option_value ) ] = sanitize_text_field( $option_label );
+			$options[sanitize_text_field($option_value)] = sanitize_text_field($option_label);
 		}
 
 		return $options;
@@ -169,24 +164,24 @@ class Documents_Field_Renderer {
 	 * @param string $source Options string.
 	 * @return array<string,string>
 	 */
-	private static function parse_string_options( $source ) {
-		$options   = array();
-		$delimiter = ( false !== strpos( $source, '|' ) ) ? '|' : ',';
-		$pieces    = array_map( 'trim', explode( $delimiter, $source ) );
+	private static function parse_string_options($source) {
+		$options = array();
+		$delimiter = false !== strpos($source, '|') ? '|' : ',';
+		$pieces = array_map('trim', explode($delimiter, $source));
 
-		foreach ( $pieces as $piece ) {
-			if ( '' === $piece ) {
+		foreach ($pieces as $piece) {
+			if ('' === $piece) {
 				continue;
 			}
 
-			if ( false !== strpos( $piece, ':' ) ) {
-				list( $value, $label ) = array_map( 'trim', explode( ':', $piece, 2 ) );
+			if (false !== strpos($piece, ':')) {
+				list($value, $label) = array_map('trim', explode(':', $piece, 2));
 			} else {
 				$value = $piece;
 				$label = $piece;
 			}
 
-			$options[ sanitize_text_field( $value ) ] = sanitize_text_field( $label );
+			$options[sanitize_text_field($value)] = sanitize_text_field($label);
 		}
 
 		return $options;
@@ -198,24 +193,24 @@ class Documents_Field_Renderer {
 	 * @param array $raw_field Raw field definition.
 	 * @return string
 	 */
-	public static function get_select_placeholder( $raw_field ) {
-		if ( ! is_array( $raw_field ) ) {
+	public static function get_select_placeholder($raw_field) {
+		if (!is_array($raw_field)) {
 			return '';
 		}
 
-		if ( isset( $raw_field['placeholder'] ) && '' !== $raw_field['placeholder'] ) {
-			return sanitize_text_field( $raw_field['placeholder'] );
+		if (isset($raw_field['placeholder']) && '' !== $raw_field['placeholder']) {
+			return sanitize_text_field($raw_field['placeholder']);
 		}
 
-		if ( ! isset( $raw_field['parameters'] ) || ! is_array( $raw_field['parameters'] ) ) {
+		if (!isset($raw_field['parameters']) || !is_array($raw_field['parameters'])) {
 			return '';
 		}
 
-		$placeholder_keys = array( 'placeholder', 'prompt', 'empty', 'empty_label' );
+		$placeholder_keys = array('placeholder', 'prompt', 'empty', 'empty_label');
 
-		foreach ( $placeholder_keys as $key ) {
-			if ( isset( $raw_field['parameters'][ $key ] ) && '' !== $raw_field['parameters'][ $key ] ) {
-				return sanitize_text_field( (string) $raw_field['parameters'][ $key ] );
+		foreach ($placeholder_keys as $key) {
+			if (isset($raw_field['parameters'][$key]) && '' !== $raw_field['parameters'][$key]) {
+				return sanitize_text_field((string) $raw_field['parameters'][$key]);
 			}
 		}
 

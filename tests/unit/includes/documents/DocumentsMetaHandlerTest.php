@@ -177,6 +177,10 @@ class DocumentsMetaHandlerTest extends WP_UnitTestCase {
 	/**
 	 * Data provider for block HTML tests.
 	 *
+	 * Note: As of the inline HTML detection enhancement, the function now
+	 * detects both block-level AND inline formatting elements (strong, em, a, etc.)
+	 * to ensure rich content is preserved when TinyMCE omits <p> tags.
+	 *
 	 * @return array Test cases.
 	 */
 	public function block_html_provider() {
@@ -189,12 +193,14 @@ class DocumentsMetaHandlerTest extends WP_UnitTestCase {
 			'heading_h1'       => array( '<h1>Title</h1>', true ),
 			'heading_h3'       => array( '<h3>Subtitle</h3>', true ),
 			'blockquote'       => array( '<blockquote>Quote</blockquote>', true ),
-			'inline_only'      => array( '<strong>Bold</strong> and <em>italic</em>', false ),
+			'inline_only'      => array( '<strong>Bold</strong> and <em>italic</em>', true ), // Now detected as rich.
+			'bold_tag'         => array( '<b>Bold heading</b> body text', true ),
 			'plain_text'       => array( 'Just plain text', false ),
 			'empty'            => array( '', false ),
-			'span'             => array( '<span>Inline</span>', false ),
-			'anchor'           => array( '<a href="#">Link</a>', false ),
-			'br'               => array( 'Line 1<br>Line 2', false ),
+			'span'             => array( '<span>Inline</span>', true ), // Now detected as rich.
+			'anchor'           => array( '<a href="#">Link</a>', true ), // Now detected as rich.
+			'br'               => array( 'Line 1<br>Line 2', true ), // Now detected as rich.
+			'intentional_space' => array( '<p>&nbsp;</p>', true ),
 			'mixed_case'       => array( '<TABLE><TR><TD>Cell</TD></TR></TABLE>', true ),
 			'nested'           => array( '<div><p>Nested</p></div>', true ),
 		);
@@ -283,5 +289,31 @@ class DocumentsMetaHandlerTest extends WP_UnitTestCase {
 		$this->assertArrayHasKey( $slug, $parsed );
 		$this->assertSame( $value, $parsed[ $slug ]['value'] );
 		$this->assertSame( $type, $parsed[ $slug ]['type'] );
+	}
+
+	/**
+	 * Test roundtrip preserves official-resolution formatting fixtures.
+	 */
+	public function test_roundtrip_preserves_resolution_formatting_fixtures() {
+		$slug = 'resolution_body';
+		$type = 'rich';
+		$value = <<<'HTML'
+<p style="text-align: justify"><b>Primero. </b>Dictar instrucciones para la implementación y el desarrollo del Programa esTEla.&nbsp;&nbsp;</p>
+<p>&nbsp;</p>
+<ol><li aria-level="1">La transición educativa entre etapas.</li></ol>
+<table><thead><tr><th><b>Distrito</b></th><th>Estado</th></tr></thead><tbody><tr><td>Norte</td><td>Activo</td></tr></tbody></table>
+<p>Contra el presente acto, por ser de trámite, no cabe recurso alguno.</p>
+HTML;
+
+		$fragment = Documents_Meta_Handler::build_structured_field_fragment( $slug, $type, $value );
+		$parsed   = Documents_Meta_Handler::parse_structured_content( $fragment );
+
+		$this->assertArrayHasKey( $slug, $parsed );
+		$this->assertSame( $value, $parsed[ $slug ]['value'] );
+		$this->assertStringContainsString( 'text-align: justify', $parsed[ $slug ]['value'] );
+		$this->assertStringContainsString( '<p>&nbsp;</p>', $parsed[ $slug ]['value'] );
+		$this->assertStringContainsString( '<thead>', $parsed[ $slug ]['value'] );
+		$this->assertStringContainsString( '<tbody>', $parsed[ $slug ]['value'] );
+		$this->assertStringContainsString( '<b>Distrito</b>', $parsed[ $slug ]['value'] );
 	}
 }

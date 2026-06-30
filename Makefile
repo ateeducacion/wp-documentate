@@ -14,18 +14,33 @@ check-docker:
 install-requirements:
 	npm -g i @wordpress/env
 
-start-if-not-running:
-	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
-		echo "wp-env is NOT running. Starting (previous updating) containers..."; \
-		npx wp-env start --update; \
+# Ensure the environment is running. Used as a prerequisite by the test/check
+# targets: the probe keeps repeated `make test` runs fast, and `wp-env start`
+# is idempotent so re-running it is safe. Probes the development site (8888).
+start-if-not-running: check-docker
+	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
+		echo "wp-env is not running. Starting..."; \
+		npx wp-env start; \
 		npx wp-env run cli wp plugin activate documentate; \
 		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
 	else \
-		echo "wp-env is already running, skipping start."; \
+		echo "wp-env is already running."; \
 	fi
 
-# Bring up Docker containers
-up: check-docker start-if-not-running
+# Bring up the environment. Always calls `wp-env start` (idempotent), so it
+# (re)syncs the containers instead of skipping when something only looks alive.
+up: check-docker
+	npx wp-env start
+	-npx wp-env run cli wp plugin activate documentate
+	@echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."
+
+# Alias for `up` (some folks type `make start`).
+start: up
+
+# Update WordPress core/themes and (re)start the environment.
+wp-update: check-docker
+	npx wp-env start --update
+	-npx wp-env run cli wp plugin activate documentate
 
 flush-permalinks:
 	#npx wp-env run cli wp rewrite flush --hard
@@ -39,19 +54,32 @@ create-user:
 	fi
 	npx wp-env run cli sh -c 'wp user list --field=user_login | grep -q "^$(USER)$$" || wp user create $(USER) $(EMAIL) --role=$(ROLE) --user_pass=$(PASSWORD)'
 
-# Stop and remove Docker containers
+# Stop the environment (containers are stopped; data is preserved — use
+# `destroy` to remove containers and volumes entirely).
 down: check-docker
 	npx wp-env stop
+
+# Alias for `down` (some folks type `make stop`).
+stop: down
 
 # Clean the environments, the same that running "npx wp-env clean all"
 clean:
 	npx wp-env clean development
 	npx wp-env clean tests
 	npx wp-env run cli wp plugin activate documentate
-# 	npx wp-env run cli wp plugin install tinymce-advanced --activate
+	npx wp-env run cli wp language core install es_ES --activate
+	npx wp-env run cli wp site switch-language es_ES
 
+
+
+# Remove the environment (containers and volumes).
 destroy:
 	npx wp-env destroy
+
+# Reset the WordPress databases to a fresh install, then reactivate the plugin.
+reset: check-docker
+	npx wp-env reset
+	-npx wp-env run cli wp plugin activate documentate
 
 # Pass the wp plugin-check
 check-plugin-old: check-docker start-if-not-running
@@ -63,20 +91,22 @@ check-plugin: check-docker start-if-not-running
 	# Install plugin-check if needed (don't fail if already active)
 	@npx wp-env run cli wp plugin install plugin-check --activate --color || true
 
-	# Run plugin check with colored output, capture exit code, and fail if needed
+	# Run plugin check; wp-env run always exits 0, so we grep the output for ERRORs.
 	@echo "Running WordPress Plugin Check..."
-	@npx wp-env run cli wp plugin check documentate \
+	@TMPFILE=$$(mktemp); \
+	npx wp-env run cli wp plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
-		--color; \
-	EXIT_CODE=$$?; \
+		--color 2>&1 | tee $$TMPFILE; \
+	ERRORS=$$(sed 's/\x1B\[[0-9;]*[mK]//g' $$TMPFILE | grep -cE '\bERROR\b' || true); \
+	rm -f $$TMPFILE; \
 	echo ""; \
-	if [ $$EXIT_CODE -eq 0 ]; then \
-		echo "Plugin Check: ✓ No errors found."; \
+	if [ "$$ERRORS" -gt 0 ]; then \
+		echo "Plugin Check: ✗ $$ERRORS error(s) found."; \
+		exit 1; \
 	else \
-		echo "Plugin Check: ✗ Errors found (exit code: $$EXIT_CODE)."; \
-		exit $$EXIT_CODE; \
+		echo "Plugin Check: ✓ No errors found."; \
 	fi
 
 
@@ -92,11 +122,11 @@ test: start-if-not-running
 	@CMD="./vendor/bin/phpunit"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --testdox --colors=always
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD --colors=always
 
 # Run document generation tests only
 test-generation: start-if-not-running
-	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --testdox --colors=always
+	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit --testsuite=generation --colors=always
 
 # Run unit tests in verbose mode. Honor TEST filter if provided.
 test-verbose: start-if-not-running
@@ -113,7 +143,7 @@ test-verbose: start-if-not-running
 # database and don't support parallel execution reliably.
 test-coverage: start-if-not-running
 	@mkdir -p artifacts/coverage
-	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --testdox --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
+	@CMD="env XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text=artifacts/coverage/coverage.txt --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
 	npx wp-env run tests-cli --env-cwd=wp-content/plugins/documentate $$CMD; \
@@ -138,6 +168,8 @@ setup-tests-env:
 		--admin_password=password \
 		--admin_email=admin@example.com \
 		--skip-email 2>/dev/null || true
+	@npx wp-env run tests-cli wp language core install es_ES --activate 2>/dev/null || true
+	@npx wp-env run tests-cli wp site switch-language es_ES 2>/dev/null || true
 	@npx wp-env run tests-cli wp plugin activate documentate 2>/dev/null || true
 	@npx wp-env run tests-cli wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
@@ -156,25 +188,24 @@ logs-test:
 	npx wp-env logs --environment=tests
 
 
-# Install PHP_CodeSniffer and WordPress Coding Standards in the container
-install-phpcs: check-docker start-if-not-running
-	@echo "Checking if PHP_CodeSniffer is installed..."
-	@if ! npx wp-env run cli bash -c '[ -x "$$HOME/.composer/vendor/bin/phpcs" ]' > /dev/null 2>&1; then \
-		echo "Installing PHP_CodeSniffer and WordPress Coding Standards..."; \
-		npx wp-env run cli composer global config --no-plugins allow-plugins.dealerdirect/phpcodesniffer-composer-installer true; \
-		npx wp-env run cli composer global require squizlabs/php_codesniffer wp-coding-standards/wpcs --no-interaction; \
+# Install Mago PHP toolchain via Composer
+install-mago:
+	@echo "Checking if Mago is installed..."
+	@if [ ! -x "./vendor/bin/mago" ]; then \
+		echo "Installing Mago..."; \
+		composer install --prefer-dist; \
 	else \
-		echo "PHP_CodeSniffer is already installed."; \
+		echo "Mago is already installed."; \
 	fi
 
 
-# Check code style with PHP Code Sniffer inside the container
-lint: install-phpcs
-	npx wp-env run cli phpcs --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Check code style with Mago linter
+lint: install-mago
+	./vendor/bin/mago lint
 
-# Automatically fix code style with PHP Code Beautifier inside the container
-fix: install-phpcs
-	npx wp-env run cli phpcbf --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Automatically fix code style with Mago formatter
+fix: install-mago
+	./vendor/bin/mago format
 
 # Run PHP Mess Detector ignoring vendor and node_modules
 phpmd:
@@ -190,30 +221,16 @@ cli-container:
 		exit 1 \
 	)
 
-# Fix wihout tty for use on git hooks
-fix-no-tty: cli-container start-if-not-running
-	@CONTAINER_CLI=$$( \
-		docker ps --format "{{.Names}}" \
-		| grep "\-cli\-" \
-		| grep -v "tests-cli" \
-	) && \
-	echo "Running PHPCBF (no TTY) inside $$CONTAINER_CLI..." && \
-	docker exec -i $$CONTAINER_CLI \
-		phpcbf --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Fix without tty for use on git hooks
+fix-no-tty: install-mago
+	./vendor/bin/mago format
 
-# Lint wihout tty for use on git hooks
-lint-no-tty: cli-container start-if-not-running
-	@CONTAINER_CLI=$$( \
-		docker ps --format "{{.Names}}" \
-		| grep "\-cli\-" \
-		| grep -v "tests-cli" \
-	) && \
-	echo "Running PHPCS (no TTY) inside $$CONTAINER_CLI..." && \
-	docker exec -i $$CONTAINER_CLI \
-		phpcs --standard=wp-content/plugins/documentate/.phpcs.xml.dist wp-content/plugins/documentate
+# Lint without tty for use on git hooks
+lint-no-tty: install-mago
+	./vendor/bin/mago lint
 
 
-# Update Composer dependencies
+# Update Composer and npm dependencies
 update: check-docker
 	composer update --no-cache --with-all-dependencies
 	npm update
@@ -242,7 +259,7 @@ package:
 	fi
 	# Update the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" documentate.php
-	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
 	# Create the ZIP package
@@ -250,7 +267,7 @@ package:
 
 	# Restore the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
-	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '0.0.0')/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: 0.0.0/" readme.txt
 
 # Show help with available commands
@@ -258,12 +275,14 @@ help:
 	@echo "Available commands:"
 	@echo ""
 	@echo "General:"
-	@echo "  up                 - Bring up Docker containers in interactive mode"
-	@echo "  down               - Stop and remove Docker containers"
+	@echo "  up / start         - Start the WordPress environment (idempotent)"
+	@echo "  down / stop        - Stop the environment (data preserved)"
+	@echo "  wp-update          - Update WordPress core/themes and restart"
 	@echo "  logs               - Show the docker container logs"
 	@echo "  logs-test          - Show logs from test environment"
-	@echo "  clean              - Clean up WordPress environment"
-	@echo "  destroy            - Destroy the WordPress environment"
+	@echo "  clean              - Reset both environments' databases"
+	@echo "  reset              - Reset the development database to a fresh install"
+	@echo "  destroy            - Remove the environment (containers and volumes)"
 	@echo "  flush-permalinks   - Flush the created permalinks"
 	@echo "  create-user        - Create a WordPress user if it doesn't exist."
 	@echo "                       Usage: make create-user USER=<username> EMAIL=<email> ROLE=<role> PASSWORD=<password>"
@@ -276,8 +295,8 @@ help:
 	@echo "  css-clean             - Remove generated CSS and source map files"
 	@echo ""
 	@echo "Linting & Code Quality:"
-	@echo "  fix                - Automatically fix code style with PHP_CodeSniffer"
-	@echo "  lint               - Check code style with PHP_CodeSniffer"
+	@echo "  fix                - Automatically fix code style with Mago formatter"
+	@echo "  lint               - Check code style with Mago linter"
 	@echo "  fix-no-tty         - Same as 'fix' but without TTY (for git hooks)"
 	@echo "  lint-no-tty        - Same as 'lint' but without TTY (for git hooks)"
 	@echo "  check-plugin       - Run WordPress plugin-check tests"
@@ -305,7 +324,7 @@ help:
 	@echo "  mo                 - Generate .mo files from .po files"
 	@echo ""
 	@echo "Packaging & Updates:"
-	@echo "  update             - Update Composer dependencies"
+	@echo "  update             - Update Composer and npm dependencies"
 	@echo "  package            - Create ZIP package. Usage: make package VERSION=x.y.z"
 	@echo ""
 	@echo "  help               - Show this help message"

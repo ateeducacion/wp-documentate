@@ -1,13 +1,13 @@
 # Documentate
 
-![CI](https://img.shields.io/github/actions/workflow/status/erseco/wp-documentate/ci.yml?label=CI)
-![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/erseco/COVERAGE_GIST_ID/raw/coverage.json)
+![CI](https://img.shields.io/github/actions/workflow/status/ateeducacion/wp-documentate/ci.yml?label=CI)
+[![codecov](https://codecov.io/gh/ateeducacion/wp-documentate/graph/badge.svg)](https://codecov.io/gh/ateeducacion/wp-documentate)
 ![WordPress Version](https://img.shields.io/badge/WordPress-6.1-blue)
 ![Language](https://img.shields.io/badge/Language-PHP-orange)
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Downloads](https://img.shields.io/github/downloads/erseco/wp-documentate/total)
-![Last Commit](https://img.shields.io/github/last-commit/erseco/wp-documentate)
-![Open Issues](https://img.shields.io/github/issues/erseco/wp-documentate)
+![Downloads](https://img.shields.io/github/downloads/ateeducacion/wp-documentate/total)
+![Last Commit](https://img.shields.io/github/last-commit/ateeducacion/wp-documentate)
+![Open Issues](https://img.shields.io/github/issues/ateeducacion/wp-documentate)
 
 **Documentate** es un plugin de WordPress para la generación de resoluciones oficiales con estructura de secciones y exportación a DOCX.
 
@@ -15,7 +15,7 @@
 
 Try Documentate instantly in your browser using WordPress Playground! The demo includes sample data to help you explore the features. Note that all changes will be lost when you close the browser window, as everything runs locally in your browser.
 
-[<kbd> <br> Preview in WordPress Playground <br> </kbd>](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/erseco/wp-documentate/refs/heads/main/blueprint.json)
+[<kbd> <br> Preview in WordPress Playground <br> </kbd>](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/wp-documentate/refs/heads/main/blueprint.json)
 
 
 ### Key Features
@@ -28,7 +28,7 @@ Try Documentate instantly in your browser using WordPress Playground! The demo i
 
 ## Installation
 
-1. **Download the latest release** from the [GitHub Releases page](https://github.com/erseco/wp-documentate/releases).
+1. **Download the latest release** from the [GitHub Releases page](https://github.com/ateeducacion/wp-documentate/releases).
 2. Upload the downloaded ZIP file to your WordPress site via **Plugins > Add New > Upload Plugin**.
 3. Activate the plugin through the 'Plugins' menu in WordPress.
 4. Configure the plugin under 'Settings' by providing the necessary Nextcloud API details.
@@ -41,4 +41,61 @@ For development, you can bring up a local WordPress environment with the plugin 
 make up
 ```
 
-This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`. 
+This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`.
+
+## Ayuda contextual en campos dinámicos
+
+Las definiciones de campos del esquema pueden mostrar texto de ayuda **antes** o **después** del control:
+
+- `before_description`: renderiza un bloque informativo antes del input, select o textarea.
+- `description`: mantiene el comportamiento existente y renderiza la ayuda después del control.
+
+Ejemplo básico:
+
+```php
+array(
+	'name'               => 'numero_solicitud',
+	'slug'               => 'numero_solicitud',
+	'type'               => 'text',
+	'before_description' => 'Introduce el número exactamente como aparece en el justificante.',
+	'description'        => 'Número de registro o expediente de la solicitud.',
+)
+```
+
+También puedes personalizar el bloque previo con clases CSS y estilos inline:
+
+```php
+array(
+	'name'                     => 'numero_solicitud',
+	'slug'                     => 'numero_solicitud',
+	'type'                     => 'text',
+	'before_description'       => 'Asegúrate de usar el formato correcto.',
+	'before_description_class' => 'notice-inline notice-warning',
+	'before_description_style' => 'font-weight:600;',
+	'before_description_color' => '#b32d2e',
+)
+```
+
+El bloque previo siempre incluye las clases `documentate-field-before-description` y `description`, además de una clase específica por campo con el formato `documentate-field-before-description-{slug}`.
+
+## Access Control
+
+### Template management (Document Types)
+
+Only users with **administrator** privileges can create, edit, or delete Document Types (templates). Non-admin users are blocked at the server level from accessing the Document Types admin screens, even if they try to access the URL directly. The Document Types menu item is also hidden from non-admin users.
+
+### Document visibility by scope
+
+Documents are filtered based on a per-user **scope category** assignment:
+
+- **Administrators** see all documents regardless of scope.
+- **Non-admin users** only see documents that are assigned to their scope category **or any of its subcategories** (hierarchical). If no scope is assigned, the user sees zero documents.
+
+### Assigning a scope to a user
+
+1. Go to **Users** in the WordPress admin.
+2. Edit the desired user profile.
+3. Under the **Documentate** section, select a **Scope category** from the dropdown.
+4. Save the profile.
+
+The dropdown lists all WordPress categories in hierarchical order. Only users who have permission to edit the profile (respecting `edit_user` capability) can change the scope assignment. 

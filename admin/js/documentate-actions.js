@@ -9,6 +9,9 @@
  * popup window (which has COOP/COEP headers required for SharedArrayBuffer).
  * The popup is positioned off-screen to minimize visibility while the loading
  * modal in the main window shows progress to the user.
+ *
+ * For Collabora in Playground mode, conversion is done directly via fetch()
+ * without popups (since Playground doesn't support opening new windows).
  */
 (function ($) {
 	'use strict';
@@ -111,6 +114,288 @@
 		}
 		$modal.addClass('is-error');
 		$modal.find('.documentate-loading-modal__error-text').text(message);
+	}
+
+	/**
+	 * Load PDF.js library from CDN.
+	 * Only loads once, subsequent calls return the cached promise.
+	 */
+	let pdfJsLoadPromise = null;
+	function loadPdfJs() {
+		if (pdfJsLoadPromise) {
+			return pdfJsLoadPromise;
+		}
+
+		pdfJsLoadPromise = new Promise((resolve, reject) => {
+			// Check if already loaded
+			if (window.pdfjsLib) {
+				resolve(window.pdfjsLib);
+				return;
+			}
+
+			const script = document.createElement('script');
+			script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+			script.onload = () => {
+				// Set worker source
+				window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+					'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+				resolve(window.pdfjsLib);
+			};
+			script.onerror = () => reject(new Error('Failed to load PDF.js'));
+			document.head.appendChild(script);
+		});
+
+		return pdfJsLoadPromise;
+	}
+
+	/**
+	 * Show PDF in an embedded viewer modal using PDF.js.
+	 * Used in Playground where window.open() doesn't work with blob URLs.
+	 *
+	 * @param {Blob} pdfBlob The PDF blob to display.
+	 */
+	async function showPdfViewer(pdfBlob) {
+		// Remove existing viewer if any
+		$('#documentate-pdf-viewer').remove();
+
+		// Create blob URL for download button
+		const blobUrl = URL.createObjectURL(pdfBlob);
+
+		const html = `
+			<div class="documentate-pdf-viewer" id="documentate-pdf-viewer">
+				<div class="documentate-pdf-viewer__header">
+					<span class="documentate-pdf-viewer__title">${escapeHtml(strings.preview || 'Vista previa')}</span>
+					<div class="documentate-pdf-viewer__actions">
+						<button type="button" class="button documentate-pdf-viewer__nav" id="pdf-prev" title="Anterior">‹</button>
+						<span class="documentate-pdf-viewer__page-info">
+							<span id="pdf-page-num">1</span> / <span id="pdf-page-count">-</span>
+						</span>
+						<button type="button" class="button documentate-pdf-viewer__nav" id="pdf-next" title="Siguiente">›</button>
+						<button type="button" class="button documentate-pdf-viewer__zoom" id="pdf-zoom-out" title="Reducir">−</button>
+						<button type="button" class="button documentate-pdf-viewer__zoom" id="pdf-zoom-in" title="Ampliar">+</button>
+						<a href="${blobUrl}" download="documento.pdf" class="button documentate-pdf-viewer__download">${escapeHtml(strings.download || 'Descargar')}</a>
+						<button type="button" class="documentate-pdf-viewer__close" aria-label="${escapeHtml(strings.close || 'Cerrar')}">&times;</button>
+					</div>
+				</div>
+				<div class="documentate-pdf-viewer__content">
+					<div class="documentate-pdf-viewer__canvas-container" id="pdf-canvas-container">
+						<canvas id="pdf-canvas"></canvas>
+					</div>
+				</div>
+			</div>
+		`;
+		$('body').append(html);
+
+		const $viewer = $('#documentate-pdf-viewer');
+
+		// Close function
+		const closeViewer = () => {
+			$viewer.remove();
+			URL.revokeObjectURL(blobUrl);
+			$(document).off('keydown.documentatePdfViewer');
+		};
+
+		// Close button event
+		$viewer.on('click', '.documentate-pdf-viewer__close', closeViewer);
+
+		// ESC key to close
+		$(document).on('keydown.documentatePdfViewer', function (e) {
+			if (e.key === 'Escape') {
+				closeViewer();
+			}
+		});
+
+		// Load and render PDF with PDF.js
+		try {
+			const pdfjsLib = await loadPdfJs();
+			const arrayBuffer = await pdfBlob.arrayBuffer();
+			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+			let currentPage = 1;
+			let currentScale = 1.5;
+			const totalPages = pdf.numPages;
+
+			$('#pdf-page-count').text(totalPages);
+
+			const canvas = document.getElementById('pdf-canvas');
+			const ctx = canvas.getContext('2d');
+
+			async function renderPage(pageNum) {
+				const page = await pdf.getPage(pageNum);
+				const viewport = page.getViewport({ scale: currentScale });
+
+				canvas.height = viewport.height;
+				canvas.width = viewport.width;
+
+				await page.render({
+					canvasContext: ctx,
+					viewport: viewport
+				}).promise;
+
+				$('#pdf-page-num').text(pageNum);
+			}
+
+			// Initial render
+			await renderPage(currentPage);
+
+			// Navigation events
+			$('#pdf-prev').on('click', async () => {
+				if (currentPage > 1) {
+					currentPage--;
+					await renderPage(currentPage);
+				}
+			});
+
+			$('#pdf-next').on('click', async () => {
+				if (currentPage < totalPages) {
+					currentPage++;
+					await renderPage(currentPage);
+				}
+			});
+
+			// Zoom events
+			$('#pdf-zoom-in').on('click', async () => {
+				currentScale = Math.min(currentScale + 0.25, 3);
+				await renderPage(currentPage);
+			});
+
+			$('#pdf-zoom-out').on('click', async () => {
+				currentScale = Math.max(currentScale - 0.25, 0.5);
+				await renderPage(currentPage);
+			});
+
+			// Keyboard navigation
+			$(document).on('keydown.documentatePdfViewer', async function (e) {
+				if (e.key === 'ArrowLeft' && currentPage > 1) {
+					currentPage--;
+					await renderPage(currentPage);
+				} else if (e.key === 'ArrowRight' && currentPage < totalPages) {
+					currentPage++;
+					await renderPage(currentPage);
+				}
+			});
+
+		} catch (error) {
+			console.error('PDF.js render error:', error);
+			// Show fallback message
+			$('#pdf-canvas-container').html(`
+				<p style="padding: 20px; text-align: center; color: #fff;">
+					${escapeHtml(strings.pdfNotSupported || 'Error al cargar el PDF.')}
+					<br><br>
+					<a href="${blobUrl}" download="documento.pdf" class="button button-primary">${escapeHtml(strings.download || 'Descargar')}</a>
+				</p>
+			`);
+		}
+	}
+
+	/**
+	 * Convert an ArrayBuffer to a base64-encoded string.
+	 *
+	 * @param {ArrayBuffer} buffer Binary data to convert.
+	 * @returns {string} Base64-encoded representation.
+	 */
+	function arrayBufferToBase64(buffer) {
+		const bytes = new Uint8Array(buffer);
+		const chunks = [];
+		const chunkSize = 8192;
+		for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+			const chunk = bytes.subarray(i, i + chunkSize);
+			chunks.push(String.fromCharCode.apply(null, chunk));
+		}
+		return btoa(chunks.join(''));
+	}
+
+	/**
+	 * Handle the Sign and Download flow via AutoScript.js (AutoFirma).
+	 *
+	 * Fetches the generated PDF, signs with AutoScript.sign() using PAdES
+	 * format, then triggers a direct browser download (no server round-trip).
+	 *
+	 * Signature position is determined by [sign;x=...;y=...;page=...] parameters
+	 * in the template. Falls back to bottom-left of last page if not specified.
+	 *
+	 * @param {string} pdfUrl URL of the generated PDF to sign.
+	 */
+	async function handleSignAndDownload(pdfUrl) {
+		updateModal(
+			strings.signingInProgress || 'Selecciona tu certificado en AutoFirma...',
+			strings.wait || 'Por favor, espera...'
+		);
+
+		try {
+			// Fetch the PDF binary so it can be passed to AutoFirma.
+			const pdfResponse = await fetch(pdfUrl, { credentials: 'same-origin' });
+			if (!pdfResponse.ok) {
+				throw new Error(strings.errorGeneric || 'Error generating the document.');
+			}
+			const pdfBuffer = await pdfResponse.arrayBuffer();
+
+			// Use position from template [sign] parameters, or defaults.
+			const pos = config.signPosition || {};
+			const sigPage = pos.page || -1;    // -1 = last page.
+			const sigLLX = pos.x || 50;
+			const sigLLY = pos.y || 50;
+			const sigURX = sigLLX + 250;
+			const sigURY = sigLLY + 70;
+
+			const pdfBase64 = arrayBufferToBase64(pdfBuffer);
+
+			// PAdES signature parameters with dynamic positioning.
+			const params =
+				'mode=implicit\n' +
+				'signatureSubFilter=ETSI.CAdES.detached\n' +
+				'filters=nonexpired:\n' +
+				'signaturePage=' + sigPage + '\n' +
+				'signaturePositionOnPageLowerLeftX=' + sigLLX + '\n' +
+				'signaturePositionOnPageLowerLeftY=' + sigLLY + '\n' +
+				'signaturePositionOnPageUpperRightX=' + sigURX + '\n' +
+				'signaturePositionOnPageUpperRightY=' + sigURY + '\n' +
+				'layer2Text=Firmado por $$SUBJECTCN$$ el $$SIGNDATE=dd/MM/yyyy HH:mm$$\n' +
+				'layer2FontFamily=1\n' +
+				'layer2FontSize=10\n' +
+				'layer2FontColor=black';
+
+			AutoScript.sign(
+				pdfBase64,
+				'SHA512withRSA',
+				'PAdES',
+				params,
+				function onSuccess(signedBase64) {
+					// Direct browser download — no server round-trip.
+					try {
+						const byteChars = atob(signedBase64);
+						const byteArray = new Uint8Array(byteChars.length);
+						for (let i = 0; i < byteChars.length; i++) {
+							byteArray[i] = byteChars.charCodeAt(i);
+						}
+						const blob = new Blob([byteArray], { type: 'application/pdf' });
+						const blobUrl = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = blobUrl;
+						a.download = (config.postSlug || 'documento') + '-' + config.postId + '_signed.pdf';
+						document.body.appendChild(a);
+						a.click();
+						document.body.removeChild(a);
+						setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+						hideModal();
+					} catch (dlError) {
+						console.error('Download error:', dlError);
+						showError(strings.errorGeneric || 'Error al descargar el documento firmado.');
+					}
+				},
+				function onError(errorType, errorMessage) {
+					if (errorType === 'es.gob.afirma.core.AOCancelledOperationException') {
+						hideModal();
+						return;
+					}
+					console.error('AutoFirma sign error:', errorType, errorMessage);
+					showError(strings.signErrorNoAutofirma || 'AutoFirma no está instalado o no se pudo iniciar.');
+				}
+			);
+		} catch (error) {
+			console.error('AutoFirma error:', error);
+			showError(strings.signErrorNoAutofirma || 'AutoFirma no está instalado o no se pudo iniciar.');
+		}
 	}
 
 	/**
@@ -584,6 +869,121 @@
 	}
 
 	/**
+	 * Handle Collabora conversion in Playground mode.
+	 * Does conversion directly via fetch() without popups.
+	 * Playground doesn't support opening new windows since everything runs in WASM.
+	 *
+	 * @param {jQuery} $btn The button element.
+	 * @param {string} action Action type (preview, download).
+	 * @param {string} targetFormat Target format.
+	 * @param {string} sourceFormat Source format.
+	 */
+	async function handleCollaboraPlaygroundConversion($btn, action, targetFormat, sourceFormat) {
+		try {
+			// Step 1: Generate source document via AJAX.
+			updateModal(
+				strings.generating || 'Generando documento...',
+				strings.wait || 'Procesando plantilla...'
+			);
+
+			const formData = new FormData();
+			formData.append('action', 'documentate_generate_document');
+			formData.append('post_id', config.postId);
+			formData.append('format', sourceFormat);
+			formData.append('output', 'download');
+			formData.append('_wpnonce', config.nonce);
+
+			const ajaxResponse = await fetch(config.ajaxUrl, {
+				method: 'POST',
+				body: formData,
+				credentials: 'same-origin'
+			});
+			const ajaxData = await ajaxResponse.json();
+
+			if (!ajaxData.success || !ajaxData.data?.url) {
+				throw new Error(ajaxData.data?.message || strings.errorGeneric || 'Error al generar el documento.');
+			}
+
+			// Step 2: Fetch the source document.
+			updateModal(
+				strings.generating || 'Generando documento...',
+				'Descargando documento fuente...'
+			);
+
+			const sourceResponse = await fetch(ajaxData.data.url, { credentials: 'same-origin' });
+			if (!sourceResponse.ok) {
+				throw new Error('Error al descargar documento fuente: ' + sourceResponse.status);
+			}
+			const sourceBlob = await sourceResponse.blob();
+
+			// Step 3: Send to Collabora proxy via fetch().
+			updateModal(
+				strings.convertingBrowser || 'Convirtiendo...',
+				'Enviando a Collabora...'
+			);
+
+			const collaboraFormData = new FormData();
+			const filename = 'document.' + sourceFormat;
+			collaboraFormData.append('data', sourceBlob, filename);
+
+			const collaboraEndpoint = config.collaboraUrl.replace(/\/$/, '') + '/cool/convert-to/' + targetFormat;
+
+			console.log('Documentate: Sending to Collabora:', collaboraEndpoint);
+
+			const collaboraResponse = await fetch(collaboraEndpoint, {
+				method: 'POST',
+				body: collaboraFormData
+			});
+
+			if (!collaboraResponse.ok) {
+				const errorText = await collaboraResponse.text();
+				throw new Error('Collabora error ' + collaboraResponse.status + ': ' + (errorText || 'Unknown error'));
+			}
+
+			const resultBlob = await collaboraResponse.blob();
+
+			if (resultBlob.size === 0) {
+				throw new Error('Collabora devolvió una respuesta vacía.');
+			}
+
+			console.log('Documentate: Conversion successful, size:', resultBlob.size);
+
+			// Step 4: Handle result.
+			const mimeTypes = {
+				pdf: 'application/pdf',
+				docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				odt: 'application/vnd.oasis.opendocument.text'
+			};
+			const finalBlob = new Blob([resultBlob], { type: mimeTypes[targetFormat] || 'application/octet-stream' });
+
+			hideModal();
+
+			if (action === 'preview' && targetFormat === 'pdf') {
+				// In Playground, show PDF in an embedded viewer (new tabs don't work well with blob URLs)
+				showPdfViewer(finalBlob);
+			} else {
+				// Trigger download
+				const blobUrl = URL.createObjectURL(finalBlob);
+				const a = document.createElement('a');
+				a.href = blobUrl;
+				a.download = 'documento.' + targetFormat;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+
+				// Cleanup blob URL after a delay
+				setTimeout(function () {
+					URL.revokeObjectURL(blobUrl);
+				}, 1000);
+			}
+
+		} catch (error) {
+			console.error('Documentate Collabora Playground error:', error);
+			showError(error.message || strings.errorGeneric || 'Error en la conversión.');
+		}
+	}
+
+	/**
 	 * Handle action button click.
 	 */
 	function handleActionClick(e) {
@@ -600,6 +1000,35 @@
 
 		e.preventDefault();
 
+		// Check for unsaved changes
+		let hasUnsavedChanges = false;
+
+		// Check WP core editor dirty state if available
+		if (window.wp && wp.data && wp.data.select && wp.data.select('core/editor')) {
+			hasUnsavedChanges = wp.data.select('core/editor').isEditedPostDirty();
+		}
+		// Fallback for classic editor / meta boxes
+		else if (typeof window.wp !== 'undefined' && window.wp.autosave && typeof window.wp.autosave.server !== 'undefined' && typeof window.wp.autosave.server.isDirty === 'function') {
+			hasUnsavedChanges = window.wp.autosave.server.isDirty();
+		}
+		// Extra fallback: TinyMCE
+		else if (typeof window.tinymce !== 'undefined') {
+			const editors = window.tinymce.editors;
+			for (let i = 0; i < editors.length; i++) {
+				if (editors[i].isDirty()) {
+					hasUnsavedChanges = true;
+					break;
+				}
+			}
+		}
+
+		if (hasUnsavedChanges) {
+			const warningMsg = strings.unsavedChanges || 'Tienes cambios sin guardar. ¿Quieres generar el documento con la última versión guardada?';
+			if (!window.confirm(warningMsg)) {
+				return; // User cancelled
+			}
+		}
+
 		// Determine title based on action
 		let title = strings.generating || 'Generando documento...';
 		if (action === 'preview') {
@@ -610,7 +1039,13 @@
 
 		showModal(title);
 
-		// If CDN mode and conversion is needed, use browser-based conversion.
+		// If Collabora Playground mode, use direct fetch conversion (no popup).
+		if (config.collaboraPlayground && config.collaboraUrl && sourceFormat) {
+			handleCollaboraPlaygroundConversion($btn, action, format, sourceFormat);
+			return;
+		}
+
+		// If CDN mode (ZetaJS WASM), use popup-based conversion.
 		if (cdnMode && sourceFormat) {
 			handleCdnConversion($btn, action, format, sourceFormat);
 			return;
@@ -624,7 +1059,7 @@
 				action: 'documentate_generate_document',
 				post_id: config.postId,
 				format: format || 'pdf',
-				output: action, // 'preview', 'download'
+				output: action === 'sign' ? 'download' : action, // 'preview', 'download'
 				_wpnonce: config.nonce
 			},
 			success: function (response) {
@@ -633,6 +1068,9 @@
 						// Open preview in new tab
 						window.open(response.data.url, '_blank');
 						hideModal();
+					} else if (action === 'sign' && response.data.url) {
+						// Sign and download via AutoFirma (AutoScript.js).
+						handleSignAndDownload(response.data.url);
 					} else if (response.data.url) {
 						// Trigger download
 						hideModal();
@@ -674,6 +1112,15 @@
 			console.log('Documentate: Iframe mode will be used for WASM conversions');
 		} else {
 			console.log('Documentate: Popup mode will be used for WASM conversions');
+		}
+
+		// Initialize AutoFirma communication if AutoScript is available.
+		if (config.hasSignPlaceholder && typeof AutoScript !== 'undefined') {
+			try {
+				AutoScript.cargarAppAfirma();
+			} catch (e) {
+				console.warn('AutoFirma init warning:', e);
+			}
 		}
 	}
 

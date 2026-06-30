@@ -1,109 +1,92 @@
 /**
  * Document Metadata E2E Tests for Documentate plugin.
  *
- * Tests the metadata meta box (author, keywords, subject).
+ * Uses Page Object Model, UI-based document creation, and accessible selectors
+ * following WordPress/Gutenberg E2E best practices.
+ *
+ * NOTE: The documentate_document CPT has show_in_rest => false for security,
+ * so we use UI-based creation for documents instead of REST API.
  */
-const { test, expect } = require( '@wordpress/e2e-test-utils-playwright' );
-const {
-	createDocument,
-	saveDocument,
-	getPostIdFromUrl,
-	waitForSave,
-} = require( '../utils/helpers' );
+const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Metadata', () => {
 	test( 'metadata meta box is visible on document edit page', async ( {
-		admin,
-		page,
+		documentEditor,
+		testDocument,
 	} ) => {
-		await createDocument( admin, page, { title: 'Metadata Test Document' } );
+		// testDocument fixture creates a document via UI automatically
+		expect( testDocument.id ).toBeTruthy();
 
-		// Save first to ensure the page has all meta boxes
-		await saveDocument( page, 'draft' );
-		const postId = await getPostIdFromUrl( page );
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+		await documentEditor.navigateToEdit( testDocument.id );
 
 		// Look for the metadata meta box or any documentate meta field
-		const metaBox = page.locator(
+		const metaBox = documentEditor.page.locator(
 			'#documentate-meta-box, #documentate_document_meta, [id*="documentate_meta"], input[name*="documentate_meta"]'
 		);
 
 		// The meta box or fields should exist
 		expect( await metaBox.count() ).toBeGreaterThan( 0 );
+
+		// Document will be automatically cleaned up by fixture
 	} );
 
 	test( 'can fill author field in metadata meta box', async ( {
-		admin,
-		page,
+		documentEditor,
 	} ) => {
-		await createDocument( admin, page, { title: 'Author Field Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Author Field Test' );
 
-		// Find author input
-		const authorInput = page.locator(
-			'#documentate_meta_author, input[name="documentate_meta_author"], input[name="_documentate_meta_author"]'
-		);
-
-		if ( ( await authorInput.count() ) === 0 ) {
+		// Check if author field exists
+		if ( await documentEditor.authorField.count() === 0 ) {
 			test.skip();
 			return;
 		}
 
 		// Fill author
-		await authorInput.fill( 'Test Author Name' );
+		await documentEditor.authorField.fill( 'Test Author Name' );
 
 		// Save document
-		await saveDocument( page, 'draft' );
-		const postId = await getPostIdFromUrl( page );
+		await documentEditor.saveDraft();
+		const postId = await documentEditor.getPostId();
 
 		// Reload and verify
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-		await expect( authorInput ).toHaveValue( 'Test Author Name' );
+		await documentEditor.navigateToEdit( postId );
+		await expect( documentEditor.authorField ).toHaveValue( 'Test Author Name' );
 	} );
 
 	test( 'can fill keywords field in metadata meta box', async ( {
-		admin,
-		page,
+		documentEditor,
 	} ) => {
-		await createDocument( admin, page, { title: 'Keywords Field Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Keywords Field Test' );
 
-		// Find keywords input
-		const keywordsInput = page.locator(
-			'#documentate_meta_keywords, input[name="documentate_meta_keywords"], input[name="_documentate_meta_keywords"], textarea[name="documentate_meta_keywords"]'
-		);
-
-		if ( ( await keywordsInput.count() ) === 0 ) {
+		// Check if keywords field exists
+		if ( await documentEditor.keywordsField.count() === 0 ) {
 			test.skip();
 			return;
 		}
 
 		// Fill keywords
-		await keywordsInput.fill( 'keyword1, keyword2, keyword3' );
+		await documentEditor.keywordsField.fill( 'keyword1, keyword2, keyword3' );
 
 		// Save document
-		await saveDocument( page, 'draft' );
-		const postId = await getPostIdFromUrl( page );
+		await documentEditor.saveDraft();
+		const postId = await documentEditor.getPostId();
 
 		// Reload and verify
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
-		await expect( keywordsInput ).toHaveValue( 'keyword1, keyword2, keyword3' );
+		await documentEditor.navigateToEdit( postId );
+		await expect( documentEditor.keywordsField ).toHaveValue( 'keyword1, keyword2, keyword3' );
 	} );
 
 	test( 'metadata persists after save and reload', async ( {
-		admin,
+		documentEditor,
 		page,
 	} ) => {
-		await createDocument( admin, page, { title: 'Metadata Persistence Test' } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Metadata Persistence Test' );
 
-		const authorInput = page.locator(
-			'#documentate_meta_author, input[name="documentate_meta_author"], input[name="_documentate_meta_author"]'
-		);
-
-		const keywordsInput = page.locator(
-			'#documentate_meta_keywords, input[name="documentate_meta_keywords"], input[name="_documentate_meta_keywords"], textarea[name="documentate_meta_keywords"]'
-		);
-
-		const hasAuthor = ( await authorInput.count() ) > 0;
-		const hasKeywords = ( await keywordsInput.count() ) > 0;
+		const hasAuthor = await documentEditor.authorField.count() > 0;
+		const hasKeywords = await documentEditor.keywordsField.count() > 0;
 
 		if ( ! hasAuthor && ! hasKeywords ) {
 			test.skip();
@@ -112,58 +95,81 @@ test.describe( 'Document Metadata', () => {
 
 		// Fill metadata
 		if ( hasAuthor ) {
-			await authorInput.fill( 'Persistent Author' );
+			await documentEditor.authorField.fill( 'Persistent Author' );
 		}
 		if ( hasKeywords ) {
-			await keywordsInput.fill( 'persistent, keywords, test' );
+			await documentEditor.keywordsField.fill( 'persistent, keywords, test' );
 		}
 
 		// Save and publish
-		await page.locator( '#publish' ).click();
-		await waitForSave( page );
+		await documentEditor.publish();
 
 		// Get post ID and reload completely
-		const postId = await getPostIdFromUrl( page );
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+		const postId = await documentEditor.getPostId();
+		await documentEditor.navigateToEdit( postId );
 
 		// Verify values persisted
 		if ( hasAuthor ) {
-			await expect( authorInput ).toHaveValue( 'Persistent Author' );
+			await expect( documentEditor.authorField ).toHaveValue( 'Persistent Author' );
 		}
 		if ( hasKeywords ) {
-			await expect( keywordsInput ).toHaveValue( 'persistent, keywords, test' );
+			await expect( documentEditor.keywordsField ).toHaveValue( 'persistent, keywords, test' );
 		}
 	} );
 
-	test( 'subject field shows document title', async ( { admin, page } ) => {
+	test( 'subject field shows document title', async ( {
+		documentEditor,
+	} ) => {
 		const testTitle = 'Subject Display Test Document';
-		await createDocument( admin, page, { title: testTitle } );
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( testTitle );
 
 		// Save first to ensure title is set
-		await saveDocument( page, 'draft' );
-		const postId = await getPostIdFromUrl( page );
-		await admin.visitAdminPage( 'post.php', `post=${ postId }&action=edit` );
+		await documentEditor.saveDraft();
+		const postId = await documentEditor.getPostId();
+		await documentEditor.navigateToEdit( postId );
 
 		// Look for subject field (might be read-only or disabled)
-		const subjectField = page.locator(
+		const subjectField = documentEditor.page.locator(
 			'#documentate_meta_subject, input[name="documentate_meta_subject"], input[name="_documentate_meta_subject"], .documentate-meta-subject'
 		);
 
-		if ( ( await subjectField.count() ) > 0 ) {
+		if ( await subjectField.count() > 0 ) {
 			// Subject should contain or match the document title
 			const subjectValue = await subjectField.inputValue().catch( () => '' );
 			const subjectText = await subjectField.textContent().catch( () => '' );
 
 			// Either the value or text should contain the title
-			const containsTitle =
-				subjectValue.includes( testTitle ) ||
-				subjectText.includes( testTitle );
-
-			// This test may pass or skip depending on implementation
-			// Some implementations derive subject from title automatically
+			// (This test may pass or skip depending on implementation)
 		}
 
 		// At minimum, verify the page loaded correctly
-		await expect( page.locator( '#post' ) ).toBeVisible();
+		await expect( documentEditor.page.locator( '#post' ) ).toBeVisible();
+	} );
+
+	test( 'can use fillMetadata helper method', async ( {
+		documentEditor,
+	} ) => {
+		await documentEditor.navigateToNew();
+		await documentEditor.fillTitle( 'Metadata Helper Test' );
+
+		// Use the helper method to fill metadata
+		await documentEditor.fillMetadata( {
+			author: 'Helper Test Author',
+			keywords: 'helper, test, keywords',
+		} );
+
+		// Save and verify
+		await documentEditor.saveDraft();
+		const postId = await documentEditor.getPostId();
+		await documentEditor.navigateToEdit( postId );
+
+		// Check if fields were filled (they may not exist in test env)
+		if ( await documentEditor.authorField.count() > 0 ) {
+			await expect( documentEditor.authorField ).toHaveValue( 'Helper Test Author' );
+		}
+		if ( await documentEditor.keywordsField.count() > 0 ) {
+			await expect( documentEditor.keywordsField ).toHaveValue( 'helper, test, keywords' );
+		}
 	} );
 } );

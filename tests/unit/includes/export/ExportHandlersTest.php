@@ -168,4 +168,131 @@ class ExportHandlersTest extends WP_UnitTestCase {
 		$handle     = $reflection->getMethod( 'handle' );
 		$this->assertTrue( $handle->isPublic() );
 	}
+
+	/**
+	 * Test get_post_id_from_request with valid post_id.
+	 */
+	public function test_get_post_id_from_request_with_valid_id() {
+		$_GET['post_id'] = '123';
+
+		$handler = new Export_DOCX_Handler();
+		$method  = new ReflectionMethod( $handler, 'get_post_id_from_request' );
+		$method->setAccessible( true );
+
+		$this->assertSame( 123, $method->invoke( $handler ) );
+
+		unset( $_GET['post_id'] );
+	}
+
+	/**
+	 * Test get_post_id_from_request with missing post_id returns 0.
+	 */
+	public function test_get_post_id_from_request_missing() {
+		unset( $_GET['post_id'] );
+
+		$handler = new Export_DOCX_Handler();
+		$method  = new ReflectionMethod( $handler, 'get_post_id_from_request' );
+		$method->setAccessible( true );
+
+		$this->assertSame( 0, $method->invoke( $handler ) );
+	}
+
+	/**
+	 * Test get_post_id_from_request with non-numeric value.
+	 */
+	public function test_get_post_id_from_request_non_numeric() {
+		$_GET['post_id'] = 'abc';
+
+		$handler = new Export_DOCX_Handler();
+		$method  = new ReflectionMethod( $handler, 'get_post_id_from_request' );
+		$method->setAccessible( true );
+
+		$this->assertSame( 0, $method->invoke( $handler ) );
+
+		unset( $_GET['post_id'] );
+	}
+
+	/**
+	 * Test validate_request with valid nonce and permissions.
+	 */
+	public function test_validate_request_valid() {
+		$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $admin_id );
+
+		$post_id = $this->factory->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'publish',
+			)
+		);
+
+		$_GET['_wpnonce'] = wp_create_nonce( 'documentate_export_' . $post_id );
+
+		$handler = new Export_DOCX_Handler();
+		$method  = new ReflectionMethod( $handler, 'validate_request' );
+		$method->setAccessible( true );
+
+		$this->assertTrue( $method->invoke( $handler, $post_id ) );
+
+		unset( $_GET['_wpnonce'] );
+		wp_set_current_user( 0 );
+	}
+
+	/**
+	 * Test stream_file_download method exists and is protected.
+	 */
+	public function test_stream_file_download_method_exists() {
+		$handler    = new Export_DOCX_Handler();
+		$reflection = new ReflectionClass( $handler );
+		$method     = $reflection->getMethod( 'stream_file_download' );
+
+		$this->assertTrue( $method->isProtected() );
+		$this->assertSame( 1, $method->getNumberOfRequiredParameters() );
+	}
+
+	/**
+	 * Test stream_file_download with non-existent file.
+	 */
+	public function test_stream_file_download_missing_file() {
+		$handler = new Export_DOCX_Handler();
+		$method  = new ReflectionMethod( $handler, 'stream_file_download' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $handler, '/non/existent/path/file.docx' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'documentate_file_not_found', $result->get_error_code() );
+	}
+
+	/**
+	 * Test ODT handler has handle_error method.
+	 */
+	public function test_odt_handler_has_handle_error() {
+		$handler    = new Export_ODT_Handler();
+		$reflection = new ReflectionClass( $handler );
+
+		$this->assertTrue( $reflection->hasMethod( 'handle_error' ) );
+	}
+
+	/**
+	 * Test PDF handler has validate_request method.
+	 */
+	public function test_pdf_handler_has_validate_request() {
+		$handler    = new Export_PDF_Handler();
+		$reflection = new ReflectionClass( $handler );
+
+		$this->assertTrue( $reflection->hasMethod( 'validate_request' ) );
+	}
+
+	/**
+	 * Test all handlers have stream_file_download.
+	 *
+	 * @dataProvider handler_provider
+	 *
+	 * @param string $class_name Handler class name.
+	 */
+	public function test_handlers_have_stream_method( $class_name ) {
+		$reflection = new ReflectionClass( $class_name );
+		$this->assertTrue( $reflection->hasMethod( 'stream_file_download' ) );
+	}
 }

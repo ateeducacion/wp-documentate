@@ -22,8 +22,8 @@ class DocumentateComplexHtmlIntegrationTest extends WP_UnitTestCase {
 	 */
 	public function test_complete_document_with_all_html_types_renders() {
 		// Import ODT template
-		documentate_ensure_default_media();
-		$tpl_id = documentate_import_fixture_file( 'demo-wp-documentate.odt' );
+		Documentate_Demo_Data::ensure_default_media();
+		$tpl_id = Documentate_Demo_Data::import_fixture_file( 'demo-wp-documentate.odt' );
 		$this->assertGreaterThan( 0, $tpl_id );
 
 		$tpl_path = get_attached_file( $tpl_id );
@@ -93,8 +93,8 @@ class DocumentateComplexHtmlIntegrationTest extends WP_UnitTestCase {
 	 */
 	public function test_repeater_with_complex_html_renders() {
 		// Import DOCX template
-		documentate_ensure_default_media();
-		$tpl_id = documentate_import_fixture_file( 'demo-wp-documentate.docx' );
+		Documentate_Demo_Data::ensure_default_media();
+		$tpl_id = Documentate_Demo_Data::import_fixture_file( 'demo-wp-documentate.docx' );
 		$this->assertGreaterThan( 0, $tpl_id );
 
 		$tpl_path = get_attached_file( $tpl_id );

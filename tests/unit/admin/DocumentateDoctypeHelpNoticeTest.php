@@ -170,6 +170,7 @@ class DocumentateDoctypeHelpNoticeTest extends WP_UnitTestCase {
 
 		$this->assertStringContainsString( 'block=begin', $output );
 		$this->assertStringContainsString( 'block=end', $output );
+		$this->assertStringContainsString( 'block=tbs:row', $output );
 	}
 
 	/**

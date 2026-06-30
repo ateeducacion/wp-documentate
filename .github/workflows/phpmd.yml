@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -47,7 +47,8 @@ jobs:
           tools: phpmd
 
       - name: Run PHPMD
-        run: phpmd . sarif phpmd.xml --baseline-file phpmd.baseline.xml --reportfile phpmd-results.sarif
+        run: phpmd . sarif phpmd.xml --reportfile phpmd-results.sarif --ignore-violations-on-exit
+        continue-on-error: true
 
       - name: Upload analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v4

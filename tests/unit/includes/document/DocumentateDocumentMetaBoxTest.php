@@ -334,4 +334,5 @@ class DocumentateDocumentMetaBoxTest extends Documentate_Test_Base {
 			'Save hook must be added.'
 		);
 	}
+
 }

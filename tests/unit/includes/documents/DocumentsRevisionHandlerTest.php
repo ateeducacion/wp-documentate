@@ -348,6 +348,121 @@ class DocumentsRevisionHandlerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Test revision_field_value with object containing ID.
+	 */
+	public function test_revision_field_value_with_object_id() {
+		$post_id = self::factory()->post->create( array( 'post_type' => 'documentate_document' ) );
+		$revision_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'revision',
+				'post_parent' => $post_id,
+			)
+		);
+
+		add_metadata( 'post', $revision_id, 'documentate_field_test', '<p>Test Value</p>', true );
+
+		// Create revision object.
+		$revision = (object) array( 'ID' => $revision_id );
+
+		// Set filter name to match field.
+		add_filter( '_wp_post_revision_field_documentate_field_test', array( $this->handler, 'revision_field_value' ), 10, 2 );
+
+		$result = apply_filters( '_wp_post_revision_field_documentate_field_test', '', $revision );
+
+		$this->assertStringContainsString( 'Test Value', $result );
+
+		remove_filter( '_wp_post_revision_field_documentate_field_test', array( $this->handler, 'revision_field_value' ), 10 );
+	}
+
+	/**
+	 * Test revision_field_value with array containing ID.
+	 */
+	public function test_revision_field_value_with_array_id() {
+		$post_id = self::factory()->post->create( array( 'post_type' => 'documentate_document' ) );
+		$revision_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'revision',
+				'post_parent' => $post_id,
+			)
+		);
+
+		add_metadata( 'post', $revision_id, 'documentate_field_array', 'Array Value', true );
+
+		add_filter( '_wp_post_revision_field_documentate_field_array', array( $this->handler, 'revision_field_value' ), 10, 2 );
+
+		$result = apply_filters( '_wp_post_revision_field_documentate_field_array', '', array( 'ID' => $revision_id ) );
+
+		$this->assertStringContainsString( 'Array Value', $result );
+
+		remove_filter( '_wp_post_revision_field_documentate_field_array', array( $this->handler, 'revision_field_value' ), 10 );
+	}
+
+	/**
+	 * Test revision_field_value with numeric ID.
+	 */
+	public function test_revision_field_value_with_numeric_id() {
+		$post_id = self::factory()->post->create( array( 'post_type' => 'documentate_document' ) );
+		$revision_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'revision',
+				'post_parent' => $post_id,
+			)
+		);
+
+		add_metadata( 'post', $revision_id, 'documentate_field_numeric', 'Numeric Value', true );
+
+		add_filter( '_wp_post_revision_field_documentate_field_numeric', array( $this->handler, 'revision_field_value' ), 10, 2 );
+
+		$result = apply_filters( '_wp_post_revision_field_documentate_field_numeric', '', $revision_id );
+
+		$this->assertStringContainsString( 'Numeric Value', $result );
+
+		remove_filter( '_wp_post_revision_field_documentate_field_numeric', array( $this->handler, 'revision_field_value' ), 10 );
+	}
+
+	/**
+	 * Test revision_field_value with non-revision post ID returns empty.
+	 */
+	public function test_revision_field_value_non_revision_returns_empty() {
+		$post_id = self::factory()->post->create( array( 'post_type' => 'post' ) );
+
+		add_filter( '_wp_post_revision_field_documentate_field_post', array( $this->handler, 'revision_field_value' ), 10, 2 );
+
+		// Pass a regular post ID, not a revision.
+		$result = apply_filters( '_wp_post_revision_field_documentate_field_post', '', $post_id );
+
+		$this->assertSame( '', $result );
+
+		remove_filter( '_wp_post_revision_field_documentate_field_post', array( $this->handler, 'revision_field_value' ), 10 );
+	}
+
+	/**
+	 * Test restore_meta_from_revision deletes meta when revision has no value.
+	 */
+	public function test_restore_meta_from_revision_deletes_empty_meta() {
+		// Register taxonomy if not already.
+		if ( ! taxonomy_exists( 'documentate_doc_type' ) ) {
+			register_taxonomy( 'documentate_doc_type', array( 'documentate_document' ) );
+		}
+
+		$post_id = self::factory()->post->create( array( 'post_type' => 'documentate_document' ) );
+		update_post_meta( $post_id, 'documentate_field_to_delete', 'Original Value' );
+
+		$revision_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'revision',
+				'post_parent' => $post_id,
+			)
+		);
+		// Don't add meta to revision.
+
+		$this->handler->restore_meta_from_revision( $post_id, $revision_id );
+
+		// Original meta should be deleted since revision has no value.
+		$this->assertEmpty( get_post_meta( $post_id, 'documentate_field_to_delete', true ) );
+	}
+
+	/**
 	 * Test various post type scenarios for limit_revisions.
 	 *
 	 * @dataProvider revision_limit_provider

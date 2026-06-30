@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Document generator for Documentate based on OpenTBS templates.
  *
@@ -8,56 +9,57 @@
  * @package Documentate
  */
 
+use Documentate\Document\Meta\Document_Meta;
 use Documentate\Documents\Documents_Meta_Handler;
+use Documentate\OpenTBS\OpenTBS_HTML_Parser;
 
 /**
  * Documentate document generator service.
  */
 class Documentate_Document_Generator {
-
 	/**
 	 * Generate a DOCX file for a given Document post using a DOCX template.
 	 *
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
-	public static function generate_docx( $post_id ) {
+	public static function generate_docx($post_id) {
 		try {
-			$docx_template = self::get_template_path( $post_id, 'docx' );
-			if ( '' !== $docx_template ) {
-				return self::render_with_template( $post_id, $docx_template, 'docx' );
+			$docx_template = self::get_template_path($post_id, 'docx');
+			if ('' !== $docx_template) {
+				return self::render_with_template($post_id, $docx_template, 'docx');
 			}
 
-			$odt_template = self::get_template_path( $post_id, 'odt' );
-			if ( '' === $odt_template ) {
-				return new WP_Error(
-					'documentate_template_missing',
-					__( 'Configure a DOCX template in the selected document type.', 'documentate' )
-				);
+			$odt_template = self::get_template_path($post_id, 'odt');
+			if ('' === $odt_template) {
+				return new WP_Error('documentate_template_missing', __(
+					'Configure a DOCX template in the selected document type.',
+					'documentate',
+				));
 			}
 
-			$base_odt = self::render_with_template( $post_id, $odt_template, 'odt' );
-			if ( is_wp_error( $base_odt ) ) {
+			$base_odt = self::render_with_template($post_id, $odt_template, 'odt');
+			if (is_wp_error($base_odt)) {
 				return $base_odt;
 			}
 
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-			if ( ! Documentate_Conversion_Manager::is_available() ) {
-				return new WP_Error(
-					'documentate_conversion_not_available',
-					Documentate_Conversion_Manager::get_unavailable_message( 'odt', 'docx' )
-				);
+			require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-conversion-manager.php';
+			if (!Documentate_Conversion_Manager::is_available()) {
+				return new WP_Error('documentate_conversion_not_available', Documentate_Conversion_Manager::get_unavailable_message(
+					'odt',
+					'docx',
+				));
 			}
 
-			$target = self::build_output_path( $post_id, 'docx' );
-			$result = Documentate_Conversion_Manager::convert( $base_odt, $target, 'docx', 'odt' );
-			if ( is_wp_error( $result ) ) {
+			$target = self::build_output_path($post_id, 'docx');
+			$result = Documentate_Conversion_Manager::convert($base_odt, $target, 'docx', 'odt');
+			if (is_wp_error($result)) {
 				return $result;
 			}
 
 			return $target;
-		} catch ( \Throwable $e ) {
-			return new WP_Error( 'documentate_docx_error', $e->getMessage() );
+		} catch (\Throwable $e) {
+			return new WP_Error('documentate_docx_error', $e->getMessage());
 		}
 	}
 
@@ -67,43 +69,43 @@ class Documentate_Document_Generator {
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
-	public static function generate_odt( $post_id ) {
+	public static function generate_odt($post_id) {
 		try {
-			$odt_template = self::get_template_path( $post_id, 'odt' );
-			if ( '' !== $odt_template ) {
-				return self::render_with_template( $post_id, $odt_template, 'odt' );
+			$odt_template = self::get_template_path($post_id, 'odt');
+			if ('' !== $odt_template) {
+				return self::render_with_template($post_id, $odt_template, 'odt');
 			}
 
-			$docx_template = self::get_template_path( $post_id, 'docx' );
-			if ( '' === $docx_template ) {
-				return new WP_Error(
-					'documentate_template_missing',
-					__( 'Configure an ODT template in the selected document type.', 'documentate' )
-				);
+			$docx_template = self::get_template_path($post_id, 'docx');
+			if ('' === $docx_template) {
+				return new WP_Error('documentate_template_missing', __(
+					'Configure an ODT template in the selected document type.',
+					'documentate',
+				));
 			}
 
-			$base_docx = self::render_with_template( $post_id, $docx_template, 'docx' );
-			if ( is_wp_error( $base_docx ) ) {
+			$base_docx = self::render_with_template($post_id, $docx_template, 'docx');
+			if (is_wp_error($base_docx)) {
 				return $base_docx;
 			}
 
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-			if ( ! Documentate_Conversion_Manager::is_available() ) {
-				return new WP_Error(
-					'documentate_conversion_not_available',
-					Documentate_Conversion_Manager::get_unavailable_message( 'docx', 'odt' )
-				);
+			require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-conversion-manager.php';
+			if (!Documentate_Conversion_Manager::is_available()) {
+				return new WP_Error('documentate_conversion_not_available', Documentate_Conversion_Manager::get_unavailable_message(
+					'docx',
+					'odt',
+				));
 			}
 
-			$target = self::build_output_path( $post_id, 'odt' );
-			$result = Documentate_Conversion_Manager::convert( $base_docx, $target, 'odt', 'docx' );
-			if ( is_wp_error( $result ) ) {
+			$target = self::build_output_path($post_id, 'odt');
+			$result = Documentate_Conversion_Manager::convert($base_docx, $target, 'odt', 'docx');
+			if (is_wp_error($result)) {
 				return $result;
 			}
 
 			return $target;
-		} catch ( \Throwable $e ) {
-			return new WP_Error( 'documentate_odt_error', $e->getMessage() );
+		} catch (\Throwable $e) {
+			return new WP_Error('documentate_odt_error', $e->getMessage());
 		}
 	}
 
@@ -113,29 +115,29 @@ class Documentate_Document_Generator {
 	 * @param int $term_id Term ID.
 	 * @return array[]
 	 */
-	private static function get_type_schema( $term_id ) {
-		$storage   = new Documentate\DocType\SchemaStorage();
-		$schema_v2 = $storage->get_schema( $term_id );
-		if ( ! is_array( $schema_v2 ) || empty( $schema_v2 ) ) {
+	private static function get_type_schema($term_id) {
+		$storage = new Documentate\DocType\SchemaStorage();
+		$schema_v2 = $storage->get_schema($term_id);
+		if (!is_array($schema_v2) || empty($schema_v2)) {
 			return array();
 		}
 
-		$legacy = Documentate\DocType\SchemaConverter::to_legacy( $schema_v2 );
-		$out    = array();
-		foreach ( $legacy as $item ) {
-			if ( ! is_array( $item ) ) {
+		$legacy = Documentate\DocType\SchemaConverter::to_legacy($schema_v2);
+		$out = array();
+		foreach ($legacy as $item) {
+			if (!is_array($item)) {
 				continue;
 			}
-			$slug  = isset( $item['slug'] ) ? sanitize_key( $item['slug'] ) : '';
-			$label = isset( $item['label'] ) ? sanitize_text_field( $item['label'] ) : '';
-			$type  = isset( $item['type'] ) ? sanitize_key( $item['type'] ) : 'textarea';
-			if ( '' === $slug || '' === $label ) {
+			$slug = isset($item['slug']) ? sanitize_key($item['slug']) : '';
+			$label = isset($item['label']) ? sanitize_text_field($item['label']) : '';
+			$type = isset($item['type']) ? sanitize_key($item['type']) : 'textarea';
+			if ('' === $slug || '' === $label) {
 				continue;
 			}
 			$out[] = array(
-				'slug'  => $slug,
+				'slug' => $slug,
 				'label' => $label,
-				'type'  => $type,
+				'type' => $type,
 			);
 		}
 		return $out;
@@ -147,49 +149,52 @@ class Documentate_Document_Generator {
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
-	public static function generate_pdf( $post_id ) {
+	public static function generate_pdf($post_id) {
 		try {
-			$source_path   = '';
+			$source_path = '';
 			$source_format = '';
 
-			$odt_result = self::generate_odt( $post_id );
-			if ( is_wp_error( $odt_result ) ) {
-				$docx_result = self::generate_docx( $post_id );
-				if ( is_wp_error( $docx_result ) ) {
+			$odt_result = self::generate_odt($post_id);
+			if (is_wp_error($odt_result)) {
+				$docx_result = self::generate_docx($post_id);
+				if (is_wp_error($docx_result)) {
 					return new WP_Error(
 						'documentate_pdf_source_missing',
-						__( 'Could not generate the base document because the document type does not have a DOCX or ODT template configured.', 'documentate' ),
+						__(
+							'Could not generate the base document because the document type does not have a DOCX or ODT template configured.',
+							'documentate',
+						),
 						array(
-							'odt'  => $odt_result,
+							'odt' => $odt_result,
 							'docx' => $docx_result,
-						)
+						),
 					);
 				}
-				$source_path   = $docx_result;
+				$source_path = $docx_result;
 				$source_format = 'docx';
 			} else {
-				$source_path   = $odt_result;
+				$source_path = $odt_result;
 				$source_format = 'odt';
 			}
 
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-			if ( ! Documentate_Conversion_Manager::is_available() ) {
-				return new WP_Error(
-					'documentate_conversion_not_available',
-					Documentate_Conversion_Manager::get_unavailable_message( $source_format, 'pdf' )
-				);
+			require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-conversion-manager.php';
+			if (!Documentate_Conversion_Manager::is_available()) {
+				return new WP_Error('documentate_conversion_not_available', Documentate_Conversion_Manager::get_unavailable_message(
+					$source_format,
+					'pdf',
+				));
 			}
 
-			$target = self::build_output_path( $post_id, 'pdf' );
+			$target = self::build_output_path($post_id, 'pdf');
 
-			$result = Documentate_Conversion_Manager::convert( $source_path, $target, 'pdf', $source_format );
-			if ( is_wp_error( $result ) ) {
+			$result = Documentate_Conversion_Manager::convert($source_path, $target, 'pdf', $source_format);
+			if (is_wp_error($result)) {
 				return $result;
 			}
 
 			return $target;
-		} catch ( \Throwable $e ) {
-			return new WP_Error( 'documentate_pdf_error', $e->getMessage() );
+		} catch (\Throwable $e) {
+			return new WP_Error('documentate_pdf_error', $e->getMessage());
 		}
 	}
 
@@ -200,45 +205,45 @@ class Documentate_Document_Generator {
 	 * @param string $format  Desired template format (docx|odt).
 	 * @return string Template path or empty string when not available.
 	 */
-	public static function get_template_path( $post_id, $format ) {
-		$format = sanitize_key( $format );
-		if ( ! in_array( $format, array( 'docx', 'odt' ), true ) ) {
+	public static function get_template_path($post_id, $format) {
+		$format = sanitize_key($format);
+		if (!in_array($format, array('docx', 'odt'), true)) {
 			return '';
 		}
 
 		$tpl_id = 0;
-		$types  = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( ! is_wp_error( $types ) && ! empty( $types ) ) {
-			$type_id       = intval( $types[0] );
-			$type_template = intval( get_term_meta( $type_id, 'documentate_type_template_id', true ) );
-			$template_kind = sanitize_key( (string) get_term_meta( $type_id, 'documentate_type_template_type', true ) );
-			if ( 0 < $type_template ) {
-				if ( $template_kind === $format ) {
+		$types = wp_get_post_terms($post_id, 'documentate_doc_type', array('fields' => 'ids'));
+		if (!is_wp_error($types) && !empty($types)) {
+			$type_id = intval($types[0]);
+			$type_template = intval(get_term_meta($type_id, 'documentate_type_template_id', true));
+			$template_kind = sanitize_key((string) get_term_meta($type_id, 'documentate_type_template_type', true));
+			if (0 < $type_template) {
+				if ($template_kind === $format) {
 					$tpl_id = $type_template;
-				} elseif ( '' === $template_kind ) {
-					$path = get_attached_file( $type_template );
-					if ( $path && strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) === $format ) {
+				} elseif ('' === $template_kind) {
+					$path = get_attached_file($type_template);
+					if ($path && strtolower(pathinfo($path, PATHINFO_EXTENSION)) === $format) {
 						$tpl_id = $type_template;
 					}
 				}
 			}
-			if ( 0 >= $tpl_id ) {
+			if (0 >= $tpl_id) {
 				$meta_key = 'documentate_type_' . $format . '_template';
-				$tpl_id   = intval( get_term_meta( $type_id, $meta_key, true ) );
+				$tpl_id = intval(get_term_meta($type_id, $meta_key, true));
 			}
 		}
 
-		if ( 0 >= $tpl_id ) {
+		if (0 >= $tpl_id) {
 			return '';
 		}
 
-		$template_path = get_attached_file( $tpl_id );
-		if ( ! $template_path || ! file_exists( $template_path ) ) {
+		$template_path = get_attached_file($tpl_id);
+		if (!$template_path || !file_exists($template_path)) {
 			return '';
 		}
 
-		$ext = strtolower( pathinfo( $template_path, PATHINFO_EXTENSION ) );
-		if ( $format !== $ext ) {
+		$ext = strtolower(pathinfo($template_path, PATHINFO_EXTENSION));
+		if ($format !== $ext) {
 			return '';
 		}
 
@@ -260,20 +265,21 @@ class Documentate_Document_Generator {
 	 * @param string $template_format Template format (docx|odt).
 	 * @return string|WP_Error
 	 */
-	private static function render_with_template( $post_id, $template_path, $template_format ) {
-		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
+	private static function render_with_template($post_id, $template_path, $template_format) {
+		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-opentbs.php';
 
-		$fields      = self::build_merge_fields( $post_id );
+		$fields = self::build_merge_fields($post_id);
 		$rich_values = self::get_rich_field_values();
-		$path        = self::build_output_path( $post_id, $template_format );
+		$path = self::build_output_path($post_id, $template_format);
+		$metadata = Document_Meta::get($post_id);
 
-		if ( 'docx' === $template_format ) {
-			$res = Documentate_OpenTBS::render_docx( $template_path, $fields, $path, $rich_values );
+		if ('docx' === $template_format) {
+			$res = Documentate_OpenTBS::render_docx($template_path, $fields, $path, $rich_values, $metadata);
 		} else {
-			$res = Documentate_OpenTBS::render_odt( $template_path, $fields, $path, $rich_values );
+			$res = Documentate_OpenTBS::render_odt($template_path, $fields, $path, $rich_values, $metadata);
 		}
 
-		if ( is_wp_error( $res ) ) {
+		if (is_wp_error($res)) {
 			return $res;
 		}
 
@@ -286,155 +292,185 @@ class Documentate_Document_Generator {
 	 * @param int $post_id Document post ID.
 	 * @return array
 	 */
-	private static function build_merge_fields( $post_id ) {
+	private static function build_merge_fields($post_id) {
 		self::reset_rich_field_values();
-		$opts = get_option( 'documentate_settings', array() );
-		$post       = get_post( $post_id );
+		$opts = get_option('documentate_settings', array());
+		$post = get_post($post_id);
 		$structured = array();
-		if ( $post && class_exists( 'Documentate_Documents' ) ) {
-			$content = get_post_field( 'post_content', $post_id, 'raw' );
-			if ( ! is_string( $content ) || '' === $content ) {
+		if ($post && class_exists('Documentate_Documents')) {
+			$content = get_post_field('post_content', $post_id, 'raw');
+			if (!is_string($content) || '' === $content) {
 				$content = $post->post_content;
 			}
-			$structured = Documentate_Documents::parse_structured_content( (string) $content );
+			$structured = Documentate_Documents::parse_structured_content((string) $content);
 		}
+
+		// Apply case transformation to title based on schema attribute.
+		$title = get_post_field('post_title', $post_id, 'raw');
+		$title_case = self::get_title_case_from_schema($post_id);
+		$title = self::apply_case_transformation($title, $title_case);
 
 		$fields = array(
-			'title'  => get_the_title( $post_id ),
-			'margen' => wp_strip_all_tags( isset( $opts['doc_margin_text'] ) ? $opts['doc_margin_text'] : '' ),
+			'title' => $title,
+			'post_title' => $title, // Alias for templates using [post_title].
+			'margen' => wp_strip_all_tags(isset($opts['doc_margin_text']) ? $opts['doc_margin_text'] : ''),
 		);
 
-		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( ! is_wp_error( $types ) && ! empty( $types ) ) {
-			$type_id = intval( $types[0] );
-			$schema  = array();
-			if ( class_exists( 'Documentate_Documents' ) ) {
-					$schema = Documentate_Documents::get_term_schema( $type_id );
+		$types = wp_get_post_terms($post_id, 'documentate_doc_type', array('fields' => 'ids'));
+		if (!is_wp_error($types) && !empty($types)) {
+			$type_id = intval($types[0]);
+			$schema = array();
+			if (class_exists('Documentate_Documents')) {
+				$schema = Documentate_Documents::get_term_schema($type_id);
 			} else {
-					$schema = self::get_type_schema( $type_id );
+				$schema = self::get_type_schema($type_id);
 			}
-			foreach ( $schema as $def ) {
-				if ( empty( $def['slug'] ) ) {
-						continue;
+			foreach ($schema as $def) {
+				if (empty($def['slug'])) {
+					continue;
 				}
-					$slug     = sanitize_key( $def['slug'] );
-					// Prefer the original template name for TinyButStrong merges when available.
-					$tbs_name = '';
-				if ( isset( $def['name'] ) && is_string( $def['name'] ) ) {
-					$tbs_name = self::sanitize_placeholder_name( $def['name'] );
+				$slug = sanitize_key($def['slug']);
+
+				// Skip post_title - it's already set from get_the_title() above.
+				if ('post_title' === $slug) {
+					continue;
 				}
-				if ( '' === $tbs_name ) {
-					$tbs_name = self::sanitize_placeholder_name( $slug );
+				// Prefer the original template name for TinyButStrong merges when available.
+				$tbs_name = '';
+				if (isset($def['name']) && is_string($def['name'])) {
+					$tbs_name = self::sanitize_placeholder_name($def['name']);
+				}
+				if ('' === $tbs_name) {
+					$tbs_name = self::sanitize_placeholder_name($slug);
 				}
 
-					// Keep the legacy key used by UI (placeholder or slug) as alias for backward compatibility.
-					$alias_key = '';
-				if ( isset( $def['placeholder'] ) && is_string( $def['placeholder'] ) ) {
-					$alias_key = self::sanitize_placeholder_name( $def['placeholder'] );
+				// Keep the legacy key used by UI (placeholder or slug) as alias for backward compatibility.
+				$alias_key = '';
+				if (isset($def['placeholder']) && is_string($def['placeholder'])) {
+					$alias_key = self::sanitize_placeholder_name($def['placeholder']);
 				}
-				if ( '' === $alias_key ) {
-					$alias_key = self::sanitize_placeholder_name( $slug );
+				if ('' === $alias_key) {
+					$alias_key = self::sanitize_placeholder_name($slug);
 				}
-					$data_type = isset( $def['data_type'] ) ? sanitize_key( $def['data_type'] ) : 'text';
-					$type      = isset( $def['type'] ) ? sanitize_key( $def['type'] ) : 'textarea';
+				$data_type = isset($def['data_type']) ? sanitize_key($def['data_type']) : 'text';
+				$type = isset($def['type']) ? sanitize_key($def['type']) : 'textarea';
 
-				if ( 'array' === $type ) {
-						$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
-						// Use block name for MergeBlock, with alias for legacy behavior.
-						$fields[ $tbs_name ] = $items;
-					if ( $alias_key !== $tbs_name ) {
-						$fields[ $alias_key ] = $items;
+				if ('array' === $type) {
+					$items = self::get_array_field_items_for_merge($structured, $slug, $post_id);
+
+					// Apply case transformations to repeater items.
+					$item_schema = isset($def['item_schema']) ? $def['item_schema'] : array();
+					$items = self::apply_case_to_array_items($items, $item_schema);
+
+					// Use block name for MergeBlock, with alias for legacy behavior.
+					$fields[$tbs_name] = $items;
+					if ($alias_key !== $tbs_name) {
+						$fields[$alias_key] = $items;
 					}
-						self::remember_rich_values_from_array_items( $items );
-						continue;
+					self::remember_rich_values_from_array_items($items);
+					continue;
 				}
 
-					$value = self::get_structured_field_value( $structured, $slug, $post_id );
+				$value = self::get_structured_field_value($structured, $slug, $post_id);
 				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
 				$original_type = $type;
-				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
+				if (!in_array($type, array('rich', 'html'), true) && Documents_Meta_Handler::value_contains_block_html($value)) {
 					$type = 'rich';
 				}
-					$prepared               = self::prepare_field_value( $value, $type, $data_type );
-					$fields[ $tbs_name ]    = $prepared;
-				if ( $alias_key !== $tbs_name ) {
-					$fields[ $alias_key ] = $prepared;
+				$prepared = self::prepare_field_value($value, $type, $data_type, $def);
+				$prepared_has_html = Documents_Meta_Handler::value_contains_block_html($prepared);
+
+				// Apply case transformation if specified (skip for HTML content).
+				$field_case = isset($def['case']) ? sanitize_key($def['case']) : '';
+				if ('' !== $field_case && !in_array($type, array('rich', 'html'), true) && !$prepared_has_html) {
+					$prepared = self::apply_case_transformation($prepared, $field_case);
+				}
+
+				$fields[$tbs_name] = $prepared;
+				if ($alias_key !== $tbs_name) {
+					$fields[$alias_key] = $prepared;
 				}
 				// Register for rich text conversion if typed as rich/html.
 				// Also check if prepared value still contains HTML as a safety net.
-				$has_html_in_prepared = Documents_Meta_Handler::value_contains_block_html( $prepared );
-				if ( in_array( $type, array( 'rich', 'html' ), true ) || $has_html_in_prepared ) {
-						self::remember_rich_field_value( $prepared );
+				if (in_array($type, array('rich', 'html'), true) || $prepared_has_html) {
+					self::remember_rich_field_value($prepared);
 				}
 				// Debug logging - enable with WP_DEBUG.
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log(
-						sprintf(
-							'DOCUMENTATE [%s]: schema_type=%s, effective_type=%s, raw_has_html=%s, prepared_has_html=%s, raw_len=%d, prep_len=%d',
-							$slug,
-							$original_type,
-							$type,
-							Documents_Meta_Handler::value_contains_block_html( $value ) ? 'YES' : 'NO',
-							$has_html_in_prepared ? 'YES' : 'NO',
-							strlen( $value ),
-							strlen( $prepared )
-						)
-					);
-					if ( Documents_Meta_Handler::value_contains_block_html( $value ) && strlen( $value ) < 500 ) {
-						error_log( 'DOCUMENTATE [' . $slug . '] RAW: ' . substr( $value, 0, 300 ) );
+				if (defined('WP_DEBUG') && WP_DEBUG) {
+					error_log(sprintf(
+						'DOCUMENTATE [%s]: schema_type=%s, effective_type=%s, raw_has_html=%s, prepared_has_html=%s, raw_len=%d, prep_len=%d',
+						$slug,
+						$original_type,
+						$type,
+						Documents_Meta_Handler::value_contains_block_html($value) ? 'YES' : 'NO',
+						$prepared_has_html ? 'YES' : 'NO',
+						strlen($value),
+						strlen($prepared),
+					));
+					if (Documents_Meta_Handler::value_contains_block_html($value) && strlen($value) < 500) {
+						error_log('DOCUMENTATE [' . $slug . '] RAW: ' . substr($value, 0, 300));
 					}
 				}
 			}
 
-			$logos = get_term_meta( $type_id, 'documentate_type_logos', true );
-			if ( is_array( $logos ) && ! empty( $logos ) ) {
-					$i = 1;
-				foreach ( $logos as $att_id ) {
-						$att_id = intval( $att_id );
-					if ( $att_id <= 0 ) {
-							continue;
+			$logos = get_term_meta($type_id, 'documentate_type_logos', true);
+			if (is_array($logos) && !empty($logos)) {
+				$i = 1;
+				foreach ($logos as $att_id) {
+					$att_id = intval($att_id);
+					if ($att_id <= 0) {
+						continue;
 					}
-						$fields[ 'logo' . $i . '_path' ] = get_attached_file( $att_id );
-						$fields[ 'logo' . $i . '_url' ]  = wp_get_attachment_url( $att_id );
-						$i++;
+					$fields['logo' . $i . '_path'] = get_attached_file($att_id);
+					$fields['logo' . $i . '_url'] = wp_get_attachment_url($att_id);
+					$i++;
 				}
 			}
 		}
 
-		if ( ! empty( $structured ) ) {
-			foreach ( $structured as $slug => $info ) {
-					$slug = sanitize_key( $slug );
-				if ( '' === $slug ) {
-						continue;
+		// Replace [sign] placeholder with empty string so it doesn't appear in the output.
+		// Signature position is determined by template parameters (x, y, page), not by text detection.
+		$fields['sign'] = '';
+
+		if (!empty($structured)) {
+			foreach ($structured as $slug => $info) {
+				$slug = sanitize_key($slug);
+				if ('' === $slug) {
+					continue;
 				}
-					$placeholder = $slug;
-				if ( isset( $fields[ $placeholder ] ) && '' !== $fields[ $placeholder ] ) {
-						continue;
+				$placeholder = $slug;
+				if (isset($fields[$placeholder]) && '' !== $fields[$placeholder]) {
+					continue;
 				}
-				if ( isset( $info['type'] ) && 'array' === sanitize_key( $info['type'] ) ) {
-						$items                  = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
-						$fields[ $placeholder ] = $items;
-						self::remember_rich_values_from_array_items( $items );
-						continue;
+				if (isset($info['type']) && 'array' === sanitize_key($info['type'])) {
+					$items = self::get_array_field_items_for_merge($structured, $slug, $post_id);
+					$fields[$placeholder] = $items;
+					self::remember_rich_values_from_array_items($items);
+					continue;
 				}
 
-					$value      = '';
-				if ( isset( $info['value'] ) ) {
-						$value = (string) $info['value'];
+				$value = '';
+				if (isset($info['value'])) {
+					$value = (string) $info['value'];
 				}
-				if ( '' === $value ) {
-						$value = self::get_structured_field_value( $structured, $slug, $post_id );
+				if ('' === $value) {
+					$value = self::get_structured_field_value($structured, $slug, $post_id);
 				}
-					$field_type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
+				$field_type = isset($info['type']) ? sanitize_key($info['type']) : 'rich';
 				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
-				if ( ! in_array( $field_type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
+				if (
+					!in_array($field_type, array('rich', 'html'), true) && Documents_Meta_Handler::value_contains_block_html($value)
+				) {
 					$field_type = 'rich';
 				}
-					$fields[ $placeholder ]   = self::prepare_field_value( $value, $field_type, 'text' );
+				$fields[$placeholder] = self::prepare_field_value($value, $field_type, 'text');
 				// Register for rich text conversion if typed as rich/html.
 				// Also check if prepared value still contains HTML as a safety net.
-				if ( in_array( $field_type, array( 'rich', 'html' ), true ) || Documents_Meta_Handler::value_contains_block_html( $fields[ $placeholder ] ) ) {
-						self::remember_rich_field_value( $fields[ $placeholder ] );
+				if (
+					in_array($field_type, array('rich', 'html'), true)
+					|| Documents_Meta_Handler::value_contains_block_html($fields[$placeholder])
+				) {
+					self::remember_rich_field_value($fields[$placeholder]);
 				}
 			}
 		}
@@ -454,15 +490,15 @@ class Documentate_Document_Generator {
 	 *
 	 * @param string $value Field value.
 	 */
-	private static function remember_rich_field_value( $value ) {
-		$value = is_string( $value ) ? trim( $value ) : '';
-		if ( '' === $value ) {
-				return;
+	private static function remember_rich_field_value($value) {
+		$value = is_string($value) ? trim($value) : '';
+		if ('' === $value) {
+			return;
 		}
-		if ( false === strpos( $value, '<' ) || false === strpos( $value, '>' ) ) {
-				return;
+		if (false === strpos($value, '<') || false === strpos($value, '>')) {
+			return;
 		}
-		self::$rich_field_values[ md5( $value ) ] = $value;
+		self::$rich_field_values[md5($value)] = $value;
 	}
 
 	/**
@@ -470,17 +506,17 @@ class Documentate_Document_Generator {
 	 *
 	 * @param array<int, array<string, string>> $items Array field items.
 	 */
-	private static function remember_rich_values_from_array_items( $items ) {
-		if ( empty( $items ) || ! is_array( $items ) ) {
-				return;
+	private static function remember_rich_values_from_array_items($items) {
+		if (empty($items) || !is_array($items)) {
+			return;
 		}
-		foreach ( $items as $item ) {
-			if ( ! is_array( $item ) ) {
-					continue;
+		foreach ($items as $item) {
+			if (!is_array($item)) {
+				continue;
 			}
-			foreach ( $item as $value ) {
-				if ( is_string( $value ) ) {
-						self::remember_rich_field_value( $value );
+			foreach ($item as $value) {
+				if (is_string($value)) {
+					self::remember_rich_field_value($value);
 				}
 			}
 		}
@@ -492,10 +528,10 @@ class Documentate_Document_Generator {
 	 * @return array<int, string>
 	 */
 	private static function get_rich_field_values() {
-		if ( empty( self::$rich_field_values ) ) {
-				return array();
+		if (empty(self::$rich_field_values)) {
+			return array();
 		}
-		return array_values( self::$rich_field_values );
+		return array_values(self::$rich_field_values);
 	}
 
 	/**
@@ -506,60 +542,60 @@ class Documentate_Document_Generator {
 	 * @param int    $post_id    Post ID.
 	 * @return string
 	 */
-	private static function get_structured_field_value( $structured, $slug, $post_id ) {
-			$slug = sanitize_key( $slug );
-		if ( '' !== $slug && isset( $structured[ $slug ] ) && is_array( $structured[ $slug ] ) ) {
-				$value = isset( $structured[ $slug ]['value'] ) ? (string) $structured[ $slug ]['value'] : '';
-			if ( '' !== $value ) {
+	private static function get_structured_field_value($structured, $slug, $post_id) {
+		$slug = sanitize_key($slug);
+		if ('' !== $slug && isset($structured[$slug]) && is_array($structured[$slug])) {
+			$value = isset($structured[$slug]['value']) ? (string) $structured[$slug]['value'] : '';
+			if ('' !== $value) {
 				return $value;
 			}
 		}
 
-		if ( '' !== $slug ) {
-				$meta_key = 'documentate_field_' . $slug;
-				$legacy   = get_post_meta( $post_id, $meta_key, true );
-			if ( '' !== $legacy ) {
-					return (string) $legacy;
+		if ('' !== $slug) {
+			$meta_key = 'documentate_field_' . $slug;
+			$legacy = get_post_meta($post_id, $meta_key, true);
+			if ('' !== $legacy) {
+				return (string) $legacy;
 			}
 		}
 
-			return '';
+		return '';
 	}
 
-		/**
-		 * Retrieve array field items for template merges.
-		 *
-		 * @param array  $structured Structured map from post content.
-		 * @param string $slug       Field slug.
-		 * @param int    $post_id    Post ID.
-		 * @return array<int, array<string, string>>
-		 */
-	private static function get_array_field_items_for_merge( $structured, $slug, $post_id ) {
-		$slug = sanitize_key( $slug );
-		if ( '' === $slug ) {
+	/**
+	 * Retrieve array field items for template merges.
+	 *
+	 * @param array  $structured Structured map from post content.
+	 * @param string $slug       Field slug.
+	 * @param int    $post_id    Post ID.
+	 * @return array<int, array<string, string>>
+	 */
+	private static function get_array_field_items_for_merge($structured, $slug, $post_id) {
+		$slug = sanitize_key($slug);
+		if ('' === $slug) {
 			return array();
 		}
 
 		$items = array();
 
-		if ( isset( $structured[ $slug ] ) && is_array( $structured[ $slug ] ) && isset( $structured[ $slug ]['value'] ) ) {
-			$items = Documentate_Documents::decode_array_field_value( (string) $structured[ $slug ]['value'] );
+		if (isset($structured[$slug]) && is_array($structured[$slug]) && isset($structured[$slug]['value'])) {
+			$items = Documentate_Documents::decode_array_field_value((string) $structured[$slug]['value']);
 		}
 
-		if ( empty( $items ) ) {
-			$meta_value = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
-			if ( '' !== $meta_value ) {
-				$items = Documentate_Documents::decode_array_field_value( (string) $meta_value );
+		if (empty($items)) {
+			$meta_value = get_post_meta($post_id, 'documentate_field_' . $slug, true);
+			if ('' !== $meta_value) {
+				$items = Documentate_Documents::decode_array_field_value((string) $meta_value);
 			}
 		}
 
-		if ( empty( $items ) ) {
-			$legacy = get_post_meta( $post_id, 'documentate_' . $slug, true );
-			if ( empty( $legacy ) && 'annexes' === $slug ) {
-				$legacy = get_post_meta( $post_id, 'documentate_annexes', true );
+		if (empty($items)) {
+			$legacy = get_post_meta($post_id, 'documentate_' . $slug, true);
+			if (empty($legacy) && 'annexes' === $slug) {
+				$legacy = get_post_meta($post_id, 'documentate_annexes', true);
 			}
-			if ( is_array( $legacy ) && ! empty( $legacy ) ) {
-				$items = Documentate_Documents::decode_array_field_value( wp_json_encode( $legacy, JSON_UNESCAPED_UNICODE ) );
+			if (is_array($legacy) && !empty($legacy)) {
+				$items = Documentate_Documents::decode_array_field_value(wp_json_encode($legacy, JSON_UNESCAPED_UNICODE));
 			}
 		}
 
@@ -573,12 +609,12 @@ class Documentate_Document_Generator {
 	 * @param string $extension File extension (docx|odt|pdf).
 	 * @return string
 	 */
-	private static function build_output_path( $post_id, $extension ) {
-		$extension = sanitize_key( $extension );
-		$dir       = self::ensure_output_dir();
-		$filename  = sanitize_title( get_the_title( $post_id ) ) . '-' . $post_id . '.' . $extension;
+	private static function build_output_path($post_id, $extension) {
+		$extension = sanitize_key($extension);
+		$dir = self::ensure_output_dir();
+		$filename = sanitize_title(get_the_title($post_id)) . '-' . $post_id . '.' . $extension;
 
-		return trailingslashit( $dir ) . $filename;
+		return trailingslashit($dir) . $filename;
 	}
 
 	/**
@@ -587,13 +623,13 @@ class Documentate_Document_Generator {
 	 * @return string Absolute directory path.
 	 */
 	private static function ensure_output_dir() {
-			$upload_dir = wp_upload_dir();
-			$dir        = trailingslashit( $upload_dir['basedir'] ) . 'documentate';
-		if ( ! is_dir( $dir ) ) {
-				wp_mkdir_p( $dir );
+		$upload_dir = wp_upload_dir();
+		$dir = trailingslashit($upload_dir['basedir']) . 'documentate';
+		if (!is_dir($dir)) {
+			wp_mkdir_p($dir);
 		}
 
-			return $dir;
+		return $dir;
 	}
 
 	/**
@@ -602,9 +638,9 @@ class Documentate_Document_Generator {
 	 * @param string $placeholder Placeholder name.
 	 * @return string
 	 */
-	private static function sanitize_placeholder_name( $placeholder ) {
+	private static function sanitize_placeholder_name($placeholder) {
 		$placeholder = (string) $placeholder;
-		$placeholder = preg_replace( '/[^A-Za-z0-9._:-]/', '', $placeholder );
+		$placeholder = preg_replace('/[^A-Za-z0-9._:-]/', '', $placeholder);
 		return $placeholder;
 	}
 
@@ -614,21 +650,59 @@ class Documentate_Document_Generator {
 	 * @param string $value      Raw value retrieved from storage.
 	 * @param string $field_type Field UI type (single|textarea|rich|array).
 	 * @param string $data_type  Data type detected for the placeholder.
+	 * @param array  $field_def  Field definition with parameters (optional).
 	 * @return mixed
 	 */
-	private static function prepare_field_value( $value, $field_type, $data_type ) {
-		$field_type = sanitize_key( $field_type );
-		$value      = is_string( $value ) ? $value : '';
+	private static function prepare_field_value($value, $field_type, $data_type, $field_def = array()) {
+		$field_type = sanitize_key($field_type);
+		$value = is_string($value) ? $value : '';
 
-		if ( in_array( $field_type, array( 'rich', 'html' ), true ) ) {
-			return self::normalize_field_value( wp_kses_post( $value ), $data_type );
+		if (in_array($field_type, array('rich', 'html'), true)) {
+			// Apply sanitization and cleanup only at generation time.
+			$sanitized = wp_kses_post($value);
+			$sanitized = self::strip_unsupported_html_tags($sanitized);
+			$sanitized = self::remove_linebreak_artifacts($sanitized);
+			return self::normalize_field_value($sanitized, $data_type, $field_def);
 		}
 
-		if ( '' === $value ) {
-			return self::normalize_field_value( '', $data_type );
+		if ('' === $value) {
+			return self::normalize_field_value('', $data_type, $field_def);
 		}
 
-		return self::normalize_field_value( wp_strip_all_tags( $value ), $data_type );
+		$value = wp_strip_all_tags($value);
+
+		return self::normalize_field_value($value, $data_type, $field_def);
+	}
+
+	/**
+	 * Convert plain textarea content with newlines into paragraph-aware HTML.
+	 *
+	 * Blank lines become new paragraphs and single newlines remain soft breaks.
+	 *
+	 * @param string $value Plain textarea value.
+	 * @return string|null HTML fragment or null when no paragraph conversion is needed.
+	 */
+	private static function convert_plain_textarea_to_html($value) {
+		$value = OpenTBS_HTML_Parser::normalize_text_newlines((string) $value);
+		$value = trim($value);
+		if ('' === $value || !str_contains($value, "\n")) {
+			return null;
+		}
+
+		$paragraphs = preg_split("/\n\s*\n+/u", $value);
+		if (!is_array($paragraphs) || empty($paragraphs)) {
+			return null;
+		}
+
+		$html = array();
+		foreach ($paragraphs as $paragraph) {
+			$paragraph = trim((string) $paragraph, "\n");
+			$lines = explode("\n", $paragraph);
+			$escaped_lines = array_map('esc_html', $lines);
+			$html[] = '<p>' . implode('<br>', $escaped_lines) . '</p>';
+		}
+
+		return implode('', $html);
 	}
 
 	/**
@@ -637,9 +711,9 @@ class Documentate_Document_Generator {
 	 * @var array<string, string>
 	 */
 	private static $type_normalizers = array(
-		'number'  => 'normalize_number_value',
+		'number' => 'normalize_number_value',
 		'boolean' => 'normalize_boolean_value',
-		'date'    => 'normalize_date_value',
+		'date' => 'normalize_date_value',
 	);
 
 	/**
@@ -647,14 +721,20 @@ class Documentate_Document_Generator {
 	 *
 	 * @param string $value     Original value.
 	 * @param string $data_type Detected data type.
+	 * @param array  $field_def Field definition with parameters (optional).
 	 * @return mixed
 	 */
-	private static function normalize_field_value( $value, $data_type ) {
-		$value     = is_string( $value ) ? trim( $value ) : $value;
-		$data_type = sanitize_key( $data_type );
+	private static function normalize_field_value($value, $data_type, $field_def = array()) {
+		$value = is_string($value) ? trim($value) : $value;
+		$data_type = sanitize_key($data_type);
 
-		if ( isset( self::$type_normalizers[ $data_type ] ) ) {
-			return call_user_func( array( __CLASS__, self::$type_normalizers[ $data_type ] ), $value );
+		if ('date' === $data_type) {
+			$format = isset($field_def['parameters']['format']) ? $field_def['parameters']['format'] : 'd/m/Y';
+			return self::normalize_date_value($value, $format);
+		}
+
+		if (isset(self::$type_normalizers[$data_type])) {
+			return call_user_func(array(__CLASS__, self::$type_normalizers[$data_type]), $value);
 		}
 
 		return $value;
@@ -666,19 +746,19 @@ class Documentate_Document_Generator {
 	 * @param mixed $value Original value.
 	 * @return mixed Normalized number or original value.
 	 */
-	private static function normalize_number_value( $value ) {
-		if ( '' === $value ) {
+	private static function normalize_number_value($value) {
+		if ('' === $value) {
 			return '';
 		}
-		if ( is_numeric( $value ) ) {
+		if (is_numeric($value)) {
 			return 0 + $value;
 		}
-		$filtered = preg_replace( '/[^0-9.,\-]/', '', (string) $value );
-		if ( '' === $filtered ) {
+		$filtered = preg_replace('/[^0-9.,\-]/', '', (string) $value);
+		if ('' === $filtered) {
 			return '';
 		}
-		$normalized = str_replace( ',', '.', $filtered );
-		if ( is_numeric( $normalized ) ) {
+		$normalized = str_replace(',', '.', $filtered);
+		if (is_numeric($normalized)) {
 			return 0 + $normalized;
 		}
 		return $value;
@@ -690,12 +770,12 @@ class Documentate_Document_Generator {
 	 * @param mixed $value Original value.
 	 * @return int 1 for truthy, 0 for falsy.
 	 */
-	private static function normalize_boolean_value( $value ) {
-		if ( is_bool( $value ) ) {
+	private static function normalize_boolean_value($value) {
+		if (is_bool($value)) {
 			return $value ? 1 : 0;
 		}
-		$value = strtolower( (string) $value );
-		if ( in_array( $value, array( '1', 'true', 'si', 'sí', 'yes', 'on' ), true ) ) {
+		$value = strtolower((string) $value);
+		if (in_array($value, array('1', 'true', 'si', 'sí', 'yes', 'on'), true)) {
 			return 1;
 		}
 		return 0;
@@ -704,17 +784,252 @@ class Documentate_Document_Generator {
 	/**
 	 * Normalize a date value.
 	 *
-	 * @param mixed $value Original value.
+	 * @param mixed  $value  Original value.
+	 * @param string $format PHP date format string (default 'd/m/Y').
 	 * @return string Formatted date or original value.
 	 */
-	private static function normalize_date_value( $value ) {
-		if ( '' === $value ) {
+	private static function normalize_date_value($value, $format = 'd/m/Y') {
+		if ('' === $value) {
 			return '';
 		}
-		$timestamp = strtotime( (string) $value );
-		if ( false === $timestamp ) {
+
+		$date = self::parse_date_value((string) $value);
+		if (!$date) {
 			return $value;
 		}
-		return wp_date( 'Y-m-d', $timestamp );
+
+		// Return ISO format (Y-m-d) so TBS can unambiguously parse dates
+		// and apply its own frm='mmmm (locale)' etc. formatting correctly.
+		return $date->format('Y-m-d');
+	}
+
+	/**
+	 * Parse a date string into a DateTime object.
+	 *
+	 * Tries common input formats using strict parsing to avoid DD/MM vs MM/DD
+	 * ambiguity inherent in PHP's strtotime().
+	 *
+	 * @param string $value Date string to parse.
+	 * @return DateTime|false DateTime object or false on failure.
+	 */
+	private static function parse_date_value($value) {
+		// Try strict parsing with common input formats.
+		$input_formats = array('d/m/Y', 'Y-m-d', 'd-m-Y', 'd.m.Y', 'Y/m/d');
+		foreach ($input_formats as $input_format) {
+			$date = DateTime::createFromFormat($input_format, $value);
+			if ($date && $date->format($input_format) === $value) {
+				return $date;
+			}
+		}
+
+		// Fallback: replace "/" with "-" so strtotime treats it as D-M-Y instead of M/D/Y.
+		$safe_value = str_replace('/', '-', $value);
+		$timestamp = strtotime($safe_value);
+		if (false === $timestamp) {
+			return false;
+		}
+		$date = new DateTime();
+		$date->setTimestamp($timestamp);
+		return $date;
+	}
+
+	/**
+	 * Apply case transformation to a string value.
+	 *
+	 * @param string $value String to transform.
+	 * @param string $case  Case type: 'upper', 'lower', 'title', or empty for no change.
+	 * @return string Transformed string.
+	 */
+	private static function apply_case_transformation($value, $case) {
+		if (!is_string($value) || '' === $value || '' === $case) {
+			return (string) $value;
+		}
+		$case = strtolower(trim($case));
+		switch ($case) {
+			case 'upper':
+				return function_exists('mb_strtoupper') ? mb_strtoupper($value, 'UTF-8') : strtoupper($value);
+			case 'lower':
+				return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+			case 'title':
+				return function_exists('mb_convert_case')
+					? mb_convert_case($value, MB_CASE_TITLE, 'UTF-8')
+					: ucwords(strtolower($value));
+		}
+		return $value;
+	}
+
+	/**
+	 * Get the case attribute for the title field from the document type schema.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return string Case value ('upper', 'lower', 'title') or empty string.
+	 */
+	private static function get_title_case_from_schema($post_id) {
+		$types = wp_get_post_terms($post_id, 'documentate_doc_type', array('fields' => 'ids'));
+		if (is_wp_error($types) || empty($types)) {
+			return '';
+		}
+		$type_id = intval($types[0]);
+		$schema = class_exists('Documentate_Documents')
+			? Documentate_Documents::get_term_schema($type_id)
+			: self::get_type_schema($type_id);
+		foreach ($schema as $def) {
+			$slug = isset($def['slug']) ? sanitize_key($def['slug']) : '';
+			if (in_array($slug, array('title', 'post_title'), true)) {
+				return isset($def['case']) ? sanitize_key($def['case']) : '';
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Apply case transformations to array field items based on item schema.
+	 *
+	 * @param array $items       Array field items.
+	 * @param array $item_schema Item field schema with 'case' attributes.
+	 * @return array Transformed items.
+	 */
+	private static function apply_case_to_array_items($items, $item_schema) {
+		if (empty($items) || !is_array($items) || empty($item_schema)) {
+			return $items;
+		}
+
+		foreach ($items as $idx => $item) {
+			if (!is_array($item)) {
+				continue;
+			}
+			foreach ($item as $key => $value) {
+				if (!is_string($value) || '' === $value) {
+					continue;
+				}
+				if (isset($item_schema[$key]['case'])) {
+					$field_case = sanitize_key($item_schema[$key]['case']);
+					$field_type = isset($item_schema[$key]['type']) ? $item_schema[$key]['type'] : '';
+					if (!in_array($field_type, array('rich', 'html'), true)) {
+						$items[$idx][$key] = self::apply_case_transformation($value, $field_case);
+					}
+				}
+			}
+		}
+
+		return $items;
+	}
+
+	/**
+	 * Strip unsupported HTML tags and attributes from content before document generation.
+	 *
+	 * Removes tags that are not properly supported by OpenTBS/ODT/DOCX conversion.
+	 * Also removes id and class attributes which are not supported.
+	 * Inline styles (style attribute) are kept as they are supported.
+	 *
+	 * @param string $value HTML content.
+	 * @return string Content with unsupported tags and attributes removed.
+	 */
+	private static function strip_unsupported_html_tags($value) {
+		$value = is_string($value) ? $value : '';
+		if ('' === $value) {
+			return '';
+		}
+
+		// List of unsupported tags to remove (keeping their inner content).
+		$unsupported_tags = array(
+			'span',
+			'button',
+			'form',
+			'select',
+			'input',
+			'textarea',
+			'div',
+			'iframe',
+			'embed',
+			'object',
+			'label',
+			'font',
+			'img',
+			'video',
+			'audio',
+			'canvas',
+			'svg',
+			'script',
+			'style',
+			'noscript',
+			'map',
+			'area',
+			'applet',
+		);
+
+		foreach ($unsupported_tags as $tag) {
+			// Remove opening tags (with or without attributes).
+			$value = preg_replace('#<' . $tag . '\b[^>]*>#i', '', $value);
+			if (!is_string($value)) {
+				$value = '';
+			}
+			// Remove closing tags.
+			$value = preg_replace('#</' . $tag . '>#i', '', $value);
+			if (!is_string($value)) {
+				$value = '';
+			}
+		}
+
+		// Remove id and class attributes (not supported by OpenTBS).
+		$value = preg_replace('/\s+id\s*=\s*["\'][^"\']*["\']/i', '', $value);
+		if (!is_string($value)) {
+			$value = '';
+		}
+		$value = preg_replace('/\s+class\s*=\s*["\'][^"\']*["\']/i', '', $value);
+		if (!is_string($value)) {
+			$value = '';
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Remove newline artifacts from HTML content for document generation.
+	 *
+	 * Cleans up stray newline markers and empty paragraphs that can interfere
+	 * with proper document formatting.
+	 *
+	 * @param string $value Sanitized HTML.
+	 * @return string
+	 */
+	private static function remove_linebreak_artifacts($value) {
+		$value = (string) $value;
+
+		// 1) Remove paragraphs that contain stray literal newline markers (n or rn).
+		// Only removes if at least one marker is present - preserves intentional <p>&nbsp;</p> spacing.
+		// NOTE: Do NOT use case-insensitive flag to avoid matching "N" in words like "Numbered".
+		$value = preg_replace('#<p(?:[^>]*)>(?:\s)*(?:rn|n)+(?:\s)*</p>#', '', $value);
+		if (!is_string($value)) {
+			$value = '';
+		}
+
+		// 2) Remove standalone markers between any two tags: >  n  <  => ><.
+		$value = preg_replace('#>(?:\s|&nbsp;)*(?:rn|n)+(?:\s|&nbsp;)*<#', '><', $value);
+		if (!is_string($value)) {
+			$value = '';
+		}
+
+		// 3) Remove markers right after opening block/list/table tags.
+		$value = preg_replace(
+			'#(<(?:ul|ol|table|thead|tbody|tfoot|tr|td|th|li)[^>]*>)(?:\s|&nbsp;)*(?:rn|n)+#',
+			'$1',
+			$value,
+		);
+		if (!is_string($value)) {
+			$value = '';
+		}
+
+		// 4) Remove markers right before closing block/list/table tags.
+		$value = preg_replace(
+			'#(?:\s|&nbsp;)*(?:rn|n)+(?:\s|&nbsp;)*(</(?:ul|ol|table|thead|tbody|tfoot|tr|td|th|li)>)#',
+			'$1',
+			$value,
+		);
+		if (!is_string($value)) {
+			$value = '';
+		}
+
+		return $value;
 	}
 }

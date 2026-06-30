@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checkout the code
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set environment variables
         run: |
@@ -25,7 +25,7 @@ jobs:
         run: make package VERSION=${RELEASE_TAG}
 
       - name: Upload ZIP to the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: documentate-${{ env.RELEASE_TAG }}.zip
         env:

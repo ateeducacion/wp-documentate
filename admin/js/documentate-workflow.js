@@ -2,10 +2,9 @@
  * Documentate Workflow Manager
  *
  * Handles UI state management for the document workflow:
- * - Disables all fields when document is published (read-only mode)
+ * - Disables all fields when document is locked (published/archived/pending for non-admins)
  * - Shows appropriate notices based on user role
- * - Hides schedule publication functionality
- * - Restricts status options for editors
+ * - Button handlers for the unified Document Management meta box
  *
  * @package Documentate
  */
@@ -27,6 +26,7 @@
 		 */
 		editableSelectors: [
 			'#title',
+			'#documentate_title_textarea',
 			'#titlewrap input',
 			'#content',
 			'#postdivrich',
@@ -58,8 +58,6 @@
 
 			this.bindEvents();
 			this.applyWorkflowState();
-			this.setupStatusRestrictions();
-			this.hideScheduleUI();
 		},
 
 		/**
@@ -70,43 +68,99 @@
 
 			// Re-apply state after DOM updates (e.g., meta box loading).
 			$(document).on('ajaxComplete', function () {
-				if (self.config.isPublished) {
+				if (self.config.isLocked || self.config.isPublished || self.config.isArchived) {
 					self.lockFields();
 				}
 			});
 
-			// Monitor status changes in publish box.
-			$(document).on(
-				'change',
-				'#post_status, select[name="post_status"]',
-				function () {
-					self.handleStatusChange($(this).val());
-				}
-			);
-
-			// Intercept publish button for editors.
-			if (!this.config.isAdmin) {
-				$('#publish').on('click', function (e) {
-					self.handlePublishClick(e, $(this));
+			// Lock TinyMCE editors when they are initialized (after page load).
+			if (this.config.isLocked && typeof tinyMCE !== 'undefined') {
+				tinyMCE.on('AddEditor', function (e) {
+					if (e.editor && e.editor.on) {
+						e.editor.on('init', function () {
+							// Delay to ensure mode API is available.
+							setTimeout(function () {
+								if (e.editor.mode && typeof e.editor.mode.set === 'function') {
+									e.editor.mode.set('readonly');
+								}
+							}, 100);
+						});
+					}
 				});
 			}
+
+			// "Save Draft" button.
+			$('#documentate-save-draft').on('click', function (e) {
+				e.preventDefault();
+				self.submitWithStatus('draft');
+			});
+
+			// "Send to Review" button.
+			$('#documentate-send-review').on('click', function (e) {
+				e.preventDefault();
+				if (!self.config.isAdmin) {
+					var msg = (self.config.strings && self.config.strings.confirmSendReview)
+						|| 'Are you sure you want to send this document to review?';
+					if (!window.confirm(msg)) {
+						return;
+					}
+				}
+				self.submitWithStatus('pending');
+			});
+
+			// "Approve & Publish" button.
+			$('#documentate-approve-publish').on('click', function (e) {
+				e.preventDefault();
+				self.submitWithStatus('publish');
+			});
+
+			// "Return to Draft" button.
+			$('#documentate-return-draft').on('click', function (e) {
+				e.preventDefault();
+				self.submitWithStatus('draft');
+			});
+
+			// "Return to Review" button (from published back to pending).
+			$('#documentate-return-review').on('click', function (e) {
+				e.preventDefault();
+				self.submitWithStatus('pending');
+			});
+
+			// "Save" button (save while keeping pending status).
+			$('#documentate-save-pending').on('click', function (e) {
+				e.preventDefault();
+				self.submitWithStatus('pending');
+			});
+		},
+
+		/**
+		 * Set the hidden post_status field and submit the form.
+		 *
+		 * @param {string} newStatus The target post status.
+		 */
+		submitWithStatus: function (newStatus) {
+			$('#post_status').val(newStatus);
+			$('#hidden_post_status').val(newStatus);
+			$('#documentate_document_management .spinner').addClass('is-active');
+
+			// Remove the beforeunload handler so the browser does not
+			// show a "Leave site?" confirmation when we are intentionally saving.
+			$(window).off('beforeunload.edit-post');
+
+			$('#post').submit();
 		},
 
 		/**
 		 * Apply the current workflow state to the UI.
 		 */
 		applyWorkflowState: function () {
-			if (this.config.isPublished) {
+			if (this.config.isLocked || this.config.isPublished || this.config.isArchived) {
 				this.lockFields();
 				this.showLockedNotice();
 			}
 
 			if (!this.config.hasDocType) {
 				this.showDocTypeWarning();
-			}
-
-			if (!this.config.isAdmin) {
-				this.applyEditorRestrictions();
 			}
 		},
 
@@ -165,15 +219,17 @@
 				true
 			);
 
+			// Disable ALL TinyMCE toolbar buttons.
+			$('.mce-btn').addClass('mce-disabled').attr('aria-disabled', 'true');
+
+			// Disable ALL quicktags buttons.
+			$('.quicktags-toolbar .ed_button').prop('disabled', true).addClass('documentate-locked');
+
+			// Hide editor mode tabs (Visual/Code) to prevent switching.
+			$('.wp-editor-tabs').hide();
+
 			// Lock array/repeater field controls.
 			this.lockArrayFields();
-
-			// Only allow status change for admins.
-			if (!this.config.isAdmin) {
-				$('#post_status').prop('disabled', true);
-				$('.edit-post-status').hide();
-				$('#publish, #save-post').prop('disabled', true);
-			}
 
 			// Add visual indicator overlay.
 			this.addLockedOverlay();
@@ -218,14 +274,44 @@
 		 * Add a visual overlay to locked sections.
 		 */
 		addLockedOverlay: function () {
-			var $container = $(
-				'#documentate_document_sections, .documentate-sections-container'
-			);
+			var self = this;
+
+			// Target the .inside container of the sections meta box.
+			var $container = $('#documentate_sections .inside');
+
+			// Fallback to sections container if meta box structure is different.
+			if (!$container.length) {
+				$container = $('.documentate-sections-container');
+			}
 
 			if ($container.length && !$container.find('.locked-overlay').length) {
 				$container.css('position', 'relative');
+
+				var message;
+				var icon = 'dashicons-lock';
+
+				if (self.config.isArchived) {
+					icon = 'dashicons-archive';
+					message = self.config.strings && self.config.strings.archivedMessage
+						? self.config.strings.archivedMessage
+						: 'This document is archived and cannot be edited.';
+				} else if (self.config.isPending && !self.config.isAdmin) {
+					message = self.config.strings && self.config.strings.pendingMessage
+						? self.config.strings.pendingMessage
+						: 'This document is pending review and cannot be edited.';
+				} else {
+					message = self.config.strings && self.config.strings.lockedMessage
+						? self.config.strings.lockedMessage
+						: 'This document is published and cannot be edited.';
+				}
+
 				$container.append(
-					'<div class="locked-overlay"><span class="dashicons dashicons-lock"></span></div>'
+					'<div class="locked-overlay">' +
+					'<div class="locked-message">' +
+					'<span class="dashicons ' + icon + '"></span>' +
+					'<span>' + message + '</span>' +
+					'</div>' +
+					'</div>'
 				);
 			}
 		},
@@ -234,9 +320,21 @@
 		 * Show notice when document is locked.
 		 */
 		showLockedNotice: function () {
-			var message = this.config.isAdmin
-				? this.config.strings.adminUnlock
-				: this.config.strings.lockedMessage;
+			var message;
+			var icon = 'dashicons-lock';
+
+			if (this.config.isArchived) {
+				icon = 'dashicons-archive';
+				message = this.config.isAdmin
+					? this.config.strings.adminUnarchive
+					: this.config.strings.archivedMessage;
+			} else if (this.config.isPending && !this.config.isAdmin) {
+				message = this.config.strings.pendingMessage;
+			} else {
+				message = this.config.isAdmin
+					? this.config.strings.adminUnlock
+					: this.config.strings.lockedMessage;
+			}
 
 			var noticeClass = this.config.isAdmin
 				? 'notice-info'
@@ -246,7 +344,7 @@
 				'<div class="notice ' +
 					noticeClass +
 					' documentate-workflow-notice">' +
-					'<p><span class="dashicons dashicons-lock"></span> ' +
+					'<p><span class="dashicons ' + icon + '"></span> ' +
 					'<strong>' +
 					this.config.strings.lockedTitle +
 					'</strong> - ' +
@@ -282,130 +380,6 @@
 
 			if (!$('.documentate-doctype-warning').length) {
 				$('#poststuff').before($warning);
-			}
-		},
-
-		/**
-		 * Apply restrictions for editor role.
-		 */
-		applyEditorRestrictions: function () {
-			// Modify status dropdown to only show draft/pending.
-			var $statusSelect = $('#post_status');
-
-			if ($statusSelect.length) {
-				$statusSelect.find('option').each(function () {
-					var val = $(this).val();
-					if (val === 'publish' || val === 'future') {
-						$(this).remove();
-					}
-				});
-			}
-
-			// Change publish button text.
-			var $publishBtn = $('#publish');
-			if ($publishBtn.length) {
-				if (
-					this.config.postStatus === 'draft' ||
-					this.config.postStatus === 'auto-draft'
-				) {
-					$publishBtn.val($publishBtn.data('pending-text') || 'Submit for Review');
-				}
-			}
-
-			// Add editor notice.
-			this.showEditorNotice();
-		},
-
-		/**
-		 * Show notice for editors about their restrictions.
-		 */
-		showEditorNotice: function () {
-			var $notice = $(
-				'<div class="notice notice-info documentate-editor-restriction-notice">' +
-					'<p><span class="dashicons dashicons-info"></span> ' +
-					this.config.strings.editorRestriction +
-					'</p>' +
-					'</div>'
-			);
-
-			if (
-				!$('.documentate-editor-restriction-notice').length &&
-				!this.config.isPublished
-			) {
-				$('#poststuff').before($notice);
-			}
-		},
-
-		/**
-		 * Set up status restrictions in the publish meta box.
-		 */
-		setupStatusRestrictions: function () {
-			// Always hide the "Private" visibility option for this CPT.
-			// Documents should follow the standard workflow: draft -> pending -> publish.
-			$('#visibility-radio-private').parent().hide();
-
-			// Remove future/scheduled status option.
-			$('#post_status option[value="future"]').remove();
-
-			if (!this.config.isAdmin) {
-				// Remove publish option from status dropdown for non-admins.
-				$('#post_status option[value="publish"]').remove();
-
-				// Also hide Public visibility (editors can't publish).
-				$('#visibility-radio-public').parent().hide();
-			}
-		},
-
-		/**
-		 * Hide the schedule publication UI.
-		 */
-		hideScheduleUI: function () {
-			// Hide timestamp/schedule elements.
-			$('#timestampdiv').hide();
-			$('.misc-pub-curtime').hide();
-			$('.edit-timestamp').hide();
-
-			// Remove "Schedule" from status options.
-			$('#post_status option[value="future"]').remove();
-		},
-
-		/**
-		 * Handle status change in dropdown.
-		 *
-		 * @param {string} newStatus The new status value.
-		 */
-		handleStatusChange: function (newStatus) {
-			if (!this.config.isAdmin && newStatus === 'publish') {
-				// Force back to pending for non-admins.
-				$('#post_status').val('pending');
-				alert(this.config.strings.editorRestriction);
-			}
-		},
-
-		/**
-		 * Handle publish button click for editors.
-		 *
-		 * @param {Event}  e    Click event.
-		 * @param {jQuery} $btn Button element.
-		 */
-		handlePublishClick: function (e, $btn) {
-			var currentStatus = $('#post_status').val() || this.config.postStatus;
-
-			// If status would be publish, change to pending.
-			if (currentStatus === 'publish') {
-				$('#post_status').val('pending');
-			}
-
-			// Check if doc type is assigned.
-			if (!this.config.hasDocType) {
-				var hasNewDocType =
-					$('#documentate_doc_type_selectorchecklist input:checked')
-						.length > 0;
-				if (!hasNewDocType && currentStatus !== 'draft') {
-					e.preventDefault();
-					alert(this.config.strings.needsDocType);
-					return false;
-				}
 			}
 		},
 	};

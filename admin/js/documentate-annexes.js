@@ -68,19 +68,66 @@ function initializeRichEditors(container) {
 	if (!window.wp || !wp.editor || typeof wp.editor.initialize !== 'function') {
 		return;
 	}
+	// Check if document is locked via body class or workflow config.
+	var isLocked = document.body.classList.contains('documentate-document-locked') ||
+		(window.documentateWorkflow && window.documentateWorkflow.isPublished);
 	var editors = container.querySelectorAll('textarea.documentate-array-rich[data-editor-initialized="false"]');
 	editors.forEach(function(textarea) {
 		if (!textarea.id) {
 			return;
 		}
+		var tinymceConfig = {
+			toolbar1: 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,table,undo,redo,searchreplace,removeformat',
+			wpautop: false,
+			table_toolbar: false,
+
+
+			invalid_elements: 'span,button,form,select,input,textarea,div,iframe,embed,object,label,font,img,video,audio,canvas,svg,script,style,noscript,map,area,applet',
+			valid_elements: 'a[href|title|target],strong/b,em/i,u,p[style|class|align],br,ul,ol,li,' +
+			                'h1,h2,h3,h4,h5,h6,blockquote,code,pre,' +
+			                'table[border|cellpadding|cellspacing|style|class|align],tr,td[colspan|rowspan|style|class|align],th[colspan|rowspan|style|class|align]',
+			paste_remove_styles: true,
+			paste_strip_class_attributes: 'all',
+
+
+			table_responsive_width: true,
+			table_resize_bars: true,
+			table_grid: true,
+			table_tab_navigation: true,
+			table_advtab: true,
+			table_cell_advtab: true,
+			table_row_advtab: true,
+			readonly: isLocked ? 1 : 0,
+			init_instance_callback: function(editor) {
+				if (isLocked && editor.mode && typeof editor.mode.set === 'function') {
+					editor.mode.set('readonly');
+				}
+			}
+		};
+		if (window.documentateTable && documentateTable.pluginUrl) {
+			tinymceConfig.external_plugins = {
+				table: documentateTable.pluginUrl
+			};
+		}
 		wp.editor.initialize(textarea.id, {
-			tinymce: {
-				toolbar1: 'formatselect,bold,italic,underline,link,bullist,numlist,alignleft,aligncenter,alignright,alignjustify,undo,redo,removeformat'
-			},
+			tinymce: tinymceConfig,
 			quicktags: true,
-			mediaButtons: false
+			mediaButtons: false,
+			wpautop: false
 		});
 		textarea.setAttribute('data-editor-initialized', 'true');
+
+		// Disable quicktags buttons when locked.
+		if (isLocked) {
+			var qtToolbar = document.getElementById('qt_' + textarea.id + '_toolbar');
+			if (qtToolbar) {
+				var buttons = qtToolbar.querySelectorAll('.ed_button');
+				buttons.forEach(function(btn) {
+					btn.disabled = true;
+					btn.classList.add('documentate-locked');
+				});
+			}
+		}
 	});
 }
 

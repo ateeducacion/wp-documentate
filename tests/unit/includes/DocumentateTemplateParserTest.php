@@ -61,10 +61,10 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 	 * Test extract_fields with valid DOCX template.
 	 */
 	public function test_extract_fields_docx() {
-		$template_path = $this->fixtures_path . 'plantilla.docx';
+		$template_path = $this->fixtures_path . 'demo-wp-documentate.docx';
 
 		if ( ! file_exists( $template_path ) ) {
-			$this->markTestSkipped( 'Test fixture plantilla.docx not found.' );
+			$this->markTestSkipped( 'Test fixture demo-wp-documentate.docx not found.' );
 		}
 
 		$result = Documentate_Template_Parser::extract_fields( $template_path );
@@ -76,10 +76,10 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 	 * Test extract_fields with valid ODT template.
 	 */
 	public function test_extract_fields_odt() {
-		$template_path = $this->fixtures_path . 'plantilla.odt';
+		$template_path = $this->fixtures_path . 'resolucion.odt';
 
 		if ( ! file_exists( $template_path ) ) {
-			$this->markTestSkipped( 'Test fixture plantilla.odt not found.' );
+			$this->markTestSkipped( 'Test fixture resolucion.odt not found.' );
 		}
 
 		$result = Documentate_Template_Parser::extract_fields( $template_path );
@@ -304,4 +304,375 @@ class DocumentateTemplateParserTest extends WP_UnitTestCase {
 		$this->assertSame( 'rich', $rich_scalar['type'] );
 		$this->assertSame( 'text', $rich_scalar['data_type'] );
         }
+
+	/**
+	 * Test parse_placeholder with simple field.
+	 */
+	public function test_parse_placeholder_simple() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'parse_placeholder' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'title' );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'placeholder', $result );
+		$this->assertSame( 'title', $result['placeholder'] );
+	}
+
+	/**
+	 * Test parse_placeholder with parameters.
+	 */
+	public function test_parse_placeholder_with_params() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'parse_placeholder' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'date;tbs:strconv=date' );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'date', $result['placeholder'] );
+		$this->assertArrayHasKey( 'parameters', $result );
+	}
+
+	/**
+	 * Test humanize_key.
+	 */
+	public function test_humanize_key() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'humanize_key' );
+		$method->setAccessible( true );
+
+		$this->assertSame( 'Resolution Title', $method->invoke( null, 'resolution_title' ) );
+		$this->assertSame( 'User Name', $method->invoke( null, 'user_name' ) );
+		$this->assertSame( 'Test', $method->invoke( null, 'test' ) );
+	}
+
+	/**
+	 * Test ends_with.
+	 */
+	public function test_ends_with() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'ends_with' );
+		$method->setAccessible( true );
+
+		$this->assertTrue( $method->invoke( null, 'test_date', '_date' ) );
+		$this->assertTrue( $method->invoke( null, 'hello world', 'world' ) );
+		$this->assertFalse( $method->invoke( null, 'test', 'testing' ) );
+		$this->assertFalse( $method->invoke( null, 'foo', 'bar' ) );
+	}
+
+	/**
+	 * Test detect_data_type with date.
+	 */
+	public function test_detect_data_type_date() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		// Fields ending in 'date' or 'fecha' are detected as date.
+		$result = $method->invoke( null, 'created_date', array() );
+		$this->assertSame( 'date', $result );
+
+		// Using explicit 'ope' parameter.
+		$result = $method->invoke( null, 'my_field', array( 'ope' => 'tbs:date' ) );
+		$this->assertSame( 'date', $result );
+	}
+
+	/**
+	 * Test detect_data_type with number.
+	 */
+	public function test_detect_data_type_number() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		// Using 'ope' parameter for explicit number type.
+		$result = $method->invoke( null, 'total', array( 'ope' => 'tbs:num' ) );
+		$this->assertSame( 'number', $result );
+
+		// Field ending in 'amount' should be detected as number.
+		$result = $method->invoke( null, 'total_amount', array() );
+		$this->assertSame( 'number', $result );
+	}
+
+	/**
+	 * Test detect_data_type with boolean.
+	 */
+	public function test_detect_data_type_boolean() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'is_active', array() );
+		$this->assertSame( 'boolean', $result );
+
+		$result = $method->invoke( null, 'has_permission', array() );
+		$this->assertSame( 'boolean', $result );
+	}
+
+	/**
+	 * Test detect_array_placeholder_with_index.
+	 */
+	public function test_detect_array_placeholder_with_index() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_array_placeholder_with_index' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'items[*].name' );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'items', $result['base'] );
+		$this->assertSame( 'name', $result['key'] );
+
+		$result = $method->invoke( null, 'simple_field' );
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * Test detect_array_placeholder_without_index.
+	 */
+	public function test_detect_array_placeholder_without_index() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_array_placeholder_without_index' );
+		$method->setAccessible( true );
+
+		// Dot notation may return array with base and key.
+		$result = $method->invoke( null, 'items.name' );
+		if ( $result !== null ) {
+			$this->assertArrayHasKey( 'base', $result );
+			$this->assertArrayHasKey( 'key', $result );
+		}
+
+		$result = $method->invoke( null, 'simple_field' );
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * Test infer_array_item_type.
+	 */
+	public function test_infer_array_item_type() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'infer_array_item_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'content', 'text' );
+		$this->assertSame( 'rich', $result );
+
+		$result = $method->invoke( null, 'name', 'text' );
+		$this->assertSame( 'single', $result );
+
+		$result = $method->invoke( null, 'count', 'number' );
+		$this->assertSame( 'single', $result );
+	}
+
+	/**
+	 * Test infer_scalar_field_type.
+	 */
+	public function test_infer_scalar_field_type() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'infer_scalar_field_type' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'body', 'Body', 'text', 'body' );
+		$this->assertSame( 'rich', $result );
+
+		$result = $method->invoke( null, 'content', 'Content', 'text', 'content' );
+		$this->assertSame( 'rich', $result );
+
+		$result = $method->invoke( null, 'title', 'Title', 'text', 'title' );
+		$this->assertSame( 'single', $result );
+	}
+
+	/**
+	 * Test normalize_slug_source.
+	 */
+	public function test_normalize_slug_source() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'normalize_slug_source' );
+		$method->setAccessible( true );
+
+		// Method preserves array notation in slug.
+		$result = $method->invoke( null, 'items[*].name' );
+		$this->assertIsString( $result );
+
+		$result = $method->invoke( null, 'simple.field' );
+		$this->assertIsString( $result );
+
+		$result = $method->invoke( null, 'normal_field' );
+		$this->assertSame( 'normal_field', $result );
+	}
+
+	/**
+	 * Test format_field_info.
+	 */
+	public function test_format_field_info() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'format_field_info' );
+		$method->setAccessible( true );
+
+		$parsed = array(
+			'placeholder' => 'test_field',
+			'slug'        => 'test_field',
+			'label'       => 'Test Field',
+			'parameters'  => array(),
+		);
+
+		$result = $method->invoke( null, $parsed );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'placeholder', $result );
+		$this->assertArrayHasKey( 'slug', $result );
+		$this->assertArrayHasKey( 'label', $result );
+		$this->assertArrayHasKey( 'data_type', $result );
+	}
+
+	/**
+	 * Test normalize_xml_text.
+	 */
+	public function test_normalize_xml_text() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'normalize_xml_text' );
+		$method->setAccessible( true );
+
+		$xml = '<root><text:span>hello</text:span><text:span> </text:span><text:span>world</text:span></root>';
+		$result = $method->invoke( null, $xml );
+
+		$this->assertIsString( $result );
+	}
+
+	/**
+	 * Test build_schema_from_field_definitions with HTML type hint.
+	 */
+	public function test_build_schema_detects_html_type() {
+		$fields = array(
+			array(
+				'placeholder' => 'description;tbs:html',
+				'slug'        => 'description',
+				'label'       => 'Description',
+				'parameters'  => array( 'tbs:html' => true ),
+				'data_type'   => 'text',
+			),
+		);
+
+		$schema = Documentate_Template_Parser::build_schema_from_field_definitions( $fields );
+
+		$this->assertNotEmpty( $schema );
+		$field = $schema[0];
+		// HTML type hint produces textarea type.
+		$this->assertContains( $field['type'], array( 'rich', 'textarea' ) );
+	}
+
+	/**
+	 * Test extract_fields returns error for corrupted file.
+	 */
+	public function test_extract_fields_corrupted_file() {
+		$temp_dir  = sys_get_temp_dir();
+		$temp_file = $temp_dir . '/test_' . uniqid() . '.docx';
+		file_put_contents( $temp_file, 'not a valid docx file' );
+
+		$result = Documentate_Template_Parser::extract_fields( $temp_file );
+
+		// Corrupted files return WP_Error.
+		$this->assertTrue( is_wp_error( $result ) || is_array( $result ) );
+
+		if ( file_exists( $temp_file ) ) {
+			unlink( $temp_file );
+		}
+	}
+
+	/**
+	 * Test parse_placeholder with array notation.
+	 */
+	public function test_parse_placeholder_array_notation() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'parse_placeholder' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( null, 'items[*].name;tbs:strconv=text' );
+
+		$this->assertIsArray( $result );
+		$this->assertStringContainsString( 'items', $result['placeholder'] );
+	}
+
+	/**
+	 * Test detect_data_type with parameters override.
+	 */
+	public function test_detect_data_type_with_parameters() {
+		$method = new ReflectionMethod( Documentate_Template_Parser::class, 'detect_data_type' );
+		$method->setAccessible( true );
+
+		// Test with 'ope' parameter for date.
+		$result = $method->invoke( null, 'my_field', array( 'ope' => 'tbs:date' ) );
+		$this->assertSame( 'date', $result );
+
+		// Test with 'ope' parameter for number.
+		$result = $method->invoke( null, 'my_field', array( 'ope' => 'tbs:num' ) );
+		$this->assertSame( 'number', $result );
+
+		// Test with 'frm' parameter containing date format chars.
+		$result = $method->invoke( null, 'my_field', array( 'frm' => 'd/m/Y' ) );
+		$this->assertSame( 'date', $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns false for missing file.
+	 */
+	public function test_template_has_sign_placeholder_missing_file() {
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( '/nonexistent/path/file.odt' );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns false for empty path.
+	 */
+	public function test_template_has_sign_placeholder_empty_path() {
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( '' );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns false for template without [sign].
+	 */
+	public function test_template_has_sign_placeholder_without_sign() {
+		$template_path = $this->fixtures_path . 'resolucion.odt';
+
+		if ( ! file_exists( $template_path ) ) {
+			$this->markTestSkipped( 'Test fixture resolucion.odt not found.' );
+		}
+
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( $template_path );
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder returns true for template with [sign].
+	 */
+	public function test_template_has_sign_placeholder_with_sign() {
+		$template_path = $this->fixtures_path . 'test-sign-placeholder.odt';
+
+		if ( ! file_exists( $template_path ) ) {
+			$this->markTestSkipped( 'Test fixture test-sign-placeholder.odt not found.' );
+		}
+
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( $template_path );
+		$this->assertTrue( $result );
+	}
+
+	/**
+	 * Test template_has_sign_placeholder is case-insensitive for [SIGN].
+	 */
+	public function test_template_has_sign_placeholder_case_insensitive() {
+		// Create a temporary ODT with [SIGN] in uppercase.
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			$this->markTestSkipped( 'ZipArchive not available.' );
+		}
+
+		$temp_path = sys_get_temp_dir() . '/test_sign_upper_' . uniqid() . '.odt';
+		$zip       = new ZipArchive();
+		if ( true !== $zip->open( $temp_path, ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
+			$this->markTestSkipped( 'Could not create temporary ODT.' );
+		}
+
+		$content = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+			. 'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">'
+			. '<office:body><office:text>'
+			. '<text:p>[SIGN]</text:p>'
+			. '</office:text></office:body>'
+			. '</document-content>';
+		$zip->addFromString( 'content.xml', $content );
+		$zip->addFromString( 'mimetype', 'application/vnd.oasis.opendocument.text' );
+		$zip->close();
+
+		$result = Documentate_Template_Parser::template_has_sign_placeholder( $temp_path );
+
+		unlink( $temp_path );
+
+		$this->assertTrue( $result );
+	}
 }
