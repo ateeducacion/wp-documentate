@@ -55,6 +55,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	public function tear_down() {
 		wp_set_current_user( 0 );
 		delete_option( 'documentate_settings' );
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
 		parent::tear_down();
 	}
 
@@ -1739,6 +1740,84 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 			$this->assertArrayHasKey( 'cdnMode', $result );
 			$this->assertTrue( $result['cdnMode'] );
 		}
+	}
+
+	/**
+	 * Test add_conversion_mode_config in CDN mode outside of Playground.
+	 *
+	 * The Playground flags must be present and disabled, and no external
+	 * converter URL should be exposed when not running inside Playground.
+	 */
+	public function test_add_conversion_mode_config_cdn_not_playground() {
+		update_option( 'documentate_settings', array(
+			'conversion_engine' => 'wasm',
+		) );
+
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		// Ensure we are not detected as Playground.
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+
+		if ( ! Documentate_Zetajs_Converter::is_cdn_mode() || Documentate_Conversion_Manager::is_available() ) {
+			$this->markTestSkipped( 'ZetaJS CDN mode is not active in this environment.' );
+		}
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, array() );
+
+		$this->assertTrue( $result['cdnMode'] );
+		$this->assertArrayHasKey( 'isPlayground', $result );
+		$this->assertFalse( $result['isPlayground'] );
+		$this->assertFalse( $result['useIframe'] );
+		$this->assertArrayNotHasKey( 'externalConverterUrl', $result );
+	}
+
+	/**
+	 * Test add_conversion_mode_config in CDN mode inside Playground.
+	 *
+	 * When running inside Playground, Service Workers are unavailable, so the
+	 * config must enable the iframe/external converter path.
+	 */
+	public function test_add_conversion_mode_config_cdn_playground() {
+		update_option( 'documentate_settings', array(
+			'conversion_engine' => 'wasm',
+		) );
+
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		// Force Playground detection via the Playground request header.
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		$cdn_active = Documentate_Zetajs_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available();
+		$collabora_active = Documentate_Collabora_Converter::is_available();
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, array() );
+
+		if ( $collabora_active ) {
+			// Collabora-in-Playground takes precedence and short-circuits.
+			$this->assertTrue( $result['collaboraPlayground'] );
+		} elseif ( $cdn_active ) {
+			$this->assertTrue( $result['cdnMode'] );
+			$this->assertTrue( $result['isPlayground'] );
+			$this->assertTrue( $result['useIframe'] );
+			$this->assertArrayHasKey( 'externalConverterUrl', $result );
+			$this->assertNotEmpty( $result['externalConverterUrl'] );
+		} else {
+			$this->markTestSkipped( 'No CDN/Collabora converter active in this environment.' );
+		}
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
 	}
 
 	/**
