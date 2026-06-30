@@ -112,6 +112,9 @@ class Documentate_Documents {
 		// Admin list table filters and columns.
 		add_action('restrict_manage_posts', array($this, 'add_admin_filters'), 10, 2);
 		add_action('pre_get_posts', array($this, 'apply_admin_filters'));
+		// Suppress the native category dropdown so it does not duplicate our
+		// custom category_name filter (both target the 'category' taxonomy).
+		add_filter('disable_categories_dropdown', array($this, 'disable_native_categories_dropdown'), 10, 2);
 		add_filter('manage_documentate_document_posts_columns', array($this, 'add_admin_columns'));
 		add_action('manage_documentate_document_posts_custom_column', array($this, 'render_admin_column'), 10, 2);
 		add_filter('manage_edit-documentate_document_sortable_columns', array($this, 'add_sortable_columns'));
@@ -2866,6 +2869,28 @@ class Documentate_Documents {
 		};
 
 		return (string) preg_replace_callback('/u([0-9a-fA-F]{4})/i', $callback, $text);
+	}
+
+	/**
+	 * Disable WordPress' native category dropdown for the documents list table.
+	 *
+	 * The 'category' taxonomy is attached to documentate_document, so WordPress
+	 * core renders a native `cat` dropdown (numeric term IDs). The plugin also
+	 * renders its own `category_name` dropdown (slugs). Keeping both duplicates
+	 * the control and can build conflicting taxonomy queries, so the native one
+	 * is suppressed and the plugin's `category_name` filter is the single source
+	 * of category filtering.
+	 *
+	 * @param bool   $disable   Whether to disable the categories dropdown.
+	 * @param string $post_type Post type slug for the current list table.
+	 * @return bool True to disable the native dropdown for our post type.
+	 */
+	public function disable_native_categories_dropdown($disable, $post_type) {
+		if ('documentate_document' === $post_type) {
+			return true;
+		}
+
+		return $disable;
 	}
 
 	/**
