@@ -87,13 +87,16 @@ async function loginAs( browser, baseURL, username ) {
 	const context = await browser.newContext( { baseURL } );
 	const page = await context.newPage();
 
-	await page.goto( '/wp-login.php' );
+	await page.goto( '/wp-login.php', { waitUntil: 'domcontentloaded' } );
 	await page.fill( '#user_login', username );
 	await page.fill( '#user_pass', PASSWORD );
-	await Promise.all( [
-		page.waitForURL( /\/wp-admin\// ),
-		page.click( '#wp-submit' ),
-	] );
+	await page.click( '#wp-submit' );
+	// Resolve as soon as we have left the login screen (commit), rather than
+	// waiting for the admin dashboard's full `load` event, which can be slow.
+	await page.waitForURL(
+		( url ) => ! url.pathname.endsWith( '/wp-login.php' ),
+		{ waitUntil: 'commit', timeout: 30_000 }
+	);
 
 	return { context, page };
 }
