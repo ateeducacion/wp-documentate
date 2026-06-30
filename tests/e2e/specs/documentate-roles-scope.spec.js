@@ -90,13 +90,16 @@ async function loginAs( browser, baseURL, username ) {
 	await page.goto( '/wp-login.php', { waitUntil: 'domcontentloaded' } );
 	await page.fill( '#user_login', username );
 	await page.fill( '#user_pass', PASSWORD );
-	await page.click( '#wp-submit' );
-	// Resolve as soon as we have left the login screen (commit), rather than
-	// waiting for the admin dashboard's full `load` event, which can be slow.
-	await page.waitForURL(
-		( url ) => ! url.pathname.endsWith( '/wp-login.php' ),
-		{ waitUntil: 'commit', timeout: 30_000 }
-	);
+	// Arm the navigation wait before clicking, and resolve as soon as we have
+	// left the login screen (commit) instead of waiting for the admin
+	// dashboard's full `load` event, which can be slow under CI parallelism.
+	await Promise.all( [
+		page.waitForURL(
+			( url ) => ! url.pathname.endsWith( '/wp-login.php' ),
+			{ waitUntil: 'commit', timeout: 60_000 }
+		),
+		page.click( '#wp-submit' ),
+	] );
 
 	return { context, page };
 }
@@ -238,6 +241,9 @@ test.describe( 'Roles and Scope Filtering', () => {
 		browser,
 		baseURL,
 	} ) => {
+		// UI login in a fresh context can be slow under CI parallelism.
+		test.slow();
+
 		const { context, page } = await loginAs(
 			browser,
 			baseURL,
@@ -267,6 +273,9 @@ test.describe( 'Roles and Scope Filtering', () => {
 		browser,
 		baseURL,
 	} ) => {
+		// UI login in a fresh context can be slow under CI parallelism.
+		test.slow();
+
 		const { context, page } = await loginAs(
 			browser,
 			baseURL,
@@ -300,6 +309,9 @@ test.describe( 'Roles and Scope Filtering', () => {
 		browser,
 		baseURL,
 	} ) => {
+		// UI login in a fresh context can be slow under CI parallelism.
+		test.slow();
+
 		const { context, page } = await loginAs(
 			browser,
 			baseURL,
