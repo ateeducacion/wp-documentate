@@ -3043,6 +3043,34 @@ HTML;
 	}
 
 	/**
+	 * The native WordPress category dropdown is suppressed for documents, so it
+	 * does not duplicate the plugin's own category (category_name) filter.
+	 */
+	public function test_disable_native_categories_dropdown_hook_registered() {
+		$this->assertNotFalse(
+			has_filter( 'disable_categories_dropdown', array( $this->documents, 'disable_native_categories_dropdown' ) )
+		);
+	}
+
+	/**
+	 * The native category dropdown is disabled for the documents screen.
+	 */
+	public function test_disable_native_categories_dropdown_for_documents() {
+		$this->assertTrue(
+			$this->documents->disable_native_categories_dropdown( false, 'documentate_document' )
+		);
+	}
+
+	/**
+	 * Other post types keep their native category dropdown.
+	 */
+	public function test_disable_native_categories_dropdown_ignores_other_post_types() {
+		$this->assertFalse(
+			$this->documents->disable_native_categories_dropdown( false, 'post' )
+		);
+	}
+
+	/**
 	 * Test apply_admin_filters ignores non-admin context.
 	 */
 	public function test_apply_admin_filters_ignores_non_admin() {
