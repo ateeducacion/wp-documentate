@@ -149,11 +149,11 @@ abstract class Export_Handler {
 			header('Content-Length: ' . $filesize);
 		}
 
-		$content = $wp_filesystem->get_contents($file_path);
-		if (false !== $content) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary file content.
-			echo $content;
-		}
+		// Stream the file straight to the output instead of buffering the whole
+		// document in memory. WP_Filesystem has no chunked-read API, so readfile()
+		// is used for the local uploads path.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- Streaming a validated local binary file to the browser.
+		readfile($file_path);
 
 		return true;
 	}
