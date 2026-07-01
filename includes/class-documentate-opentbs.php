@@ -24,6 +24,15 @@ class Documentate_OpenTBS {
 	public static $tbs_locale = 'es_ES';
 
 	/**
+	 * Number of times the ODT archive was opened during the last content pass.
+	 *
+	 * Exposed so tests can assert the single-archive-pass optimisation. @internal
+	 *
+	 * @var int
+	 */
+	private static $odt_archive_open_count = 0;
+
+	/**
 	 * WordprocessingML namespace used in DOCX documents.
 	 */
 	private const WORD_NAMESPACE = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -97,7 +106,9 @@ class Documentate_OpenTBS {
 		$dom->formatOutput = false;
 
 		libxml_use_internal_errors(true);
-		$loaded = $dom->loadXML($xml);
+		// LIBXML_NONET blocks network access during parsing (no external DTDs/entities
+		// are fetched). LIBXML_NOENT is intentionally NOT set, so entities are never expanded.
+		$loaded = $dom->loadXML($xml, LIBXML_NONET);
 		libxml_clear_errors();
 
 		return $loaded ? $dom : false;
@@ -116,7 +127,8 @@ class Documentate_OpenTBS {
 		// Convert to HTML entities to preserve UTF-8 encoding, then wrap for parsing.
 		$encoded = @mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
 		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
-		$loaded = $tmp->loadHTML($wrapped);
+		// LIBXML_NONET blocks network access during parsing; entities are never expanded.
+		$loaded = $tmp->loadHTML($wrapped, LIBXML_NONET);
 		libxml_clear_errors();
 
 		return $loaded ? $tmp : false;
@@ -155,18 +167,12 @@ class Documentate_OpenTBS {
 			return $result;
 		}
 
-		$rich_result = self::apply_odt_rich_text($dest_path, $rich_values);
-		if (is_wp_error($rich_result)) {
-			return $rich_result;
-		}
-
-		// Split any double-line-break sequences into real ODT paragraphs, fixing justified-text artifacts.
-		self::apply_odt_paragraph_splitting($dest_path);
-
-		// Final safety net to strip any remaining raw HTML tags
-		$clean_result = self::strip_unprocessed_html_from_archive($dest_path, array('content.xml', 'styles.xml'));
-		if (is_wp_error($clean_result)) {
-			return $clean_result;
+		// Apply the content-part transforms (rich text, paragraph splitting and
+		// leftover-HTML stripping) in a single archive pass instead of reopening
+		// the ODT once per step.
+		$content_result = self::post_process_odt_content($dest_path, $rich_values);
+		if (is_wp_error($content_result)) {
+			return $content_result;
 		}
 
 		$meta_result = self::apply_odt_metadata($dest_path, $metadata);
@@ -240,29 +246,40 @@ class Documentate_OpenTBS {
 			));
 		}
 
-		$changed = false;
 		foreach ($targets as $target) {
 			$xml = $zip->getFromName($target);
 			if (false === $xml) {
 				continue;
 			}
 
-			// Just regex replace encoded HTML tags in text
-			$updated = preg_replace(
-				'/&lt;\/?(?:p|div|span|a|ul|ol|li|table|thead|tbody|tfoot|tr|th|td|h[1-6]|strong|b|em|i|u|br|blockquote|pre)[^&]*&gt;/i',
-				'',
-				$xml,
-			);
-			$updated = preg_replace('/&lt;!--\[.*?\]--&gt;/i', '', (string) $updated);
-
-			if ($updated !== $xml && null !== $updated) {
+			$updated = self::strip_unprocessed_html_from_xml($xml);
+			if ($updated !== $xml) {
 				$zip->addFromString($target, $updated);
-				$changed = true;
 			}
 		}
 
 		$zip->close();
 		return true;
+	}
+
+	/**
+	 * Strip leftover encoded HTML tags from a single XML part string.
+	 *
+	 * Removes encoded HTML tags (e.g. &lt;p&gt;) and encoded conditional comments
+	 * so raw HTML never appears in the generated document.
+	 *
+	 * @param string $xml XML part contents.
+	 * @return string The XML with any encoded HTML tags removed.
+	 */
+	private static function strip_unprocessed_html_from_xml($xml) {
+		$updated = preg_replace(
+			'/&lt;\/?(?:p|div|span|a|ul|ol|li|table|thead|tbody|tfoot|tr|th|td|h[1-6]|strong|b|em|i|u|br|blockquote|pre)[^&]*&gt;/i',
+			'',
+			$xml,
+		);
+		$updated = preg_replace('/&lt;!--\[.*?\]--&gt;/i', '', (string) $updated);
+
+		return null === $updated ? $xml : (string) $updated;
 	}
 
 	/**
@@ -742,21 +759,24 @@ class Documentate_OpenTBS {
 	}
 
 	/**
-	 * Replace HTML fragments in the generated ODT archive with formatted markup.
+	 * Apply all ODT content-part transforms in a single archive pass.
+	 *
+	 * Opens the generated ODT once and applies, in order, rich-text formatting,
+	 * paragraph splitting and leftover-HTML stripping to content.xml and
+	 * styles.xml, then writes the changed parts back. This replaces the previous
+	 * three separate open/modify/save cycles (rich text, paragraph splitting and
+	 * HTML stripping) with one, preserving the exact same transform order.
 	 *
 	 * @param string       $odt_path    Generated ODT path.
 	 * @param array<mixed> $rich_values Rich text values detected during merge.
-	 * @return bool|WP_Error
+	 * @return true|WP_Error
 	 */
-	private static function apply_odt_rich_text($odt_path, $rich_values) {
-		$lookup = self::prepare_rich_lookup($rich_values);
-		if (empty($lookup)) {
-			return true;
-		}
+	public static function post_process_odt_content($odt_path, $rich_values) {
+		self::$odt_archive_open_count = 0;
 
 		if (!class_exists('ZipArchive')) {
 			return new WP_Error('documentate_odt_zip_missing', __(
-				'ZipArchive is not available for rich text formatting in ODT.',
+				'ZipArchive is not available for ODT post-processing.',
 				'documentate',
 			));
 		}
@@ -764,31 +784,57 @@ class Documentate_OpenTBS {
 		$zip = new ZipArchive();
 		if (true !== $zip->open($odt_path)) {
 			return new WP_Error('documentate_odt_open_failed', __(
-				'Could not open the ODT file for rich text formatting.',
+				'Could not open the ODT file for post-processing.',
 				'documentate',
 			));
 		}
+		++self::$odt_archive_open_count;
 
-		$targets = array('content.xml', 'styles.xml');
-		foreach ($targets as $target) {
-			$xml = $zip->getFromName($target);
+		$lookup = self::prepare_rich_lookup($rich_values);
+
+		foreach (array('content.xml', 'styles.xml') as $part) {
+			$xml = $zip->getFromName($part);
 			if (false === $xml) {
 				continue;
 			}
+			$original = $xml;
 
-			$updated = self::convert_odt_part_rich_text($xml, $lookup);
-			if (is_wp_error($updated)) {
-				$zip->close();
-				return $updated;
+			// 1) Convert rich-text HTML fragments to native ODF markup.
+			if (!empty($lookup)) {
+				$converted = self::convert_odt_part_rich_text($xml, $lookup);
+				if (is_wp_error($converted)) {
+					$zip->close();
+					return $converted;
+				}
+				$xml = $converted;
 			}
 
-			if ($updated !== $xml) {
-				$zip->addFromString($target, $updated);
+			// 2) Split double-line-break sequences into real paragraphs (content.xml only).
+			if ('content.xml' === $part) {
+				$xml = self::split_odt_content_paragraphs($xml);
+			}
+
+			// 3) Strip any leftover encoded HTML tags.
+			$xml = self::strip_unprocessed_html_from_xml($xml);
+
+			if ($xml !== $original) {
+				$zip->addFromString($part, $xml);
 			}
 		}
 
 		$zip->close();
 		return true;
+	}
+
+	/**
+	 * Number of ODT archive opens performed during the last content pass.
+	 *
+	 * Test/observability helper for the single-archive-pass optimisation.
+	 *
+	 * @return int
+	 */
+	public static function get_odt_archive_open_count() {
+		return self::$odt_archive_open_count;
 	}
 
 	/**
@@ -3869,8 +3915,8 @@ class Documentate_OpenTBS {
 		$map = array();
 		$next_id = 0;
 		libxml_use_internal_errors(true);
-		if (false === $rels_xml || '' === trim((string) $rels_xml) || !$doc->loadXML($rels_xml)) {
-			$doc->loadXML('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships" />');
+		if (false === $rels_xml || '' === trim((string) $rels_xml) || !$doc->loadXML($rels_xml, LIBXML_NONET)) {
+			$doc->loadXML('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships" />', LIBXML_NONET);
 		}
 		libxml_clear_errors();
 		$root = $doc->documentElement;
@@ -3994,42 +4040,12 @@ class Documentate_OpenTBS {
 	}
 
 	/**
-	 * Post-process an ODT file splitting double-line-break sequences into real paragraphs.
+	 * Split double-line-break sequences in an ODT content.xml string into real paragraphs.
 	 *
 	 * TBS converts "\n" to <text:line-break/>, so a blank-line paragraph separator ("\n\n")
-	 * becomes two consecutive line-break elements inside a single paragraph.  LibreOffice
-	 * justifies the visible line before each manual break, producing huge spaces.  This step
+	 * becomes two consecutive line-break elements inside a single paragraph. LibreOffice
+	 * justifies the visible line before each manual break, producing huge spaces. This step
 	 * detects those sequences and reconstructs them as proper sibling <text:p> nodes.
-	 *
-	 * @param string $odt_path Path to the generated ODT file.
-	 */
-	private static function apply_odt_paragraph_splitting($odt_path) {
-		if (!class_exists('ZipArchive')) {
-			return;
-		}
-
-		$zip = new ZipArchive();
-		if (true !== $zip->open($odt_path)) {
-			return;
-		}
-
-		$xml = $zip->getFromName('content.xml');
-		if (false === $xml) {
-			$zip->close();
-			return;
-		}
-
-		$updated = self::split_odt_content_paragraphs($xml);
-
-		if ($updated !== $xml) {
-			$zip->addFromString('content.xml', $updated);
-		}
-
-		$zip->close();
-	}
-
-	/**
-	 * Split double-line-break sequences in an ODT content.xml string into real paragraphs.
 	 *
 	 * @param string $xml Raw content.xml XML string.
 	 * @return string Possibly-modified XML string.
