@@ -177,7 +177,8 @@ class OpenTBS_HTML_Parser {
 		libxml_use_internal_errors(true);
 		$encoded = @mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
 		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
-		$loaded = $tmp->loadHTML($wrapped);
+		// LIBXML_NONET blocks network access during parsing; entities are never expanded.
+		$loaded = $tmp->loadHTML($wrapped, LIBXML_NONET);
 		libxml_clear_errors();
 
 		if (!$loaded) {
