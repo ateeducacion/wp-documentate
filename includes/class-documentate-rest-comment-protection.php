@@ -70,6 +70,19 @@ class Documentate_REST_Comment_Protection {
 	}
 
 	/**
+	 * Whether the current user may bypass the comment protection.
+	 *
+	 * Only users who can edit posts (contributors and above) are allowed to
+	 * read or modify comments on protected post types via REST. Being merely
+	 * logged in (e.g. a subscriber) is not sufficient.
+	 *
+	 * @return bool
+	 */
+	private function current_user_can_bypass() {
+		return current_user_can('edit_posts');
+	}
+
+	/**
 	 * Prepares to filter the comment collection query for unauthenticated users.
 	 *
 	 * This function hooks into `comments_clauses` only when a REST API request for comments
@@ -80,7 +93,7 @@ class Documentate_REST_Comment_Protection {
 	 * @return array The original arguments.
 	 */
 	public function prepare_comment_collection_query($args, $request) {
-		if (!is_user_logged_in()) {
+		if (!$this->current_user_can_bypass()) {
 			add_filter('comments_clauses', array($this, 'filter_comment_collection_query'));
 		}
 		return $args;
@@ -126,7 +139,7 @@ class Documentate_REST_Comment_Protection {
 	 * @return mixed A WP_Error if access is denied, otherwise the original $result.
 	 */
 	public function protect_single_comment_access($result, $server, $request) {
-		if (is_user_logged_in()) {
+		if ($this->current_user_can_bypass()) {
 			return $result;
 		}
 
@@ -188,7 +201,7 @@ class Documentate_REST_Comment_Protection {
 	 * @return array|WP_Error The comment data or a WP_Error if denied.
 	 */
 	public function protect_comment_creation($prepared_comment, $request) {
-		if (is_user_logged_in() || is_wp_error($prepared_comment)) {
+		if ($this->current_user_can_bypass() || is_wp_error($prepared_comment)) {
 			return $prepared_comment;
 		}
 
@@ -212,7 +225,7 @@ class Documentate_REST_Comment_Protection {
 	 */
 	public function protect_comment_modification($result) {
 		// Let existing errors through, and allow authenticated users.
-		if (is_user_logged_in() || is_wp_error($result)) {
+		if ($this->current_user_can_bypass() || is_wp_error($result)) {
 			return $result;
 		}
 
