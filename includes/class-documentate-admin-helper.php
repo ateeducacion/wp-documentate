@@ -470,12 +470,10 @@ class Documentate_Admin_Helper {
 			header('Content-Length: ' . $filesize);
 		}
 
-		$content = $fs->get_contents($path);
-		if (false === $content) {
+		if (!self::stream_file($path)) {
 			wp_die(esc_html__('Could not read the PDF file.', 'documentate'));
 		}
 
-		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
 		exit();
 	}
 
@@ -612,12 +610,10 @@ class Documentate_Admin_Helper {
 			header('Content-Length: ' . $filesize);
 		}
 
-		$content = $fs->get_contents($pdf_path);
-		if (false === $content) {
+		if (!self::stream_file($pdf_path)) {
 			wp_die(esc_html__('Could not read the PDF file.', 'documentate'), '', array('back_link' => true));
 		}
 
-		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming PDF binary data.
 		exit();
 	}
 
@@ -944,14 +940,28 @@ class Documentate_Admin_Helper {
 			header('Content-Length: ' . $filesize);
 		}
 
-		$content = $fs->get_contents($path);
-		if (false === $content) {
+		if (!self::stream_file($path)) {
 			return new WP_Error('documentate_download_unreadable', __('Could not read the generated file.', 'documentate'));
 		}
 
-		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Streaming binary data.
-
 		return true;
+	}
+
+	/**
+	 * Stream a local file to the browser without buffering it in memory.
+	 *
+	 * WP_Filesystem exposes no chunked-read API, so readfile() is used to send
+	 * the file straight to the output stream. This keeps memory usage flat
+	 * regardless of document size, whereas get_contents() loaded the whole file
+	 * into a PHP string first. Callers must send the HTTP headers and validate
+	 * that the path exists and is readable before calling this method.
+	 *
+	 * @param string $path Absolute path to the file to stream.
+	 * @return bool True on success, false if the file could not be read.
+	 */
+	public static function stream_file($path) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- Streaming a validated local binary file directly to output; WP_Filesystem has no chunked-read API and get_contents() would buffer the whole file in memory.
+		return false !== readfile($path);
 	}
 
 	/**

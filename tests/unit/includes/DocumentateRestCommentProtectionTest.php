@@ -479,4 +479,44 @@ class DocumentateRestCommentProtectionTest extends WP_UnitTestCase {
 
 		$this->assertNull( $result );
 	}
+
+	/**
+	 * A subscriber is logged in but cannot edit posts, so comment creation on a
+	 * protected post must be blocked (regression: being logged in is not enough).
+	 */
+	public function test_protect_comment_creation_blocks_subscriber() {
+		wp_set_current_user( $this->factory->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->protection->register_rest_comment_protection_hooks();
+
+		$prepared = array(
+			'comment_post_ID' => $this->protected_post_id,
+			'comment_content' => 'Test',
+		);
+		$request  = new WP_REST_Request();
+		$request['post'] = $this->protected_post_id;
+
+		$result = $this->protection->protect_comment_creation( $prepared, $request );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_cannot_create_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * An editor can edit posts, so comment creation on a protected post is allowed.
+	 */
+	public function test_protect_comment_creation_allows_editor() {
+		wp_set_current_user( $this->factory->user->create( array( 'role' => 'editor' ) ) );
+		$this->protection->register_rest_comment_protection_hooks();
+
+		$prepared = array(
+			'comment_post_ID' => $this->protected_post_id,
+			'comment_content' => 'Test',
+		);
+		$request  = new WP_REST_Request();
+		$request['post'] = $this->protected_post_id;
+
+		$result = $this->protection->protect_comment_creation( $prepared, $request );
+
+		$this->assertSame( $prepared, $result );
+	}
 }
