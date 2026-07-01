@@ -866,6 +866,12 @@ msgstr "ZipArchive no está disponible para formato de texto enriquecido en ODT.
 msgid "Could not open the ODT file for rich text formatting."
 msgstr "No se pudo abrir el archivo ODT para formato de texto enriquecido."
 
+msgid "ZipArchive is not available for ODT post-processing."
+msgstr "ZipArchive no está disponible para el post-procesado del ODT."
+
+msgid "Could not open the ODT file for post-processing."
+msgstr "No se pudo abrir el archivo ODT para el post-procesado."
+
 msgid "ZipArchive is not available for metadata."
 msgstr "ZipArchive no está disponible para metadatos."
 
