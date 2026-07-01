@@ -97,7 +97,9 @@ class Documentate_OpenTBS {
 		$dom->formatOutput = false;
 
 		libxml_use_internal_errors(true);
-		$loaded = $dom->loadXML($xml);
+		// LIBXML_NONET blocks network access during parsing (no external DTDs/entities
+		// are fetched). LIBXML_NOENT is intentionally NOT set, so entities are never expanded.
+		$loaded = $dom->loadXML($xml, LIBXML_NONET);
 		libxml_clear_errors();
 
 		return $loaded ? $dom : false;
@@ -116,7 +118,8 @@ class Documentate_OpenTBS {
 		// Convert to HTML entities to preserve UTF-8 encoding, then wrap for parsing.
 		$encoded = @mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
 		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
-		$loaded = $tmp->loadHTML($wrapped);
+		// LIBXML_NONET blocks network access during parsing; entities are never expanded.
+		$loaded = $tmp->loadHTML($wrapped, LIBXML_NONET);
 		libxml_clear_errors();
 
 		return $loaded ? $tmp : false;
@@ -3869,8 +3872,8 @@ class Documentate_OpenTBS {
 		$map = array();
 		$next_id = 0;
 		libxml_use_internal_errors(true);
-		if (false === $rels_xml || '' === trim((string) $rels_xml) || !$doc->loadXML($rels_xml)) {
-			$doc->loadXML('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships" />');
+		if (false === $rels_xml || '' === trim((string) $rels_xml) || !$doc->loadXML($rels_xml, LIBXML_NONET)) {
+			$doc->loadXML('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships" />', LIBXML_NONET);
 		}
 		libxml_clear_errors();
 		$root = $doc->documentElement;
