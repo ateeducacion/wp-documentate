@@ -382,4 +382,45 @@ class DocumentateScopeCountsTest extends WP_UnitTestCase {
 			Documentate_Scope_Filter::ALL_LIST_STATUSES
 		);
 	}
+
+	/**
+	 * The view counters are computed with a single grouped query rather than one
+	 * WP_Query per view (regression guard against the previous N+1 pattern), and
+	 * the resulting counts remain correct.
+	 */
+	public function test_filter_view_counts_uses_single_grouped_query() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+		wp_set_current_user( $this->editor_id );
+		$_GET = array();
+
+		$views = array(
+			'all'     => '<a href="edit.php" class="current">All <span class="count">(8)</span></a>',
+			'mine'    => '<a href="edit.php?author=' . $this->editor_id . '">Mine <span class="count">(4)</span></a>',
+			'publish' => '<a href="edit.php?post_status=publish">Published <span class="count">(3)</span></a>',
+			'future'  => '<a href="edit.php?post_status=future">Scheduled <span class="count">(0)</span></a>',
+			'draft'   => '<a href="edit.php?post_status=draft">Drafts <span class="count">(3)</span></a>',
+			'pending' => '<a href="edit.php?post_status=pending">Pending <span class="count">(1)</span></a>',
+			'private' => '<a href="edit.php?post_status=private">Private <span class="count">(1)</span></a>',
+			'trash'   => '<a href="edit.php?post_status=trash">Trash <span class="count">(0)</span></a>',
+		);
+
+		// Warm the term-hierarchy cache so we measure only the counting cost.
+		$this->filter->filter_view_counts( $views );
+
+		$before  = get_num_queries();
+		$result  = $this->filter->filter_view_counts( $views );
+		$queries = get_num_queries() - $before;
+
+		// A single grouped query replaces the previous one-query-per-view pattern
+		// (which issued ~8 COUNT queries for this view set).
+		$this->assertLessThanOrEqual( 2, $queries, 'Scoped counters must not issue a query per view.' );
+
+		// Counts remain correct after the optimization.
+		$this->assertSame( 4, $this->extract_count( $result['all'] ) );
+		$this->assertSame( 2, $this->extract_count( $result['mine'] ) );
+		$this->assertSame( 1, $this->extract_count( $result['publish'] ) );
+		$this->assertSame( 1, $this->extract_count( $result['draft'] ) );
+		$this->assertSame( 1, $this->extract_count( $result['pending'] ) );
+		$this->assertSame( 1, $this->extract_count( $result['private'] ) );
+	}
 }
