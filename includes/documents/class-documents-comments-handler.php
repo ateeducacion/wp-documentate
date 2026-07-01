@@ -125,7 +125,7 @@ class Documents_Comments_Handler {
 		}
 
 		$comment_parent = isset($_POST['comment_ID']) ? absint($_POST['comment_ID']) : 0;
-		$comment_type   = isset($_POST['comment_type']) ? sanitize_key(wp_unslash($_POST['comment_type'])) : 'comment';
+		$comment_type   = isset($_POST['comment_type']) ? self::sanitize_comment_type(sanitize_key(wp_unslash($_POST['comment_type']))) : 'comment';
 
 		return array(
 			'comment_post_ID'      => $post->ID,
@@ -138,6 +138,22 @@ class Documents_Comments_Handler {
 			'user_id'              => $user->ID,
 			'comment_approved'     => 1,
 		);
+	}
+
+	/**
+	 * Restrict the comment type to a safe, known set.
+	 *
+	 * Any value outside the allowed list falls back to the default 'comment'
+	 * type, preventing arbitrary comment types from being stored through the
+	 * reply endpoint.
+	 *
+	 * @param string $comment_type Sanitized comment type from the request.
+	 * @return string A whitelisted comment type.
+	 */
+	public static function sanitize_comment_type($comment_type) {
+		$allowed = array('comment', 'pingback', 'trackback');
+
+		return in_array((string) $comment_type, $allowed, true) ? (string) $comment_type : 'comment';
 	}
 
 	/**
