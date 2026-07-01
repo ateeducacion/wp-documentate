@@ -9,3 +9,12 @@ compatibility_date = "2024-01-01"
 #
 # This keeps your Collabora server URL private and allows you to change it
 # without redeploying the worker.
+
+[vars]
+# Comma-separated list of browser origins allowed to use this proxy.
+# Defaults to the WordPress Playground origin if left unset.
+# Use "*" to allow any origin (open proxy — not recommended).
+ALLOWED_ORIGINS = "https://playground.wordpress.net"
+
+# Maximum accepted request body size in bytes. Defaults to 100 MB if unset.
+# MAX_REQUEST_BYTES = "104857600"

@@ -85,20 +85,31 @@ COLLABORA_BASE_URL=https://your-collabora-server.com
 - **URL Stored as Secret**: The actual Collabora URL is stored as a Cloudflare secret, not in the code
 - **Path Validation**: Only `/cool/convert-to/*` paths are allowed, preventing misuse
 - **Method Restriction**: Only POST requests are forwarded
+- **CORS Allowlist**: Browser requests are restricted to the origins in `ALLOWED_ORIGINS` (defaults to the Playground origin). Requests from other origins are blocked before reaching Collabora.
+- **No Internal URL Disclosure**: Error responses return a generic message; the Collabora URL and other details are only logged server-side (`wrangler tail`).
+- **Request Size Limit**: Requests larger than `MAX_REQUEST_BYTES` (default 100 MB) are rejected with `413`.
 - **No Data Storage**: The worker doesn't store any document data
 
-### Optional: Restrict Origins
+> **Note:** The CORS allowlist stops cross-origin *browser* abuse. It does not authenticate server-to-server clients (a request without an `Origin` header is still forwarded). If you need to fully lock the proxy down, put it behind a shared secret or Cloudflare Access.
 
-To limit which domains can use your proxy, modify the `corsHeaders()` function in `src/index.js`:
+### Restricting Origins
 
-```javascript
-function corsHeaders() {
-  return {
-    // Instead of '*', specify allowed origins:
-    'Access-Control-Allow-Origin': 'https://playground.wordpress.net',
-    // ... rest of headers
-  };
-}
+Set the `ALLOWED_ORIGINS` variable in `wrangler.toml` (or via the dashboard) to a
+comma-separated list of allowed origins:
+
+```toml
+[vars]
+ALLOWED_ORIGINS = "https://playground.wordpress.net,https://my-site.example"
+```
+
+Use `"*"` to allow any origin (open proxy — not recommended). To cap the accepted
+request size, set `MAX_REQUEST_BYTES` (in bytes).
+
+### Testing
+
+```bash
+npm install
+npm test
 ```
 
 ## Cloudflare Free Tier Limits
