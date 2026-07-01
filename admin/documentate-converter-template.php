@@ -24,16 +24,31 @@ $documentate_output_action = isset($_GET['output']) ? sanitize_key($_GET['output
 $documentate_nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash($_GET['_wpnonce'])) : '';
 $documentate_use_channel = isset($_GET['use_channel']) && '1' === $_GET['use_channel'];
 
+// Iframe mode parameters (for WordPress Playground compatibility).
+$documentate_is_iframe_mode = isset( $_GET['mode'] ) && 'iframe' === sanitize_key( $_GET['mode'] );
+$documentate_parent_origin  = isset( $_GET['parent_origin'] ) ? esc_url_raw( wp_unslash( $_GET['parent_origin'] ) ) : '';
+$documentate_request_id     = isset( $_GET['request_id'] ) ? sanitize_text_field( wp_unslash( $_GET['request_id'] ) ) : '';
+
 // Helper and thread URLs are local, WASM loads from CDN.
 $documentate_helper_url = plugins_url('admin/vendor/zetajs/zetaHelper.js', DOCUMENTATE_PLUGIN_FILE);
 $documentate_thread_url = plugins_url('admin/vendor/zetajs/converterThread.js', DOCUMENTATE_PLUGIN_FILE);
+
+// Service Worker URL for Cross-Origin Isolation (iframe mode).
+$documentate_coi_sw_url = plugins_url( 'admin/js/coi-serviceworker.js', DOCUMENTATE_PLUGIN_FILE );
 
 ?>
 <!DOCTYPE html>
 <html>
 <head>
 	<meta charset="utf-8">
-	<title><?php esc_html_e('Documentate Converter', 'documentate'); ?></title>
+	<title><?php esc_html_e( 'Documentate Converter', 'documentate' ); ?></title>
+	<?php if ( $documentate_is_iframe_mode ) : ?>
+	<!-- Service Worker for Cross-Origin Isolation in iframe mode.
+		 Must load before anything else to intercept requests and add COOP/COEP headers.
+		 Cannot use wp_enqueue_script() as this must execute synchronously before page load. -->
+	<?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Service Worker must load first. ?>
+	<script src="<?php echo esc_url( $documentate_coi_sw_url ); ?>"></script>
+	<?php endif; ?>
 	<style>
 		body {
 			margin: 0;
@@ -95,29 +110,55 @@ $documentate_thread_url = plugins_url('admin/vendor/zetajs/converterThread.js', 
 		// Conversion parameters from URL (validated by PHP).
 		const conversionConfig = {
 			postId: <?php echo (int) $documentate_document_id; ?>,
-			targetFormat: <?php echo wp_json_encode($documentate_target_format); ?>,
-			sourceFormat: <?php echo wp_json_encode($documentate_source_format); ?>,
-			outputAction: <?php echo wp_json_encode($documentate_output_action); ?>,
-			nonce: <?php echo wp_json_encode($documentate_nonce); ?>,
-			ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
-			helperUrl: <?php echo wp_json_encode($documentate_helper_url); ?>,
-			threadUrl: <?php echo wp_json_encode($documentate_thread_url); ?>,
-			useChannel: <?php echo $documentate_use_channel ? 'true' : 'false'; ?>
+			targetFormat: <?php echo wp_json_encode( $documentate_target_format ); ?>,
+			sourceFormat: <?php echo wp_json_encode( $documentate_source_format ); ?>,
+			outputAction: <?php echo wp_json_encode( $documentate_output_action ); ?>,
+			nonce: <?php echo wp_json_encode( $documentate_nonce ); ?>,
+			ajaxUrl: <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,
+			helperUrl: <?php echo wp_json_encode( $documentate_helper_url ); ?>,
+			threadUrl: <?php echo wp_json_encode( $documentate_thread_url ); ?>,
+			useChannel: <?php echo $documentate_use_channel ? 'true' : 'false'; ?>,
+			// Iframe mode parameters (for WordPress Playground).
+			isIframeMode: <?php echo $documentate_is_iframe_mode ? 'true' : 'false'; ?>,
+			parentOrigin: <?php echo wp_json_encode( $documentate_parent_origin ); ?> || '*',
+			requestId: <?php echo wp_json_encode( $documentate_request_id ); ?> || Date.now().toString()
 		};
 
-		// BroadcastChannel for sending results to opener (when useChannel is true)
+		// Detect if we're in an iframe
+		const isInIframe = window.parent !== window;
+
+		// BroadcastChannel for sending results to opener (when useChannel is true, popup mode)
 		const channel = conversionConfig.useChannel ? new BroadcastChannel('documentate_converter') : null;
 
-		// Helper to send progress/results via channel
-		function sendToChannel(status, data, error) {
-			if (channel) {
-				channel.postMessage({
-					type: 'conversion_result',
-					status,
-					data,
-					error
-				});
+		/**
+		 * Send progress/results to parent window.
+		 * Uses postMessage for iframe mode, BroadcastChannel for popup mode.
+		 *
+		 * @param {string} status - 'progress', 'success', 'preview_ready', or 'error'
+		 * @param {Object} data - Data to send
+		 * @param {string} error - Error message (if status is 'error')
+		 */
+		function sendResult(status, data, error) {
+			const message = {
+				type: 'conversion_result',
+				status,
+				data,
+				error,
+				requestId: conversionConfig.requestId
+			};
+
+			if (isInIframe && conversionConfig.isIframeMode) {
+				// Iframe mode: use postMessage to parent
+				window.parent.postMessage(message, conversionConfig.parentOrigin);
+			} else if (channel) {
+				// Popup mode: use BroadcastChannel
+				channel.postMessage(message);
 			}
+		}
+
+		// Legacy alias for compatibility
+		function sendToChannel(status, data, error) {
+			sendResult(status, data, error);
 		}
 
 		// Debug info
@@ -274,7 +315,36 @@ $documentate_thread_url = plugins_url('admin/vendor/zetajs/converterThread.js', 
 				const blob = new Blob([result.outputData], { type: mimeTypes[result.outputFormat] || 'application/octet-stream' });
 				const blobUrl = URL.createObjectURL(blob);
 
-				if (conversionConfig.useChannel) {
+				// Handle result based on mode: iframe vs popup
+				if (isInIframe && conversionConfig.isIframeMode) {
+					// IFRAME MODE: Always send data to parent via postMessage
+					// Parent will handle display/download
+
+					if (conversionConfig.outputAction === 'preview' && result.outputFormat === 'pdf') {
+						// For preview: send ArrayBuffer to parent, it will open in new window
+						sendResult('preview_ready', {
+							outputData: result.outputData,
+							outputFormat: result.outputFormat,
+							mimeType: mimeTypes[result.outputFormat] || 'application/octet-stream'
+						});
+					} else {
+						// For download: send ArrayBuffer to parent
+						sendResult('success', {
+							outputData: result.outputData,
+							outputFormat: result.outputFormat,
+							mimeType: mimeTypes[result.outputFormat] || 'application/octet-stream'
+						});
+					}
+
+					updateStatus(
+						<?php echo wp_json_encode( __( 'Completed!', 'documentate' ) ); ?>,
+						<?php echo wp_json_encode( __( 'Document sent to parent.', 'documentate' ) ); ?>,
+						false,
+						true
+					);
+
+				} else if (conversionConfig.useChannel) {
+					// POPUP MODE with BroadcastChannel
 					if (conversionConfig.outputAction === 'preview' && result.outputFormat === 'pdf') {
 						// For preview: reuse this popup window to show the PDF
 						// Notify opener that we're done (so it hides the loading modal)
@@ -337,15 +407,18 @@ $documentate_thread_url = plugins_url('admin/vendor/zetajs/converterThread.js', 
 
 			} catch (error) {
 				console.error('Documentate conversion error:', error);
+				const errorMessage = error.message || <?php echo wp_json_encode( __( 'Conversion error.', 'documentate' ) ); ?>;
 
-				if (conversionConfig.useChannel) {
-					// Send error to opener via channel
-					sendToChannel('error', null, error.message || <?php echo wp_json_encode(__('Conversion error.', 'documentate')); ?>);
+				// Send error to parent (works for both iframe and popup modes)
+				if (isInIframe && conversionConfig.isIframeMode) {
+					sendResult('error', null, errorMessage);
+				} else if (conversionConfig.useChannel) {
+					sendToChannel('error', null, errorMessage);
 				}
 
 				updateStatus(
-					<?php echo wp_json_encode(__('Error', 'documentate')); ?>,
-					error.message || <?php echo wp_json_encode(__('Conversion error.', 'documentate')); ?>,
+					<?php echo wp_json_encode( __( 'Error', 'documentate' ) ); ?>,
+					errorMessage,
 					true
 				);
 			}

@@ -1128,6 +1128,18 @@ class Documentate_Admin_Helper {
 		if ($zetajs_cdn_available) {
 			$config['cdnMode'] = true;
 			$config['converterUrl'] = admin_url('admin-post.php?action=documentate_converter');
+
+			// Detect WordPress Playground environment.
+			// In Playground, we can't register Service Workers, so we use the external converter.
+			$is_playground = Documentate_Collabora_Converter::is_playground();
+			$config['isPlayground'] = $is_playground;
+			$config['useIframe'] = $is_playground;
+
+			// External converter URL for Playground (where Service Workers don't work).
+			// This service has proper COOP/COEP headers for SharedArrayBuffer support.
+			if ($is_playground) {
+				$config['externalConverterUrl'] = 'https://erseco.github.io/document-converter/';
+			}
 		}
 
 		return $config;

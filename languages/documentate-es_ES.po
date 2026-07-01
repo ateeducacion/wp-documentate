@@ -1234,3 +1234,6 @@ msgstr "Lista separada por comas."
 
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
+
+msgid "Document sent to parent."
+msgstr "Documento enviado al origen"

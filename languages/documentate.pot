@@ -432,6 +432,9 @@ msgstr ""
 msgid "Completed!"
 msgstr ""
 
+msgid "Document sent to parent."
+msgstr ""
+
 msgid "Document converted."
 msgstr ""
 
