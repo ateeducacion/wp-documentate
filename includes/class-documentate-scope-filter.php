@@ -220,7 +220,9 @@ class Documentate_Scope_Filter {
 			return $views;
 		}
 
-		$current_user = get_current_user_id();
+		// Fetch every scoped status count in a single grouped query instead of
+		// running one WP_Query per view (previously up to 9 queries per render).
+		$counts = $this->get_scoped_status_counts();
 
 		$status_map = array(
 			'all' => self::ALL_LIST_STATUSES,
@@ -239,8 +241,9 @@ class Documentate_Scope_Filter {
 				continue;
 			}
 
-			$author = ('mine' === $key) ? $current_user : 0;
-			$count = $this->count_visible_documents($status_map[$key], $author);
+			// "Mine" is restricted to the current user's documents.
+			$source = ('mine' === $key) ? $counts['mine'] : $counts['any'];
+			$count = $this->sum_status_counts($source, $status_map[$key]);
 
 			// Drop empty status views, but keep "All" and the active view.
 			if (0 === $count && 'all' !== $key && !$this->is_current_view($key)) {
@@ -252,6 +255,90 @@ class Documentate_Scope_Filter {
 		}
 
 		return $views;
+	}
+
+	/**
+	 * Fetch document counts grouped by post status for the current user's scope.
+	 *
+	 * Runs a single grouped query that mirrors the scope restriction applied by
+	 * count_visible_documents(): documents in any of the user's scope terms,
+	 * de-duplicated across terms. Replaces the previous one-WP_Query-per-view
+	 * pattern (up to nine queries) with a single database round-trip.
+	 *
+	 * @return array{any: array<string, int>, mine: array<string, int>} Counts
+	 *               keyed by post status: 'any' across all authors and 'mine'
+	 *               limited to the current user.
+	 */
+	private function get_scoped_status_counts() {
+		global $wpdb;
+
+		$empty = array('any' => array(), 'mine' => array());
+
+		$term_ids = $this->get_scope_term_ids();
+
+		// Unrestricted (null) or restricted-without-scope (empty): count nothing.
+		if (empty($term_ids)) {
+			return $empty;
+		}
+
+		$current_user = get_current_user_id();
+		$placeholders = implode(', ', array_fill(0, count($term_ids), '%d'));
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Only table names and %d placeholders are interpolated; values are bound via wpdb::prepare() below.
+		$sql = "SELECT p.post_status AS status, p.post_author AS author, COUNT(DISTINCT p.ID) AS num
+			FROM {$wpdb->posts} p
+			INNER JOIN {$wpdb->term_relationships} tr ON tr.object_id = p.ID
+			INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+			WHERE p.post_type = %s
+			AND tt.taxonomy = %s
+			AND tt.term_id IN ($placeholders)
+			GROUP BY p.post_status, p.post_author";
+
+		$params = array_merge(array(self::POST_TYPE, self::SCOPE_TAXONOMY), $term_ids);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Aggregated admin counters via a prepared statement, executed once per list render.
+		$rows = $wpdb->get_results($wpdb->prepare($sql, $params));
+
+		$any = array();
+		$mine = array();
+		foreach ((array) $rows as $row) {
+			$status = (string) $row->status;
+			$num = (int) $row->num;
+
+			$any[$status] = (isset($any[$status]) ? $any[$status] : 0) + $num;
+
+			if ((int) $row->author !== $current_user) {
+				continue;
+			}
+
+			$mine[$status] = (isset($mine[$status]) ? $mine[$status] : 0) + $num;
+		}
+
+		return array('any' => $any, 'mine' => $mine);
+	}
+
+	/**
+	 * Sum the counts for a set of statuses from a status => count map.
+	 *
+	 * @param array<string, int> $counts   Status => count map.
+	 * @param string|string[]    $statuses Status or statuses to sum.
+	 * @return int Total count across the requested statuses.
+	 */
+	private function sum_status_counts($counts, $statuses) {
+		if (!is_array($statuses)) {
+			$statuses = array($statuses);
+		}
+
+		$total = 0;
+		foreach ($statuses as $status) {
+			if (!isset($counts[$status])) {
+				continue;
+			}
+
+			$total += (int) $counts[$status];
+		}
+
+		return $total;
 	}
 
 	/**
