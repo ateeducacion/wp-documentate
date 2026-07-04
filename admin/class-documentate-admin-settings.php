@@ -135,7 +135,7 @@ class Documentate_Admin_Settings {
 		echo
 			'<p class="description">'
 				. esc_html__(
-					'Choose whether conversions are performed via Collabora Online (default) or with LibreOffice WASM in the browser (experimental).',
+					'Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation.',
 					'documentate',
 				)
 				. '</p>'
