@@ -28,10 +28,6 @@ if (!defined('WPINC')) {
 define('DOCUMENTATE_VERSION', '0.0.0');
 define('DOCUMENTATE_PLUGIN_FILE', __FILE__);
 
-if (!defined('DOCUMENTATE_ZETAJS_CDN_BASE')) {
-	define('DOCUMENTATE_ZETAJS_CDN_BASE', 'https://cdn.zetaoffice.net/zetaoffice_latest/');
-}
-
 if (!defined('DOCUMENTATE_COLLABORA_DEFAULT_URL')) {
 	define('DOCUMENTATE_COLLABORA_DEFAULT_URL', 'https://demo.us.collaboraonline.com');
 }

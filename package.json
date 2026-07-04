@@ -1,9 +1,11 @@
 {
+  "dependencies": {
+    "@matbee/libreoffice-converter": "^2.6.0"
+  },
   "devDependencies": {
     "@wordpress/e2e-test-utils-playwright": "~1.46.0",
     "@wordpress/env": "^11.9.0",
-    "@wordpress/scripts": "~32.2.0",
-    "zetajs": "^1.0.0"
+    "@wordpress/scripts": "~32.2.0"
   },
   "scripts": {
     "wp-env": "wp-env",
@@ -11,8 +13,9 @@
     "composer:tests-cli": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate composer",
     "test:e2e": "wp-scripts test-playwright --config tests/e2e/playwright.config.js",
     "test:unit": "wp-env run tests-cli --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit",
-    "copy:zetajs": "rm -rf admin/vendor/zetajs && mkdir -p admin/vendor/zetajs && cp node_modules/zetajs/source/zetaHelper.js admin/vendor/zetajs/ && cp node_modules/zetajs/source/zeta.js admin/vendor/zetajs/",
-    "postinstall": "npm run copy:zetajs",
-    "postupdate": "npm run copy:zetajs"
+    "test:unit-js": "wp-scripts test-unit-js --config tests/js/jest.config.js",
+    "copy:libreoffice-converter": "node scripts/copy-libreoffice-converter.mjs",
+    "postinstall": "npm run copy:libreoffice-converter",
+    "postupdate": "npm run copy:libreoffice-converter"
   }
 }
