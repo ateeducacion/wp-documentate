@@ -78,6 +78,36 @@ array(
 
 El bloque previo siempre incluye las clases `documentate-field-before-description` y `description`, además de una clase específica por campo con el formato `documentate-field-before-description-{slug}`.
 
+## Document conversion
+
+Documentate can convert generated `.odt`/`.docx` documents to PDF (and between
+office formats) using one of two engines, selectable under **Settings → Conversion
+Engine**:
+
+- **Collabora Online** (default, recommended): a server-side web service. Best for
+  reliable server-side and background/batch PDF generation.
+- **LibreOffice WASM in browser** (experimental): runs
+  [`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter)
+  entirely in the client's browser. Useful for local/private conversion without a
+  server service, at the cost of a large initial download and higher memory use.
+
+### LibreOffice WASM requirements
+
+- **Large local assets.** The browser engine needs the LibreOffice WASM runtime
+  (`soffice.wasm` ~140 MB, `soffice.data` ~95 MB). These are **not** committed to the
+  repository; they are copied from `node_modules` by `npm install` (or
+  `npm run copy:libreoffice-converter`) into `admin/vendor/libreoffice-converter`.
+  See [`admin/vendor/libreoffice-converter/README.md`](admin/vendor/libreoffice-converter/README.md).
+- **Cross-origin isolation.** Browser conversion uses `SharedArrayBuffer`, which
+  requires the converter page to be served with:
+  - `Cross-Origin-Opener-Policy: same-origin`
+  - `Cross-Origin-Embedder-Policy: require-corp` (the plugin uses the compatible
+    `credentialless` variant)
+
+  The plugin sets these headers on its dedicated converter endpoint. If the browser
+  cannot run the converter (missing assets or headers), an admin-facing diagnostic is
+  shown and Collabora Online should be used instead.
+
 ## Access Control
 
 ### Template management (Document Types)
