@@ -44,6 +44,12 @@ admin/vendor/tinybutstrong/tinybutstrong/testunit/
 admin/vendor/tinybutstrong/tinybutstrong/.gitattributes
 admin/vendor/tinybutstrong/tinybutstrong/.gitignore
 
+# LibreOffice WASM: the small glue scripts are committed; the large binaries
+# (soffice.wasm/soffice.data, ~235 MB) are served from a CDN and never committed.
+admin/vendor/libreoffice-converter/wasm/soffice.wasm
+admin/vendor/libreoffice-converter/wasm/soffice.data
+admin/vendor/libreoffice-converter/wasm/soffice.data.js.metadata
+
 .env
 
 wp/

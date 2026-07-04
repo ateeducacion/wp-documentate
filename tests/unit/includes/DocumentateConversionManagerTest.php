@@ -243,4 +243,55 @@ class DocumentateConversionManagerTest extends WP_UnitTestCase {
 		$this->assertSame( 'wasm', Documentate_Conversion_Manager::ENGINE_WASM );
 		$this->assertSame( 'collabora', Documentate_Conversion_Manager::ENGINE_COLLABORA );
 	}
+
+	/**
+	 * The existing `wasm` option value keeps resolving to the LibreOffice WASM engine.
+	 */
+	public function test_wasm_option_value_is_backwards_compatible() {
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'wasm' ) );
+
+		$this->assertSame( Documentate_Conversion_Manager::ENGINE_WASM, Documentate_Conversion_Manager::get_engine() );
+
+		$label = Documentate_Conversion_Manager::get_engine_label();
+		$this->assertStringContainsString( 'LibreOffice', $label );
+		$this->assertStringContainsString( 'WASM', $label );
+		$this->assertStringNotContainsStringIgnoringCase( 'ZetaJS', $label );
+	}
+
+	/**
+	 * The WASM engine does not report server-side availability.
+	 */
+	public function test_wasm_engine_is_not_available_server_side() {
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'wasm' ) );
+
+		$this->assertFalse( Documentate_Conversion_Manager::is_available() );
+	}
+
+	/**
+	 * Converting with the WASM engine reports that server-side conversion is unavailable.
+	 */
+	public function test_convert_wasm_reports_conversion_not_available() {
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'wasm' ) );
+
+		$result = Documentate_Conversion_Manager::convert( '/tmp/test.odt', '/tmp/test.pdf', 'pdf', 'odt' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'documentate_conversion_not_available', $result->get_error_code() );
+	}
+
+	/**
+	 * The WASM unavailable message no longer mentions ZetaJS and explains the browser flow.
+	 */
+	public function test_unavailable_message_wasm_has_no_zetajs() {
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'wasm' ) );
+
+		$message = Documentate_Conversion_Manager::get_unavailable_message( 'odt', 'pdf' );
+
+		$this->assertStringNotContainsStringIgnoringCase( 'ZetaJS', $message );
+		// Either it explains the browser flow, or it explains the assets are missing;
+		// both are valid depending on whether the WASM assets are installed.
+		$this->assertTrue(
+			false !== stripos( $message, 'browser' ) || false !== stripos( $message, 'assets' )
+		);
+	}
 }

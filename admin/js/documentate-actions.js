@@ -2,8 +2,8 @@
  * Documentate Actions - Loading Modal for Document Generation
  *
  * Intercepts export/preview button clicks and shows a loading modal
- * while the document is being generated via AJAX. In CDN mode, also
- * handles browser-based conversion using ZetaJS WASM.
+ * while the document is being generated via AJAX. In browser WASM mode,
+ * also handles browser-based conversion using LibreOffice WASM.
  *
  * For WASM mode, uses BroadcastChannel to receive results from a minimal
  * popup window (which has COOP/COEP headers required for SharedArrayBuffer).
@@ -737,7 +737,7 @@
 			return;
 		}
 
-		// If CDN mode (ZetaJS WASM), use popup-based conversion.
+		// If browser WASM mode (LibreOffice WASM), use popup-based conversion.
 		if (cdnMode && sourceFormat) {
 			handleCdnConversion($btn, action, format, sourceFormat);
 			return;

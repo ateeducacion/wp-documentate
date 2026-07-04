@@ -6,7 +6,7 @@ This document provides a high-level overview of the **Documentate** WordPress pl
 
 **Documentate** is a WordPress plugin designed to generate official resolutions and structured documents. It uses a custom post type (`documentate_document`) to store document data, which is categorized by a custom taxonomy (`documentate_doc_type`).
 
-The core functionality involves taking structured data entered by users in WordPress, merging it into an `.odt` (OpenDocument Text) template using **OpenTBS**, and then optionally converting that document into `.docx` or `.pdf` formats using external conversion engines like **Collabora Online** or **LibreOffice WASM (ZetaJS)**.
+The core functionality involves taking structured data entered by users in WordPress, merging it into an `.odt` (OpenDocument Text) template using **OpenTBS**, and then optionally converting that document into `.docx` or `.pdf` formats using conversion engines: **Collabora Online** (server-side) or **LibreOffice WASM** in the browser (via [`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter)).
 
 ## 2. Core Components
 
@@ -26,12 +26,12 @@ The core functionality involves taking structured data entered by users in WordP
 
 ### 2.3. Document Conversion
 
-- **Location:** `includes/class-documentate-conversion-manager.php`, `includes/class-documentate-collabora-converter.php`, `includes/class-documentate-zetajs-converter.php`.
+- **Location:** `includes/class-documentate-conversion-manager.php`, `includes/class-documentate-collabora-converter.php`, `includes/class-documentate-libreoffice-wasm-converter.php`.
 - **Flow:**
   1. Once the `.odt` is generated, it often needs to be converted to `.pdf` (for preview) or `.docx`.
   2. The `Documentate_Conversion_Manager` checks the plugin settings to determine the selected engine:
-     - **Collabora Online:** Makes a remote API call to a Collabora server to perform the conversion.
-     - **WASM (ZetaJS):** Uses an experimental in-browser LibreOffice WebAssembly port to perform conversions locally in the client's browser.
+     - **Collabora Online:** Makes a remote API call to a Collabora server to perform the conversion (server-side, recommended for background/batch generation).
+     - **LibreOffice WASM (browser):** Runs `@matbee/libreoffice-converter` client-side. The conversion happens in a cross-origin isolated popup that loads plugin-local WASM assets (`admin/vendor/libreoffice-converter`). It is browser-only: there is no server-side path, and it requires COOP/COEP headers plus `SharedArrayBuffer`. See `admin/vendor/libreoffice-converter/README.md` for the large-asset handling.
 
 ### 2.4. Access Control and Scopes
 

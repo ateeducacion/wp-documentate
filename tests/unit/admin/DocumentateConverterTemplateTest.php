@@ -83,23 +83,27 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test template contains ZetaJS integration.
+	 * Test template integrates the LibreOffice WASM browser converter.
 	 */
-	public function test_template_contains_zetajs() {
+	public function test_template_contains_libreoffice_wasm() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( 'zetaHelper.js', $content );
-		$this->assertStringContainsString( 'converterThread.js', $content );
-		$this->assertStringContainsString( 'ZetaHelperMain', $content );
+		$this->assertStringContainsString( 'WorkerBrowserConverter', $content );
+		$this->assertStringContainsString( 'createWasmPaths', $content );
+		$this->assertStringContainsString( 'createLibreOfficeWasmConverter', $content );
+		$this->assertStringNotContainsStringIgnoringCase( 'ZetaJS', $content );
+		$this->assertStringNotContainsString( 'zetaHelper.js', $content );
 	}
 
 	/**
-	 * Test template contains canvas element for ZetaJS.
+	 * Test template guards on cross-origin isolation and installed assets.
 	 */
-	public function test_template_contains_canvas() {
+	public function test_template_contains_environment_guards() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( 'id="qtcanvas"', $content );
+		$this->assertStringContainsString( 'crossOriginIsolated', $content );
+		$this->assertStringContainsString( 'SharedArrayBuffer', $content );
+		$this->assertStringContainsString( 'assetsAvailable', $content );
 	}
 
 	/**
@@ -171,24 +175,18 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test template contains export filters.
+	 * Test template localizes the browser converter configuration.
 	 */
-	public function test_template_contains_export_filters() {
+	public function test_template_contains_converter_localization() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( 'writer_pdf_Export', $content );
-		$this->assertStringContainsString( 'MS Word 2007 XML', $content );
-		$this->assertStringContainsString( 'writer8', $content );
-	}
-
-	/**
-	 * Test template contains timeout handling.
-	 */
-	public function test_template_contains_timeout() {
-		$content = file_get_contents( $this->template_path );
-
-		$this->assertStringContainsString( 'timeout', $content );
-		$this->assertStringContainsString( 'setTimeout', $content );
+		$this->assertStringContainsString( 'moduleUrl', $content );
+		$this->assertStringContainsString( 'workerUrl', $content );
+		$this->assertStringContainsString( 'wasmBaseUrl', $content );
+		$this->assertStringContainsString( 'sofficeWasmUrl', $content );
+		$this->assertStringContainsString( 'sofficeDataUrl', $content );
+		$this->assertStringContainsString( 'wrapperUrl', $content );
+		$this->assertStringContainsString( 'targetFormat', $content );
 	}
 
 	/**
@@ -244,13 +242,13 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test template contains helper URL variables.
+	 * Test template builds asset URLs from the converter class and plugins_url().
 	 */
-	public function test_template_contains_helper_urls() {
+	public function test_template_builds_asset_urls() {
 		$content = file_get_contents( $this->template_path );
 
-		$this->assertStringContainsString( '$documentate_helper_url', $content );
-		$this->assertStringContainsString( '$documentate_thread_url', $content );
+		$this->assertStringContainsString( '$documentate_wrapper_url', $content );
+		$this->assertStringContainsString( 'Documentate_Libreoffice_Wasm_Converter::get_browser_config()', $content );
 		$this->assertStringContainsString( 'plugins_url(', $content );
 	}
 }

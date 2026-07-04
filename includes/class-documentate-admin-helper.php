@@ -120,7 +120,7 @@ class Documentate_Admin_Helper {
 		add_action('admin_post_documentate_unarchive', array($this, 'handle_unarchive_action'));
 		add_action('admin_post_documentate_preview_stream', array($this, 'handle_preview_stream'));
 
-		// Handler for the converter page with COOP/COEP headers (ZetaJS CDN mode).
+		// Handler for the converter page with COOP/COEP headers (LibreOffice WASM mode).
 		add_action('admin_post_documentate_converter', array($this, 'render_converter_page'));
 
 		// AJAX handler for document generation with progress modal.
@@ -478,7 +478,7 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
-	 * Render the converter page for ZetaJS CDN mode.
+	 * Render the converter page for LibreOffice WASM (browser) mode.
 	 *
 	 * This page runs in an iframe with COOP/COEP headers required for SharedArrayBuffer.
 	 * Uses admin-post.php as the entry point to ensure PHP executes properly.
@@ -535,7 +535,7 @@ class Documentate_Admin_Helper {
 		) {
 			include plugin_dir_path(__FILE__) . '../admin/documentate-collabora-playground-template.php';
 		} else {
-			// Use ZetaJS WASM template for 'wasm' engine or non-Playground environments.
+			// Use the LibreOffice WASM template for 'wasm' engine or non-Playground environments.
 			include plugin_dir_path(__FILE__) . '../admin/documentate-converter-template.php';
 		}
 		exit();
@@ -670,21 +670,22 @@ class Documentate_Admin_Helper {
 		$docx_requires_conversion = '' === $docx_template && '' !== $odt_template;
 		$odt_requires_conversion = '' === $odt_template && '' !== $docx_template;
 
-		// Check if ZetaJS CDN mode is available for browser-based preview.
-		$zetajs_cdn_available = false;
+		// Check if in-browser LibreOffice WASM conversion is available for preview.
+		$wasm_browser_available = false;
 		if (!$conversion_ready) {
-			require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-zetajs-converter.php';
-			$zetajs_cdn_available = Documentate_Zetajs_Converter::is_cdn_mode();
+			require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-libreoffice-wasm-converter.php';
+			$wasm_browser_available = Documentate_Libreoffice_Wasm_Converter::is_browser_mode()
+				&& Documentate_Libreoffice_Wasm_Converter::assets_available();
 		}
 
 		// Check if we need popup-based conversion (bypasses PHP networking issues in Playground).
 		// This is needed for:
-		// 1. ZetaJS CDN mode (WASM conversion in browser)
+		// 1. LibreOffice WASM mode (conversion in the browser)
 		// 2. Collabora in Playground (JavaScript fetch bypasses wp_remote_post multipart issues).
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-collabora-converter.php';
 		$collabora_in_playground =
 			Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
-		$use_popup_for_conversion = $zetajs_cdn_available || $collabora_in_playground;
+		$use_popup_for_conversion = $wasm_browser_available || $collabora_in_playground;
 
 		// In CDN mode or Playground with Collabora, browser can do conversions too.
 		$can_convert = $conversion_ready || $use_popup_for_conversion;
@@ -736,7 +737,7 @@ class Documentate_Admin_Helper {
 		}
 
 		// ── Primary row: Preview + Download PDF ──────────────────────────
-		$needs_popup_base = $zetajs_cdn_available && !$conversion_ready || $collabora_in_playground;
+		$needs_popup_base = $wasm_browser_available && !$conversion_ready || $collabora_in_playground;
 
 		echo '<div class="documentate-actions-primary">';
 
@@ -1053,7 +1054,7 @@ class Documentate_Admin_Helper {
 	 */
 	private function build_actions_script_config($post_id) {
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-conversion-manager.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-collabora-converter.php';
 
 		$config = array(
@@ -1124,8 +1125,13 @@ class Documentate_Admin_Helper {
 			return $config;
 		}
 
-		$zetajs_cdn_available = !$conversion_ready && Documentate_Zetajs_Converter::is_cdn_mode();
-		if ($zetajs_cdn_available) {
+		// The `cdnMode`/`converterUrl` keys are kept for backwards compatibility with
+		// the actions script and E2E tests; they now drive the self-hosted browser
+		// LibreOffice WASM popup instead of a third-party CDN.
+		$wasm_browser_available = !$conversion_ready
+			&& Documentate_Libreoffice_Wasm_Converter::is_browser_mode()
+			&& Documentate_Libreoffice_Wasm_Converter::assets_available();
+		if ($wasm_browser_available) {
 			$config['cdnMode'] = true;
 			$config['converterUrl'] = admin_url('admin-post.php?action=documentate_converter');
 		}

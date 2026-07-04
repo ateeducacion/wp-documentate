@@ -4,11 +4,11 @@
  * Uses Page Object Model, REST API setup, and accessible selectors
  * following WordPress/Gutenberg E2E best practices.
  *
- * Tests the ZetaJS WASM-based document conversion functionality.
+ * Tests the LibreOffice WASM-based document conversion functionality.
  * This includes the loading modal, popup converter, and BroadcastChannel communication.
  *
- * Note: Full WASM conversion tests are slow (requires ~50MB download) and may be skipped
- * in CI environments. Set DOCUMENTATE_TEST_WASM=1 to run full conversion tests.
+ * Note: Full WASM conversion tests are slow (require large local WASM assets) and may be
+ * skipped in CI environments. Set DOCUMENTATE_TEST_WASM=1 to run full conversion tests.
  */
 const { test, expect } = require( '../fixtures' );
 
