@@ -670,21 +670,22 @@ class Documentate_Admin_Helper {
 		$docx_requires_conversion = '' === $docx_template && '' !== $odt_template;
 		$odt_requires_conversion = '' === $odt_template && '' !== $docx_template;
 
-		// Check if in-browser LibreOffice WASM conversion is available for preview.
+		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-collabora-converter.php';
+		$in_playground = Documentate_Collabora_Converter::is_playground();
+
+		// In-browser LibreOffice WASM conversion is not available in WordPress
+		// Playground: the site runs in a sandboxed, non-cross-origin-isolated iframe,
+		// so SharedArrayBuffer is unavailable and the isolated converter page is blocked.
 		$wasm_browser_available = false;
-		if (!$conversion_ready) {
+		if (!$conversion_ready && !$in_playground) {
 			require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 			$wasm_browser_available = Documentate_Libreoffice_Wasm_Converter::is_browser_mode()
 				&& Documentate_Libreoffice_Wasm_Converter::assets_available();
 		}
 
-		// Check if we need popup-based conversion (bypasses PHP networking issues in Playground).
-		// This is needed for:
-		// 1. LibreOffice WASM mode (conversion in the browser)
-		// 2. Collabora in Playground (JavaScript fetch bypasses wp_remote_post multipart issues).
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-collabora-converter.php';
-		$collabora_in_playground =
-			Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
+		// Collabora in Playground converts via a JavaScript fetch (bypassing PHP
+		// wp_remote_post multipart issues).
+		$collabora_in_playground = $in_playground && Documentate_Collabora_Converter::is_available();
 		$use_popup_for_conversion = $wasm_browser_available || $collabora_in_playground;
 
 		// In CDN mode or Playground with Collabora, browser can do conversions too.
@@ -1115,8 +1116,8 @@ class Documentate_Admin_Helper {
 	 */
 	private function add_conversion_mode_config($config) {
 		$conversion_ready = Documentate_Conversion_Manager::is_available();
-		$collabora_in_playground =
-			Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
+		$in_playground = Documentate_Collabora_Converter::is_playground();
+		$collabora_in_playground = $in_playground && Documentate_Collabora_Converter::is_available();
 
 		if ($collabora_in_playground) {
 			$options = get_option('documentate_settings', array());
@@ -1126,9 +1127,12 @@ class Documentate_Admin_Helper {
 		}
 
 		// The `cdnMode`/`converterUrl` keys are kept for backwards compatibility with
-		// the actions script and E2E tests; they now drive the self-hosted browser
-		// LibreOffice WASM popup instead of a third-party CDN.
+		// the actions script and E2E tests; they drive the self-hosted browser
+		// LibreOffice WASM popup. This popup cannot run in WordPress Playground (the
+		// site runs in a sandboxed iframe that blocks cross-origin isolated pages), so
+		// the WASM browser path is not offered there.
 		$wasm_browser_available = !$conversion_ready
+			&& !$in_playground
 			&& Documentate_Libreoffice_Wasm_Converter::is_browser_mode()
 			&& Documentate_Libreoffice_Wasm_Converter::assets_available();
 		if ($wasm_browser_available) {

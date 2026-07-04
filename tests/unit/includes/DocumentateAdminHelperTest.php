@@ -1742,6 +1742,34 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * The WASM browser popup must NOT be offered in WordPress Playground, where the
+	 * sandboxed, non-cross-origin-isolated iframe cannot run it.
+	 */
+	public function test_add_conversion_mode_config_wasm_not_offered_in_playground() {
+		update_option( 'documentate_settings', array(
+			'conversion_engine' => 'wasm',
+		) );
+
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, array() );
+
+		// The WASM browser popup must never be offered in Playground. (When Collabora
+		// is available it gracefully takes over via the collaboraPlayground fast path.)
+		$this->assertArrayNotHasKey( 'cdnMode', $result );
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+	}
+
+	/**
 	 * Test render_actions_metabox shows secondary formats label.
 	 */
 	public function test_render_actions_metabox_shows_secondary_label() {

@@ -1207,6 +1207,12 @@ msgstr "Lista separada por comas."
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
 
+msgid "(not available in WordPress Playground)"
+msgstr "(no disponible en WordPress Playground)"
+
+msgid "In-browser LibreOffice WASM conversion is not available in WordPress Playground. Use Collabora Online instead."
+msgstr "La conversión LibreOffice WASM en el navegador no está disponible en WordPress Playground. Usa Collabora Online en su lugar."
+
 msgid "Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation."
 msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado, en el servidor) o con LibreOffice WASM en el navegador (experimental). LibreOffice WASM descarga archivos de gran tamaño y requiere un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y SharedArrayBuffer); se recomienda Collabora Online para una generación de PDF fiable en el servidor o en segundo plano."
 
