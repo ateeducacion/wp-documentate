@@ -450,9 +450,6 @@ msgstr ""
 msgid "Loading LibreOffice..."
 msgstr ""
 
-msgid "Downloading WASM components (~50MB). This may take a while the first time."
-msgstr ""
-
 msgid "Processing with LibreOffice WASM."
 msgstr ""
 
@@ -610,12 +607,6 @@ msgid "Could not complete the conversion."
 msgstr ""
 
 msgid "Collabora Online is not available to convert documents."
-msgstr ""
-
-msgid "Disable ZetaJS CDN mode and configure the local executable for server-side conversions."
-msgstr ""
-
-msgid "Configure the ZetaJS (LibreOffice WASM) executable path on the server."
 msgstr ""
 
 #. translators: 1: source extension, 2: target extension.
@@ -1069,25 +1060,6 @@ msgid_plural "%d Revisions"
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
-msgstr ""
-
-msgid "Could not start the ZetaJS conversion process."
-msgstr ""
-
-#. translators: %d: exit status returned by the ZetaJS process.
-#, php-format
-msgid "The ZetaJS process exited with code %d."
-msgstr ""
-
-#. translators: %s: raw message captured from the ZetaJS converter output.
-#, php-format
-msgid "Conversion finished but the output file was not generated. Details: %s"
-msgstr ""
-
-msgid "PDF conversion is performed in the browser using ZetaJS loaded from the official CDN."
-msgstr ""
-
 msgid "Documents"
 msgstr ""
 
@@ -1229,4 +1201,19 @@ msgid "Comma-separated list."
 msgstr ""
 
 msgid "Generated file not found."
+msgstr ""
+
+msgid "Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation."
+msgstr ""
+
+msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
+msgstr ""
+
+msgid "The LibreOffice WASM assets are not installed. Run \"npm install\" (or \"npm run copy:libreoffice-converter\") to enable in-browser conversion, or use Collabora Online."
+msgstr ""
+
+msgid "In-browser conversion requires a cross-origin isolated context (Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp) and SharedArrayBuffer support. If your browser cannot provide them, use Collabora Online instead."
+msgstr ""
+
+msgid "Downloading LibreOffice WASM components. This may take a while the first time."
 msgstr ""

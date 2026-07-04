@@ -600,7 +600,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	public function test_add_row_actions_with_pdf_converter() {
 		update_option( 'documentate_settings', array(
 			'docx_template_id' => 123,
-			'pdf_converter' => 'zetajs',
+			'pdf_converter' => 'wasm',
 		) );
 
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
@@ -654,12 +654,12 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox with ZetaJS converter.
+	 * Test render_actions_metabox with LibreOffice WASM converter.
 	 */
-	public function test_render_actions_metabox_with_zetajs() {
+	public function test_render_actions_metabox_with_wasm() {
 		update_option( 'documentate_settings', array(
 			'docx_template_id' => 123,
-			'pdf_converter' => 'zetajs',
+			'pdf_converter' => 'wasm',
 		) );
 
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
@@ -875,7 +875,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	 */
 	public function test_enqueue_actions_metabox_assets_cdn_mode() {
 		update_option( 'documentate_settings', array(
-			'pdf_converter' => 'zetajs_cdn',
+			'pdf_converter' => 'wasm',
 		) );
 
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
@@ -1306,7 +1306,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	 */
 	public function test_add_conversion_mode_config_default() {
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
-		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
 		$reflection = new ReflectionClass( $this->helper );
@@ -1430,7 +1430,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	 */
 	public function test_add_conversion_mode_config_preserves_existing() {
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
-		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
 		$reflection = new ReflectionClass( $this->helper );
@@ -1712,16 +1712,16 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test add_conversion_mode_config with zetajs cdn mode.
+	 * Test add_conversion_mode_config with browser WASM mode.
 	 */
-	public function test_add_conversion_mode_config_zetajs_cdn() {
-		// Configure ZetaJS CDN mode.
+	public function test_add_conversion_mode_config_browser_wasm() {
+		// Configure browser WASM mode.
 		update_option( 'documentate_settings', array(
-			'pdf_converter' => 'zetajs_cdn',
+			'pdf_converter' => 'wasm',
 		) );
 
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
-		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
 		$reflection = new ReflectionClass( $this->helper );
@@ -1735,8 +1735,8 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		$this->assertArrayHasKey( 'test', $result );
 		$this->assertSame( 'value', $result['test'] );
 
-		// Should have cdnMode key when zetajs_cdn is configured and conversion not available.
-		if ( Documentate_Zetajs_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available() ) {
+		// Should have cdnMode key when browser WASM mode is configured and conversion not available.
+		if ( Documentate_Libreoffice_Wasm_Converter::is_browser_mode() && ! Documentate_Conversion_Manager::is_available() ) {
 			$this->assertArrayHasKey( 'cdnMode', $result );
 			$this->assertTrue( $result['cdnMode'] );
 		}
@@ -1754,13 +1754,13 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		) );
 
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
-		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
 		// Ensure we are not detected as Playground.
 		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
 
-		if ( ! Documentate_Zetajs_Converter::is_cdn_mode() || Documentate_Conversion_Manager::is_available() ) {
+		if ( ! Documentate_Libreoffice_Wasm_Converter::is_cdn_mode() || Documentate_Conversion_Manager::is_available() ) {
 			$this->markTestSkipped( 'ZetaJS CDN mode is not active in this environment.' );
 		}
 
@@ -1789,13 +1789,13 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		) );
 
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
-		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-zetajs-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
 		// Force Playground detection via the Playground request header.
 		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
 
-		$cdn_active = Documentate_Zetajs_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available();
+		$cdn_active = Documentate_Libreoffice_Wasm_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available();
 		$collabora_active = Documentate_Collabora_Converter::is_available();
 
 		$reflection = new ReflectionClass( $this->helper );
@@ -1875,7 +1875,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	 */
 	public function test_render_actions_metabox_cdn_mode_attributes() {
 		update_option( 'documentate_settings', array(
-			'pdf_converter' => 'zetajs_cdn',
+			'pdf_converter' => 'wasm',
 		) );
 
 		$term = wp_insert_term( 'CDN Type', 'documentate_doc_type' );

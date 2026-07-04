@@ -448,9 +448,6 @@ msgstr "Error"
 msgid "Loading LibreOffice..."
 msgstr "Cargando LibreOffice..."
 
-msgid "Downloading WASM components (~50MB). This may take a while the first time."
-msgstr "Descargando componentes WASM (~50MB). Esto puede tardar la primera vez."
-
 msgid "Processing with LibreOffice WASM."
 msgstr "Procesando con LibreOffice WASM."
 
@@ -609,12 +606,6 @@ msgstr "No se pudo completar la conversión."
 
 msgid "Collabora Online is not available to convert documents."
 msgstr "Collabora Online no está disponible para convertir documentos."
-
-msgid "Disable ZetaJS CDN mode and configure the local executable for server-side conversions."
-msgstr "Desactiva el modo CDN de ZetaJS y configura el ejecutable local para conversiones del lado del servidor."
-
-msgid "Configure the ZetaJS (LibreOffice WASM) executable path on the server."
-msgstr "Configura la ruta del ejecutable de ZetaJS (LibreOffice WASM) en el servidor."
 
 #. translators: 1: source extension, 2: target extension.
 #, php-format
@@ -1073,25 +1064,6 @@ msgid_plural "%d Revisions"
 msgstr[0] "%d revisión"
 msgstr[1] "%d revisiones"
 
-msgid "Configure the ZetaJS executable path in DOCUMENTATE_ZETAJS_BIN."
-msgstr "Configura la ruta del ejecutable de ZetaJS en DOCUMENTATE_ZETAJS_BIN."
-
-msgid "Could not start the ZetaJS conversion process."
-msgstr "No se pudo iniciar el proceso de conversión con ZetaJS."
-
-#. translators: %d: exit status returned by the ZetaJS process.
-#, php-format
-msgid "The ZetaJS process exited with code %d."
-msgstr "El proceso de ZetaJS finalizó con código %d."
-
-#. translators: %s: raw message captured from the ZetaJS converter output.
-#, php-format
-msgid "Conversion finished but the output file was not generated. Details: %s"
-msgstr "La conversión finalizó pero no se generó el archivo de salida. Detalles: %s"
-
-msgid "PDF conversion is performed in the browser using ZetaJS loaded from the official CDN."
-msgstr "La conversión a PDF se realiza en el navegador usando ZetaJS cargado desde la CDN oficial."
-
 msgid "Documents"
 msgstr "Documentos"
 
@@ -1236,4 +1208,19 @@ msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
 
 msgid "Document sent to parent."
-msgstr "Documento enviado al origen"
+msgstr "Documento enviado al origen."
+
+msgid "Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation."
+msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado, en el servidor) o con LibreOffice WASM en el navegador (experimental). LibreOffice WASM descarga archivos de gran tamaño y requiere un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y SharedArrayBuffer); se recomienda Collabora Online para una generación de PDF fiable en el servidor o en segundo plano."
+
+msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
+msgstr "La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La generación de PDF en el servidor o en segundo plano requiere Collabora Online u otro servicio del lado del servidor."
+
+msgid "The LibreOffice WASM assets are not installed. Run \"npm install\" (or \"npm run copy:libreoffice-converter\") to enable in-browser conversion, or use Collabora Online."
+msgstr "Los recursos de LibreOffice WASM no están instalados. Ejecuta «npm install» (o «npm run copy:libreoffice-converter») para habilitar la conversión en el navegador, o usa Collabora Online."
+
+msgid "In-browser conversion requires a cross-origin isolated context (Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp) and SharedArrayBuffer support. If your browser cannot provide them, use Collabora Online instead."
+msgstr "La conversión en el navegador requiere un contexto con aislamiento de origen cruzado (Cross-Origin-Opener-Policy: same-origin y Cross-Origin-Embedder-Policy: require-corp) y compatibilidad con SharedArrayBuffer. Si tu navegador no puede proporcionarlos, usa Collabora Online en su lugar."
+
+msgid "Downloading LibreOffice WASM components. This may take a while the first time."
+msgstr "Descargando componentes de LibreOffice WASM. Esto puede tardar la primera vez."

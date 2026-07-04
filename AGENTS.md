@@ -15,7 +15,8 @@ official resolutions and structured administrative documents. It uses:
 - Custom post type `documentate_document`
 - Custom taxonomy `documentate_doc_type` (template definitions)
 - OpenTBS for ODT/DOCX template merging
-- Collabora Online / ZetaJS (WASM) for optional format conversion
+- Collabora Online (server-side) / LibreOffice WASM in the browser
+  (`@matbee/libreoffice-converter`) for optional format conversion
 - PHPUnit for unit tests, Playwright for E2E tests
 - `mago` (from `carthage-software/mago`) for PHP linting and formatting
 - `wp-env` (Docker) for local WordPress and test environments
@@ -210,7 +211,7 @@ Read `ARCHITECTURE.md` for details on:
 
 - Data flow and CPT/taxonomy structure
 - OpenTBS document generation pipeline
-- Conversion engines (Collabora, ZetaJS/WASM)
+- Conversion engines (Collabora, LibreOffice WASM in the browser)
 - Access control and scope filtering
 
 ---
