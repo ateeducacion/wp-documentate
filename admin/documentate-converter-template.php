@@ -186,6 +186,8 @@ $documentate_converter_config = array_merge($documentate_wasm_config, array(
 					createWasmPaths,
 					wasmBaseUrl: conversionConfig.wasmBaseUrl,
 					workerUrl: conversionConfig.workerUrl,
+					sofficeWasm: conversionConfig.sofficeWasmUrl,
+					sofficeData: conversionConfig.sofficeDataUrl,
 					outputFormat: conversionConfig.targetFormat,
 					strings,
 					onProgress: (info) => {

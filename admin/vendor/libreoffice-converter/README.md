@@ -1,10 +1,15 @@
 # LibreOffice WASM runtime assets
 
-This directory holds the browser runtime assets from
-[`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter)
-used by the **LibreOffice WASM in browser** conversion engine.
+Browser runtime for the **LibreOffice WASM in browser** conversion engine, from
+[`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter).
 
-The files are **generated**, not committed. They are produced by:
+The runtime is split in two:
+
+## 1. Same-origin glue — committed here (~0.6 MB)
+
+These small scripts must be served from the same origin as the plugin (a Web
+Worker cannot be loaded cross-origin), so they are **committed** and ship in the
+plugin. They are (re)generated from `node_modules` by:
 
 ```bash
 npm install                        # runs the postinstall copy step
@@ -12,31 +17,29 @@ npm install                        # runs the postinstall copy step
 npm run copy:libreoffice-converter
 ```
 
-which copies the minimum required subset from `node_modules/@matbee/libreoffice-converter`:
-
-| File                              | Purpose                                                          |
-|-----------------------------------|------------------------------------------------------------------|
+| File                              | Purpose                                    |
+|-----------------------------------|--------------------------------------------|
 | `dist/browser.js`                 | Browser entrypoint (`WorkerBrowserConverter`, `createWasmPaths`) |
-| `dist/browser.worker.global.js`   | Web Worker that hosts the WASM module                            |
-| `wasm/soffice.js`                 | Emscripten loader/glue for LibreOffice                           |
-| `wasm/soffice.wasm`               | LibreOffice WebAssembly binary (~140 MB)                         |
-| `wasm/soffice.data`               | LibreOffice virtual filesystem (~95 MB)                          |
-| `wasm/soffice.worker.js`          | Emscripten pthread worker                                        |
+| `dist/browser.worker.global.js`   | Web Worker that hosts the WASM module      |
+| `wasm/soffice.js`                 | Emscripten loader/glue for LibreOffice     |
+| `wasm/soffice.worker.js`          | Emscripten pthread worker                  |
 
-## Why these files are not in git
+## 2. Large binaries — loaded from a CDN (not committed)
 
-The two WASM binaries total roughly **235 MB**. The repository does not use Git LFS,
-so they are excluded via `.gitignore` to keep the history small. Only this `README.md`
-is tracked.
+The heavy WebAssembly binaries are **not** stored here or shipped in the plugin:
 
-The browser conversion engine is only functional where these assets are present
-(local development after `npm install`, or a deployment that runs the copy step).
-When the assets are missing, the plugin detects it
-(`Documentate_Libreoffice_Wasm_Converter::assets_available()`) and shows an
-admin-facing diagnostic instead of failing silently. Collabora Online remains the
-recommended engine for reliable server-side / background PDF generation.
+| File                | Size     | Source                                             |
+|---------------------|----------|----------------------------------------------------|
+| `wasm/soffice.wasm` | ~140 MB  | CDN (`DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL`)       |
+| `wasm/soffice.data` | ~95 MB   | CDN                                                |
 
-If a distributed plugin ZIP must include the WASM engine, the maintainers need to
-decide how to ship these binaries (commit them, adopt Git LFS, or add a build step
-that injects the copied assets into the archive), because `composer archive`
-excludes git-ignored files.
+They are fetched cross-origin at runtime from a CORS-enabled CDN. The default is
+`https://erseco.github.io/libreoffice-document-converter/wasm/` (published by that
+repository's GitHub Pages workflow). Override it with the
+`DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL` constant or the
+`documentate_libreoffice_wasm_binary_base_url` filter — for example to self-host
+the binaries on your own CORS-enabled server.
+
+The CDN must send `Access-Control-Allow-Origin` so the browser can read the
+binaries. Collabora Online remains the recommended engine for reliable
+server-side / background PDF generation.

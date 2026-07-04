@@ -49,8 +49,10 @@ export function defaultHasSharedArrayBuffer() {
  * @param {Object}   config                          Configuration.
  * @param {Function} config.WorkerBrowserConverter   Converter constructor from @matbee/libreoffice-converter/browser.
  * @param {Function} config.createWasmPaths          Helper that builds WASM paths from a base URL.
- * @param {string}   config.wasmBaseUrl              Base URL (trailing slash) for the soffice.* assets.
- * @param {string}   config.workerUrl                URL of the browser worker script.
+ * @param {string}   config.wasmBaseUrl              Base URL (trailing slash) for the same-origin soffice glue.
+ * @param {string}   config.workerUrl                URL of the browser worker script (must be same-origin).
+ * @param {string}   [config.sofficeWasm]            Override URL for soffice.wasm (e.g. a CDN).
+ * @param {string}   [config.sofficeData]            Override URL for soffice.data (e.g. a CDN).
  * @param {string}   [config.outputFormat='pdf']     Target output format.
  * @param {Function} [config.onProgress]             Progress callback (receives matbee progress info).
  * @param {Object}   [config.strings]                Translated user-facing messages.
@@ -63,6 +65,8 @@ export function createLibreOfficeWasmConverter( config ) {
 		createWasmPaths,
 		wasmBaseUrl,
 		workerUrl,
+		sofficeWasm,
+		sofficeData,
 		outputFormat = 'pdf',
 		onProgress,
 		strings = {},
@@ -104,8 +108,13 @@ export function createLibreOfficeWasmConverter( config ) {
 			);
 		}
 
+		// createWasmPaths() points every asset at the same-origin glue directory;
+		// override only the heavy binaries so they load from the CDN. The worker
+		// script must stay same-origin (a Worker can't be loaded cross-origin).
 		converter = new WorkerBrowserConverter( {
 			...createWasmPaths( wasmBaseUrl ),
+			...( sofficeWasm ? { sofficeWasm } : {} ),
+			...( sofficeData ? { sofficeData } : {} ),
 			browserWorkerJs: workerUrl,
 			onProgress,
 		} );

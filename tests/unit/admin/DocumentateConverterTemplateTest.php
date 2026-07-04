@@ -183,6 +183,8 @@ class DocumentateConverterTemplateTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'moduleUrl', $content );
 		$this->assertStringContainsString( 'workerUrl', $content );
 		$this->assertStringContainsString( 'wasmBaseUrl', $content );
+		$this->assertStringContainsString( 'sofficeWasmUrl', $content );
+		$this->assertStringContainsString( 'sofficeDataUrl', $content );
 		$this->assertStringContainsString( 'wrapperUrl', $content );
 		$this->assertStringContainsString( 'targetFormat', $content );
 	}

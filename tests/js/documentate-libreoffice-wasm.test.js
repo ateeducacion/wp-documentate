@@ -112,6 +112,22 @@ describe( 'createLibreOfficeWasmConverter', () => {
 		expect( options.sofficeData ).toBe( '/wasm/soffice.data' );
 	} );
 
+	it( 'overrides the heavy binaries with CDN URLs while keeping the worker same-origin', async () => {
+		const { wrapper, instances } = makeWrapper( {}, {
+			sofficeWasm: 'https://cdn.example.com/wasm/soffice.wasm',
+			sofficeData: 'https://cdn.example.com/wasm/soffice.data',
+		} );
+
+		await wrapper.init();
+
+		const options = instances[ 0 ].options;
+		expect( options.sofficeWasm ).toBe( 'https://cdn.example.com/wasm/soffice.wasm' );
+		expect( options.sofficeData ).toBe( 'https://cdn.example.com/wasm/soffice.data' );
+		// The worker and loader stay on the same-origin base.
+		expect( options.browserWorkerJs ).toBe( '/dist/browser.worker.global.js' );
+		expect( options.sofficeJs ).toBe( '/wasm/soffice.js' );
+	} );
+
 	it( 'returns the conversion result with a Uint8Array payload', async () => {
 		const { wrapper } = makeWrapper();
 

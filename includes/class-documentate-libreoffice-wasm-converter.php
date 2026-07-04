@@ -134,9 +134,11 @@ class Documentate_Libreoffice_Wasm_Converter {
 	}
 
 	/**
-	 * Base URL (with trailing slash) of the WASM assets directory.
+	 * Base URL (with trailing slash) of the local WASM glue directory.
 	 *
-	 * Passed to createWasmPaths() in the browser to locate soffice.js/.wasm/.data.
+	 * Hosts the small, same-origin scripts (soffice.js, soffice.worker.js). The
+	 * large binaries (soffice.wasm/soffice.data) are loaded from the CDN instead;
+	 * see get_binary_base_url().
 	 *
 	 * @return string
 	 */
@@ -145,17 +147,62 @@ class Documentate_Libreoffice_Wasm_Converter {
 	}
 
 	/**
-	 * Whether the browser runtime assets have been copied into the plugin.
+	 * Base URL (with trailing slash) of the large LibreOffice WASM binaries.
 	 *
-	 * Used to show a diagnostic when the WASM engine is selected but the large
-	 * runtime assets were not installed (for example, a build that skipped
-	 * `npm run copy:libreoffice-converter`).
+	 * Defaults to a CORS-enabled CDN so the ~235 MB of binaries do not need to be
+	 * committed or shipped in the plugin. Configure with the
+	 * DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL constant or the filter below.
+	 *
+	 * @return string
+	 */
+	public static function get_binary_base_url() {
+		$url = defined('DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL')
+			? (string) DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL
+			: self::get_wasm_base_url();
+
+		/**
+		 * Filter the base URL for the large LibreOffice WASM binaries.
+		 *
+		 * @param string $url Current base URL (with trailing slash).
+		 */
+		$url = (string) apply_filters('documentate_libreoffice_wasm_binary_base_url', $url);
+
+		return trailingslashit($url);
+	}
+
+	/**
+	 * URL of the soffice.wasm binary (loaded from the CDN by default).
+	 *
+	 * @return string
+	 */
+	public static function get_soffice_wasm_url() {
+		return self::get_binary_base_url() . 'soffice.wasm';
+	}
+
+	/**
+	 * URL of the soffice.data binary (loaded from the CDN by default).
+	 *
+	 * @return string
+	 */
+	public static function get_soffice_data_url() {
+		return self::get_binary_base_url() . 'soffice.data';
+	}
+
+	/**
+	 * Whether the local WASM glue scripts are present in the plugin.
+	 *
+	 * Only the small, same-origin glue (browser.js, browser worker, soffice.js,
+	 * soffice.worker.js) needs to ship with the plugin; the large binaries are
+	 * fetched from the CDN. Used to show a diagnostic when the glue is missing
+	 * (for example, a build that skipped `npm run copy:libreoffice-converter`).
 	 *
 	 * @return bool
 	 */
 	public static function assets_available() {
 		$dir = self::get_vendor_dir();
-		return file_exists($dir . '/dist/browser.js') && file_exists($dir . '/wasm/soffice.wasm');
+		return file_exists($dir . '/dist/browser.js')
+			&& file_exists($dir . '/dist/browser.worker.global.js')
+			&& file_exists($dir . '/wasm/soffice.js');
 	}
 
 	/**
@@ -257,6 +304,8 @@ class Documentate_Libreoffice_Wasm_Converter {
 			'moduleUrl' => self::get_module_url(),
 			'workerUrl' => self::get_worker_url(),
 			'wasmBaseUrl' => self::get_wasm_base_url(),
+			'sofficeWasmUrl' => self::get_soffice_wasm_url(),
+			'sofficeDataUrl' => self::get_soffice_data_url(),
 			'supportedInputFormats' => array_values(self::get_supported_input_formats()),
 			'targetFormat' => self::get_target_format(),
 			'assetsAvailable' => self::assets_available(),

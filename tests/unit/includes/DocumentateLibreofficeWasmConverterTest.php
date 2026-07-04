@@ -126,6 +126,45 @@ class DocumentateLibreofficeWasmConverterTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * The large binaries are loaded from the CDN base URL, separate from the glue.
+	 *
+	 * @return void
+	 */
+	public function test_binary_urls_use_cdn() {
+		$wasm = Documentate_Libreoffice_Wasm_Converter::get_soffice_wasm_url();
+		$data = Documentate_Libreoffice_Wasm_Converter::get_soffice_data_url();
+
+		$this->assertStringEndsWith( 'soffice.wasm', $wasm );
+		$this->assertStringEndsWith( 'soffice.data', $data );
+
+		// By default the binaries come from the configured CDN, not the plugin vendor dir.
+		if ( defined( 'DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL' ) ) {
+			$this->assertStringStartsWith( DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL, $wasm );
+			$this->assertStringNotContainsString( 'admin/vendor/libreoffice-converter', $wasm );
+		}
+	}
+
+	/**
+	 * The binary base URL can be filtered (e.g. to self-host the binaries).
+	 *
+	 * @return void
+	 */
+	public function test_binary_base_url_filterable() {
+		add_filter( 'documentate_libreoffice_wasm_binary_base_url', function () {
+			return 'https://cdn.example.com/lo/';
+		} );
+
+		$this->assertSame(
+			'https://cdn.example.com/lo/soffice.wasm',
+			Documentate_Libreoffice_Wasm_Converter::get_soffice_wasm_url()
+		);
+		$this->assertSame(
+			'https://cdn.example.com/lo/soffice.data',
+			Documentate_Libreoffice_Wasm_Converter::get_soffice_data_url()
+		);
+	}
+
+	/**
 	 * Supported input formats include the plugin defaults and can be filtered.
 	 *
 	 * @return void
@@ -170,6 +209,8 @@ class DocumentateLibreofficeWasmConverterTest extends Documentate_Test_Base {
 		$this->assertArrayHasKey( 'moduleUrl', $config );
 		$this->assertArrayHasKey( 'workerUrl', $config );
 		$this->assertArrayHasKey( 'wasmBaseUrl', $config );
+		$this->assertArrayHasKey( 'sofficeWasmUrl', $config );
+		$this->assertArrayHasKey( 'sofficeDataUrl', $config );
 		$this->assertArrayHasKey( 'supportedInputFormats', $config );
 		$this->assertArrayHasKey( 'targetFormat', $config );
 		$this->assertArrayHasKey( 'assetsAvailable', $config );

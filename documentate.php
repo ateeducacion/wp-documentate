@@ -32,6 +32,14 @@ if (!defined('DOCUMENTATE_COLLABORA_DEFAULT_URL')) {
 	define('DOCUMENTATE_COLLABORA_DEFAULT_URL', 'https://demo.us.collaboraonline.com');
 }
 
+// Base URL (trailing slash) for the large LibreOffice WASM binaries
+// (soffice.wasm ~140 MB, soffice.data ~95 MB). These are served from a CDN with
+// CORS so they do not need to be committed or shipped in the plugin ZIP. Override
+// with this constant or the `documentate_libreoffice_wasm_binary_base_url` filter.
+if (!defined('DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL')) {
+	define('DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL', 'https://erseco.github.io/libreoffice-document-converter/wasm/');
+}
+
 require_once plugin_dir_path(__FILE__) . 'includes/doc-type/class-schemaextractor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/doc-type/class-schemastorage.php';
 require_once plugin_dir_path(__FILE__) . 'includes/doc-type/class-schemaconverter.php';

@@ -93,11 +93,14 @@ Engine**:
 
 ### LibreOffice WASM requirements
 
-- **Large local assets.** The browser engine needs the LibreOffice WASM runtime
-  (`soffice.wasm` ~140 MB, `soffice.data` ~95 MB). These are **not** committed to the
-  repository; they are copied from `node_modules` by `npm install` (or
-  `npm run copy:libreoffice-converter`) into `admin/vendor/libreoffice-converter`.
-  See [`admin/vendor/libreoffice-converter/README.md`](admin/vendor/libreoffice-converter/README.md).
+- **Assets are split.** The small same-origin glue (~0.6 MB: `dist/browser.js`,
+  `dist/browser.worker.global.js`, `wasm/soffice.js`, `wasm/soffice.worker.js`) is
+  committed and ships with the plugin. The large binaries (`soffice.wasm` ~140 MB,
+  `soffice.data` ~95 MB) are **not** committed — they are loaded at runtime from a
+  CORS-enabled CDN, configurable via the `DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL`
+  constant (default: `https://erseco.github.io/libreoffice-document-converter/wasm/`)
+  or the `documentate_libreoffice_wasm_binary_base_url` filter. See
+  [`admin/vendor/libreoffice-converter/README.md`](admin/vendor/libreoffice-converter/README.md).
 - **Cross-origin isolation.** Browser conversion uses `SharedArrayBuffer`, which
   requires the converter page to be served with:
   - `Cross-Origin-Opener-Policy: same-origin`

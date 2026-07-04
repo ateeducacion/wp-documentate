@@ -2,12 +2,12 @@
  * Copy the minimum @matbee/libreoffice-converter browser runtime assets into the
  * plugin vendor directory.
  *
- * Only the files required for in-browser (WASM) document conversion are copied,
- * so the plugin can serve them from a plugin-local URL without depending on
- * node_modules at runtime. The large WebAssembly binaries (soffice.wasm ~112 MB
- * and soffice.data ~80 MB) are part of this set; see
- * admin/vendor/libreoffice-converter/README.md for how these assets are handled
- * in the repository and in distributed builds.
+ * Only the small, same-origin "glue" scripts are copied (~0.6 MB total); they are
+ * committed to the repository and shipped in the plugin. The large WebAssembly
+ * binaries (soffice.wasm ~140 MB, soffice.data ~95 MB) are NOT copied — they are
+ * loaded at runtime from a CORS-enabled CDN (see
+ * DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL and
+ * admin/vendor/libreoffice-converter/README.md).
  *
  * Usage: node scripts/copy-libreoffice-converter.mjs
  */
@@ -19,14 +19,13 @@ const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = join(rootDir, 'node_modules', '@matbee', 'libreoffice-converter');
 const targetDir = join(rootDir, 'admin', 'vendor', 'libreoffice-converter');
 
-// Minimum set of files required by the browser entrypoint
-// (@matbee/libreoffice-converter/browser -> dist/browser.js).
+// Same-origin glue required by the browser entrypoint
+// (@matbee/libreoffice-converter/browser -> dist/browser.js). The heavy
+// soffice.wasm/soffice.data binaries are intentionally excluded (served via CDN).
 const files = [
 	'dist/browser.js',
 	'dist/browser.worker.global.js',
 	'wasm/soffice.js',
-	'wasm/soffice.wasm',
-	'wasm/soffice.data',
 	'wasm/soffice.worker.js',
 ];
 
