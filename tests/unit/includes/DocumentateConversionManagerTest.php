@@ -294,4 +294,20 @@ class DocumentateConversionManagerTest extends WP_UnitTestCase {
 			false !== stripos( $message, 'browser' ) || false !== stripos( $message, 'assets' )
 		);
 	}
+
+	/**
+	 * In Playground, the WASM engine reports that browser conversion is unavailable
+	 * and points to Collabora.
+	 */
+	public function test_unavailable_message_wasm_in_playground() {
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'wasm' ) );
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		$message = Documentate_Conversion_Manager::get_unavailable_message( 'odt', 'pdf' );
+
+		$this->assertStringContainsString( 'Playground', $message );
+		$this->assertStringContainsStringIgnoringCase( 'Collabora', $message );
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+	}
 }

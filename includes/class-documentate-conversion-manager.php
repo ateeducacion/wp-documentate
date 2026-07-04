@@ -116,6 +116,14 @@ class Documentate_Conversion_Manager {
 			return __('Collabora Online is not available to convert documents.', 'documentate') . $context;
 		}
 
+		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-collabora-converter.php';
+		if (Documentate_Collabora_Converter::is_playground()) {
+			return __(
+				'In-browser LibreOffice WASM conversion is not available in WordPress Playground. Use Collabora Online instead.',
+				'documentate',
+			) . $context;
+		}
+
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		if (!Documentate_Libreoffice_Wasm_Converter::assets_available()) {
 			return Documentate_Libreoffice_Wasm_Converter::get_missing_assets_message() . $context;

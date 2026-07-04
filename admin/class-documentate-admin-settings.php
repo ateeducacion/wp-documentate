@@ -114,6 +114,9 @@ class Documentate_Admin_Settings {
 		$options = get_option('documentate_settings', array());
 		$current = isset($options['conversion_engine']) ? sanitize_key($options['conversion_engine']) : 'collabora';
 
+		require_once plugin_dir_path(DOCUMENTATE_PLUGIN_FILE) . 'includes/class-documentate-collabora-converter.php';
+		$is_playground = Documentate_Collabora_Converter::is_playground();
+
 		$engines = array(
 			'collabora' => __('Collabora Online web service', 'documentate'),
 			'wasm' => __('LibreOffice WASM in browser (experimental)', 'documentate'),
@@ -121,15 +124,23 @@ class Documentate_Admin_Settings {
 
 		echo '<fieldset>';
 		foreach ($engines as $value => $label) {
+			// Browser WASM conversion cannot run inside WordPress Playground: the site
+			// runs in a sandboxed, non-cross-origin-isolated iframe, so SharedArrayBuffer
+			// is unavailable and a cross-origin isolated converter page cannot be opened.
+			$disabled = $is_playground && 'wasm' === $value;
 			echo '<label style="display:block;margin-bottom:6px;">';
 			echo
 				'<input type="radio" name="documentate_settings[conversion_engine]" value="'
 					. esc_attr($value)
 					. '" '
 					. checked($current, $value, false)
+					. disabled($disabled, true, false)
 					. '> '
 			;
 			echo esc_html($label);
+			if ($disabled) {
+				echo ' <em>' . esc_html__('(not available in WordPress Playground)', 'documentate') . '</em>';
+			}
 			echo '</label>';
 		}
 		echo
