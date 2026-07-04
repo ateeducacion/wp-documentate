@@ -132,6 +132,22 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Test the WASM engine radio is disabled in WordPress Playground.
+	 */
+	public function test_conversion_engine_render_disables_wasm_in_playground() {
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		ob_start();
+		$this->settings->conversion_engine_render();
+		$output = ob_get_clean();
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+
+		$this->assertStringContainsString( "disabled='disabled'", $output );
+		$this->assertStringContainsString( 'not available in WordPress Playground', $output );
+	}
+
+	/**
 	 * Test collabora_base_url_render outputs URL input.
 	 */
 	public function test_collabora_base_url_render_outputs_input() {
