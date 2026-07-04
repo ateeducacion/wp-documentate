@@ -1153,7 +1153,7 @@ class Documentate_Admin_Helper {
 				 */
 				$config['externalConverterUrl'] = apply_filters(
 					'documentate_libreoffice_wasm_external_converter_url',
-					'https://erseco.github.io/document-converter/',
+					'https://erseco.github.io/libreoffice-document-converter/convert.html',
 				);
 			}
 		}
