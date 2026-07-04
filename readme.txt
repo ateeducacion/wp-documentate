@@ -12,9 +12,7 @@ Official resolution generator with structured sections and DOCX export.
 
 == Description ==
 
-Documentate es un plugin de WordPress desarrollado en el ATE para crear resoluciones digitales con estructura de secciones, taxonomías de ámbitos y leyes, y exportación a DOCX y PDF.
-
-La conversión a PDF puede realizarse con dos motores: **Collabora Online** (servicio en el servidor, recomendado para generación fiable en segundo plano) o **LibreOffice WASM en el navegador** (experimental, sin servidor). El motor LibreOffice WASM descarga componentes de gran tamaño y requiere un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y SharedArrayBuffer).
+Documentate es un plugin de WordPress desarrollado en el ATE para crear resoluciones digitales con estructura de secciones, taxonomías de ámbitos y leyes, y exportación a DOCX (y próximamente PDF).
 
 ### Key Features
 
