@@ -1757,12 +1757,13 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
+		// The WASM browser path is only offered when the glue assets are present.
+		if ( ! Documentate_Libreoffice_Wasm_Converter::assets_available() ) {
+			$this->markTestSkipped( 'LibreOffice WASM glue assets are not installed.' );
+		}
+
 		// Ensure we are not detected as Playground.
 		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
-
-		if ( ! Documentate_Libreoffice_Wasm_Converter::is_cdn_mode() || Documentate_Conversion_Manager::is_available() ) {
-			$this->markTestSkipped( 'ZetaJS CDN mode is not active in this environment.' );
-		}
 
 		$reflection = new ReflectionClass( $this->helper );
 		$method = $reflection->getMethod( 'add_conversion_mode_config' );
@@ -1781,7 +1782,7 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	 * Test add_conversion_mode_config in CDN mode inside Playground.
 	 *
 	 * When running inside Playground, Service Workers are unavailable, so the
-	 * config must enable the iframe/external converter path.
+	 * config must enable the external converter path.
 	 */
 	public function test_add_conversion_mode_config_cdn_playground() {
 		update_option( 'documentate_settings', array(
@@ -1792,11 +1793,12 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
 
+		if ( ! Documentate_Libreoffice_Wasm_Converter::assets_available() ) {
+			$this->markTestSkipped( 'LibreOffice WASM glue assets are not installed.' );
+		}
+
 		// Force Playground detection via the Playground request header.
 		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
-
-		$cdn_active = Documentate_Libreoffice_Wasm_Converter::is_cdn_mode() && ! Documentate_Conversion_Manager::is_available();
-		$collabora_active = Documentate_Collabora_Converter::is_available();
 
 		$reflection = new ReflectionClass( $this->helper );
 		$method = $reflection->getMethod( 'add_conversion_mode_config' );
@@ -1804,18 +1806,47 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$result = $method->invoke( $this->helper, array() );
 
-		if ( $collabora_active ) {
-			// Collabora-in-Playground takes precedence and short-circuits.
-			$this->assertTrue( $result['collaboraPlayground'] );
-		} elseif ( $cdn_active ) {
-			$this->assertTrue( $result['cdnMode'] );
-			$this->assertTrue( $result['isPlayground'] );
-			$this->assertTrue( $result['useIframe'] );
-			$this->assertArrayHasKey( 'externalConverterUrl', $result );
-			$this->assertNotEmpty( $result['externalConverterUrl'] );
-		} else {
-			$this->markTestSkipped( 'No CDN/Collabora converter active in this environment.' );
+		$this->assertTrue( $result['cdnMode'] );
+		$this->assertTrue( $result['isPlayground'] );
+		$this->assertTrue( $result['useIframe'] );
+		$this->assertArrayHasKey( 'externalConverterUrl', $result );
+		$this->assertStringContainsString( 'convert.html', $result['externalConverterUrl'] );
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+	}
+
+	/**
+	 * Test that selecting the WASM engine in Playground is respected even when a
+	 * Collabora URL is configured (the Collabora-in-Playground fast path must not
+	 * hijack the WASM engine).
+	 */
+	public function test_add_conversion_mode_config_wasm_engine_wins_over_collabora_in_playground() {
+		update_option( 'documentate_settings', array(
+			'conversion_engine' => 'wasm',
+			'collabora_base_url' => 'https://collabora.example.com',
+		) );
+
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		if ( ! Documentate_Libreoffice_Wasm_Converter::assets_available() ) {
+			$this->markTestSkipped( 'LibreOffice WASM glue assets are not installed.' );
 		}
+
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$result = $method->invoke( $this->helper, array() );
+
+		// WASM engine must win: no Collabora fast path, external converter enabled.
+		$this->assertArrayNotHasKey( 'collaboraPlayground', $result );
+		$this->assertTrue( $result['cdnMode'] );
+		$this->assertTrue( $result['isPlayground'] );
+		$this->assertArrayHasKey( 'externalConverterUrl', $result );
 
 		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
 	}

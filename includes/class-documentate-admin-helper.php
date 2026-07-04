@@ -684,7 +684,9 @@ class Documentate_Admin_Helper {
 		// 2. Collabora in Playground (JavaScript fetch bypasses wp_remote_post multipart issues).
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-collabora-converter.php';
 		$collabora_in_playground =
-			Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
+			Documentate_Conversion_Manager::ENGINE_COLLABORA === Documentate_Conversion_Manager::get_engine()
+			&& Documentate_Collabora_Converter::is_playground()
+			&& Documentate_Collabora_Converter::is_available();
 		$use_popup_for_conversion = $wasm_browser_available || $collabora_in_playground;
 
 		// In CDN mode or Playground with Collabora, browser can do conversions too.
@@ -1115,8 +1117,14 @@ class Documentate_Admin_Helper {
 	 */
 	private function add_conversion_mode_config($config) {
 		$conversion_ready = Documentate_Conversion_Manager::is_available();
+
+		// The Collabora-in-Playground fast path must only apply when Collabora is the
+		// selected engine. Otherwise a configured Collabora URL would hijack the WASM
+		// engine in Playground and never reach the in-browser converter.
 		$collabora_in_playground =
-			Documentate_Collabora_Converter::is_playground() && Documentate_Collabora_Converter::is_available();
+			Documentate_Conversion_Manager::ENGINE_COLLABORA === Documentate_Conversion_Manager::get_engine()
+			&& Documentate_Collabora_Converter::is_playground()
+			&& Documentate_Collabora_Converter::is_available();
 
 		if ($collabora_in_playground) {
 			$options = get_option('documentate_settings', array());
@@ -1144,17 +1152,15 @@ class Documentate_Admin_Helper {
 			$config['useIframe'] = $is_playground;
 
 			if ($is_playground) {
+				$external_converter = 'https://erseco.github.io/libreoffice-document-converter/convert.html';
 				/**
 				 * Filter the external converter page used for in-browser conversion in
 				 * WordPress Playground. It must implement the `receive=opener` postMessage
 				 * protocol and be served cross-origin isolated (COOP/COEP).
 				 *
-				 * @param string $url External converter URL.
+				 * @param string $external_converter External converter URL.
 				 */
-				$config['externalConverterUrl'] = apply_filters(
-					'documentate_libreoffice_wasm_external_converter_url',
-					'https://erseco.github.io/libreoffice-document-converter/convert.html',
-				);
+				$config['externalConverterUrl'] = apply_filters('documentate_libreoffice_wasm_external_converter_url', $external_converter);
 			}
 		}
 
