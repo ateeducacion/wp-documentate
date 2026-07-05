@@ -30,7 +30,7 @@ make fix                   # auto-format PHP (mago format)
 make lint                  # lint PHP (mago lint)          — always required
 make check-plugin          # WordPress plugin-check         — always required
 make test                  # PHPUnit tests (Docker)         — always required
-make test-e2e              # Playwright E2E (Playground)    — UI/browser changes
+make test-e2e              # Playwright E2E (Docker)        — UI/browser changes
 make check-untranslated    # translation check              — string changes
 make check                 # run all of the above
 ```
@@ -52,15 +52,15 @@ A task is **not done** until all relevant checks pass.
 
 ## Environment
 
-Two environments: **Playground** (fast local dev, no Docker, port 8888) and
-**Docker** (tests / WP-CLI, port 8889).
+Two environments: **Docker** (wp-env, tests / check-plugin / WP-CLI, port 8889)
+and **Playground** (fast local dev, no Docker, port 8888).
 
 ```bash
-# Playground — dev, no Docker required
-make up        # start Playground (http://localhost:8888, admin/password)
-make down      # stop Playground
+# Docker — required for tests, check-plugin and WP-CLI (this is the default)
+make up             # start Docker env (http://localhost:8889, admin/password)
+make down           # stop Docker env
 
-# Docker — required for tests, check-plugin and WP-CLI
-make up-docker # start Docker env (http://localhost:8889)
-make down-docker
+# Playground — fast local dev, no Docker required
+make up-playground   # start Playground (http://localhost:8888)
+make down-playground # stop Playground
 ```

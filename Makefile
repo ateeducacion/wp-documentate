@@ -33,6 +33,11 @@ install-requirements:
 # the package's own loader, so it self-updates once Node-26 prebuilts ship.
 PLAYGROUND_NODE_PROBE = node -e "let m;try{m=require('fs-ext-extra-prebuilt/load-prebuilt.js')}catch(e){process.exit(0)}process.exit(m.loadNativeModule()?0:1)"
 
+# KNOWN LIMITATION: documentate is mounted here via `mappings` in .wp-env.json,
+# so wp-env's Playground blueprint (which only auto-activates plugins listed
+# under the top-level `plugins` key) does not activate it, and `wp-env run`
+# (used to activate it under Docker) is unsupported on the Playground runtime.
+# Activate it manually once via wp-admin > Plugins after the first `make up-playground`.
 start-if-not-running:
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
 		if ! $(PLAYGROUND_NODE_PROBE) >/dev/null 2>&1; then \
@@ -311,7 +316,7 @@ package:
 	fi
 	# Update the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" documentate.php
-	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
 	# Create the ZIP package
@@ -319,7 +324,7 @@ package:
 
 	# Restore the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
-	$(SED_INPLACE) "s/define( 'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: 0.0.0/" readme.txt
 
 # ─── Help ─────────────────────────────────────────────────────────────────────

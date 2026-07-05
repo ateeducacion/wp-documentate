@@ -47,9 +47,10 @@ const TITLES = {
  */
 function runWpCmd( cmd ) {
 	try {
-		return execSync( `npx @wordpress/env run tests-cli wp ${ cmd }`, {
-			encoding: 'utf8',
-		} ).trim();
+		return execSync(
+			`npx @wordpress/env run tests-cli --config=.wp-env.test.json wp ${ cmd }`,
+			{ encoding: 'utf8' }
+		).trim();
 	} catch ( error ) {
 		// eslint-disable-next-line no-console
 		console.error(

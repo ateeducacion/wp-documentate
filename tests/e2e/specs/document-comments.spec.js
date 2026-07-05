@@ -91,7 +91,7 @@ test.describe( 'Document Comments (Internal Notes)', () => {
 	} ) => {
 		// The CPT has public => false; navigating to the post's URL by ID should
 		// result in a 404 or redirect, not an accessible comments section.
-		const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8889';
+		const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8888';
 		const frontendUrl = `${ baseUrl }/?p=${ testDocument.id }`;
 
 		const response = await page.goto( frontendUrl, { waitUntil: 'load' } );

@@ -41,7 +41,7 @@ For development, you can bring up a local WordPress environment with the plugin 
 make up
 ```
 
-This command will start a Dockerized WordPress instance accessible at [http://localhost:8888](http://localhost:8080) with the default admin username `admin` and password `password`.
+This command will start a Dockerized WordPress instance accessible at [http://localhost:8889](http://localhost:8889) with the default admin username `admin` and password `password`. For a faster, Docker-free setup use `make up-playground` instead (http://localhost:8888).
 
 ## Testing
 
