@@ -437,10 +437,13 @@ class DocumentsFieldValidatorTest extends WP_UnitTestCase {
 
 	/**
 	 * resolve_field_control_type with malformed raw_field must not fatal.
+	 *
+	 * When raw_field is not an array, extract_raw_type returns '' and the
+	 * method falls back to 'textarea' (unless legacy_type is 'rich').
 	 */
 	public function test_resolve_field_control_type_malformed_raw() {
 		$result = Documents_Field_Validator::resolve_field_control_type( 'single', 'not-an-array' );
-		$this->assertSame( 'single', $result );
+		$this->assertSame( 'textarea', $result );
 
 		$result = Documents_Field_Validator::resolve_field_control_type( 'single', array( 'type' => array() ) );
 		$this->assertIsString( $result );
