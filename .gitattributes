@@ -24,18 +24,14 @@ composer.json                                              export-ignore
 composer.lock                                              export-ignore
 CONVENTIONS.md                                             export-ignore
 docker-compose.yml                                         export-ignore
-docs/                                                      export-ignore
 LICENSE.txt                                                export-ignore
 Makefile                                                   export-ignore
-mkdocs.yml                                                 export-ignore
 node_modules/                                              export-ignore
 package-lock.json                                          export-ignore
 package.json                                               export-ignore
 phpmd.baseline.xml                                         export-ignore
 phpmd.xml                                                  export-ignore
 phpunit.xml.dist                                           export-ignore
-phpunit.xml.dist                                           export-ignore
-README.md                                                  export-ignore
 README.md                                                  export-ignore
 renovate.json                                              export-ignore
 SECURITY.md                                                export-ignore
@@ -46,5 +42,4 @@ tests/                                                     export-ignore
 linter-baseline.toml                                       export-ignore
 mago.toml                                                  export-ignore
 ARCHITECTURE.md                                            export-ignore
-
-
+GEMINI.md                                                  export-ignore
