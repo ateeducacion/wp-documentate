@@ -14,6 +14,24 @@ WP_ENV = npx wp-env
 # Docker test config used for all wp-env run commands
 DOCKER_CONFIG = --config=.wp-env.test.json
 
+# ─── Port arbitration (local dev) ────────────────────────────────────────────
+# documentate and wp-decker both default to ports 8888/8889, so only one wp-env
+# stack can own them at a time. Before starting ours, stop whatever publishes
+# the ports we need. `docker stop` (not `rm`) keeps the other stack's data — its
+# own `make up` brings it back. Skipped under CI ($$CI set) and a no-op when
+# Docker is down (pure Playground use), so it only ever acts on a developer's
+# machine — never stopping an environment CI just started.
+# Usage: $(call free_ports,8889 8890)
+define free_ports
+	@if [ -z "$$CI" ] && docker version >/dev/null 2>&1; then \
+		ids="$$(docker ps -q $(patsubst %,--filter publish=%,$(1)))"; \
+		if [ -n "$$ids" ]; then \
+			echo "Freeing port(s) '$(1)': stopping conflicting containers..."; \
+			docker stop $$ids >/dev/null; \
+		fi; \
+	fi
+endef
+
 # Check if Docker is running
 check-docker:
 	@docker version  > /dev/null || (echo "" && echo "Error: Docker is not running. Please ensure Docker is installed and running." && echo "" && exit 1)
@@ -71,7 +89,9 @@ check-node-playground:
 		|| { echo "✖ Node $$(node -v) cannot run Playground; use Node 22 (see .nvmrc)."; exit 1; }
 
 # Bring up Playground (no Docker required)
-up-playground: start-if-not-running
+up-playground:
+	$(call free_ports,8888)
+	@$(MAKE) --no-print-directory start-if-not-running
 
 # Stop Playground
 down-playground:
@@ -90,7 +110,9 @@ start-docker-if-not-running: check-docker
 	fi
 
 # Bring up Docker containers (this is the default `up`)
-up: check-docker start-docker-if-not-running
+up: check-docker
+	$(call free_ports,8889 8890)
+	@$(MAKE) --no-print-directory start-docker-if-not-running
 up-docker: up
 
 # Stop Docker containers (this is the default `down`)
