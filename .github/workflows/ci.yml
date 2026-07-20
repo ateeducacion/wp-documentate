@@ -223,9 +223,6 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Start wp-env
-        run: npx playwright install-deps chromium
-
-      - name: Start wp-env
         run: npx wp-env start
 
       - name: Run E2E tests
