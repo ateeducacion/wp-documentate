@@ -12,9 +12,9 @@ process.env.STORAGE_STATE_PATH ??= path.join(
 	'storage-states/admin.json'
 );
 
-// Use Playground (port 8888) by default for E2E tests.
-// Override with WP_BASE_URL=http://localhost:8889 for Docker.
-const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8888';
+// Use Docker (port 8889) by default for E2E tests — the source of truth in CI.
+// The Makefile Playground targets export WP_BASE_URL=http://localhost:8888.
+const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8889';
 
 // Playground (WASM) runtime is ~3x slower than native PHP in Docker.
 // Set TIMEOUT_MULTIPLIER=3 when running E2E tests against Playground.

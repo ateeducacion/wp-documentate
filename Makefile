@@ -188,11 +188,11 @@ test-e2e-docker: test-e2e
 
 # Run E2E tests against Playground (port 8888, no Docker)
 test-e2e-playground: start-if-not-running
-	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- $(ARGS)
+	WP_BASE_URL=http://localhost:8888 TIMEOUT_MULTIPLIER=3 npm run test:e2e -- $(ARGS)
 
 # Run E2E tests with visual UI against Playground (port 8888)
 test-e2e-visual: start-if-not-running
-	TIMEOUT_MULTIPLIER=3 npm run test:e2e -- --ui
+	WP_BASE_URL=http://localhost:8888 TIMEOUT_MULTIPLIER=3 npm run test:e2e -- --ui
 
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
