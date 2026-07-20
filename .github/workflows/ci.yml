@@ -5,14 +5,12 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
-      - 'docs/**'
       - '.github/*.md'
   push:
     branches:
       - 'main'
     paths-ignore:
       - '**.md'
-      - 'docs/**'
       - '.github/*.md'
 
 # Cancel previous runs on the same branch
