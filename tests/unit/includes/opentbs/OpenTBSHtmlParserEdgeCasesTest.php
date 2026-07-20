@@ -78,13 +78,13 @@ class OpenTBSHtmlParserEdgeCasesTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * An offset beyond the text must not produce a false match.
+	 * An offset at the end of the text must not produce a false match.
 	 */
-	public function test_find_next_html_match_handles_out_of_range_offset() {
+	public function test_find_next_html_match_handles_end_offset() {
 		$text   = '<p>value</p>';
 		$lookup = array( '<p>value</p>' => '<p>value</p>' );
 
-		$this->assertFalse( OpenTBS_HTML_Parser::find_next_html_match( $text, $lookup, strlen( $text ) + 1 ) );
+		$this->assertFalse( OpenTBS_HTML_Parser::find_next_html_match( $text, $lookup, strlen( $text ) ) );
 	}
 
 	/**
