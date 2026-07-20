@@ -362,4 +362,101 @@ class DocumentsFieldValidatorTest extends WP_UnitTestCase {
 		$result    = Documents_Field_Validator::get_field_pattern_message( $raw_field );
 		$this->assertSame( 'Wrong pattern', $result );
 	}
+
+	// =========================================================================
+	// Additional edge cases – malformed / boundary inputs
+	// =========================================================================
+
+	/**
+	 * normalize_scalar_value must tolerate non-scalar and null without throwing.
+	 */
+	public function test_normalize_scalar_value_non_scalar() {
+		$this->assertSame( '', Documents_Field_Validator::normalize_scalar_value( null, 'text' ) );
+		$this->assertSame( '', Documents_Field_Validator::normalize_scalar_value( array( 'a' ), 'text' ) );
+		$this->assertSame( '', Documents_Field_Validator::normalize_scalar_value( new stdClass(), 'text' ) );
+	}
+
+	/**
+	 * Invalid / ambiguous dates must not crash and should fall back gracefully.
+	 */
+	public function test_normalize_scalar_value_invalid_dates() {
+		// Completely invalid.
+		$result = Documents_Field_Validator::normalize_scalar_value( 'not-a-date', 'date' );
+		$this->assertSame( 'not-a-date', $result );
+
+		// Impossible day/month.
+		$result = Documents_Field_Validator::normalize_scalar_value( '32/13/2024', 'date' );
+		$this->assertIsString( $result );
+
+		// Empty.
+		$result = Documents_Field_Validator::normalize_scalar_value( '', 'date' );
+		$this->assertSame( '', $result );
+
+		// European format that must not be misread as MM/DD.
+		$result = Documents_Field_Validator::normalize_scalar_value( '05/01/2026', 'date' );
+		$this->assertSame( '2026-01-05', $result );
+	}
+
+	/**
+	 * Extremely large or negative length / min / max must not produce invalid attributes.
+	 */
+	public function test_build_scalar_input_attributes_extreme_numeric() {
+		$raw_field = array(
+			'length'   => -10,
+			'minvalue' => 'not-a-number',
+			'maxvalue' => PHP_INT_MAX,
+			'parameters' => array(
+				'step' => 'abc',
+				'rows' => -5,
+			),
+		);
+
+		$attributes = Documents_Field_Validator::build_scalar_input_attributes( $raw_field, 'number' );
+
+		// Negative length must not become maxlength.
+		$this->assertArrayNotHasKey( 'maxlength', $attributes );
+		// Non-numeric min/step should still be cast (or omitted safely).
+		$this->assertArrayHasKey( 'max', $attributes );
+	}
+
+	/**
+	 * is_truthy must reject objects and arrays.
+	 */
+	public function test_is_truthy_rejects_objects_and_arrays() {
+		$this->assertFalse( Documents_Field_Validator::is_truthy( array() ) );
+		$this->assertFalse( Documents_Field_Validator::is_truthy( new stdClass() ) );
+		$this->assertFalse( Documents_Field_Validator::is_truthy( array( 'true' ) ) );
+	}
+
+	/**
+	 * resolve_field_control_type with malformed raw_field must not fatal.
+	 */
+	public function test_resolve_field_control_type_malformed_raw() {
+		$result = Documents_Field_Validator::resolve_field_control_type( 'single', 'not-an-array' );
+		$this->assertSame( 'single', $result );
+
+		$result = Documents_Field_Validator::resolve_field_control_type( 'single', array( 'type' => array() ) );
+		$this->assertIsString( $result );
+	}
+
+	/**
+	 * is_field_required must return false on missing or non-array parameters.
+	 */
+	public function test_is_field_required_edge_cases() {
+		$this->assertFalse( Documents_Field_Validator::is_field_required( null ) );
+		$this->assertFalse( Documents_Field_Validator::is_field_required( array() ) );
+		$this->assertFalse( Documents_Field_Validator::is_field_required( array( 'parameters' => 'string' ) ) );
+		$this->assertFalse( Documents_Field_Validator::is_field_required( array( 'parameters' => array( 'required' => false ) ) ) );
+		$this->assertTrue( Documents_Field_Validator::is_field_required( array( 'parameters' => array( 'required' => 'yes' ) ) ) );
+	}
+
+	/**
+	 * extract_raw_type must tolerate missing keys and non-array input.
+	 */
+	public function test_extract_raw_type_edge_cases() {
+		$this->assertSame( '', Documents_Field_Validator::extract_raw_type( null ) );
+		$this->assertSame( '', Documents_Field_Validator::extract_raw_type( array() ) );
+		$this->assertSame( 'text', Documents_Field_Validator::extract_raw_type( array( 'type' => 'TEXT' ) ) );
+		$this->assertSame( 'html', Documents_Field_Validator::extract_raw_type( array( 'parameters' => array( 'type' => 'html' ) ) ) );
+	}
 }
