@@ -5,14 +5,12 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
-      - 'docs/**'
       - '.github/*.md'
   push:
     branches:
       - 'main'
     paths-ignore:
       - '**.md'
-      - 'docs/**'
       - '.github/*.md'
 
 # Cancel previous runs on the same branch
@@ -222,6 +220,9 @@ jobs:
         run: npx playwright install chromium
 
       - name: Install Playwright system deps
+        run: npx playwright install-deps chromium
+
+      - name: Start wp-env
         run: npx playwright install-deps chromium
 
       - name: Start wp-env
