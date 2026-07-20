@@ -12,13 +12,21 @@ process.env.STORAGE_STATE_PATH ??= path.join(
 	'storage-states/admin.json'
 );
 
-// Use Docker (port 8889) by default for E2E tests — the source of truth in CI.
-// The Makefile Playground targets export WP_BASE_URL=http://localhost:8888.
+// WP_RUNTIME is the single signal the Makefile Playground targets export; we fan
+// it out to the timeout multiplier and the webServer start command below. The
+// Docker default leaves it unset.
+const isPlayground = process.env.WP_RUNTIME === 'playground';
+
+// Docker (port 8889) is the default and the source of truth in CI; the Makefile
+// Playground targets export WP_BASE_URL for port 8888.
 const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8889';
 
-// Playground (WASM) runtime is ~3x slower than native PHP in Docker.
-// Set TIMEOUT_MULTIPLIER=3 when running E2E tests against Playground.
-const timeoutMultiplier = parseInt( process.env.TIMEOUT_MULTIPLIER || '1', 10 );
+// Playground (WASM) runs PHP ~3x slower than native PHP in Docker, so default the
+// timeout multiplier accordingly (still overridable via TIMEOUT_MULTIPLIER).
+const timeoutMultiplier = parseInt(
+	process.env.TIMEOUT_MULTIPLIER || ( isPlayground ? '3' : '1' ),
+	10
+);
 
 module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'github' ] ] : [ [ 'list' ] ],
@@ -59,7 +67,11 @@ module.exports = defineConfig( {
 		video: 'on-first-retry',
 	},
 	webServer: {
-		command: 'npx wp-env start --runtime=playground',
+		// Only used when no server already answers at `url` (reuseExistingServer);
+		// keep the start command's runtime in step with baseUrl.
+		command: isPlayground
+			? 'npx wp-env start --runtime=playground'
+			: 'npx wp-env start --config=.wp-env.docker.json',
 		url: baseUrl,
 		timeout: 120_000,
 		reuseExistingServer: true,

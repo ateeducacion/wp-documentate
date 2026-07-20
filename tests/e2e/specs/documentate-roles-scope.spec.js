@@ -49,7 +49,7 @@ const TITLES = {
 function runWpCmd( cmd ) {
 	try {
 		return execSync(
-			`npx @wordpress/env run cli --config=.wp-env.test.json wp ${ cmd }`,
+			`npx @wordpress/env run cli --config=.wp-env.docker.json wp ${ cmd }`,
 			{ encoding: 'utf8' }
 		).trim();
 	} catch ( error ) {
