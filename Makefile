@@ -14,6 +14,15 @@ WP_ENV = npx wp-env
 # Docker test config used for all wp-env run commands
 DOCKER_CONFIG = --config=.wp-env.test.json
 
+# WP-CLI inside the Docker dev container (the instance the browser/tests use).
+WP_CLI = $(WP_ENV) run cli $(DOCKER_CONFIG) wp
+
+# Where the plugin is mounted inside the Playground (WASM) runtime.
+PG_PLUGIN_DIR = /wordpress/wp-content/plugins/documentate
+
+# Shared prefix for the Playground E2E targets (WASM is ~3x slower than Docker).
+PLAYGROUND_E2E = WP_BASE_URL=http://localhost:8888 TIMEOUT_MULTIPLIER=3 npm run test:e2e --
+
 # ─── Port arbitration (local dev) ────────────────────────────────────────────
 # documentate and wp-decker both default to ports 8888/8889, so only one wp-env
 # stack can own them at a time. Before starting ours, stop whatever publishes
@@ -103,7 +112,7 @@ start-docker-if-not-running: check-docker
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
 		echo "Docker env is NOT running. Starting..."; \
 		$(WP_ENV) start $(DOCKER_CONFIG) --update; \
-		$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate; \
+		$(WP_CLI) plugin activate documentate; \
 		echo "Visit http://localhost:8889/wp-admin/ to access the Docker environment."; \
 	else \
 		echo "Docker env is already running on port 8889, skipping start."; \
@@ -126,9 +135,9 @@ down-docker: down
 clean: check-docker
 	$(WP_ENV) reset $(DOCKER_CONFIG) development
 	$(WP_ENV) reset $(DOCKER_CONFIG) tests
-	$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate
-	$(WP_ENV) run cli $(DOCKER_CONFIG) wp language core install es_ES --activate
-	$(WP_ENV) run cli $(DOCKER_CONFIG) wp site switch-language es_ES
+	$(WP_CLI) plugin activate documentate
+	$(WP_CLI) language core install es_ES --activate
+	$(WP_CLI) site switch-language es_ES
 
 destroy:
 	$(WP_ENV) destroy
@@ -147,10 +156,10 @@ test: start-docker-if-not-running
 # Run PHPUnit on WordPress Playground (WebAssembly, SQLite) — no Docker required.
 # Reuses Playground's in-process WP on SQLite (WP_TESTS_SKIP_INSTALL); same FILE / FILTER as `make test`.
 test-playground:
-	@CMD="/wordpress/wp-content/plugins/documentate/vendor/bin/phpunit -c /wordpress/wp-content/plugins/documentate/phpunit-playground.xml.dist"; \
-	if [ -n "$(FILE)" ]; then CMD="$$CMD /wordpress/wp-content/plugins/documentate/$(FILE)"; fi; \
+	@CMD="$(PG_PLUGIN_DIR)/vendor/bin/phpunit -c $(PG_PLUGIN_DIR)/phpunit-playground.xml.dist"; \
+	if [ -n "$(FILE)" ]; then CMD="$$CMD $(PG_PLUGIN_DIR)/$(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	cd "$${TMPDIR:-/tmp}" && npx --yes @wp-playground/cli@latest php --mount="$(CURDIR):/wordpress/wp-content/plugins/documentate" -- $$CMD --colors=always
+	cd "$${TMPDIR:-/tmp}" && npx --yes @wp-playground/cli@latest php --mount="$(CURDIR):$(PG_PLUGIN_DIR)" -- $$CMD --colors=always
 
 # Run document generation tests only
 test-generation: start-docker-if-not-running
@@ -189,17 +198,17 @@ test-coverage: start-docker-if-not-running
 # Ensure dev environment (port 8889) has admin user and plugin active for E2E
 setup-e2e-env:
 	@echo "Setting up E2E environment..."
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp core install \
+	@$(WP_CLI) core install \
 		--url=http://localhost:8889 \
 		--title="Documentate Tests" \
 		--admin_user=admin \
 		--admin_password=password \
 		--admin_email=admin@example.com \
 		--skip-email 2>/dev/null || true
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp language core install es_ES --activate 2>/dev/null || true
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp site switch-language es_ES 2>/dev/null || true
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin activate documentate 2>/dev/null || true
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/' --hard 2>/dev/null || true
+	@$(WP_CLI) language core install es_ES --activate 2>/dev/null || true
+	@$(WP_CLI) site switch-language es_ES 2>/dev/null || true
+	@$(WP_CLI) plugin activate documentate 2>/dev/null || true
+	@$(WP_CLI) rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
 # Run E2E tests against Docker (port 8889) — the default.
 test-e2e: start-docker-if-not-running setup-e2e-env
@@ -210,16 +219,16 @@ test-e2e-docker: test-e2e
 
 # Run E2E tests against Playground (port 8888, no Docker)
 test-e2e-playground: start-if-not-running
-	WP_BASE_URL=http://localhost:8888 TIMEOUT_MULTIPLIER=3 npm run test:e2e -- $(ARGS)
+	$(PLAYGROUND_E2E) $(ARGS)
 
 # Run E2E tests with visual UI against Playground (port 8888)
 test-e2e-visual: start-if-not-running
-	WP_BASE_URL=http://localhost:8888 TIMEOUT_MULTIPLIER=3 npm run test:e2e -- --ui
+	$(PLAYGROUND_E2E) --ui
 
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
 flush-permalinks:
-	$(WP_ENV) run cli $(DOCKER_CONFIG) wp rewrite structure '/%postname%/'
+	$(WP_CLI) rewrite structure '/%postname%/'
 
 # Function to create a user only if it does not exist
 create-user:
@@ -250,12 +259,12 @@ cli-container:
 # Pass the wp plugin-check with proper error handling
 check-plugin: check-docker start-docker-if-not-running
 	# Install plugin-check if needed (don't fail if already active)
-	@$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin install plugin-check --activate --color || true
+	@$(WP_CLI) plugin install plugin-check --activate --color || true
 
 	# Run plugin check; wp-env run always exits 0, so we grep the output for ERRORs.
 	@echo "Running WordPress Plugin Check..."
 	@TMPFILE=$$(mktemp); \
-	$(WP_ENV) run cli $(DOCKER_CONFIG) wp plugin check documentate \
+	$(WP_CLI) plugin check documentate \
 		--exclude-directories=tests \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \

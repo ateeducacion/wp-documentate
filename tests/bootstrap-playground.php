@@ -15,19 +15,21 @@
  * @package Documentate
  */
 
+$root = dirname( __DIR__ );
+
 // Reuse Playground's already-installed in-process WordPress; skip system(install.php).
 putenv( 'WP_TESTS_SKIP_INSTALL=1' );
-putenv( 'WP_TESTS_DIR=' . dirname( __DIR__ ) . '/vendor/wp-phpunit/wp-phpunit/' );
+putenv( 'WP_TESTS_DIR=' . $root . '/vendor/wp-phpunit/wp-phpunit/' );
 define( 'WP_TESTS_CONFIG_FILE_PATH', __DIR__ . '/wp-tests-config-playground.php' );
-define( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH', dirname( __DIR__ ) . '/vendor/yoast/phpunit-polyfills' );
+define( 'WP_TESTS_PHPUNIT_POLYFILLS_PATH', $root . '/vendor/yoast/phpunit-polyfills' );
 
 // Force the minimal test theme so block themes (e.g. Twenty Twenty-Five) don't
 // re-register block bindings on every init and trip WP_UnitTestCase's guard.
-require_once dirname( __DIR__ ) . '/vendor/wp-phpunit/wp-phpunit/includes/functions.php';
+require_once $root . '/vendor/wp-phpunit/wp-phpunit/includes/functions.php';
 tests_add_filter( 'pre_option_stylesheet', static function () { return 'default'; } );
 tests_add_filter( 'pre_option_template', static function () { return 'default'; } );
 
-chdir( dirname( __DIR__ ) );
+chdir( $root );
 
 // Hand off to the plugin's regular bootstrap (unchanged) — it now skips the
 // install step and loads WordPress in-process.
