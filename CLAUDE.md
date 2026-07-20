@@ -29,8 +29,8 @@ Read `ARCHITECTURE.md` before making significant changes.
 make fix                   # auto-format PHP (mago format)
 make lint                  # lint PHP (mago lint)          — always required
 make check-plugin          # WordPress plugin-check         — always required
-make test                  # PHPUnit tests                  — always required
-make test-e2e              # Playwright E2E                 — UI/browser changes
+make test                  # PHPUnit tests (Docker)         — always required
+make test-e2e              # Playwright E2E (Docker)        — UI/browser changes
 make check-untranslated    # translation check              — string changes
 make check                 # run all of the above
 ```
@@ -52,7 +52,15 @@ A task is **not done** until all relevant checks pass.
 
 ## Environment
 
+Two environments: **Docker** (wp-env, tests / check-plugin / WP-CLI, port 8889)
+and **Playground** (fast local dev, no Docker, port 8888).
+
 ```bash
-make up     # start wp-env (http://localhost:8888, admin/password)
-make down   # stop containers
+# Docker — required for tests, check-plugin and WP-CLI (this is the default)
+make up             # start Docker env (http://localhost:8889, admin/password)
+make down           # stop Docker env
+
+# Playground — fast local dev, no Docker required
+make up-playground   # start Playground (http://localhost:8888)
+make down-playground # stop Playground
 ```

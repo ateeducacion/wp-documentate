@@ -14,7 +14,7 @@ It uses OpenTBS for template merging and supports conversion to PDF/DOCX via Col
 
 Try it in the browser with WordPress Playground (includes sample data; changes are lost when you close the tab):
 
-[<kbd> <br> Preview in WordPress Playground <br> </kbd>](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/wp-documentate/refs/heads/main/blueprint.json)
+[<kbd> <br> Preview in WordPress Playground <br> </kbd>](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/ateeducacion/wp-documentate/refs/heads/main/blueprint.json)
 
 ## Features
 
@@ -36,26 +36,35 @@ Try it in the browser with WordPress Playground (includes sample data; changes a
 
 ## Development
 
-Requires Docker.
+The default flow uses Docker (wp-env). A Docker-free path runs everything on WordPress Playground.
 
 ```bash
-make up          # Start wp-env (http://localhost:8888, admin / password)
-make down        # Stop containers
-make check       # fix + lint + plugin-check + tests + translations
+make up             # Start Docker wp-env (http://localhost:8889, admin / password)
+make up-playground  # Start WordPress Playground instead — no Docker (http://localhost:8888)
+make down           # Stop containers
+make check          # fix + lint + plugin-check + tests + translations
 ```
 
 See `AGENTS.md` for the full agent/developer instructions and `ARCHITECTURE.md` for system design.
 
 ### Key make targets
 
-| Target              | Description                                      |
-|---------------------|--------------------------------------------------|
-| `make fix`          | Format PHP with mago                             |
-| `make lint`         | Lint PHP with mago                               |
-| `make check-plugin` | WordPress plugin-check                           |
-| `make test`         | PHPUnit unit tests                               |
-| `make test-e2e`     | Playwright E2E tests                             |
-| `make check`        | Full verification suite                          |
+| Target                 | Description                                            |
+|------------------------|--------------------------------------------------------|
+| `make fix`             | Format PHP with mago                                   |
+| `make lint`            | Lint PHP with mago                                     |
+| `make check-plugin`    | WordPress plugin-check                                 |
+| `make test`            | PHPUnit unit tests (Docker)                            |
+| `make test-playground` | PHPUnit unit tests on WordPress Playground (no Docker) |
+| `make test-e2e`        | Playwright E2E tests                                   |
+| `make check`           | Full verification suite                                |
+
+### Testing
+
+The PHPUnit suite runs two ways, both accepting the same `FILE=` / `FILTER=` options:
+
+- **Docker (default):** `make test` — runs inside the wp-env `tests-cli` container against MySQL.
+- **WordPress Playground (no Docker):** `make test-playground` — runs the same suite under [WordPress Playground](https://wordpress.github.io/wordpress-playground/) (WebAssembly PHP on SQLite), reusing the instance Playground boots in-process (`WP_TESTS_SKIP_INSTALL`), so neither MySQL nor Docker is required. A few MySQL-specific integration tests may still need the Docker runner.
 
 ## Document conversion
 

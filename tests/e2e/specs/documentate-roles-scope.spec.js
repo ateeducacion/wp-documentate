@@ -8,9 +8,10 @@
  * - Subscriber: Cannot access the documents list.
  *
  * Notes on robustness:
- * - Fixtures are created on the SAME wp-env environment the browser uses. The
- *   E2E suite runs against the tests site (port 8889 / `tests-cli`), so WP-CLI
- *   fixtures must target `tests-cli`, not the development `cli` (port 8888).
+ * - Fixtures are created on the SAME wp-env instance the browser uses. The E2E
+ *   suite runs against the development site (`WP_BASE_URL`, port 8889 in Docker
+ *   / 8888 in Playground), which wp-env serves from the `cli` container — so
+ *   WP-CLI fixtures must target `cli`, not the `tests-cli` (tests) instance.
  * - Every fixture is suffixed with a unique per-run id so parallel specs and
  *   leftovers from previous runs cannot collide with these assertions.
  * - Documents are located through the admin search (`s=<run id>`) so the
@@ -47,9 +48,10 @@ const TITLES = {
  */
 function runWpCmd( cmd ) {
 	try {
-		return execSync( `npx @wordpress/env run tests-cli wp ${ cmd }`, {
-			encoding: 'utf8',
-		} ).trim();
+		return execSync(
+			`npx @wordpress/env run cli --config=.wp-env.test.json wp ${ cmd }`,
+			{ encoding: 'utf8' }
+		).trim();
 	} catch ( error ) {
 		// eslint-disable-next-line no-console
 		console.error(
