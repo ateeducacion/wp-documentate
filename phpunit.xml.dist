@@ -20,7 +20,6 @@
   <php>
     <env name="WORDPRESS_TABLE_PREFIX" value="wp_"/>
   </php>
-  <!-- Keep these <testsuites> in sync with phpunit-playground.xml.dist. -->
   <testsuites>
     <testsuite name="default">
       <directory prefix="" suffix="Test.php">tests/</directory>
