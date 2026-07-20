@@ -11,8 +11,15 @@ endif
 # Override with: make up WP_ENV="wp-env"
 WP_ENV = npx wp-env
 
+# Ports — single source of truth for the Makefile. Keep in sync with the
+# `port`/`testsPort` declared in .wp-env.docker.json (Docker) and the default
+# .wp-env.json (Playground). Override from the environment if they ever clash.
+DOCKER_PORT       ?= 8889
+DOCKER_TESTS_PORT ?= 8890
+PLAYGROUND_PORT   ?= 8888
+
 # Docker test config used for all wp-env run commands
-DOCKER_CONFIG = --config=.wp-env.test.json
+DOCKER_CONFIG = --config=.wp-env.docker.json
 
 # WP-CLI inside the Docker dev container (the instance the browser/tests use).
 WP_CLI = $(WP_ENV) run cli $(DOCKER_CONFIG) wp
@@ -20,8 +27,14 @@ WP_CLI = $(WP_ENV) run cli $(DOCKER_CONFIG) wp
 # Where the plugin is mounted inside the Playground (WASM) runtime.
 PG_PLUGIN_DIR = /wordpress/wp-content/plugins/documentate
 
-# Shared prefix for the Playground E2E targets (WASM is ~3x slower than Docker).
-PLAYGROUND_E2E = WP_BASE_URL=http://localhost:8888 TIMEOUT_MULTIPLIER=3 npm run test:e2e --
+# Pinned Playground CLI version — `@latest` resolves over the network and is not
+# reproducible. Bump deliberately. Override with: make test-playground PG_CLI_VERSION=x.y.z
+PG_CLI_VERSION ?= 3.1.38
+
+# Shared prefix for the Playground E2E targets. WP_RUNTIME=playground is the one
+# signal the Playwright config fans out to (base URL is Playground, ~3x timeout
+# multiplier, and the webServer start command), so it stays in one place here.
+PLAYGROUND_E2E = WP_BASE_URL=http://localhost:$(PLAYGROUND_PORT) WP_RUNTIME=playground npm run test:e2e --
 
 # ─── Port arbitration (local dev) ────────────────────────────────────────────
 # documentate and wp-decker both default to ports 8888/8889, so only one wp-env
@@ -66,7 +79,7 @@ PLAYGROUND_NODE_PROBE = node -e "let m;try{m=require('fs-ext-extra-prebuilt/load
 # (used to activate it under Docker) is unsupported on the Playground runtime.
 # Activate it manually once via wp-admin > Plugins after the first `make up-playground`.
 start-if-not-running:
-	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8888)" = "000" ]; then \
+	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$(PLAYGROUND_PORT))" = "000" ]; then \
 		if ! $(PLAYGROUND_NODE_PROBE) >/dev/null 2>&1; then \
 			BIN=""; \
 			for d in /opt/homebrew/opt/node@22/bin /usr/local/opt/node@22/bin "$$(brew --prefix node@22 2>/dev/null)/bin" /opt/homebrew/opt/node@20/bin /usr/local/opt/node@20/bin; do \
@@ -86,9 +99,9 @@ start-if-not-running:
 		fi; \
 		echo "Playground is NOT running. Starting..."; \
 		$(WP_ENV) start --runtime=playground --update; \
-		echo "Visit http://localhost:8888/wp-admin/ to access the Documentate dashboard."; \
+		echo "Visit http://localhost:$(PLAYGROUND_PORT)/wp-admin/ to access the Documentate dashboard."; \
 	else \
-		echo "Playground is already running on port 8888, skipping start."; \
+		echo "Playground is already running on port $(PLAYGROUND_PORT), skipping start."; \
 	fi
 
 # Diagnostic: report whether the current Node can run the Playground runtime.
@@ -99,7 +112,7 @@ check-node-playground:
 
 # Bring up Playground (no Docker required)
 up-playground:
-	$(call free_ports,8888)
+	$(call free_ports,$(PLAYGROUND_PORT))
 	@$(MAKE) --no-print-directory start-if-not-running
 
 # Stop Playground
@@ -109,18 +122,18 @@ down-playground:
 # ─── Docker (port 8889, requires Docker) ─────────────────────────────────────
 
 start-docker-if-not-running: check-docker
-	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8889)" = "000" ]; then \
+	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$(DOCKER_PORT))" = "000" ]; then \
 		echo "Docker env is NOT running. Starting..."; \
 		$(WP_ENV) start $(DOCKER_CONFIG) --update; \
 		$(WP_CLI) plugin activate documentate; \
-		echo "Visit http://localhost:8889/wp-admin/ to access the Docker environment."; \
+		echo "Visit http://localhost:$(DOCKER_PORT)/wp-admin/ to access the Docker environment."; \
 	else \
-		echo "Docker env is already running on port 8889, skipping start."; \
+		echo "Docker env is already running on port $(DOCKER_PORT), skipping start."; \
 	fi
 
 # Bring up Docker containers (this is the default `up`)
 up: check-docker
-	$(call free_ports,8889 8890)
+	$(call free_ports,$(DOCKER_PORT) $(DOCKER_TESTS_PORT))
 	@$(MAKE) --no-print-directory start-docker-if-not-running
 up-docker: up
 
@@ -159,7 +172,7 @@ test-playground:
 	@CMD="$(PG_PLUGIN_DIR)/vendor/bin/phpunit -c $(PG_PLUGIN_DIR)/phpunit-playground.xml.dist"; \
 	if [ -n "$(FILE)" ]; then CMD="$$CMD $(PG_PLUGIN_DIR)/$(FILE)"; fi; \
 	if [ -n "$(FILTER)" ]; then CMD="$$CMD --filter $(FILTER)"; fi; \
-	cd "$${TMPDIR:-/tmp}" && npx --yes @wp-playground/cli@latest php --mount="$(CURDIR):$(PG_PLUGIN_DIR)" -- $$CMD --colors=always
+	cd "$${TMPDIR:-/tmp}" && npx --yes @wp-playground/cli@$(PG_CLI_VERSION) php --mount="$(CURDIR):$(PG_PLUGIN_DIR)" -- $$CMD --colors=always
 
 # Run document generation tests only
 test-generation: start-docker-if-not-running
@@ -174,7 +187,7 @@ test-verbose: start-docker-if-not-running
 
 # Run tests with code coverage report.
 # IMPORTANT: Requires wp-env started with Xdebug enabled:
-#   wp-env start --config=.wp-env.test.json --xdebug=coverage
+#   wp-env start --config=.wp-env.docker.json --xdebug=coverage
 # If coverage shows 0%, restart wp-env with the --xdebug=coverage flag.
 test-coverage: start-docker-if-not-running
 	@mkdir -p artifacts/coverage
@@ -199,7 +212,7 @@ test-coverage: start-docker-if-not-running
 setup-e2e-env:
 	@echo "Setting up E2E environment..."
 	@$(WP_CLI) core install \
-		--url=http://localhost:8889 \
+		--url=http://localhost:$(DOCKER_PORT) \
 		--title="Documentate Tests" \
 		--admin_user=admin \
 		--admin_password=password \
@@ -212,7 +225,7 @@ setup-e2e-env:
 
 # Run E2E tests against Docker (port 8889) — the default.
 test-e2e: start-docker-if-not-running setup-e2e-env
-	WP_BASE_URL=http://localhost:8889 npm run test:e2e -- $(ARGS)
+	WP_BASE_URL=http://localhost:$(DOCKER_PORT) npm run test:e2e -- $(ARGS)
 
 # Alias kept for CI / back-compat.
 test-e2e-docker: test-e2e
@@ -365,9 +378,9 @@ help:
 	@echo "Available commands:"
 	@echo ""
 	@echo "Environments:"
-	@echo "  up / up-docker     - Start the Docker environment on port 8889"
+	@echo "  up / up-docker     - Start the Docker environment on port $(DOCKER_PORT)"
 	@echo "  down / down-docker - Stop the Docker environment"
-	@echo "  up-playground      - Start Playground on port 8888 (no Docker needed)"
+	@echo "  up-playground      - Start Playground on port $(PLAYGROUND_PORT) (no Docker needed)"
 	@echo "  down-playground    - Stop Playground"
 	@echo "  logs               - Show Docker container logs"
 	@echo "  logs-test          - Show logs from Docker test environment"
@@ -388,15 +401,15 @@ help:
 	@echo "  check-all          - Alias for 'check'"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test               - Run PHPUnit tests (Docker, port 8889)"
+	@echo "  test               - Run PHPUnit tests (Docker, port $(DOCKER_PORT))"
 	@echo "                       FILTER=<pattern> (run tests matching the pattern)"
 	@echo "                       FILE=<path>      (run tests in specific file)"
 	@echo "  test-playground    - Run PHPUnit on Playground (WASM/SQLite, no Docker). Same FILE/FILTER."
 	@echo "  test-generation    - Run document generation tests only (Docker)"
 	@echo "  test-coverage      - Run PHPUnit with coverage (Docker, requires --xdebug=coverage)"
 	@echo ""
-	@echo "  test-e2e           - Run E2E tests against Docker (port 8889)"
-	@echo "  test-e2e-playground- Run E2E tests against Playground (port 8888)"
+	@echo "  test-e2e           - Run E2E tests against Docker (port $(DOCKER_PORT))"
+	@echo "  test-e2e-playground- Run E2E tests against Playground (port $(PLAYGROUND_PORT))"
 	@echo "  test-e2e-visual    - Run E2E tests with visual UI (Playground)"
 	@echo ""
 	@echo "Translations:"

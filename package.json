@@ -7,10 +7,10 @@
   },
   "scripts": {
     "wp-env": "wp-env",
-    "composer": "wp-env run cli --config=.wp-env.test.json --env-cwd=wp-content/plugins/documentate composer",
-    "composer:tests-cli": "wp-env run tests-cli --config=.wp-env.test.json --env-cwd=wp-content/plugins/documentate composer",
+    "composer": "wp-env run cli --config=.wp-env.docker.json --env-cwd=wp-content/plugins/documentate composer",
+    "composer:tests-cli": "wp-env run tests-cli --config=.wp-env.docker.json --env-cwd=wp-content/plugins/documentate composer",
     "test:e2e": "wp-scripts test-playwright --config tests/e2e/playwright.config.js",
-    "test:unit": "wp-env run tests-cli --config=.wp-env.test.json --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit",
+    "test:unit": "wp-env run tests-cli --config=.wp-env.docker.json --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit",
     "test:unit-js": "wp-scripts test-unit-js --config tests/js/jest.config.js",
     "copy:libreoffice-converter": "node scripts/copy-libreoffice-converter.mjs",
     "postinstall": "npm run copy:libreoffice-converter",
