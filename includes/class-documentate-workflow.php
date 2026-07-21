@@ -359,7 +359,7 @@ class Documentate_Workflow {
 			'documentate-workflow',
 			plugins_url('admin/js/documentate-workflow.js', __DIR__),
 			array('jquery'),
-			filemtime(plugin_dir_path(__DIR__) . 'admin/js/documentate-workflow.js'),
+			DOCUMENTATE_VERSION,
 			true,
 		);
 
@@ -368,7 +368,7 @@ class Documentate_Workflow {
 			'documentate-workflow',
 			plugins_url('admin/css/documentate-workflow.css', __DIR__),
 			array(),
-			filemtime(plugin_dir_path(__DIR__) . 'admin/css/documentate-workflow.css'),
+			DOCUMENTATE_VERSION,
 		);
 
 		// Get post data for JavaScript.

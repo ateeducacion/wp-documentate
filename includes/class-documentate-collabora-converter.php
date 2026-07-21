@@ -333,6 +333,13 @@ class Documentate_Collabora_Converter {
 	 * @return bool
 	 */
 	private static function is_ssl_verification_disabled() {
+		// Never skip TLS certificate verification on production, even if the
+		// option is enabled — official documents must not travel over an
+		// unverified connection. The toggle stays available for local testing.
+		if ('production' === wp_get_environment_type()) {
+			return false;
+		}
+
 		$options = get_option('documentate_settings', array());
 		return isset($options['collabora_disable_ssl']) && '1' === $options['collabora_disable_ssl'];
 	}

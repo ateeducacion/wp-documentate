@@ -8,8 +8,8 @@ node_modules/
 *.sql.gz
 *.tar.gz
 *.zip
-wp-resolate*/
-resolate*/
+wp-documentate*/
+documentate*/
 *.swp
 *.swo
 *.bak

@@ -41,6 +41,28 @@ class Documentate_Demo_Data {
 	}
 
 	/**
+	 * Whether demo content may be seeded in the current environment.
+	 *
+	 * Demo data — most importantly the demo login accounts — must never be
+	 * created on production sites. Seeding is permitted inside WordPress
+	 * Playground and in any non-production environment (local, development,
+	 * staging), as reported by wp_get_environment_type().
+	 *
+	 * @return bool True when demo seeding is permitted.
+	 */
+	public static function should_allow_demo_seeding() {
+		if (!class_exists('Documentate_Collabora_Converter')) {
+			require_once plugin_dir_path(__FILE__) . 'class-documentate-collabora-converter.php';
+		}
+
+		if (Documentate_Collabora_Converter::is_playground()) {
+			return true;
+		}
+
+		return 'production' !== wp_get_environment_type();
+	}
+
+	/**
 	 * Import a fixture file to the Media Library if not already imported.
 	 *
 	 * Looks for the file under plugin fixtures directory and root as fallback.
@@ -66,7 +88,7 @@ class Documentate_Demo_Data {
 			return 0;
 		}
 
-		$hash = @md5_file($source);
+		$hash = md5_file($source);
 		if ($hash) {
 			$found = get_posts(array(
 				'post_type' => 'attachment',
@@ -81,7 +103,7 @@ class Documentate_Demo_Data {
 			}
 		}
 
-		$contents = @file_get_contents($source);
+		$contents = file_get_contents($source);
 		if (false === $contents) {
 			return 0;
 		}
@@ -606,6 +628,11 @@ class Documentate_Demo_Data {
 	public static function maybe_seed_demo_users() {
 		$should_seed = (bool) get_option('documentate_seed_demo_documents', false);
 		if (!$should_seed) {
+			return;
+		}
+
+		// Defence in depth: never create real login accounts on production.
+		if (!self::should_allow_demo_seeding()) {
 			return;
 		}
 

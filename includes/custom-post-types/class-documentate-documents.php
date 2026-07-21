@@ -60,8 +60,7 @@ class Documentate_Documents {
 	 * @return bool True if collaborative editing is enabled.
 	 */
 	private function is_collaborative_editing_enabled() {
-		$options = get_option('documentate_settings', array());
-		return isset($options['collaborative_enabled']) && '1' === $options['collaborative_enabled'];
+		return Documentate_Admin::is_collaborative_enabled();
 	}
 
 	/**
@@ -2905,12 +2904,17 @@ class Documentate_Documents {
 			return;
 		}
 
-		// Author filter.
-		$authors = get_users(array(
-			'has_published_posts' => array('documentate_document'),
-			'fields' => array('ID', 'display_name'),
-			'orderby' => 'display_name',
-		));
+		// Author filter. The has_published_posts query joins on the posts table,
+		// so cache it briefly; a slightly stale author dropdown is acceptable.
+		$authors = get_transient('documentate_admin_author_filter');
+		if (false === $authors) {
+			$authors = get_users(array(
+				'has_published_posts' => array('documentate_document'),
+				'fields' => array('ID', 'display_name'),
+				'orderby' => 'display_name',
+			));
+			set_transient('documentate_admin_author_filter', $authors, 5 * MINUTE_IN_SECONDS);
+		}
 
 		if (!empty($authors)) {
 			$current_author = isset($_GET['author']) ? absint($_GET['author']) : 0;
@@ -2950,10 +2954,12 @@ class Documentate_Documents {
 			echo '</select>';
 		}
 
-		// Category filter (if taxonomy exists).
+		// Category filter (if taxonomy exists). Cap the number of options so the
+		// dropdown never materialises an unbounded list of site categories.
 		$categories = get_terms(array(
 			'taxonomy' => 'category',
 			'hide_empty' => false,
+			'number' => 200,
 		));
 
 		if (!is_wp_error($categories) && !empty($categories)) {

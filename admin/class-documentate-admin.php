@@ -161,7 +161,7 @@ class Documentate_Admin {
 	public static function get_collaborative_settings() {
 		$options = get_option('documentate_settings', array());
 		return array(
-			'enabled' => isset($options['collaborative_enabled']) && '1' === $options['collaborative_enabled'],
+			'enabled' => self::is_collaborative_enabled(),
 			'signalingServer' => isset($options['collaborative_signaling']) && '' !== $options['collaborative_signaling']
 				? $options['collaborative_signaling']
 				: 'wss://signaling.yjs.dev',
@@ -297,6 +297,13 @@ class Documentate_Admin {
 	 */
 	public function ajax_get_user_avatars() {
 		check_ajax_referer('documentate_collab_avatars', 'nonce');
+
+		if (!current_user_can('edit_posts')) {
+			wp_send_json_error(
+				array('message' => __('You are not authorized to access this resource.', 'documentate')),
+				403,
+			);
+		}
 
 		$user_ids = isset($_POST['user_ids']) ? array_map('intval', (array) $_POST['user_ids']) : array();
 		$avatars = array();
