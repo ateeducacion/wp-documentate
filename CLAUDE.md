@@ -52,15 +52,9 @@ A task is **not done** until all relevant checks pass.
 
 ## Environment
 
-Two environments: **Docker** (wp-env, tests / check-plugin / WP-CLI, port 8889)
-and **Playground** (fast local dev, no Docker, port 8888).
+Docker (wp-env) on port 8889 for tests / check-plugin / WP-CLI.
 
 ```bash
-# Docker — required for tests, check-plugin and WP-CLI (this is the default)
 make up             # start Docker env (http://localhost:8889, admin/password)
 make down           # stop Docker env
-
-# Playground — fast local dev, no Docker required
-make up-playground   # start Playground (http://localhost:8888)
-make down-playground # stop Playground
 ```

@@ -9,9 +9,9 @@
  *
  * Notes on robustness:
  * - Fixtures are created on the SAME wp-env instance the browser uses. The E2E
- *   suite runs against the development site (`WP_BASE_URL`, port 8889 in Docker
- *   / 8888 in Playground), which wp-env serves from the `cli` container — so
- *   WP-CLI fixtures must target `cli`, not the `tests-cli` (tests) instance.
+ *   suite runs against the development site (`WP_BASE_URL`, port 8889), which
+ *   wp-env serves from the `cli` container — so WP-CLI fixtures must target
+ *   `cli`, not the `tests-cli` (tests) instance.
  * - Every fixture is suffixed with a unique per-run id so parallel specs and
  *   leftovers from previous runs cannot collide with these assertions.
  * - Documents are located through the admin search (`s=<run id>`) so the
