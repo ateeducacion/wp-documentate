@@ -12,6 +12,8 @@
  * Plugin URI:        https://github.com/ateeducacion/wp-documentate
  * Description:       Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF.
  * Version:           0.0.0
+ * Requires at least: 6.1
+ * Requires PHP:      8.3
  * Author:            Área de Tecnología Educativa
  * Author URI:        https://www3.gobiernodecanarias.org/medusa/ecoescuela/ate/
  * License:           GPL-3.0+
@@ -59,7 +61,12 @@ function documentate_activate_plugin() {
 
 	update_option('documentate_flush_rewrites', true);
 	update_option('documentate_version', DOCUMENTATE_VERSION);
-	update_option('documentate_seed_demo_documents', true);
+
+	// Only request demo seeding in non-production environments (and Playground).
+	// This prevents demo login accounts from ever being created on production.
+	if (Documentate_Demo_Data::should_allow_demo_seeding()) {
+		update_option('documentate_seed_demo_documents', true);
+	}
 
 	// Ensure default fixtures (templates) are available in Media Library and settings.
 	Documentate_Demo_Data::ensure_default_media();

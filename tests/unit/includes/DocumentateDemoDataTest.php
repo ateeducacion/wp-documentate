@@ -127,4 +127,48 @@ class DocumentateDemoDataTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( '<strong>', $options['alert_message'] );
 		$this->assertStringContainsString( '</strong>', $options['alert_message'] );
 	}
+
+	/**
+	 * Demo seeding is permitted in the test (non-production) environment.
+	 */
+	public function test_should_allow_demo_seeding_in_non_production() {
+		$this->assertTrue( Documentate_Demo_Data::should_allow_demo_seeding() );
+	}
+
+	/**
+	 * Demo seeding is permitted inside WordPress Playground.
+	 */
+	public function test_should_allow_demo_seeding_in_playground() {
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		$this->assertTrue( Documentate_Demo_Data::should_allow_demo_seeding() );
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+	}
+
+	/**
+	 * Demo login accounts are created when the seed flag is set and seeding is allowed.
+	 */
+	public function test_maybe_seed_demo_users_creates_accounts_when_allowed() {
+		update_option( 'documentate_seed_demo_documents', true );
+
+		Documentate_Demo_Data::maybe_seed_demo_users();
+
+		$this->assertNotEmpty( username_exists( 'editor1' ) );
+		$this->assertNotEmpty( username_exists( 'author1' ) );
+		$this->assertNotEmpty( username_exists( 'subscriber1' ) );
+
+		delete_option( 'documentate_seed_demo_documents' );
+	}
+
+	/**
+	 * No demo accounts are created when the seed flag is absent.
+	 */
+	public function test_maybe_seed_demo_users_skips_without_seed_flag() {
+		delete_option( 'documentate_seed_demo_documents' );
+
+		Documentate_Demo_Data::maybe_seed_demo_users();
+
+		$this->assertEmpty( username_exists( 'editor1' ) );
+	}
 }

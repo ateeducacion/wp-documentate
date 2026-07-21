@@ -17,7 +17,7 @@ defined('ABSPATH') || exit();
  * Class Documentate_REST_Comment_Protection
  *
  * Adds REST API protections for reading and writing comments associated with
- * protected custom post types (e.g., documentate_task). Ensures unauthenticated
+ * protected custom post types (e.g., documentate_document). Ensures unauthenticated
  * users cannot list, read, create, update, or delete such comments via REST.
  */
 class Documentate_REST_Comment_Protection {
@@ -64,9 +64,9 @@ class Documentate_REST_Comment_Protection {
 		/**
 		 * Filters the list of post types whose comments are protected from unauthenticated access.
 		 *
-		 * @param array $post_types An array of post type slugs. Default: ['documentate_task'].
+		 * @param array $post_types An array of post type slugs. Default: ['documentate_document'].
 		 */
-		return apply_filters('documentate/protected_comment_post_types', array('documentate_task'));
+		return apply_filters('documentate/protected_comment_post_types', array('documentate_document'));
 	}
 
 	/**

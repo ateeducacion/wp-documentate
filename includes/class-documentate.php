@@ -67,10 +67,6 @@ class Documentate {
 
 		$this->load_dependencies();
 		$this->define_admin_hooks();
-		$this->define_public_hooks();
-
-		// Hook demo data creation to init.
-		add_action('init', array($this, 'maybe_create_demo_data'));
 	}
 
 	/**
@@ -93,8 +89,6 @@ class Documentate {
 		 * core plugin.
 		 */
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-loader.php';
-
-		// Removed legacy AJAX handlers for Kanban/Tasks.
 
 		/**
 		 * Refactored document classes following Single Responsibility Principle.
@@ -122,9 +116,7 @@ class Documentate {
 		/**
 		 * The classes responsible for defining the custom-post-types.
 		 */
-		// Keep boards/labels for KB; remove tasks/events/actions (Kanban removal).
-
-		// Documentate: Documents CPT and taxonomies (non-breaking addition).
+		// Documentate: Documents CPT and taxonomies.
 		require_once plugin_dir_path(__DIR__) . 'includes/custom-post-types/class-documentate-documents.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-meta-box.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-meta.php';
@@ -149,8 +141,6 @@ class Documentate {
 			$attachments_meta_box = new \Documentate\Document\Meta\Document_Attachments_Meta_Box();
 			$attachments_meta_box->register();
 		}
-
-		// Removed email-to-post, mailer/notification, and calendar modules.
 
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-disable-comment-notifications.php';
 
@@ -185,11 +175,6 @@ class Documentate {
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-user-scope.php';
 
 		/**
-		 * The class responsible for defining the MVC.
-		 */
-		// Remove Task MVC models/managers; not needed for Documentate/KB.
-
-		/**
 		 * The class responsible for defining all actions that occur in the admin area.
 		 */
 		require_once plugin_dir_path(__DIR__) . 'admin/class-documentate-admin.php';
@@ -204,12 +189,6 @@ class Documentate {
 		// Workflow management (role-based restrictions, read-only published state).
 		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-workflow.php';
 		new Documentate_Workflow();
-
-		/**
-		 * The class responsible for defining all actions that occur in the public-facing
-		 * side of the site.
-		 */
-		// Public-facing hooks disabled because the plugin does not expose front-end features.
 
 		$this->loader = new Documentate_Loader();
 	}
@@ -248,16 +227,6 @@ class Documentate {
 	}
 
 	/**
-	 * Register all of the hooks related to the public-facing functionality
-	 * of the plugin.
-	 *
-	 * @access   private
-	 */
-	private function define_public_hooks() {
-		// $plugin_public = new Documentate_Public( $this->get_plugin_name(), $this->get_version() );
-	}
-
-	/**
 	 * Run the loader to execute all of the hooks with WordPress.
 	 */
 	public function run() {
@@ -281,13 +250,5 @@ class Documentate {
 	 */
 	public function get_version() {
 		return $this->version;
-	}
-
-	/**
-	 * Create demo data if the version is 0.0.0
-	 */
-	public function maybe_create_demo_data() {
-		// Demo task data disabled in Documentate.
-		return;
 	}
 }

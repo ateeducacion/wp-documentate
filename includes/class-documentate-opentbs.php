@@ -1520,38 +1520,7 @@ class Documentate_OpenTBS {
 	 * @return array{int,string,string}|false Position, matched key for length, raw HTML for parsing.
 	 */
 	private static function find_next_html_match($text, $lookup, $position) {
-		$found_pos = false;
-		$found_key = '';
-		$found_raw = '';
-
-		// Normalize the search text newlines to match replace_odt_text_node_html() behavior.
-		$normalized_text = self::normalize_text_newlines($text);
-
-		foreach ($lookup as $html => $raw) {
-			// Normalize lookup HTML to ensure CRLF/CR mismatches don't prevent matches.
-			$normalized_html = self::normalize_text_newlines($html);
-
-			$pos = strpos($normalized_text, $normalized_html, $position);
-			if (false === $pos) {
-				continue;
-			}
-
-			if (
-				false === $found_pos
-				|| $pos < $found_pos
-				|| $pos === $found_pos && strlen($normalized_html) > strlen($found_key)
-			) {
-				$found_pos = $pos;
-				$found_key = $normalized_html;
-				$found_raw = $raw;
-			}
-		}
-
-		if (false === $found_pos) {
-			return false;
-		}
-
-		return array($found_pos, $found_key, $found_raw);
+		return OpenTBS_HTML_Parser::find_next_html_match($text, $lookup, $position);
 	}
 
 	/**

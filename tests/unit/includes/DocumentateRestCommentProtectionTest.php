@@ -77,6 +77,15 @@ class DocumentateRestCommentProtectionTest extends WP_UnitTestCase {
 
 		wp_set_current_user( 0 );
 
+		// Pin protection to this test's fixture CPT so the suite is independent of
+		// the production default (which targets 'documentate_document').
+		add_filter(
+			'documentate/protected_comment_post_types',
+			static function () {
+				return array( 'documentate_task' );
+			}
+		);
+
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-rest-comment-protection.php';
 		$this->protection = new Documentate_REST_Comment_Protection();
 	}

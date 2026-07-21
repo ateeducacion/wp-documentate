@@ -1,46 +1,49 @@
 === Documentate – Generador de resoluciones ===
 Contributors: ateeducacion
-Tags: ate, tasks, board, kanban
+Tags: documents, resolutions, docx, pdf, opentbs
 Requires at least: 6.1
 Tested up to: 7.0
-Requires PHP: 8.4
+Requires PHP: 8.3
 Stable tag: 0.0.0
 License: GPL-3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Official resolution generator with structured sections and DOCX export.
+Generate official resolutions and structured administrative documents from ODT/DOCX templates, with export to DOCX and PDF.
 
 == Description ==
 
-Documentate es un plugin de WordPress desarrollado en el ATE para crear resoluciones digitales con estructura de secciones, taxonomías de ámbitos y leyes, y exportación a DOCX (y próximamente PDF).
+Documentate is a WordPress plugin developed by the ATE to create official resolutions and structured administrative documents from ODT/DOCX templates.
 
-### Key Features
+It uses OpenTBS to merge the document data into the template and can optionally convert the result to PDF/DOCX with Collabora Online (server-side) or LibreOffice WASM (in the browser).
 
-– **Import from Nextcloud Deck through API**: Imports boards and cards from Nextcloud.  
-– **Customization**: Adjustable settings available in the WordPress admin panel.  
-– **Multisite Support**: Fully compatible with WordPress multisite installations.  
-– **WordPress Coding Standards Compliance**: Adheres to [WordPress Coding Standards](https://github.com/WordPress/WordPress-Coding-Standards).  
-– **Continuous Integration Pipeline**: Set up for automated code verification and release generation on GitHub.  
+### Features
+
+- **Document types (templates)** defined as a custom taxonomy with schema-driven fields.
+- **ODT/DOCX generation** from templates via OpenTBS.
+- **Optional conversion to PDF** (and between office formats) with Collabora Online (server) or LibreOffice WASM (browser, experimental).
+- **Per-user scope filtering** (hierarchical categories) to control document visibility.
+- **Workflow, revisions, attachments and collaborative editing.**
+- **Multisite compatible.**
 
 == Installation ==
 
-1. Download the plugin from the WordPress Plugin Directory.
-2. Upload the plugin to your WordPress site via **Plugins > Add New > Upload Plugin**.
-3. Activate the plugin through the 'Plugins' menu in WordPress.
-4. Configure the plugin under 'Settings'.
+1. Download the latest release from the GitHub releases page.
+2. Upload the plugin to your site via **Plugins > Add New > Upload Plugin**.
+3. Activate the plugin from the 'Plugins' menu.
+4. Configure the conversion engine and other options under **Settings > Documentate**.
 
 == Frequently Asked Questions ==
 
-= How do I connect the plugin to Nextcloud Deck? =  
-Go to the Import from NextCloud page, and enter your Nextcloud API credentials (URL and API token).
+= Which conversion engines are supported? =
+Collabora Online (server-side, recommended) and LibreOffice WASM (in the browser, experimental).
 
-= Can I use this plugin without Nextcloud Deck? =  
-Yes, the plugin independant, Nextcloud is only to oneway import.
+= How is document visibility controlled? =
+Through a per-user scope (hierarchical categories). Administrators see every document; other users only see documents in their scope and its subcategories.
 
 == Screenshots ==
 
-1. **Editor de resolución**  
-   Campos meta para Objeto, Antecedentes, Fundamentos, Parte dispositiva y Firma.  
+1. **Resolution editor**
+   Meta fields for the different sections of the document.
 
-2. **Exportación DOCX**  
-   Genera documentos Word con formato básico (Times 12).  
+2. **DOCX/PDF export**
+   Generates documents from ODT/DOCX templates.
