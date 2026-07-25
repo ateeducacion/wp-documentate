@@ -41,3 +41,12 @@ updates:
       - dependency-name: "@wordpress/scripts"
         versions: [">=32.3.0"]
 
+  # 4. npm (Cloudflare Worker)
+  - package-ecosystem: "npm"
+    directory: "/cloudflare-worker"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 5
