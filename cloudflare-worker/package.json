@@ -19,7 +19,7 @@
   ],
   "license": "GPL-2.0-or-later",
   "devDependencies": {
-    "vitest": "^3.2.6",
+    "vitest": "^4.1.10",
     "wrangler": "^4.114.0"
   }
 }
