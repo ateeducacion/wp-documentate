@@ -45,8 +45,11 @@ class Documentate_Template_Access {
 	/**
 	 * Block non-admin users from accessing template taxonomy admin screens.
 	 *
-	 * Fires on admin_init and kills the request with a 403 if a non-admin
-	 * tries to load the add/edit/list screens for documentate_doc_type.
+	 * Fires on admin_init. `get_current_screen()` is often null at that hook,
+	 * so the check uses the `taxonomy` request parameter as the primary signal
+	 * and falls back to the screen object when it is available (e.g. later in
+	 * the request or in tests). Taxonomy capabilities already require
+	 * manage_options; this is an explicit early deny for direct URL access.
 	 *
 	 * @return void
 	 */
@@ -55,27 +58,28 @@ class Documentate_Template_Access {
 			return;
 		}
 
-		$screen = get_current_screen();
-		if ( ! $screen ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only gate on admin screen load.
+		$taxonomy = isset( $_GET['taxonomy'] ) ? sanitize_key( wp_unslash( $_GET['taxonomy'] ) ) : '';
+
+		$screen          = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		$screen_taxonomy = ( $screen && ! empty( $screen->taxonomy ) ) ? (string) $screen->taxonomy : '';
+		$screen_id       = $screen ? (string) $screen->id : '';
+
+		$is_doc_type_surface = (
+			self::TAXONOMY === $taxonomy
+			|| self::TAXONOMY === $screen_taxonomy
+			|| ( 'edit-' . self::TAXONOMY ) === $screen_id
+		);
+
+		if ( ! $is_doc_type_surface ) {
 			return;
 		}
 
-		// Block the taxonomy list and edit screens.
-		$blocked_ids = array(
-			'edit-' . self::TAXONOMY,
-			'edit-tags',
+		wp_die(
+			esc_html__( 'You do not have permission to manage templates.', 'documentate' ),
+			esc_html__( 'Access Denied', 'documentate' ),
+			array( 'response' => 403 ),
 		);
-
-		// For edit-tags and term screens, also check the taxonomy param.
-		$is_taxonomy_screen = isset( $_GET['taxonomy'] ) && self::TAXONOMY === sanitize_key( wp_unslash( $_GET['taxonomy'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-		if ( in_array( $screen->id, $blocked_ids, true ) || $is_taxonomy_screen ) {
-			wp_die(
-				esc_html__( 'You do not have permission to manage templates.', 'documentate' ),
-				esc_html__( 'Access Denied', 'documentate' ),
-				array( 'response' => 403 ),
-			);
-		}
 	}
 
 	/**

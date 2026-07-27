@@ -384,6 +384,170 @@ class DocumentateScopeCountsTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Object-level access: editor may open in-scope documents and not out-of-scope ones.
+	 */
+	public function test_user_can_access_document_respects_scope() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+
+		$in_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $in_scope, array( $this->cat_a ), 'category' );
+
+		$out_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $out_scope, array( $this->cat_b ), 'category' );
+
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $in_scope, $this->editor_id ),
+			'In-scope document should be accessible.'
+		);
+		$this->assertFalse(
+			$this->filter->user_can_access_document( $out_scope, $this->editor_id ),
+			'Out-of-scope document must be denied.'
+		);
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $out_scope, $this->admin_id ),
+			'Administrators remain unrestricted.'
+		);
+	}
+
+	/**
+	 * map_meta_cap must deny edit_post for out-of-scope documents.
+	 */
+	public function test_map_meta_cap_denies_out_of_scope_edit() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+		wp_set_current_user( $this->editor_id );
+
+		$out_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $out_scope, array( $this->cat_b ), 'category' );
+
+		$this->assertFalse(
+			current_user_can( 'edit_post', $out_scope ),
+			'Editor must not edit_post out-of-scope documents by ID.'
+		);
+	}
+
+	/**
+	 * map_meta_cap also blocks delete_post / read_post outside scope.
+	 */
+	public function test_map_meta_cap_denies_delete_and_read_out_of_scope() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+		wp_set_current_user( $this->editor_id );
+
+		$out_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $out_scope, array( $this->cat_b ), 'category' );
+
+		$this->assertFalse( current_user_can( 'delete_post', $out_scope ) );
+		$this->assertFalse( current_user_can( 'read_post', $out_scope ) );
+	}
+
+	/**
+	 * map_meta_cap leaves unrelated capabilities untouched.
+	 */
+	public function test_map_meta_cap_ignores_unrelated_caps() {
+		$caps = array( 'edit_posts' );
+		$result = $this->filter->map_meta_cap_scope( $caps, 'edit_posts', $this->editor_id, array() );
+		$this->assertSame( $caps, $result );
+
+		$result = $this->filter->map_meta_cap_scope( $caps, 'edit_post', $this->editor_id, array() );
+		$this->assertSame( $caps, $result, 'Empty post ID must not add do_not_allow.' );
+	}
+
+	/**
+	 * Documents without a category are out of every non-admin scope.
+	 */
+	public function test_user_can_access_document_requires_category() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+
+		$no_cat = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		// Ensure no categories.
+		wp_set_object_terms( $no_cat, array(), 'category' );
+
+		$this->assertFalse(
+			$this->filter->user_can_access_document( $no_cat, $this->editor_id )
+		);
+		$this->assertFalse(
+			$this->filter->user_can_access_document( 0, $this->editor_id )
+		);
+
+		// Non-documentate posts are not gated by scope.
+		$regular = self::factory()->post->create( array( 'post_type' => 'post' ) );
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $regular, $this->editor_id )
+		);
+	}
+
+	/**
+	 * Editor with no scope assigned can access nothing.
+	 */
+	public function test_user_with_empty_scope_sees_nothing() {
+		delete_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY );
+
+		$in_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_object_terms( $in_scope, array( $this->cat_a ), 'category' );
+
+		$this->assertFalse(
+			$this->filter->user_can_access_document( $in_scope, $this->editor_id )
+		);
+		$this->assertSame( array(), $this->filter->get_scope_term_ids( $this->editor_id ) );
+	}
+
+	/**
+	 * In-scope documents remain editable via map_meta_cap.
+	 */
+	public function test_map_meta_cap_allows_in_scope_edit() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+		wp_set_current_user( $this->editor_id );
+
+		$in_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $in_scope, array( $this->cat_a ), 'category' );
+
+		$this->assertTrue(
+			current_user_can( 'edit_post', $in_scope ),
+			'Editor must retain edit_post for in-scope documents.'
+		);
+	}
+
+	/**
 	 * The view counters are computed with a single grouped query rather than one
 	 * WP_Query per view (regression guard against the previous N+1 pattern), and
 	 * the resulting counts remain correct.

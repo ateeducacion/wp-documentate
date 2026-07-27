@@ -544,12 +544,18 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 		wp_set_current_user( $this->editor_user_id );
 		update_option( 'documentate_settings', array( 'docx_template_id' => 123 ) );
 
+		// Scope is object-level authorization: place the document in the editor's scope.
+		$cat = wp_insert_term( 'Editor Scope Helper', 'category' );
+		$this->assertIsArray( $cat );
+		update_user_meta( $this->editor_user_id, 'documentate_scope_term_id', $cat['term_id'] );
+
 		$post = $this->factory->post->create_and_get(
 			array(
 				'post_type'   => 'documentate_document',
 				'post_author' => $this->editor_user_id,
 			)
 		);
+		wp_set_object_terms( $post->ID, array( $cat['term_id'] ), 'category' );
 
 		$actions = array();
 		$result = $this->helper->add_row_actions( $actions, $post );

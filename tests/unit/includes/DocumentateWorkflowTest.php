@@ -441,6 +441,277 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Non-admins must not change title/content of published documents (server-side).
+	 */
+	public function test_editor_cannot_change_published_document_content() {
+		global $wpdb;
+
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Original title',
+				'post_status' => 'draft',
+			)
+		);
+		$this->assertNotWPError( $post_id );
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		// Seed known content without going through the compose filter.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->posts,
+			array(
+				'post_title'   => 'Original title',
+				'post_content' => 'Original content',
+			),
+			array( 'ID' => $post_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+		clean_post_cache( $post_id );
+
+		wp_set_current_user( $this->editor_user_id );
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_title'   => 'Hijacked title',
+				'post_content' => 'Hijacked content',
+				'post_status'  => 'publish',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertSame( 'Original title', $stored->post_title, 'Published title must stay frozen for non-admins.' );
+		$this->assertSame( 'Original content', $stored->post_content, 'Published content must stay frozen for non-admins.' );
+		$this->assertSame( 'publish', $stored->post_status );
+	}
+
+	/**
+	 * status_locks_content_for_non_admins covers publish/pending/archived only.
+	 */
+	public function test_status_locks_content_for_non_admins() {
+		$this->assertTrue( Documentate_Workflow::status_locks_content_for_non_admins( 'publish' ) );
+		$this->assertTrue( Documentate_Workflow::status_locks_content_for_non_admins( 'pending' ) );
+		$this->assertTrue( Documentate_Workflow::status_locks_content_for_non_admins( 'archived' ) );
+		$this->assertFalse( Documentate_Workflow::status_locks_content_for_non_admins( 'draft' ) );
+		$this->assertFalse( Documentate_Workflow::status_locks_content_for_non_admins( 'auto-draft' ) );
+	}
+
+	/**
+	 * current_user_can_modify_document is true for admins and unlocked drafts.
+	 */
+	public function test_current_user_can_modify_document() {
+		wp_set_current_user( $this->admin_user_id );
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Mod check',
+				'post_status' => 'draft',
+			)
+		);
+		$this->assertNotWPError( $post_id );
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+
+		$this->assertTrue( Documentate_Workflow::current_user_can_modify_document( $post_id ) );
+
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		// Admin can still modify published docs.
+		$this->assertTrue( Documentate_Workflow::current_user_can_modify_document( $post_id ) );
+
+		wp_set_current_user( $this->editor_user_id );
+		$this->assertFalse(
+			Documentate_Workflow::current_user_can_modify_document( $post_id ),
+			'Non-admin cannot modify published document content.'
+		);
+
+		// Non-documentate posts are unrestricted by this helper.
+		$regular = wp_insert_post(
+			array(
+				'post_type'   => 'post',
+				'post_title'  => 'Regular',
+				'post_status' => 'publish',
+			)
+		);
+		$this->assertTrue( Documentate_Workflow::current_user_can_modify_document( $regular ) );
+	}
+
+	/**
+	 * freeze_locked_document_data early-returns for admins and wrong post types.
+	 */
+	public function test_freeze_locked_document_data_early_returns() {
+		wp_set_current_user( $this->admin_user_id );
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Freeze early',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		$data = array(
+			'post_type'    => 'documentate_document',
+			'post_title'   => 'Changed by admin',
+			'post_content' => 'admin content',
+			'post_excerpt' => '',
+			'post_status'  => 'publish',
+			'post_name'    => 'freeze-early',
+			'post_author'  => (string) $this->admin_user_id,
+		);
+
+		// Admin is unrestricted.
+		$result = $this->workflow->freeze_locked_document_data( $data, array( 'ID' => $post_id ) );
+		$this->assertSame( 'Changed by admin', $result['post_title'] );
+
+		// Wrong post type is ignored.
+		$data['post_type'] = 'post';
+		wp_set_current_user( $this->editor_user_id );
+		$result = $this->workflow->freeze_locked_document_data( $data, array( 'ID' => $post_id ) );
+		$this->assertSame( 'Changed by admin', $result['post_title'] );
+
+		// Missing post ID is ignored.
+		$data['post_type'] = 'documentate_document';
+		$result = $this->workflow->freeze_locked_document_data( $data, array( 'ID' => 0 ) );
+		$this->assertSame( 'Changed by admin', $result['post_title'] );
+	}
+
+	/**
+	 * freeze_locked_document_data freezes pending documents for non-admins.
+	 */
+	public function test_freeze_locked_document_data_pending() {
+		global $wpdb;
+
+		wp_set_current_user( $this->admin_user_id );
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Pending original',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'pending',
+			)
+		);
+
+		// Seed title/content outside the compose filter.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->posts,
+			array(
+				'post_title'   => 'Pending original',
+				'post_content' => 'Pending body',
+			),
+			array( 'ID' => $post_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+		clean_post_cache( $post_id );
+
+		wp_set_current_user( $this->editor_user_id );
+		$data = array(
+			'post_type'    => 'documentate_document',
+			'post_title'   => wp_slash( 'Hijacked pending' ),
+			'post_content' => wp_slash( 'Hijacked body' ),
+			'post_excerpt' => '',
+			'post_status'  => 'pending',
+			'post_name'    => 'pending-original',
+			'post_author'  => (string) $this->admin_user_id,
+		);
+
+		$result = $this->workflow->freeze_locked_document_data( $data, array( 'ID' => $post_id ) );
+		$this->assertSame( 'pending', $result['post_status'] );
+		$this->assertSame( wp_slash( 'Pending original' ), $result['post_title'] );
+		$this->assertSame( wp_slash( 'Pending body' ), $result['post_content'] );
+	}
+
+	/**
+	 * freeze_locked_document_data freezes archived documents for non-admins.
+	 */
+	public function test_freeze_locked_document_data_archived() {
+		global $wpdb;
+
+		wp_set_current_user( $this->admin_user_id );
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Archived original',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'archived',
+			)
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->posts,
+			array(
+				'post_title'   => 'Archived original',
+				'post_content' => 'Archived body',
+			),
+			array( 'ID' => $post_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+		clean_post_cache( $post_id );
+
+		wp_set_current_user( $this->editor_user_id );
+		$data = array(
+			'post_type'    => 'documentate_document',
+			'post_title'   => wp_slash( 'Hijacked archived' ),
+			'post_content' => wp_slash( 'Hijacked archived body' ),
+			'post_excerpt' => '',
+			'post_status'  => 'archived',
+			'post_name'    => 'archived-original',
+			'post_author'  => (string) $this->admin_user_id,
+		);
+
+		$result = $this->workflow->freeze_locked_document_data( $data, array( 'ID' => $post_id ) );
+		$this->assertSame( 'archived', $result['post_status'] );
+		$this->assertSame( wp_slash( 'Archived original' ), $result['post_title'] );
+	}
+
+	/**
 	 * Test that other post types are not affected by workflow.
 	 */
 	public function test_other_post_types_not_affected() {

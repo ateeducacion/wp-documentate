@@ -1200,19 +1200,23 @@ class Documentate_Admin_Helper {
 		$result = call_user_func( array( 'Documentate_Document_Generator', $method ), $post_id );
 
 		if ( is_wp_error( $result ) ) {
-			// Include debug info for troubleshooting.
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
-
-			$debug = array(
-				'code' => $result->get_error_code(),
-				'data' => $result->get_error_data(),
-				'is_playground' => Documentate_Collabora_Converter::is_playground(),
-			);
+			// Never return Collabora endpoint/body details to the browser — they
+			// can disclose internal conversion URLs. Log only when debugging.
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional when WP_DEBUG is enabled.
+				error_log(
+					sprintf(
+						'[Documentate] generate_document failed: %s | code=%s | data=%s',
+						$result->get_error_message(),
+						$result->get_error_code(),
+						wp_json_encode( $result->get_error_data() )
+					)
+				);
+			}
 
 			wp_send_json_error(
 				array(
 					'message' => $result->get_error_message(),
-					'debug' => $debug,
 				)
 			);
 		}

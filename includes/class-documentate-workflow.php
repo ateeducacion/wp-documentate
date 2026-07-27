@@ -64,6 +64,10 @@ class Documentate_Workflow {
 				'message' => __( 'Published documents can only be modified by administrators.', 'documentate' ),
 				'type' => 'error',
 			),
+			'pending_locked' => array(
+				'message' => __( 'Documents pending review can only be modified by administrators.', 'documentate' ),
+				'type' => 'error',
+			),
 			'archive_requires_publish' => array(
 				'message' => __( 'Only published documents can be archived.', 'documentate' ),
 				'type' => 'error',
@@ -102,6 +106,8 @@ class Documentate_Workflow {
 
 		// Status control before saving.
 		add_filter( 'wp_insert_post_data', array( $this, 'control_post_status' ), 10, 2 );
+		// After content composition: freeze locked documents for non-admins.
+		add_filter( 'wp_insert_post_data', array( $this, 'freeze_locked_document_data' ), 99, 2 );
 
 		// Admin notices for status changes.
 		add_action( 'admin_notices', array( $this, 'display_workflow_notices' ) );
@@ -442,6 +448,35 @@ class Documentate_Workflow {
 	}
 
 	/**
+	 * Statuses that lock content edits for non-administrators.
+	 *
+	 * @param string $status Post status.
+	 * @return bool
+	 */
+	public static function status_locks_content_for_non_admins( $status ) {
+		return in_array( (string) $status, array( 'publish', 'archived', 'pending' ), true );
+	}
+
+	/**
+	 * Whether the current user may modify a document's content and meta.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return bool
+	 */
+	public static function current_user_can_modify_document( $post_id ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post || 'documentate_document' !== $post->post_type ) {
+			return true;
+		}
+
+		return ! self::status_locks_content_for_non_admins( $post->post_status );
+	}
+
+	/**
 	 * Check if the given status should lock the document for this user.
 	 *
 	 * @param string $status   Post status.
@@ -449,13 +484,64 @@ class Documentate_Workflow {
 	 * @return bool True if document should be locked.
 	 */
 	private function is_status_locked( $status, $is_admin ) {
-		if ( in_array( $status, array( 'publish', 'archived' ), true ) && ! $is_admin ) {
-			return true;
+		if ( $is_admin ) {
+			return false;
 		}
-		if ( 'pending' === $status && ! $is_admin ) {
-			return true;
+		return self::status_locks_content_for_non_admins( $status );
+	}
+
+	/**
+	 * Restore core post fields from the database when a non-admin hits a locked document.
+	 *
+	 * UI locks alone are not enough: a crafted save_post request can still change
+	 * title/content while status is forced to stay published/pending/archived.
+	 *
+	 * Runs at priority 99 so it wins over content composition filters.
+	 *
+	 * @param array $data    Sanitized post data to be inserted.
+	 * @param array $postarr Raw post data.
+	 * @return array
+	 */
+	public function freeze_locked_document_data( $data, $postarr ) {
+		if ( empty( $data['post_type'] ) || $data['post_type'] !== $this->post_type ) {
+			return $data;
 		}
-		return false;
+
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return $data;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return $data;
+		}
+
+		$post_id = isset( $postarr['ID'] ) ? absint( $postarr['ID'] ) : 0;
+		if ( $post_id <= 0 ) {
+			return $data;
+		}
+
+		$current_post = get_post( $post_id );
+		if ( ! $current_post || ! self::status_locks_content_for_non_admins( $current_post->post_status ) ) {
+			return $data;
+		}
+
+		// wp_insert_post_data expects slashed field values.
+		$data['post_content'] = wp_slash( $current_post->post_content );
+		$data['post_title']   = wp_slash( $current_post->post_title );
+		$data['post_excerpt'] = wp_slash( $current_post->post_excerpt );
+		$data['post_status']  = $current_post->post_status;
+		$data['post_name']    = wp_slash( $current_post->post_name );
+		$data['post_author']  = (string) (int) $current_post->post_author;
+
+		if ( 'publish' === $current_post->post_status ) {
+			$this->status_change_reason = 'published_locked';
+		} elseif ( 'archived' === $current_post->post_status ) {
+			$this->status_change_reason = 'archived_locked';
+		} else {
+			$this->status_change_reason = 'pending_locked';
+		}
+
+		return $data;
 	}
 
 	/**

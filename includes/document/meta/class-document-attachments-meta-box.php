@@ -158,6 +158,14 @@ class Document_Attachments_Meta_Box {
 			return false;
 		}
 
+		// Respect workflow locks (published/pending/archived for non-admins).
+		if (
+			class_exists( 'Documentate_Workflow' )
+			&& ! \Documentate_Workflow::current_user_can_modify_document( $post_id )
+		) {
+			return false;
+		}
+
 		$post = get_post( $post_id );
 		return $post instanceof WP_Post;
 	}

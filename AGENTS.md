@@ -88,9 +88,26 @@ make test FILE=tests/unit/Foo.php # run a specific test file
 | New or changed user-facing strings                  | also `make check-untranslated`               |
 | UI, admin flows, editor flows, or browser behaviour | also `make test-e2e`                         |
 | Full pre-merge verification                         | `make check` (covers all of the above)       |
+| **Before every `git push` / opening a PR**          | at least `make lint`, `make test`, and **`make check-untranslated`** |
 
 If Docker / wp-env is unavailable, still write code that is designed to pass all
 checks, and state clearly which checks could not be run locally.
+
+### Pre-push gate (agents — mandatory)
+
+**Never push or open a PR without verifying translations.** CI runs
+`make check-untranslated` and **fails the job** if any Spanish `msgstr` is empty.
+
+Before `git push` or `gh pr create`:
+
+1. Search the diff for new/changed `__()` / `_e()` / `_n()` / `_x()` strings.
+2. Update `languages/documentate-es_ES.po` in the **same commit** (Spanish
+   `msgstr` filled in — not left blank).
+3. Run **`make check-untranslated`** and confirm it exits 0.
+4. If it fails, fix the empty `msgstr` entries (and re-run) before pushing.
+
+Do not treat “tests passed” as enough for a push: PHPUnit does not catch missing
+`.po` entries. Untranslated strings are a **CI blocker**, same as lint failures.
 
 ---
 
@@ -151,7 +168,17 @@ A task is **not complete** if any of the following remain:
   update `languages/documentate-es_ES.po` (and any other `.po` files present)
   in the same commit. A change that touches `__()`/`_e()`/`_n()`/`_x()` and
   ships without a `.po` update is incomplete.
-- Run `make check-untranslated` to verify.
+- **Required before push/PR:** run `make check-untranslated` and ensure it
+  passes. Empty `msgstr ""` entries after a new `msgid` are CI failures —
+  fill the Spanish translation, do not leave placeholders empty.
+- Practical workflow when adding a string:
+
+  ```bash
+  # After adding/changing __() strings in PHP:
+  make check-untranslated   # regenerates pot/po and lists untranslated
+  # Edit languages/documentate-es_ES.po: fill msgstr for each new msgid
+  make check-untranslated   # must exit 0 before git push
+  ```
 
 ### PHPDoc
 
@@ -202,10 +229,12 @@ A change is ready when **all** of the following are true:
 1. `make lint` passes with no errors.
 2. `make check-plugin` passes with no errors.
 3. `make test` passes with no failures.
-4. `make check-untranslated` passes (if strings were added or changed).
+4. `make check-untranslated` passes with no empty Spanish translations
+   (**always** before push/PR — not optional “if you remember strings”).
 5. `make test-e2e` passes for the affected flows (if UI/browser behaviour changed).
 6. PHPDoc is updated for any modified functions or classes.
 7. No unrelated files, classes, or hooks were renamed or removed.
+8. No push/PR is opened while `make check-untranslated` is red.
 
 ---
 
