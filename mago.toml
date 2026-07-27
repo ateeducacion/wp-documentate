@@ -9,7 +9,7 @@ php-version = "8.3"
 
 [source]
 # Plugin source code to lint, format, and analyze
-paths = ["admin", "includes", "public", "documentate.php", "uninstall.php"]
+paths = ["admin", "includes", "documentate.php", "uninstall.php"]
 
 # Vendor dependencies parsed for type context only (symbols, types, classes);
 # these files are NOT analyzed, linted, or formatted by any tool.

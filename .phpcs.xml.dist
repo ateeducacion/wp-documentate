@@ -2,17 +2,19 @@
 <ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="Documentate WordPress Coding Standards" xsi:noNamespaceSchemaLocation="https://schema.phpcodesniffer.com/phpcs.xsd">
     <description>WordPress Coding Standards for the Documentate plugin.</description>
 
+    <!-- Own plugin PHP only. `public/` is reserved for front-end code if added later. -->
     <file>admin</file>
     <file>includes</file>
-    <file>public</file>
     <file>documentate.php</file>
     <file>uninstall.php</file>
 
     <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/admin/vendor/*</exclude-pattern>
     <exclude-pattern>*/assets/*</exclude-pattern>
     <exclude-pattern>*/node_modules/*</exclude-pattern>
     <exclude-pattern>*/tests/*</exclude-pattern>
     <exclude-pattern>*/wp/*</exclude-pattern>
+    <exclude-pattern>*/cloudflare-worker/*</exclude-pattern>
 
     <arg name="colors"/>
     <arg name="extensions" value="php"/>

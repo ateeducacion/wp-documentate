@@ -218,45 +218,41 @@ check: lint check-plugin test check-untranslated mo
 
 check-all: check
 
-# Install PHP_CodeSniffer and WordPress Coding Standards via Composer.
-install-phpcs:
-	@echo "Checking if PHP_CodeSniffer is installed..."
+# Ensure PHP_CodeSniffer is available. Does not install dependencies automatically.
+require-phpcs:
 	@if [ ! -x "./vendor/bin/phpcs" ]; then \
-		echo "Installing Composer dependencies..."; \
-		composer install --prefer-dist; \
-	else \
-		echo "PHP_CodeSniffer is already installed."; \
+		echo "Error: PHP_CodeSniffer is not installed."; \
+		echo "Run: composer install --prefer-dist"; \
+		exit 1; \
 	fi
 
 # Check WordPress Coding Standards. This is the default PHP lint target.
-lint: install-phpcs
+# Canonical tool: PHPCS + WPCS (.phpcs.xml.dist). Does not modify files.
+lint: require-phpcs
 	composer phpcs
 
-# Automatically fix WordPress Coding Standards violations.
-fix: install-phpcs
+# Automatically fix WordPress Coding Standards violations with PHPCBF.
+fix: require-phpcs
 	composer phpcbf
 
 # Non-interactive aliases for git hooks.
 fix-no-tty: fix
 lint-no-tty: lint
 
-# Mago is retained as an optional secondary tool while its remaining value is
-# evaluated. It is not part of the default checks and may be removed later.
-install-mago:
-	@echo "Checking if Mago is installed..."
+# Optional secondary Mago tooling. Not part of default checks or CI.
+# May be removed if it does not provide enough additional value.
+require-mago:
 	@if [ ! -x "./vendor/bin/mago" ]; then \
-		echo "Installing Composer dependencies..."; \
-		composer install --prefer-dist; \
-	else \
-		echo "Mago is already installed."; \
+		echo "Error: Mago is not installed."; \
+		echo "Run: composer install --prefer-dist"; \
+		exit 1; \
 	fi
 
-mago-lint: install-mago
+mago-lint: require-mago
 	composer mago:lint
 
-mago-format: install-mago
+mago-format: require-mago
 	composer mago:format
-
 # Run PHP Mess Detector ignoring vendor and node_modules
 phpmd:
 	phpmd . text cleancode,codesize,controversial,design,naming,unusedcode --exclude vendor,node_modules,tests
