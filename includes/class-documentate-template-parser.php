@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Template parser helpers for Documentate.
  *
@@ -16,91 +15,94 @@ class Documentate_Template_Parser {
 	 * @param string $template_path Absolute path to template file.
 	 * @return array|string[]|WP_Error Array of unique placeholder slugs or WP_Error on failure.
 	 */
-	public static function extract_fields($template_path) {
-		if (empty($template_path) || !file_exists($template_path)) {
-			return new WP_Error('documentate_template_missing', __('The selected template was not found.', 'documentate'));
+	public static function extract_fields( $template_path ) {
+		if ( empty( $template_path ) || ! file_exists( $template_path ) ) {
+			return new WP_Error( 'documentate_template_missing', __( 'The selected template was not found.', 'documentate' ) );
 		}
 
-		$extension = strtolower(pathinfo($template_path, PATHINFO_EXTENSION));
-		if (!in_array($extension, array('docx', 'odt'), true)) {
-			return new WP_Error('documentate_template_invalid', __('The file must be a DOCX or ODT.', 'documentate'));
+		$extension = strtolower( pathinfo( $template_path, PATHINFO_EXTENSION ) );
+		if ( ! in_array( $extension, array( 'docx', 'odt' ), true ) ) {
+			return new WP_Error( 'documentate_template_invalid', __( 'The file must be a DOCX or ODT.', 'documentate' ) );
 		}
 
-		if (!class_exists('ZipArchive')) {
-			return new WP_Error('documentate_zip_missing', __('ZipArchive is not available on the server.', 'documentate'));
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error( 'documentate_zip_missing', __( 'ZipArchive is not available on the server.', 'documentate' ) );
 		}
 
 		$zip = new ZipArchive();
-		if (true !== $zip->open($template_path)) {
-			return new WP_Error('documentate_template_unzip', __('Could not open the template for analysis.', 'documentate'));
+		if ( true !== $zip->open( $template_path ) ) {
+			return new WP_Error( 'documentate_template_unzip', __( 'Could not open the template for analysis.', 'documentate' ) );
 		}
 
 		$targets = array();
-		if ('docx' === $extension) {
+		if ( 'docx' === $extension ) {
 			// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive exposes camelCase properties.
-			for ($i = 0; $i < $zip->numFiles; $i++) {
-				$name = $zip->getNameIndex($i);
-				if (str_starts_with($name, 'word/') && self::ends_with($name, '.xml')) {
+			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+				$name = $zip->getNameIndex( $i );
+				if ( str_starts_with( $name, 'word/' ) && self::ends_with( $name, '.xml' ) ) {
 					$targets[] = $name;
 				}
 			}
 		} else {
 			// ODT: main content plus styles (headers/footers).
-			foreach (array('content.xml', 'styles.xml') as $candidate) {
-				if (false !== $zip->locateName($candidate)) {
+			foreach ( array( 'content.xml', 'styles.xml' ) as $candidate ) {
+				if ( false !== $zip->locateName( $candidate ) ) {
 					$targets[] = $candidate;
 				}
 			}
 		}
 
 		$placeholders = array();
-		foreach ($targets as $file) {
-			$contents = $zip->getFromName($file);
-			if (false === $contents) {
+		foreach ( $targets as $file ) {
+			$contents = $zip->getFromName( $file );
+			if ( false === $contents ) {
 				continue;
 			}
-			$normalized = self::normalize_xml_text($contents);
-			if ('' === $normalized) {
+			$normalized = self::normalize_xml_text( $contents );
+			if ( '' === $normalized ) {
 				continue;
 			}
-			preg_match_all('/\[([^\]\r\n]+)\]/', $normalized, $matches);
-			if (empty($matches[1])) {
+			preg_match_all( '/\[([^\]\r\n]+)\]/', $normalized, $matches );
+			if ( empty( $matches[1] ) ) {
 				continue;
 			}
-			foreach ($matches[1] as $raw_field) {
-				$parsed = self::parse_placeholder($raw_field);
-				if (empty($parsed['placeholder'])) {
+			foreach ( $matches[1] as $raw_field ) {
+				$parsed = self::parse_placeholder( $raw_field );
+				if ( empty( $parsed['placeholder'] ) ) {
 					continue;
 				}
-				$key = strtolower($parsed['placeholder']);
-				if (isset($placeholders[$key])) {
+				$key = strtolower( $parsed['placeholder'] );
+				if ( isset( $placeholders[ $key ] ) ) {
 					// Prefer keeping parameters when multiple instances exist.
-					if (empty($placeholders[$key]['parameters']) && !empty($parsed['parameters'])) {
-						$placeholders[$key] = $parsed;
+					if ( empty( $placeholders[ $key ]['parameters'] ) && ! empty( $parsed['parameters'] ) ) {
+						$placeholders[ $key ] = $parsed;
 					}
 					continue;
 				}
-				$placeholders[$key] = $parsed;
+				$placeholders[ $key ] = $parsed;
 			}
 		}
 
 		$zip->close();
 
-		if (empty($placeholders)) {
+		if ( empty( $placeholders ) ) {
 			return array();
 		}
 
 		$fields = array();
-		foreach ($placeholders as $parsed) {
-			$fields[] = self::format_field_info($parsed);
+		foreach ( $placeholders as $parsed ) {
+			$fields[] = self::format_field_info( $parsed );
 		}
 
-		if (!empty($fields)) {
-			usort($fields, static function ($a, $b) {
-				$label_a = isset($a['label']) ? $a['label'] : '';
-				$label_b = isset($b['label']) ? $b['label'] : '';
-				return strnatcasecmp($label_a, $label_b);
-			});
+		if ( ! empty( $fields ) ) {
+			usort(
+				$fields,
+				static function ( $a, $b ) {
+					$label_a = isset( $a['label'] ) ? $a['label'] : '';
+					$label_b = isset( $b['label'] ) ? $b['label'] : '';
+					return strnatcasecmp( $label_a, $label_b );
+				}
+			);
 		}
 
 		return $fields;
@@ -112,8 +114,8 @@ class Documentate_Template_Parser {
 	 * @param string $xml XML fragment.
 	 * @return string Plain text representation.
 	 */
-	private static function normalize_xml_text($xml) {
-		if ('' === $xml) {
+	private static function normalize_xml_text( $xml ) {
+		if ( '' === $xml ) {
 			return '';
 		}
 
@@ -124,15 +126,15 @@ class Documentate_Template_Parser {
 			'/<\/text:p>\s*<text:p[^>]*>/' => ' ',
 		);
 		$normalized = $xml;
-		foreach ($replacements as $pattern => $replacement) {
-			$normalized = preg_replace($pattern, $replacement, $normalized);
+		foreach ( $replacements as $pattern => $replacement ) {
+			$normalized = preg_replace( $pattern, $replacement, $normalized );
 		}
 
 		// Remove control characters that may interfere with regex detection.
-		$normalized = preg_replace('/[\x00-\x1F\x7F]/', '', $normalized);
+		$normalized = preg_replace( '/[\x00-\x1F\x7F]/', '', $normalized );
 
 		// Strip tags while keeping text.
-		$normalized = wp_strip_all_tags($normalized);
+		$normalized = wp_strip_all_tags( $normalized );
 		return $normalized;
 	}
 
@@ -142,212 +144,282 @@ class Documentate_Template_Parser {
 	 * @param array $fields Parsed placeholder definitions returned by extract_fields().
 	 * @return array[]
 	 */
-	public static function build_schema_from_field_definitions($fields) {
-		if (!is_array($fields)) {
+	public static function build_schema_from_field_definitions( $fields ) {
+		if ( ! is_array( $fields ) ) {
 			return array();
 		}
 
-		$array_defs = array();
-		$array_order = array();
-		$repeat_hints = array();
-		$pending = array();
-		$order_counter = 0;
+		$state = array(
+			'array_defs'    => array(),
+			'repeat_hints'  => array(),
+			'pending'       => array(),
+			'order_counter' => 0,
+		);
 
-		foreach ($fields as $index => $field) {
-			if (!is_array($field)) {
+		foreach ( $fields as $index => $field ) {
+			if ( ! is_array( $field ) ) {
 				continue;
 			}
+			self::collect_field_definition_pass( $field, $index, $state );
+		}
 
-			$placeholder = isset($field['placeholder']) ? trim((string) $field['placeholder']) : '';
-			$parameters = isset($field['parameters']) && is_array($field['parameters']) ? $field['parameters'] : array();
-			$label = isset($field['label']) ? sanitize_text_field($field['label']) : '';
-			$data_type = isset($field['data_type']) ? sanitize_key($field['data_type']) : 'text';
-
-			$array_match = self::detect_array_placeholder_with_index($placeholder);
-			if ($array_match) {
-				$base = $array_match['base'];
-				$key = $array_match['key'];
-
-				if ('' === $base || '' === $key) {
-					continue;
-				}
-
-				$repeat_hints[$base] = true;
-
-				if (!isset($array_defs[$base])) {
-					$array_defs[$base] = array(
-						'slug' => $base,
-						'label' => self::humanize_key($base),
-						'type' => 'array',
-						'placeholder' => $base,
-						'data_type' => 'array',
-						'item_schema' => array(),
-						'_order' => $order_counter++,
-					);
-					$array_order[] = $base;
-				}
-
-				if ('' === $label) {
-					$label = self::humanize_key($array_match['raw_key']);
-				}
-
-				if (!isset($array_defs[$base]['item_schema'][$key])) {
-					$item_data_type = self::detect_data_type($placeholder, $parameters);
-					if ('' === $item_data_type) {
-						$item_data_type = 'text';
-					}
-
-					$array_defs[$base]['item_schema'][$key] = array(
-						'label' => $label,
-						'type' => self::infer_array_item_type($key, $item_data_type),
-						'data_type' => $item_data_type,
-						'parameters' => $parameters,
-					);
-				}
-
-				continue;
+		$scalar_fields = array();
+		foreach ( $state['pending'] as $entry ) {
+			$result = self::resolve_pending_field_entry( $entry, $state );
+			if ( null !== $result ) {
+				$scalar_fields[] = $result;
 			}
+		}
 
-			if (isset($parameters['repeat'])) {
-				$repeat_base = sanitize_key($parameters['repeat']);
-				if ('' !== $repeat_base) {
-					$repeat_hints[$repeat_base] = true;
-				}
+		return self::finalize_schema_definitions( $state['array_defs'], $scalar_fields );
+	}
+
+	/**
+	 * First pass: register indexed array placeholders and collect pending scalar/array candidates.
+	 *
+	 * @param array $field Field definition.
+	 * @param int   $index Source order index.
+	 * @param array $state Mutable collector state.
+	 * @return void
+	 */
+	private static function collect_field_definition_pass( $field, $index, &$state ) {
+		$placeholder = isset( $field['placeholder'] ) ? trim( (string) $field['placeholder'] ) : '';
+		$parameters  = isset( $field['parameters'] ) && is_array( $field['parameters'] ) ? $field['parameters'] : array();
+		$label       = isset( $field['label'] ) ? sanitize_text_field( $field['label'] ) : '';
+		$data_type   = isset( $field['data_type'] ) ? sanitize_key( $field['data_type'] ) : 'text';
+
+		$array_match = self::detect_array_placeholder_with_index( $placeholder );
+		if ( $array_match ) {
+			self::register_array_item_field(
+				$state,
+				$array_match['base'],
+				$array_match['key'],
+				$array_match['raw_key'],
+				$placeholder,
+				$parameters,
+				$label
+			);
+			return;
+		}
+
+		if ( isset( $parameters['repeat'] ) ) {
+			$repeat_base = sanitize_key( $parameters['repeat'] );
+			if ( '' !== $repeat_base ) {
+				$state['repeat_hints'][ $repeat_base ] = true;
 			}
+		}
 
-			$pending[] = array(
-				'field' => $field,
-				'placeholder' => $placeholder,
-				'parameters' => $parameters,
-				'label' => $label,
-				'data_type' => $data_type,
-				'index' => $index,
+		$state['pending'][] = array(
+			'field'       => $field,
+			'placeholder' => $placeholder,
+			'parameters'  => $parameters,
+			'label'       => $label,
+			'data_type'   => $data_type,
+			'index'       => $index,
+		);
+	}
+
+	/**
+	 * Second pass: attach unindexed array members or emit a scalar field definition.
+	 *
+	 * @param array $entry Pending entry from the first pass.
+	 * @param array $state Mutable collector state.
+	 * @return array|null Scalar field definition, or null when handled as array item.
+	 */
+	private static function resolve_pending_field_entry( $entry, &$state ) {
+		$placeholder = $entry['placeholder'];
+		$parameters  = $entry['parameters'];
+		$label       = $entry['label'];
+		$data_type   = $entry['data_type'];
+
+		$dot_match = self::detect_array_placeholder_without_index( $placeholder );
+		if (
+			$dot_match
+			&& ( isset( $state['repeat_hints'][ $dot_match['base'] ] ) || isset( $state['array_defs'][ $dot_match['base'] ] ) )
+		) {
+			self::register_array_item_field(
+				$state,
+				$dot_match['base'],
+				$dot_match['key'],
+				$dot_match['raw_key'],
+				$placeholder,
+				$parameters,
+				$label
+			);
+			return null;
+		}
+
+		return self::build_scalar_field_definition( $entry );
+	}
+
+	/**
+	 * Ensure an array field definition exists and register one item-schema entry.
+	 *
+	 * @param array  $state       Mutable collector state.
+	 * @param string $base        Array base slug.
+	 * @param string $key         Item key.
+	 * @param string $raw_key     Raw key for humanized labels.
+	 * @param string $placeholder Full placeholder string.
+	 * @param array  $parameters  Placeholder parameters.
+	 * @param string $label       Optional label.
+	 * @return void
+	 */
+	private static function register_array_item_field( &$state, $base, $key, $raw_key, $placeholder, $parameters, $label ) {
+		if ( '' === $base || '' === $key ) {
+			return;
+		}
+
+		$state['repeat_hints'][ $base ] = true;
+
+		if ( ! isset( $state['array_defs'][ $base ] ) ) {
+			$state['array_defs'][ $base ] = array(
+				'slug'        => $base,
+				'label'       => self::humanize_key( $base ),
+				'type'        => 'array',
+				'placeholder' => $base,
+				'data_type'   => 'array',
+				'item_schema' => array(),
+				'_order'      => $state['order_counter']++,
 			);
 		}
+
+		if ( isset( $state['array_defs'][ $base ]['item_schema'][ $key ] ) ) {
+			return;
+		}
+
+		if ( '' === $label ) {
+			$label = self::humanize_key( $raw_key );
+		}
+
+		$item_data_type = self::detect_data_type( $placeholder, $parameters );
+		if ( '' === $item_data_type ) {
+			$item_data_type = 'text';
+		}
+
+		$state['array_defs'][ $base ]['item_schema'][ $key ] = array(
+			'label'      => $label,
+			'type'       => self::infer_array_item_type( $key, $item_data_type ),
+			'data_type'  => $item_data_type,
+			'parameters' => $parameters,
+		);
+	}
+
+	/**
+	 * Build a scalar field definition from a pending entry.
+	 *
+	 * @param array $entry Pending field entry.
+	 * @return array|null
+	 */
+	private static function build_scalar_field_definition( $entry ) {
+		$placeholder = $entry['placeholder'];
+		$parameters  = $entry['parameters'];
+		$label       = $entry['label'];
+		$data_type   = $entry['data_type'];
+
+		$slug = isset( $entry['field']['slug'] ) ? sanitize_key( $entry['field']['slug'] ) : '';
+		if ( '' === $slug ) {
+			$slug = sanitize_key( $placeholder );
+		}
+		if ( '' === $slug || in_array( $slug, array( 'onshow', 'ondata', 'block', 'var', 'sign' ), true ) ) {
+			return null;
+		}
+
+		$normalized_placeholder = '' !== $placeholder
+			? preg_replace( '/[^A-Za-z0-9._:-]/', '', $placeholder )
+			: '';
+		if ( '' === $normalized_placeholder ) {
+			$normalized_placeholder = $slug;
+		}
+		if ( '' === $label ) {
+			$label = self::humanize_key( $normalized_placeholder );
+		}
+		if ( ! in_array( $data_type, array( 'text', 'number', 'boolean', 'date' ), true ) ) {
+			$data_type = 'text';
+		}
+
+		return array(
+			'slug'        => $slug,
+			'label'       => $label,
+			'placeholder' => $normalized_placeholder,
+			'data_type'   => $data_type,
+			'parameters'  => $parameters,
+			'_order'      => $entry['index'],
+		);
+	}
+
+	/**
+	 * Sort and assemble the final schema array from array + scalar definitions.
+	 *
+	 * @param array $array_defs    Array field definitions keyed by base slug.
+	 * @param array $scalar_fields Scalar field definitions.
+	 * @return array[]
+	 */
+	private static function finalize_schema_definitions( $array_defs, $scalar_fields ) {
+		return array_merge(
+			self::ordered_array_field_definitions( $array_defs ),
+			self::ordered_scalar_field_definitions( $scalar_fields )
+		);
+	}
+
+	/**
+	 * Sort array field definitions by capture order.
+	 *
+	 * @param array $array_defs Definitions keyed by base slug.
+	 * @return array[]
+	 */
+	private static function ordered_array_field_definitions( $array_defs ) {
+		if ( empty( $array_defs ) ) {
+			return array();
+		}
+
+		uasort( $array_defs, array( self::class, 'compare_schema_order' ) );
 
 		$schema = array();
-		$scalar_fields = array();
-
-		foreach ($pending as $entry) {
-			$placeholder = $entry['placeholder'];
-			$parameters = $entry['parameters'];
-			$label = $entry['label'];
-			$data_type = $entry['data_type'];
-
-			$dot_match = self::detect_array_placeholder_without_index($placeholder);
-			if ($dot_match && (isset($repeat_hints[$dot_match['base']]) || isset($array_defs[$dot_match['base']]))) {
-				$base = $dot_match['base'];
-				$key = $dot_match['key'];
-
-				if ('' === $base || '' === $key) {
-					continue;
-				}
-
-				if (!isset($array_defs[$base])) {
-					$array_defs[$base] = array(
-						'slug' => $base,
-						'label' => self::humanize_key($base),
-						'type' => 'array',
-						'placeholder' => $base,
-						'data_type' => 'array',
-						'item_schema' => array(),
-						'_order' => $order_counter++,
-					);
-					$array_order[] = $base;
-				}
-
-				if (!isset($array_defs[$base]['item_schema'][$key])) {
-					$item_data_type = self::detect_data_type($placeholder, $parameters);
-					if ('' === $label) {
-						$label = self::humanize_key($dot_match['raw_key']);
-					}
-					if ('' === $item_data_type) {
-						$item_data_type = 'text';
-					}
-					$array_defs[$base]['item_schema'][$key] = array(
-						'label' => '' !== $label ? $label : self::humanize_key($dot_match['raw_key']),
-						'type' => self::infer_array_item_type($key, $item_data_type),
-						'data_type' => $item_data_type,
-						'parameters' => $parameters,
-					);
-				}
-
-				continue;
-			}
-
-			$slug = isset($entry['field']['slug']) ? sanitize_key($entry['field']['slug']) : '';
-			if ('' === $slug) {
-				$slug = sanitize_key($placeholder);
-			}
-
-			if ('' === $slug) {
-				continue;
-			}
-
-			$normalized_placeholder = '';
-			if ('' !== $placeholder) {
-				$normalized_placeholder = preg_replace('/[^A-Za-z0-9._:-]/', '', $placeholder);
-			}
-			if ('' === $label) {
-				$source = '' !== $normalized_placeholder ? $normalized_placeholder : $slug;
-				$label = self::humanize_key($source);
-			}
-
-			if ('' === $normalized_placeholder) {
-				$normalized_placeholder = $slug;
-			}
-
-			if (!in_array($data_type, array('text', 'number', 'boolean', 'date'), true)) {
-				$data_type = 'text';
-			}
-
-			if (in_array($slug, array('onshow', 'ondata', 'block', 'var', 'sign'), true)) {
-				continue;
-			}
-
-			$scalar_fields[] = array(
-				'slug' => $slug,
-				'label' => $label,
-				'placeholder' => $normalized_placeholder,
-				'data_type' => $data_type,
-				'parameters' => $parameters,
-				'_order' => $entry['index'],
-			);
+		foreach ( $array_defs as $def ) {
+			unset( $def['_order'] );
+			$schema[] = $def;
 		}
-
-		if (!empty($array_defs)) {
-			uasort($array_defs, static function ($a, $b) {
-				$order_a = isset($a['_order']) ? intval($a['_order']) : 0;
-				$order_b = isset($b['_order']) ? intval($b['_order']) : 0;
-				return $order_a <=> $order_b;
-			});
-
-			foreach ($array_defs as $base => $def) {
-				unset($def['_order']);
-				$schema[] = $def;
-			}
-		}
-
-		if (!empty($scalar_fields)) {
-			usort($scalar_fields, static function ($a, $b) {
-				$order_a = isset($a['_order']) ? intval($a['_order']) : 0;
-				$order_b = isset($b['_order']) ? intval($b['_order']) : 0;
-				return $order_a <=> $order_b;
-			});
-
-			foreach ($scalar_fields as $field) {
-				unset($field['_order']);
-				$field['type'] = self::infer_scalar_field_type(
-					isset($field['slug']) ? $field['slug'] : '',
-					isset($field['label']) ? $field['label'] : '',
-					isset($field['data_type']) ? $field['data_type'] : '',
-					isset($field['placeholder']) ? $field['placeholder'] : '',
-				);
-				$schema[] = $field;
-			}
-		}
-
 		return $schema;
+	}
+
+	/**
+	 * Sort scalar field definitions and assign inferred types.
+	 *
+	 * @param array $scalar_fields Scalar field definitions.
+	 * @return array[]
+	 */
+	private static function ordered_scalar_field_definitions( $scalar_fields ) {
+		if ( empty( $scalar_fields ) ) {
+			return array();
+		}
+
+		usort( $scalar_fields, array( self::class, 'compare_schema_order' ) );
+
+		$schema = array();
+		foreach ( $scalar_fields as $field ) {
+			unset( $field['_order'] );
+			$field['type'] = self::infer_scalar_field_type(
+				isset( $field['slug'] ) ? $field['slug'] : '',
+				isset( $field['label'] ) ? $field['label'] : '',
+				isset( $field['data_type'] ) ? $field['data_type'] : '',
+				isset( $field['placeholder'] ) ? $field['placeholder'] : ''
+			);
+			$schema[] = $field;
+		}
+		return $schema;
+	}
+
+	/**
+	 * Compare two schema entries by their internal _order key.
+	 *
+	 * @param array $a First entry.
+	 * @param array $b Second entry.
+	 * @return int
+	 */
+	private static function compare_schema_order( $a, $b ) {
+		$order_a = isset( $a['_order'] ) ? intval( $a['_order'] ) : 0;
+		$order_b = isset( $b['_order'] ) ? intval( $b['_order'] ) : 0;
+		return $order_a <=> $order_b;
 	}
 
 	/**
@@ -360,9 +432,9 @@ class Documentate_Template_Parser {
 	 *     parameters: array<string, string>
 	 * }
 	 */
-	private static function parse_placeholder($raw_field) {
-		$raw_field = trim($raw_field);
-		if ('' === $raw_field) {
+	private static function parse_placeholder( $raw_field ) {
+		$raw_field = trim( $raw_field );
+		if ( '' === $raw_field ) {
 			return array(
 				'raw' => '',
 				'placeholder' => '',
@@ -370,23 +442,23 @@ class Documentate_Template_Parser {
 			);
 		}
 
-		$parts = preg_split('/\s*;\s*/', $raw_field);
-		$placeholder = trim(array_shift($parts));
+		$parts = preg_split( '/\s*;\s*/', $raw_field );
+		$placeholder = trim( array_shift( $parts ) );
 		$parameters = array();
 
-		if (!empty($parts)) {
-			foreach ($parts as $param) {
-				$param = trim($param);
-				if ('' === $param) {
+		if ( ! empty( $parts ) ) {
+			foreach ( $parts as $param ) {
+				$param = trim( $param );
+				if ( '' === $param ) {
 					continue;
 				}
-				$pair = explode('=', $param, 2);
-				$name = strtolower(trim($pair[0]));
-				if ('' === $name) {
+				$pair = explode( '=', $param, 2 );
+				$name = strtolower( trim( $pair[0] ) );
+				if ( '' === $name ) {
 					continue;
 				}
-				$value = count($pair) > 1 ? strtolower(trim($pair[1])) : '1';
-				$parameters[$name] = $value;
+				$value = count( $pair ) > 1 ? strtolower( trim( $pair[1] ) ) : '1';
+				$parameters[ $name ] = $value;
 			}
 		}
 
@@ -409,20 +481,20 @@ class Documentate_Template_Parser {
 	 *     parameters: array<string, string>
 	 * }
 	 */
-	private static function format_field_info($parsed) {
-		$placeholder = isset($parsed['placeholder']) ? (string) $parsed['placeholder'] : '';
-		$parameters = isset($parsed['parameters']) && is_array($parsed['parameters']) ? $parsed['parameters'] : array();
+	private static function format_field_info( $parsed ) {
+		$placeholder = isset( $parsed['placeholder'] ) ? (string) $parsed['placeholder'] : '';
+		$parameters = isset( $parsed['parameters'] ) && is_array( $parsed['parameters'] ) ? $parsed['parameters'] : array();
 
-		$slug_source = self::normalize_slug_source($placeholder);
-		$slug = sanitize_key($slug_source);
-		if ('' === $slug) {
-			$slug = sanitize_key(str_replace(array('.', ':'), '_', strtolower($placeholder)));
+		$slug_source = self::normalize_slug_source( $placeholder );
+		$slug = sanitize_key( $slug_source );
+		if ( '' === $slug ) {
+			$slug = sanitize_key( str_replace( array( '.', ':' ), '_', strtolower( $placeholder ) ) );
 		}
 
-		$label_source = str_replace(array('.', ':'), ' ', $slug_source);
-		$label = self::humanize_key($label_source);
+		$label_source = str_replace( array( '.', ':' ), ' ', $slug_source );
+		$label = self::humanize_key( $label_source );
 
-		$data_type = self::detect_data_type($placeholder, $parameters);
+		$data_type = self::detect_data_type( $placeholder, $parameters );
 
 		return array(
 			'placeholder' => $placeholder,
@@ -439,15 +511,15 @@ class Documentate_Template_Parser {
 	 * @param string $placeholder Placeholder name without parameters.
 	 * @return string
 	 */
-	private static function normalize_slug_source($placeholder) {
-		$placeholder = trim((string) $placeholder);
-		if ('' === $placeholder) {
+	private static function normalize_slug_source( $placeholder ) {
+		$placeholder = trim( (string) $placeholder );
+		if ( '' === $placeholder ) {
 			return '';
 		}
 
-		$segments = explode('.', $placeholder);
-		if (count($segments) > 1) {
-			$prefix = strtolower($segments[0]);
+		$segments = explode( '.', $placeholder );
+		if ( count( $segments ) > 1 ) {
+			$prefix = strtolower( $segments[0] );
 			$reserved_prefix = array(
 				'onshow',
 				'onload',
@@ -458,9 +530,9 @@ class Documentate_Template_Parser {
 				'var',
 				'block',
 			);
-			if (in_array($prefix, $reserved_prefix, true)) {
-				array_shift($segments);
-				$placeholder = implode('.', $segments);
+			if ( in_array( $prefix, $reserved_prefix, true ) ) {
+				array_shift( $segments );
+				$placeholder = implode( '.', $segments );
 			}
 		}
 
@@ -473,17 +545,17 @@ class Documentate_Template_Parser {
 	 * @param string $slug Slug source.
 	 * @return string
 	 */
-	private static function humanize_key($slug) {
-		$slug = str_replace(array('-', '_', '.'), ' ', strtolower($slug));
-		$slug = preg_replace('/\s+/', ' ', $slug);
-		$slug = trim($slug);
-		if ('' === $slug) {
+	private static function humanize_key( $slug ) {
+		$slug = str_replace( array( '-', '_', '.' ), ' ', strtolower( $slug ) );
+		$slug = preg_replace( '/\s+/', ' ', $slug );
+		$slug = trim( $slug );
+		if ( '' === $slug ) {
 			return '';
 		}
-		if (function_exists('mb_convert_case')) {
-			return mb_convert_case($slug, MB_CASE_TITLE, 'UTF-8');
+		if ( function_exists( 'mb_convert_case' ) ) {
+			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
 		}
-		return ucwords($slug);
+		return ucwords( $slug );
 	}
 
 	/**
@@ -493,41 +565,41 @@ class Documentate_Template_Parser {
 	 * @param array  $parameters  Placeholder parameters.
 	 * @return string One of text|number|boolean|date.
 	 */
-	private static function detect_data_type($placeholder, $parameters) {
-		$placeholder = strtolower((string) $placeholder);
-		$parameters = is_array($parameters) ? $parameters : array();
+	private static function detect_data_type( $placeholder, $parameters ) {
+		$placeholder = strtolower( (string) $placeholder );
+		$parameters = is_array( $parameters ) ? $parameters : array();
 
-		if (isset($parameters['ope'])) {
-			$ope = strtolower((string) $parameters['ope']);
-			if (in_array($ope, array('tbs:num', 'tbs:curr', 'tbs:percent', 'xlsxnum', 'odsnum'), true)) {
+		if ( isset( $parameters['ope'] ) ) {
+			$ope = strtolower( (string) $parameters['ope'] );
+			if ( in_array( $ope, array( 'tbs:num', 'tbs:curr', 'tbs:percent', 'xlsxnum', 'odsnum' ), true ) ) {
 				return 'number';
 			}
-			if (in_array($ope, array('tbs:bool', 'xlsxbool', 'odsbool'), true)) {
+			if ( in_array( $ope, array( 'tbs:bool', 'xlsxbool', 'odsbool' ), true ) ) {
 				return 'boolean';
 			}
-			if (in_array($ope, array('tbs:date', 'tbs:time', 'xlsxdate', 'odsdate', 'odstime'), true)) {
+			if ( in_array( $ope, array( 'tbs:date', 'tbs:time', 'xlsxdate', 'odsdate', 'odstime' ), true ) ) {
 				return 'date';
 			}
 		}
 
-		foreach (array('frm', 'format') as $key) {
-			if (isset($parameters[$key])) {
-				$candidate = strtolower((string) $parameters[$key]);
-				if (preg_match('/[dmyhs]/', $candidate)) {
+		foreach ( array( 'frm', 'format' ) as $key ) {
+			if ( isset( $parameters[ $key ] ) ) {
+				$candidate = strtolower( (string) $parameters[ $key ] );
+				if ( preg_match( '/[dmyhs]/', $candidate ) ) {
 					return 'date';
 				}
 			}
 		}
 
-		if (preg_match('/(date|fecha)$/', $placeholder)) {
+		if ( preg_match( '/(date|fecha)$/', $placeholder ) ) {
 			return 'date';
 		}
-		if (preg_match('/(total|amount|importe|suma|numero|number|qty|cantidad)$/', $placeholder)) {
+		if ( preg_match( '/(total|amount|importe|suma|numero|number|qty|cantidad)$/', $placeholder ) ) {
 			return 'number';
 		}
 		if (
-			preg_match('/^(is|has|tiene|flag|activo|enabled)[._-]?/', $placeholder)
-			|| preg_match('/(flag|activo|enabled)$/', $placeholder)
+			preg_match( '/^(is|has|tiene|flag|activo|enabled)[._-]?/', $placeholder )
+			|| preg_match( '/(flag|activo|enabled)$/', $placeholder )
 		) {
 			return 'boolean';
 		}
@@ -541,31 +613,31 @@ class Documentate_Template_Parser {
 	 * @param string $placeholder Placeholder string.
 	 * @return array{base:string,key:string,raw_key:string}|null
 	 */
-	private static function detect_array_placeholder_with_index($placeholder) {
-		$placeholder = strtolower(trim((string) $placeholder));
-		if ('' === $placeholder) {
+	private static function detect_array_placeholder_with_index( $placeholder ) {
+		$placeholder = strtolower( trim( (string) $placeholder ) );
+		if ( '' === $placeholder ) {
 			return null;
 		}
 
-		$segments = explode('.', $placeholder);
-		if (empty($segments)) {
+		$segments = explode( '.', $placeholder );
+		if ( empty( $segments ) ) {
 			return null;
 		}
 
-		$first = array_shift($segments);
-		if (!preg_match('/^([a-z0-9_]+)\[(\*|\d+)\]$/', $first, $match)) {
+		$first = array_shift( $segments );
+		if ( ! preg_match( '/^([a-z0-9_]+)\[(\*|\d+)\]$/', $first, $match ) ) {
 			return null;
 		}
 
-		if (empty($segments)) {
+		if ( empty( $segments ) ) {
 			return null;
 		}
 
-		$raw_key = implode('.', $segments);
-		$key = sanitize_key(str_replace('.', '_', $raw_key));
+		$raw_key = implode( '.', $segments );
+		$key = sanitize_key( str_replace( '.', '_', $raw_key ) );
 
 		return array(
-			'base' => sanitize_key($match[1]),
+			'base' => sanitize_key( $match[1] ),
 			'key' => $key,
 			'raw_key' => $raw_key,
 		);
@@ -577,22 +649,22 @@ class Documentate_Template_Parser {
 	 * @param string $placeholder Placeholder string.
 	 * @return array{base:string,key:string,raw_key:string}|null
 	 */
-	private static function detect_array_placeholder_without_index($placeholder) {
-		$placeholder = strtolower(trim((string) $placeholder));
-		if ('' === $placeholder) {
+	private static function detect_array_placeholder_without_index( $placeholder ) {
+		$placeholder = strtolower( trim( (string) $placeholder ) );
+		if ( '' === $placeholder ) {
 			return null;
 		}
 
-		$segments = explode('.', $placeholder);
-		if (count($segments) < 2) {
+		$segments = explode( '.', $placeholder );
+		if ( count( $segments ) < 2 ) {
 			return null;
 		}
 
-		$base = sanitize_key(array_shift($segments));
-		$raw_key = implode('.', $segments);
-		$key = sanitize_key(str_replace('.', '_', $raw_key));
+		$base = sanitize_key( array_shift( $segments ) );
+		$raw_key = implode( '.', $segments );
+		$key = sanitize_key( str_replace( '.', '_', $raw_key ) );
 
-		if ('' === $base || '' === $key) {
+		if ( '' === $base || '' === $key ) {
 			return null;
 		}
 
@@ -610,23 +682,23 @@ class Documentate_Template_Parser {
 	 * @param string $data_type Detected data type.
 	 * @return string
 	 */
-	private static function infer_array_item_type($item_key, $data_type) {
-		$item_key = strtolower((string) $item_key);
-		$data_type = strtolower((string) $data_type);
+	private static function infer_array_item_type( $item_key, $data_type ) {
+		$item_key = strtolower( (string) $item_key );
+		$data_type = strtolower( (string) $data_type );
 
-		if (in_array($data_type, array('number', 'date', 'boolean'), true)) {
+		if ( in_array( $data_type, array( 'number', 'date', 'boolean' ), true ) ) {
 			return 'single';
 		}
 
-		if (preg_match('/^(number|numero|número|index|indice)$/', $item_key)) {
+		if ( preg_match( '/^(number|numero|número|index|indice)$/', $item_key ) ) {
 			return 'single';
 		}
 
-		if (preg_match('/^(title|titulo|título|heading|name)$/', $item_key)) {
+		if ( preg_match( '/^(title|titulo|título|heading|name)$/', $item_key ) ) {
 			return 'single';
 		}
 
-		if (preg_match('/(content|texto|text|body|descripcion|descripción)$/', $item_key)) {
+		if ( preg_match( '/(content|texto|text|body|descripcion|descripción)$/', $item_key ) ) {
 			return 'rich';
 		}
 
@@ -642,19 +714,19 @@ class Documentate_Template_Parser {
 	 * @param string $placeholder  Placeholder name.
 	 * @return string
 	 */
-	private static function infer_scalar_field_type($slug, $label, $data_type, $placeholder) {
-		$data_type = strtolower((string) $data_type);
-		if (in_array($data_type, array('number', 'date', 'boolean'), true)) {
+	private static function infer_scalar_field_type( $slug, $label, $data_type, $placeholder ) {
+		$data_type = strtolower( (string) $data_type );
+		if ( in_array( $data_type, array( 'number', 'date', 'boolean' ), true ) ) {
 			return 'single';
 		}
 
-		$haystack = strtolower(trim((string) $slug . ' ' . (string) $label . ' ' . (string) $placeholder));
+		$haystack = strtolower( trim( (string) $slug . ' ' . (string) $label . ' ' . (string) $placeholder ) );
 
-		if (preg_match('/\b(title|titulo|título|heading|subject|asunto|name|nombre)\b/u', $haystack)) {
+		if ( preg_match( '/\b(title|titulo|título|heading|subject|asunto|name|nombre)\b/u', $haystack ) ) {
 			return 'single';
 		}
 
-		if (preg_match('/(content|contenido|texto|text|body|descripcion|descripción|detalle|summary|resumen)/u', $haystack)) {
+		if ( preg_match( '/(content|contenido|texto|text|body|descripcion|descripción|detalle|summary|resumen)/u', $haystack ) ) {
 			return 'rich';
 		}
 
@@ -667,8 +739,8 @@ class Documentate_Template_Parser {
 	 * @param string $template_path Absolute path to template file.
 	 * @return bool True if the [sign] placeholder exists in the template.
 	 */
-	public static function template_has_sign_placeholder($template_path) {
-		return false !== self::get_sign_placeholder_info($template_path);
+	public static function template_has_sign_placeholder( $template_path ) {
+		return false !== self::get_sign_placeholder_info( $template_path );
 	}
 
 	/**
@@ -680,21 +752,21 @@ class Documentate_Template_Parser {
 	 * @param string $template_path Absolute path to template file.
 	 * @return array{x: int, y: int, page: int}|false Position data or false if not found.
 	 */
-	public static function get_sign_placeholder_info($template_path) {
-		$fields = self::extract_fields($template_path);
-		if (is_wp_error($fields) || empty($fields)) {
+	public static function get_sign_placeholder_info( $template_path ) {
+		$fields = self::extract_fields( $template_path );
+		if ( is_wp_error( $fields ) || empty( $fields ) ) {
 			return false;
 		}
-		foreach ($fields as $field) {
-			if (!isset($field['placeholder']) || 'sign' !== strtolower($field['placeholder'])) {
+		foreach ( $fields as $field ) {
+			if ( ! isset( $field['placeholder'] ) || 'sign' !== strtolower( $field['placeholder'] ) ) {
 				continue;
 			}
 
-			$params = isset($field['parameters']) && is_array($field['parameters']) ? $field['parameters'] : array();
+			$params = isset( $field['parameters'] ) && is_array( $field['parameters'] ) ? $field['parameters'] : array();
 			return array(
-				'x' => isset($params['x']) ? intval($params['x']) : 0,
-				'y' => isset($params['y']) ? intval($params['y']) : 0,
-				'page' => isset($params['page']) ? intval($params['page']) : 0,
+				'x' => isset( $params['x'] ) ? intval( $params['x'] ) : 0,
+				'y' => isset( $params['y'] ) ? intval( $params['y'] ) : 0,
+				'page' => isset( $params['page'] ) ? intval( $params['page'] ) : 0,
 			);
 		}
 		return false;
@@ -707,14 +779,14 @@ class Documentate_Template_Parser {
 	 * @param string $needle   Ending to verify.
 	 * @return bool
 	 */
-	private static function ends_with($haystack, $needle) {
-		if ('' === $needle) {
+	private static function ends_with( $haystack, $needle ) {
+		if ( '' === $needle ) {
 			return true;
 		}
-		$len = strlen($needle);
-		if ($len > strlen($haystack)) {
+		$len = strlen( $needle );
+		if ( $len > strlen( $haystack ) ) {
 			return false;
 		}
-		return 0 === substr_compare($haystack, $needle, -$len, $len);
+		return 0 === substr_compare( $haystack, $needle, -$len, $len );
 	}
 }

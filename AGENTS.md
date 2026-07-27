@@ -18,7 +18,8 @@ official resolutions and structured administrative documents. It uses:
 - Collabora Online (server-side) / LibreOffice WASM in the browser
   (`@matbee/libreoffice-converter`) for optional format conversion
 - PHPUnit for unit tests, Playwright for E2E tests
-- `mago` (from `carthage-software/mago`) for PHP linting and formatting
+- PHPCS with WordPress Coding Standards for PHP linting and formatting
+  (canonical); Mago remains available only as optional secondary tooling
 - `wp-env` (Docker) for local WordPress and test environments
 
 Read `ARCHITECTURE.md` before implementing new features or significant changes.
@@ -42,7 +43,7 @@ Read `ARCHITECTURE.md` before implementing new features or significant changes.
 ### Environment setup (requires Docker)
 
 ```bash
-make up          # Start wp-env Docker containers (http://localhost:8888)
+make up          # Start wp-env Docker containers (http://localhost:8989)
 make down        # Stop containers
 make clean       # Reset WordPress environment
 ```
@@ -50,15 +51,18 @@ make clean       # Reset WordPress environment
 ### Full local verification (preferred when Docker is available)
 
 ```bash
-make check       # Runs: fix -> lint -> check-plugin -> test -> check-untranslated -> mo
+make check       # Runs: lint -> check-plugin -> test -> check-untranslated -> mo
+                 # (verification only; does not modify source files)
 ```
 
 ### Individual commands
 
 | Command                  | What it does                                             |
 |--------------------------|----------------------------------------------------------|
-| `make fix`               | Auto-format PHP with `mago format`                       |
-| `make lint`              | Lint PHP with `mago lint` — **always required**          |
+| `make fix`               | Auto-fix PHP with PHPCBF / WPCS                         |
+| `make lint`              | Lint PHP with PHPCS / WPCS — **always required**         |
+| `make mago-format`       | Optional secondary Mago formatter (may be removed)       |
+| `make mago-lint`         | Optional secondary Mago lint (may be removed)            |
 | `make check-plugin`      | Run WordPress plugin-check — **always required**         |
 | `make test`              | Run PHPUnit unit tests — **always required**             |
 | `make test-coverage`     | PHPUnit with Xdebug coverage (needs `--xdebug=coverage`) |
@@ -154,8 +158,8 @@ A task is **not complete** if any of the following remain:
 - Every function and method needs an English PHPDoc block.
 - Align `@param`/`@return` tags so variable names line up, with at least one
   space after the longest type name. WPCS / plugin-check enforces this as
-  `WordPress.Commenting.FunctionComment.SpacingAfterParamType`. Mago's
-  formatter does **not** fix it for you, so verify alignment by hand.
+  `WordPress.Commenting.FunctionComment.SpacingAfterParamType`. PHPCBF may
+  not fully fix alignment automatically, so verify by hand.
 
   ```php
   /**
@@ -218,17 +222,22 @@ Read `ARCHITECTURE.md` for details on:
 
 ## Tooling Reference
 
-The linter/formatter is **Mago** (`carthage-software/mago`), installed via
-Composer:
+The canonical PHP linter/formatter is **PHPCS with WordPress Coding Standards**
+(`.phpcs.xml.dist`), installed via Composer:
 
 ```bash
-composer install          # installs mago and PHPUnit into ./vendor/
-./vendor/bin/mago format  # same as: make fix
-./vendor/bin/mago lint    # same as: make lint
+composer install          # installs PHPCS, WPCS, PHPUnit, optional Mago, …
+composer phpcs            # same as: make lint
+composer phpcbf           # same as: make fix
 ```
 
-The `composer.json` scripts `composer phpcs` and `composer phpcbf` are thin
-aliases for the Mago commands above — they do **not** invoke PHP_CodeSniffer.
+**Mago** is optional secondary tooling only (not used by CI, `make lint`,
+`make fix`, or `make check`). It may be removed later:
+
+```bash
+composer mago:lint        # same as: make mago-lint
+composer mago:format      # same as: make mago-format
+```
 
 Always inspect the `Makefile` to understand exactly what each `make` target runs.
 

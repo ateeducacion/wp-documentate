@@ -128,8 +128,8 @@ jobs:
       - name: Check untranslated strings
         run: make check-untranslated
 
-      - name: Run code linting (Mago)
-        run: ./vendor/bin/mago lint
+      - name: Run WordPress Coding Standards
+        run: make lint
 
       - name: Start wp-env with coverage
         run: |

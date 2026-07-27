@@ -1,5 +1,4 @@
 <?php
-
 /**
  * OpenTBS integration helpers for Documentate.
  *
@@ -100,15 +99,15 @@ class Documentate_OpenTBS {
 	 * @param string $xml XML content to load.
 	 * @return DOMDocument|false DOMDocument on success, false on failure.
 	 */
-	private static function create_xml_document($xml) {
+	private static function create_xml_document( $xml ) {
 		$dom = new DOMDocument();
 		$dom->preserveWhiteSpace = false;
 		$dom->formatOutput = false;
 
-		libxml_use_internal_errors(true);
+		libxml_use_internal_errors( true );
 		// LIBXML_NONET blocks network access during parsing (no external DTDs/entities
 		// are fetched). LIBXML_NOENT is intentionally NOT set, so entities are never expanded.
-		$loaded = $dom->loadXML($xml, LIBXML_NONET);
+		$loaded = $dom->loadXML( $xml, LIBXML_NONET );
 		libxml_clear_errors();
 
 		return $loaded ? $dom : false;
@@ -120,15 +119,15 @@ class Documentate_OpenTBS {
 	 * @param string $html HTML content to load.
 	 * @return DOMDocument|false DOMDocument on success, false on failure.
 	 */
-	private static function create_html_document($html) {
+	private static function create_html_document( $html ) {
 		$tmp = new DOMDocument();
 
-		libxml_use_internal_errors(true);
+		libxml_use_internal_errors( true );
 		// Convert to HTML entities to preserve UTF-8 encoding, then wrap for parsing.
-		$encoded = @mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+		$encoded = @mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' );
 		$wrapped = '<html><body><div>' . $encoded . '</div></body></html>';
 		// LIBXML_NONET blocks network access during parsing; entities are never expanded.
-		$loaded = $tmp->loadHTML($wrapped, LIBXML_NONET);
+		$loaded = $tmp->loadHTML( $wrapped, LIBXML_NONET );
 		libxml_clear_errors();
 
 		return $loaded ? $tmp : false;
@@ -140,13 +139,13 @@ class Documentate_OpenTBS {
 	 * @return bool
 	 */
 	public static function load_libs() {
-		$base = plugin_dir_path(__DIR__) . 'admin/vendor/tinybutstrong/';
+		$base = plugin_dir_path( __DIR__ ) . 'admin/vendor/tinybutstrong/';
 		$tbs = $base . 'tinybutstrong/tbs_class.php';
 		$otb = $base . 'opentbs/tbs_plugin_opentbs.php';
-		if (file_exists($tbs) && file_exists($otb)) {
+		if ( file_exists( $tbs ) && file_exists( $otb ) ) {
 			require_once $tbs; // phpcs:ignore WordPressVIPMinimum.Files.IncludingFile.UsingVariable
 			require_once $otb; // phpcs:ignore WordPressVIPMinimum.Files.IncludingFile.UsingVariable
-			return class_exists('clsTinyButStrong') && defined('OPENTBS_PLUGIN');
+			return class_exists( 'clsTinyButStrong' ) && defined( 'OPENTBS_PLUGIN' );
 		}
 		return false;
 	}
@@ -161,22 +160,22 @@ class Documentate_OpenTBS {
 	 * @param array  $metadata      Optional document metadata (title, subject, author, keywords).
 	 * @return bool|WP_Error
 	 */
-	public static function render_odt($template_path, $fields, $dest_path, $rich_values = array(), $metadata = array()) {
-		$result = self::render_template_to_file($template_path, $fields, $dest_path);
-		if (is_wp_error($result)) {
+	public static function render_odt( $template_path, $fields, $dest_path, $rich_values = array(), $metadata = array() ) {
+		$result = self::render_template_to_file( $template_path, $fields, $dest_path );
+		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
 
 		// Apply the content-part transforms (rich text, paragraph splitting and
 		// leftover-HTML stripping) in a single archive pass instead of reopening
 		// the ODT once per step.
-		$content_result = self::post_process_odt_content($dest_path, $rich_values);
-		if (is_wp_error($content_result)) {
+		$content_result = self::post_process_odt_content( $dest_path, $rich_values );
+		if ( is_wp_error( $content_result ) ) {
 			return $content_result;
 		}
 
-		$meta_result = self::apply_odt_metadata($dest_path, $metadata);
-		if (is_wp_error($meta_result)) {
+		$meta_result = self::apply_odt_metadata( $dest_path, $metadata );
+		if ( is_wp_error( $meta_result ) ) {
 			return $meta_result;
 		}
 
@@ -193,32 +192,32 @@ class Documentate_OpenTBS {
 	 * @param array  $metadata      Optional document metadata (title, subject, author, keywords).
 	 * @return bool|WP_Error
 	 */
-	public static function render_docx($template_path, $fields, $dest_path, $rich_values = array(), $metadata = array()) {
-		$result = self::render_template_to_file($template_path, $fields, $dest_path);
-		if (is_wp_error($result)) {
+	public static function render_docx( $template_path, $fields, $dest_path, $rich_values = array(), $metadata = array() ) {
+		$result = self::render_template_to_file( $template_path, $fields, $dest_path );
+		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
-		$rich_result = self::apply_docx_rich_text($dest_path, $rich_values);
-		if (is_wp_error($rich_result)) {
+		$rich_result = self::apply_docx_rich_text( $dest_path, $rich_values );
+		if ( is_wp_error( $rich_result ) ) {
 			return $rich_result;
 		}
 
-		// Determine targets for DOCX HTML cleaning
+		// Determine targets for DOCX HTML cleaning.
 		$targets = array();
 		$zip = new ZipArchive();
-		if (true === $zip->open($dest_path)) {
-			for ($i = 0; $i < $zip->numFiles; $i++) {
-				$name = $zip->getNameIndex($i);
-				if (preg_match('/^word\/(document|header[0-9]*|footer[0-9]*)\.xml$/', $name)) {
+		if ( true === $zip->open( $dest_path ) ) {
+			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+				$name = $zip->getNameIndex( $i );
+				if ( preg_match( '/^word\/(document|header[0-9]*|footer[0-9]*)\.xml$/', $name ) ) {
 					$targets[] = $name;
 				}
 			}
 			$zip->close();
-			self::strip_unprocessed_html_from_archive($dest_path, $targets);
+			self::strip_unprocessed_html_from_archive( $dest_path, $targets );
 		}
 
-		$meta_result = self::apply_docx_metadata($dest_path, $metadata);
-		if (is_wp_error($meta_result)) {
+		$meta_result = self::apply_docx_metadata( $dest_path, $metadata );
+		if ( is_wp_error( $meta_result ) ) {
 			return $meta_result;
 		}
 
@@ -233,28 +232,31 @@ class Documentate_OpenTBS {
 	 * @param string[] $targets      Array of XML files inside the archive to process.
 	 * @return true|WP_Error
 	 */
-	private static function strip_unprocessed_html_from_archive($archive_path, $targets) {
-		if (empty($targets) || !class_exists('ZipArchive')) {
+	private static function strip_unprocessed_html_from_archive( $archive_path, $targets ) {
+		if ( empty( $targets ) || ! class_exists( 'ZipArchive' ) ) {
 			return true;
 		}
 
 		$zip = new ZipArchive();
-		if (true !== $zip->open($archive_path)) {
-			return new WP_Error('documentate_zip_open_failed', __(
-				'Could not open the archive to sanitize HTML.',
-				'documentate',
-			));
+		if ( true !== $zip->open( $archive_path ) ) {
+			return new WP_Error(
+				'documentate_zip_open_failed',
+				__(
+					'Could not open the archive to sanitize HTML.',
+					'documentate',
+				)
+			);
 		}
 
-		foreach ($targets as $target) {
-			$xml = $zip->getFromName($target);
-			if (false === $xml) {
+		foreach ( $targets as $target ) {
+			$xml = $zip->getFromName( $target );
+			if ( false === $xml ) {
 				continue;
 			}
 
-			$updated = self::strip_unprocessed_html_from_xml($xml);
-			if ($updated !== $xml) {
-				$zip->addFromString($target, $updated);
+			$updated = self::strip_unprocessed_html_from_xml( $xml );
+			if ( $updated !== $xml ) {
+				$zip->addFromString( $target, $updated );
 			}
 		}
 
@@ -271,13 +273,13 @@ class Documentate_OpenTBS {
 	 * @param string $xml XML part contents.
 	 * @return string The XML with any encoded HTML tags removed.
 	 */
-	private static function strip_unprocessed_html_from_xml($xml) {
+	private static function strip_unprocessed_html_from_xml( $xml ) {
 		$updated = preg_replace(
 			'/&lt;\/?(?:p|div|span|a|ul|ol|li|table|thead|tbody|tfoot|tr|th|td|h[1-6]|strong|b|em|i|u|br|blockquote|pre)[^&]*&gt;/i',
 			'',
 			$xml,
 		);
-		$updated = preg_replace('/&lt;!--\[.*?\]--&gt;/i', '', (string) $updated);
+		$updated = preg_replace( '/&lt;!--\[.*?\]--&gt;/i', '', (string) $updated );
 
 		return null === $updated ? $xml : (string) $updated;
 	}
@@ -290,85 +292,91 @@ class Documentate_OpenTBS {
 	 * @param string $dest_path     Output destination.
 	 * @return bool|WP_Error
 	 */
-	private static function render_template_to_file($template_path, $fields, $dest_path) {
-		if (!self::load_libs()) {
-			return new WP_Error('documentate_opentbs_missing', __('OpenTBS is not available.', 'documentate'));
+	private static function render_template_to_file( $template_path, $fields, $dest_path ) {
+		if ( ! self::load_libs() ) {
+			return new WP_Error( 'documentate_opentbs_missing', __( 'OpenTBS is not available.', 'documentate' ) );
 		}
-		if (!file_exists($template_path)) {
-			return new WP_Error('documentate_template_missing', __('Template not found.', 'documentate'));
+		if ( ! file_exists( $template_path ) ) {
+			return new WP_Error( 'documentate_template_missing', __( 'Template not found.', 'documentate' ) );
 		}
 		try {
 			// Set locale for TBS date formatting (month/day names in local language).
 
-			$old_locale = setlocale(LC_TIME, 0);
+			$old_locale = setlocale( LC_TIME, 0 );
 			$tbs_locale = self::$tbs_locale;
-			setlocale(LC_TIME, $tbs_locale . '.UTF-8', $tbs_locale . '.utf8', $tbs_locale, substr($tbs_locale, 0, 2), 0);
+			setlocale( LC_TIME, $tbs_locale . '.UTF-8', $tbs_locale . '.utf8', $tbs_locale, substr( $tbs_locale, 0, 2 ), 0 );
 
 			$tbs_engine = new clsTinyButStrong();
-			$tbs_engine->Plugin(TBS_INSTALL, OPENTBS_PLUGIN);
-			$tbs_engine->LoadTemplate($template_path, OPENTBS_ALREADY_UTF8);
+			$tbs_engine->Plugin( TBS_INSTALL, OPENTBS_PLUGIN );
+			$tbs_engine->LoadTemplate( $template_path, OPENTBS_ALREADY_UTF8 );
 
-			if (!is_array($fields)) {
+			if ( ! is_array( $fields ) ) {
 				$fields = array();
 			}
 
 			// Pre-process visibility blocks [onshow;block=begin;bloc=FIELD]...[onshow;block=end].
-			$tbs_engine->Source = self::process_visibility_blocks($tbs_engine->Source, $fields);
-			if (null === $tbs_engine->Source) {
-				return new \WP_Error('documentate_regex_error', __(
-					'Template pre-processing failed (visibility blocks).',
-					'documentate',
-				));
+			$tbs_engine->Source = self::process_visibility_blocks( $tbs_engine->Source, $fields );
+			if ( null === $tbs_engine->Source ) {
+				return new \WP_Error(
+					'documentate_regex_error',
+					__(
+						'Template pre-processing failed (visibility blocks).',
+						'documentate',
+					)
+				);
 			}
 
 			// Collapse fragmented XML spans so TBS can match placeholders split across tags.
-			$tbs_engine->Source = self::normalize_template_placeholders($tbs_engine->Source, $template_path);
-			if (null === $tbs_engine->Source) {
-				return new \WP_Error('documentate_regex_error', __(
-					'Template pre-processing failed (placeholder normalization).',
-					'documentate',
-				));
+			$tbs_engine->Source = self::normalize_template_placeholders( $tbs_engine->Source, $template_path );
+			if ( null === $tbs_engine->Source ) {
+				return new \WP_Error(
+					'documentate_regex_error',
+					__(
+						'Template pre-processing failed (placeholder normalization).',
+						'documentate',
+					)
+				);
 			}
 
-			$tbs_engine->ResetVarRef(false);
+			$tbs_engine->ResetVarRef( false );
 
 			// First merge repeater blocks (arrays), then scalar fields.
-			foreach ($fields as $k => $v) {
-				if (!is_string($k) || '' === $k) {
+			foreach ( $fields as $k => $v ) {
+				if ( ! is_string( $k ) || '' === $k ) {
 					continue;
 				}
-				if (is_array($v)) {
+				if ( is_array( $v ) ) {
 					// Merge repeatable blocks with the same key as the block name.
 					// TBS expects a sequential array of associative rows.
-					$tbs_engine->MergeBlock($k, $v);
+					$tbs_engine->MergeBlock( $k, $v );
 				}
 			}
 
-			foreach ($fields as $k => $v) {
-				if (!is_string($k) || '' === $k) {
+			foreach ( $fields as $k => $v ) {
+				if ( ! is_string( $k ) || '' === $k ) {
 					continue;
 				}
-				if (is_array($v)) {
+				if ( is_array( $v ) ) {
 					// Arrays are handled via MergeBlock; avoid printing "Array" by skipping MergeField.
 					continue;
 				}
-				$tbs_engine->SetVarRefItem($k, $v);
-				$tbs_engine->MergeField($k, $v);
+				$tbs_engine->SetVarRefItem( $k, $v );
+				$tbs_engine->MergeField( $k, $v );
 			}
 
-			$tbs_engine->Show(OPENTBS_FILE, $dest_path);
+			$tbs_engine->Show( OPENTBS_FILE, $dest_path );
 
 			// Restore original locale.
-			if ($old_locale) {
-				setlocale(LC_TIME, $old_locale);
+			if ( $old_locale ) {
+				setlocale( LC_TIME, $old_locale );
 			}
 			return true;
-		} catch (\Throwable $e) {
+		} catch ( \Throwable $e ) {
 			// Restore original locale on error.
-			if (isset($old_locale) && $old_locale) {
-				setlocale(LC_TIME, $old_locale);
+			if ( isset( $old_locale ) && $old_locale ) {
+				setlocale( LC_TIME, $old_locale );
 			}
-			return new WP_Error('documentate_opentbs_error', $e->getMessage());
+			return new WP_Error( 'documentate_opentbs_error', $e->getMessage() );
 		}
 	}
 
@@ -382,25 +390,25 @@ class Documentate_OpenTBS {
 	 * @param array<string,mixed> $fields  Merge fields data.
 	 * @return string Processed content.
 	 */
-	private static function process_visibility_blocks($content, $fields) {
+	private static function process_visibility_blocks( $content, $fields ) {
 		// Pattern to match [onshow;block=begin;bloc=FIELD_NAME]...[onshow;block=end]
 		// The bloc= value may be quoted or unquoted.
 		$pattern = '/\[onshow;block=begin;bloc=[\'"]?([^\];\'"]+)[\'"]?\](.*?)\[onshow;block=end\]/s';
 
 		return preg_replace_callback(
 			$pattern,
-			function ($matches) use ($fields) {
-				$field_name = trim($matches[1]);
+			function ( $matches ) use ( $fields ) {
+				$field_name = trim( $matches[1] );
 				$block_content = $matches[2];
 
 				// Check if the referenced field has data.
 				$has_data = false;
-				if (isset($fields[$field_name])) {
-					$value = $fields[$field_name];
-					if (is_array($value)) {
-						$has_data = !empty($value);
+				if ( isset( $fields[ $field_name ] ) ) {
+					$value = $fields[ $field_name ];
+					if ( is_array( $value ) ) {
+						$has_data = ! empty( $value );
 					} else {
-						$has_data = '' !== trim((string) $value);
+						$has_data = '' !== trim( (string) $value );
 					}
 				}
 
@@ -422,19 +430,19 @@ class Documentate_OpenTBS {
 	 * @param string $template_path Template file path (used to detect odt vs docx).
 	 * @return string Normalized XML content.
 	 */
-	public static function normalize_template_placeholders($source, $template_path) {
+	public static function normalize_template_placeholders( $source, $template_path ) {
 		// Match TBS placeholders [name;params] that may be fragmented across
 		// formatting spans in ODT/DOCX. Strips XML tags from within brackets.
 		// Uses possessive quantifiers on inner character classes to prevent
 		// catastrophic backtracking on large content.xml files.
 		return preg_replace_callback(
 			'/\[(?:[^<\[\]]*+|<[^>]*+>)*\]/',
-			function ($match) {
+			function ( $match ) {
 				$placeholder = $match[0];
 				// Strip all XML tags within the placeholder.
-				$clean = preg_replace('#<[^>]+>#', '', $placeholder);
+				$clean = preg_replace( '#<[^>]+>#', '', $placeholder );
 				// Remove XML formatting whitespace (newlines, tabs) between tags.
-				return preg_replace('/[\r\n\t]+/', '', $clean);
+				return preg_replace( '/[\r\n\t]+/', '', $clean );
 			},
 			$source,
 		);
@@ -447,55 +455,61 @@ class Documentate_OpenTBS {
 	 * @param array<mixed> $rich_values Rich text values detected during merge.
 	 * @return bool|WP_Error
 	 */
-	private static function apply_docx_rich_text($doc_path, $rich_values) {
-		$lookup = self::prepare_rich_lookup($rich_values);
+	private static function apply_docx_rich_text( $doc_path, $rich_values ) {
+		$lookup = self::prepare_rich_lookup( $rich_values );
 		// Debug logging.
-		if (defined('WP_DEBUG') && WP_DEBUG) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log(
-				'DOCUMENTATE apply_docx_rich_text: rich_values_count=' . count($rich_values) . ', lookup_count=' . count($lookup),
+				'DOCUMENTATE apply_docx_rich_text: rich_values_count=' . count( $rich_values ) . ', lookup_count=' . count( $lookup ),
 			);
-			foreach ($lookup as $key => $val) {
-				error_log('DOCUMENTATE lookup[' . strlen($key) . ' chars]: ' . substr($key, 0, 100) . '...');
+			foreach ( $lookup as $key => $val ) {
+				error_log( 'DOCUMENTATE lookup[' . strlen( $key ) . ' chars]: ' . substr( $key, 0, 100 ) . '...' );
 			}
 		}
-		if (empty($lookup)) {
+		if ( empty( $lookup ) ) {
 			return true;
 		}
-		if (!class_exists('ZipArchive')) {
-			return new WP_Error('documentate_docx_zip_missing', __(
-				'ZipArchive is not available for rich text formatting.',
-				'documentate',
-			));
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error(
+				'documentate_docx_zip_missing',
+				__(
+					'ZipArchive is not available for rich text formatting.',
+					'documentate',
+				)
+			);
 		}
 		$zip = new ZipArchive();
-		if (true !== $zip->open($doc_path)) {
-			return new WP_Error('documentate_docx_zip_open', __(
-				'Could not open the generated DOCX for formatting.',
-				'documentate',
-			));
+		if ( true !== $zip->open( $doc_path ) ) {
+			return new WP_Error(
+				'documentate_docx_zip_open',
+				__(
+					'Could not open the generated DOCX for formatting.',
+					'documentate',
+				)
+			);
 		}
 		$targets = array();
 		$total_files = $zip->numFiles; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-		for ($i = 0; $i < $total_files; $i++) {
-			$name = $zip->getNameIndex($i);
-			if (preg_match('/^word\/(document|header[0-9]*|footer[0-9]*).xml$/', $name)) {
+		for ( $i = 0; $i < $total_files; $i++ ) {
+			$name = $zip->getNameIndex( $i );
+			if ( preg_match( '/^word\/(document|header[0-9]*|footer[0-9]*).xml$/', $name ) ) {
 				$targets[] = $name;
 			}
 		}
 		$changed = false;
-		foreach ($targets as $target) {
-			$xml = $zip->getFromName($target);
-			if (false === $xml) {
+		foreach ( $targets as $target ) {
+			$xml = $zip->getFromName( $target );
+			if ( false === $xml ) {
 				continue;
 			}
-			$relationships = self::load_relationships_for_part($zip, $target);
-			$updated = self::convert_docx_part_rich_text($xml, $lookup, $relationships);
-			if ($updated !== $xml) {
-				$zip->addFromString($target, $updated);
+			$relationships = self::load_relationships_for_part( $zip, $target );
+			$updated = self::convert_docx_part_rich_text( $xml, $lookup, $relationships );
+			if ( $updated !== $xml ) {
+				$zip->addFromString( $target, $updated );
 				$changed = true;
 			}
-			if (is_array($relationships) && !empty($relationships['modified']) && !empty($relationships['path'])) {
-				$zip->addFromString($relationships['path'], $relationships['doc']->saveXML());
+			if ( is_array( $relationships ) && ! empty( $relationships['modified'] ) && ! empty( $relationships['path'] ) ) {
+				$zip->addFromString( $relationships['path'], $relationships['doc']->saveXML() );
 				$changed = true;
 			}
 		}
@@ -511,112 +525,112 @@ class Documentate_OpenTBS {
 	 * @param array<string,mixed>|null $relationships  Relationships context, passed by reference.
 	 * @return string
 	 */
-	public static function convert_docx_part_rich_text($xml, $lookup, &$relationships = null) {
-		$rich_lookup = self::prepare_rich_lookup($lookup);
-		if (empty($rich_lookup)) {
+	public static function convert_docx_part_rich_text( $xml, $lookup, &$relationships = null ) {
+		$rich_lookup = self::prepare_rich_lookup( $lookup );
+		if ( empty( $rich_lookup ) ) {
 			return $xml;
 		}
 		// Normalize line endings to match ODT processing (handles HTML with newlines between tags).
-		$rich_lookup = self::normalize_lookup_line_endings($rich_lookup);
+		$rich_lookup = self::normalize_lookup_line_endings( $rich_lookup );
 
-		$dom = self::create_xml_document($xml);
-		if (!$dom) {
+		$dom = self::create_xml_document( $xml );
+		if ( ! $dom ) {
 			return $xml;
 		}
-		$xpath = new DOMXPath($dom);
-		$xpath->registerNamespace('w', self::WORD_NAMESPACE);
+		$xpath = new DOMXPath( $dom );
+		$xpath->registerNamespace( 'w', self::WORD_NAMESPACE );
 
 		// Process paragraphs instead of individual w:t nodes to handle HTML split across runs.
-		$paragraphs = $xpath->query('//w:p');
+		$paragraphs = $xpath->query( '//w:p' );
 		$modified = false;
 
-		if ($paragraphs instanceof DOMNodeList) {
+		if ( $paragraphs instanceof DOMNodeList ) {
 			// Convert to array to avoid issues with DOM modification during iteration.
 			$para_array = array();
-			foreach ($paragraphs as $para) {
+			foreach ( $paragraphs as $para ) {
 				$para_array[] = $para;
 			}
 
-			if (defined('WP_DEBUG') && WP_DEBUG) {
-				error_log('DOCUMENTATE convert_docx_part: checking ' . count($para_array) . ' paragraphs');
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'DOCUMENTATE convert_docx_part: checking ' . count( $para_array ) . ' paragraphs' );
 			}
 
-			foreach ($para_array as $paragraph) {
-				if (!$paragraph instanceof DOMElement) {
+			foreach ( $para_array as $paragraph ) {
+				if ( ! $paragraph instanceof DOMElement ) {
 					continue;
 				}
 
 				// Collect all w:t nodes and their text within this paragraph.
-				$t_nodes = $xpath->query('.//w:t', $paragraph);
-				$para_map = self::build_paragraph_text_map($t_nodes);
+				$t_nodes = $xpath->query( './/w:t', $paragraph );
+				$para_map = self::build_paragraph_text_map( $t_nodes );
 
-				if (empty($para_map['text'])) {
+				if ( empty( $para_map['text'] ) ) {
 					continue;
 				}
 
 				// Decode HTML entities to match raw HTML.
-				$coalesced = html_entity_decode($para_map['text'], ENT_QUOTES | ENT_XML1, 'UTF-8');
+				$coalesced = html_entity_decode( $para_map['text'], ENT_QUOTES | ENT_XML1, 'UTF-8' );
 
 				// Normalize for matching (removes orphaned indentation spaces left by TBS).
-				$coalesced = self::normalize_for_html_matching($coalesced);
+				$coalesced = self::normalize_for_html_matching( $coalesced );
 
 				// Debug: log paragraph text if it contains HTML-like content.
-				if (defined('WP_DEBUG') && WP_DEBUG && false !== strpos($coalesced, '<')) {
-					$escaped = htmlspecialchars(substr($coalesced, 0, 300), ENT_QUOTES, 'UTF-8');
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && false !== strpos( $coalesced, '<' ) ) {
+					$escaped = htmlspecialchars( substr( $coalesced, 0, 300 ), ENT_QUOTES, 'UTF-8' );
 					error_log(
 						'DOCUMENTATE paragraph text ['
-						. strlen($coalesced)
+						. strlen( $coalesced )
 						. ' chars, '
-						. count($para_map['nodes'])
+						. count( $para_map['nodes'] )
 						. ' nodes]: '
 						. $escaped,
 					);
 				}
 
 				// Find HTML match in coalesced paragraph text.
-				$match = self::find_next_html_match($coalesced, $rich_lookup, 0);
-				if (false === $match) {
+				$match = self::find_next_html_match( $coalesced, $rich_lookup, 0 );
+				if ( false === $match ) {
 					continue;
 				}
 
-				if (defined('WP_DEBUG') && WP_DEBUG) {
-					error_log('DOCUMENTATE convert_docx_part: MATCH FOUND at pos ' . $match[0] . ' in paragraph, converting HTML');
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( 'DOCUMENTATE convert_docx_part: MATCH FOUND at pos ' . $match[0] . ' in paragraph, converting HTML' );
 				}
 
 				list($match_pos, $match_key, $match_raw) = $match;
-				$match_end = $match_pos + strlen($match_key);
+				$match_end = $match_pos + strlen( $match_key );
 
 				// Find the base run properties from the first affected run.
 				$base_rpr = null;
-				foreach ($para_map['nodes'] as $node_info) {
-					if ($node_info['end'] > $match_pos) {
+				foreach ( $para_map['nodes'] as $node_info ) {
+					if ( $node_info['end'] > $match_pos ) {
 						$run = $node_info['node']->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-						if ($run instanceof DOMElement) {
-							$base_rpr = self::clone_run_properties($run);
+						if ( $run instanceof DOMElement ) {
+							$base_rpr = self::clone_run_properties( $run );
 						}
 						break;
 					}
 				}
 
 				// Build prefix text (before the HTML match).
-				$prefix = substr($coalesced, 0, $match_pos);
+				$prefix = substr( $coalesced, 0, $match_pos );
 
 				// Build suffix text (after the HTML match).
-				$suffix = substr($coalesced, $match_end);
+				$suffix = substr( $coalesced, $match_end );
 
 				// Collect runs that need to be removed (those containing the matched HTML).
 				$runs_to_remove = array();
-				foreach ($para_map['nodes'] as $node_info) {
+				foreach ( $para_map['nodes'] as $node_info ) {
 					// Check if this node overlaps with the match range.
-					if ($node_info['end'] > $match_pos && $node_info['start'] < $match_end) {
+					if ( $node_info['end'] > $match_pos && $node_info['start'] < $match_end ) {
 						$run = $node_info['node']->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-						if ($run instanceof DOMElement && !in_array($run, $runs_to_remove, true)) {
+						if ( $run instanceof DOMElement && ! in_array( $run, $runs_to_remove, true ) ) {
 							$runs_to_remove[] = $run;
 						}
 					}
 				}
 
-				if (empty($runs_to_remove)) {
+				if ( empty( $runs_to_remove ) ) {
 					continue;
 				}
 
@@ -624,17 +638,17 @@ class Documentate_OpenTBS {
 				$insert_before = $runs_to_remove[0];
 
 				// Build prefix run if needed.
-				if ('' !== $prefix) {
-					$prefix_run = self::build_docx_text_run($dom, $prefix, $base_rpr);
-					$paragraph->insertBefore($prefix_run, $insert_before);
+				if ( '' !== $prefix ) {
+					$prefix_run = self::build_docx_text_run( $dom, $prefix, $base_rpr );
+					$paragraph->insertBefore( $prefix_run, $insert_before );
 				}
 
 				// Convert the matched HTML.
-				$conversion = self::build_docx_nodes_from_html($dom, $match_raw, $base_rpr, $relationships);
+				$conversion = self::build_docx_nodes_from_html( $dom, $match_raw, $base_rpr, $relationships );
 
-				if (!empty($conversion['block']) && !empty($conversion['nodes'])) {
+				if ( ! empty( $conversion['block'] ) && ! empty( $conversion['nodes'] ) ) {
 					$container = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-					if ($container instanceof DOMNode) {
+					if ( $container instanceof DOMNode ) {
 						$replacement_nodes = self::build_docx_block_replacement_nodes(
 							$dom,
 							$paragraph,
@@ -644,37 +658,37 @@ class Documentate_OpenTBS {
 							$base_rpr,
 						);
 
-						foreach ($replacement_nodes as $node_to_insert) {
-							if ($node_to_insert instanceof DOMElement) {
-								$container->insertBefore($node_to_insert, $paragraph);
+						foreach ( $replacement_nodes as $node_to_insert ) {
+							if ( $node_to_insert instanceof DOMElement ) {
+								$container->insertBefore( $node_to_insert, $paragraph );
 							}
 						}
 
-						$container->removeChild($paragraph);
+						$container->removeChild( $paragraph );
 						$modified = true;
 						continue;
 					}
 				}
 
 				// Insert converted inline runs.
-				$inline_runs = !empty($conversion['nodes']) ? $conversion['nodes'] : array();
+				$inline_runs = ! empty( $conversion['nodes'] ) ? $conversion['nodes'] : array();
 
-				foreach ($inline_runs as $new_run) {
-					if ($new_run instanceof DOMElement) {
-						$paragraph->insertBefore($new_run, $insert_before);
+				foreach ( $inline_runs as $new_run ) {
+					if ( $new_run instanceof DOMElement ) {
+						$paragraph->insertBefore( $new_run, $insert_before );
 					}
 				}
 
 				// Build suffix run if needed.
-				if ('' !== $suffix) {
-					$suffix_run = self::build_docx_text_run($dom, $suffix, $base_rpr);
-					$paragraph->insertBefore($suffix_run, $insert_before);
+				if ( '' !== $suffix ) {
+					$suffix_run = self::build_docx_text_run( $dom, $suffix, $base_rpr );
+					$paragraph->insertBefore( $suffix_run, $insert_before );
 				}
 
 				// Remove the original runs that contained the HTML.
-				foreach ($runs_to_remove as $run) {
-					if ($run->parentNode === $paragraph) {
-						$paragraph->removeChild($run);
+				foreach ( $runs_to_remove as $run ) {
+					if ( $run->parentNode === $paragraph ) {
+						$paragraph->removeChild( $run );
 					}
 				}
 
@@ -692,15 +706,15 @@ class Documentate_OpenTBS {
 	 * @param DOMElement|null $base_rpr Base run properties to clone.
 	 * @return DOMElement
 	 */
-	private static function build_docx_text_run(DOMDocument $doc, $text, $base_rpr) {
-		$run = $doc->createElementNS(self::WORD_NAMESPACE, 'w:r');
-		if ($base_rpr instanceof DOMElement) {
-			$run->appendChild($base_rpr->cloneNode(true));
+	private static function build_docx_text_run( DOMDocument $doc, $text, $base_rpr ) {
+		$run = $doc->createElementNS( self::WORD_NAMESPACE, 'w:r' );
+		if ( $base_rpr instanceof DOMElement ) {
+			$run->appendChild( $base_rpr->cloneNode( true ) );
 		}
-		$t = $doc->createElementNS(self::WORD_NAMESPACE, 'w:t');
-		$t->setAttribute('xml:space', 'preserve');
-		$t->appendChild($doc->createTextNode($text));
-		$run->appendChild($t);
+		$t = $doc->createElementNS( self::WORD_NAMESPACE, 'w:t' );
+		$t->setAttribute( 'xml:space', 'preserve' );
+		$t->appendChild( $doc->createTextNode( $text ) );
+		$run->appendChild( $t );
 		return $run;
 	}
 
@@ -713,23 +727,23 @@ class Documentate_OpenTBS {
 	 * @param DOMNodeList|false $t_nodes List of w:t nodes.
 	 * @return array{text:string,nodes:array<int,array{node:DOMElement,start:int,end:int}>}
 	 */
-	private static function build_paragraph_text_map($t_nodes) {
+	private static function build_paragraph_text_map( $t_nodes ) {
 		$result = array(
 			'text' => '',
 			'nodes' => array(),
 		);
 
-		if (!$t_nodes instanceof DOMNodeList) {
+		if ( ! $t_nodes instanceof DOMNodeList ) {
 			return $result;
 		}
 
 		$position = 0;
-		foreach ($t_nodes as $node) {
-			if (!$node instanceof DOMElement) {
+		foreach ( $t_nodes as $node ) {
+			if ( ! $node instanceof DOMElement ) {
 				continue;
 			}
 			$text = $node->textContent; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			$len = strlen($text);
+			$len = strlen( $text );
 			$start = $position;
 			$end = $position + $len;
 
@@ -754,8 +768,8 @@ class Documentate_OpenTBS {
 	 * @param array<mixed> $values Potential rich text values.
 	 * @return array<string,string>
 	 */
-	private static function prepare_rich_lookup($values) {
-		return OpenTBS_HTML_Parser::prepare_rich_lookup($values);
+	private static function prepare_rich_lookup( $values ) {
+		return OpenTBS_HTML_Parser::prepare_rich_lookup( $values );
 	}
 
 	/**
@@ -771,38 +785,44 @@ class Documentate_OpenTBS {
 	 * @param array<mixed> $rich_values Rich text values detected during merge.
 	 * @return true|WP_Error
 	 */
-	public static function post_process_odt_content($odt_path, $rich_values) {
+	public static function post_process_odt_content( $odt_path, $rich_values ) {
 		self::$odt_archive_open_count = 0;
 
-		if (!class_exists('ZipArchive')) {
-			return new WP_Error('documentate_odt_zip_missing', __(
-				'ZipArchive is not available for ODT post-processing.',
-				'documentate',
-			));
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error(
+				'documentate_odt_zip_missing',
+				__(
+					'ZipArchive is not available for ODT post-processing.',
+					'documentate',
+				)
+			);
 		}
 
 		$zip = new ZipArchive();
-		if (true !== $zip->open($odt_path)) {
-			return new WP_Error('documentate_odt_open_failed', __(
-				'Could not open the ODT file for post-processing.',
-				'documentate',
-			));
+		if ( true !== $zip->open( $odt_path ) ) {
+			return new WP_Error(
+				'documentate_odt_open_failed',
+				__(
+					'Could not open the ODT file for post-processing.',
+					'documentate',
+				)
+			);
 		}
 		++self::$odt_archive_open_count;
 
-		$lookup = self::prepare_rich_lookup($rich_values);
+		$lookup = self::prepare_rich_lookup( $rich_values );
 
-		foreach (array('content.xml', 'styles.xml') as $part) {
-			$xml = $zip->getFromName($part);
-			if (false === $xml) {
+		foreach ( array( 'content.xml', 'styles.xml' ) as $part ) {
+			$xml = $zip->getFromName( $part );
+			if ( false === $xml ) {
 				continue;
 			}
 			$original = $xml;
 
 			// 1) Convert rich-text HTML fragments to native ODF markup.
-			if (!empty($lookup)) {
-				$converted = self::convert_odt_part_rich_text($xml, $lookup);
-				if (is_wp_error($converted)) {
+			if ( ! empty( $lookup ) ) {
+				$converted = self::convert_odt_part_rich_text( $xml, $lookup );
+				if ( is_wp_error( $converted ) ) {
 					$zip->close();
 					return $converted;
 				}
@@ -810,15 +830,15 @@ class Documentate_OpenTBS {
 			}
 
 			// 2) Split double-line-break sequences into real paragraphs (content.xml only).
-			if ('content.xml' === $part) {
-				$xml = self::split_odt_content_paragraphs($xml);
+			if ( 'content.xml' === $part ) {
+				$xml = self::split_odt_content_paragraphs( $xml );
 			}
 
 			// 3) Strip any leftover encoded HTML tags.
-			$xml = self::strip_unprocessed_html_from_xml($xml);
+			$xml = self::strip_unprocessed_html_from_xml( $xml );
 
-			if ($xml !== $original) {
-				$zip->addFromString($part, $xml);
+			if ( $xml !== $original ) {
+				$zip->addFromString( $part, $xml );
 			}
 		}
 
@@ -847,116 +867,116 @@ class Documentate_OpenTBS {
 	 * @param array  $metadata Associative array with keys: title, subject, author, keywords.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	public static function apply_odt_metadata($odt_path, $metadata) {
-		if (empty($metadata) || !is_array($metadata)) {
+	public static function apply_odt_metadata( $odt_path, $metadata ) {
+		if ( empty( $metadata ) || ! is_array( $metadata ) ) {
 			return true;
 		}
 
 		// Check if any metadata value is non-empty.
 		$has_values = false;
-		foreach ($metadata as $value) {
-			if (!empty($value)) {
+		foreach ( $metadata as $value ) {
+			if ( ! empty( $value ) ) {
 				$has_values = true;
 				break;
 			}
 		}
-		if (!$has_values) {
+		if ( ! $has_values ) {
 			return true;
 		}
 
-		if (!class_exists('ZipArchive')) {
-			return new WP_Error('documentate_odt_zip_missing', __('ZipArchive is not available for metadata.', 'documentate'));
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error( 'documentate_odt_zip_missing', __( 'ZipArchive is not available for metadata.', 'documentate' ) );
 		}
 
 		$zip = new ZipArchive();
-		if (true !== $zip->open($odt_path)) {
-			return new WP_Error('documentate_odt_open_failed', __('Could not open the ODT file for metadata.', 'documentate'));
+		if ( true !== $zip->open( $odt_path ) ) {
+			return new WP_Error( 'documentate_odt_open_failed', __( 'Could not open the ODT file for metadata.', 'documentate' ) );
 		}
 
-		$xml = $zip->getFromName('meta.xml');
-		if (false === $xml) {
+		$xml = $zip->getFromName( 'meta.xml' );
+		if ( false === $xml ) {
 			$zip->close();
-			return new WP_Error('documentate_meta_missing', __('meta.xml not found in ODT.', 'documentate'));
+			return new WP_Error( 'documentate_meta_missing', __( 'meta.xml not found in ODT.', 'documentate' ) );
 		}
 
-		$dom = self::create_xml_document($xml);
-		if (!$dom) {
+		$dom = self::create_xml_document( $xml );
+		if ( ! $dom ) {
 			$zip->close();
-			return new WP_Error('documentate_meta_parse', __('Could not parse meta.xml.', 'documentate'));
+			return new WP_Error( 'documentate_meta_parse', __( 'Could not parse meta.xml.', 'documentate' ) );
 		}
 
-		$xpath = new DOMXPath($dom);
-		$xpath->registerNamespace('office', self::ODF_OFFICE_NS);
-		$xpath->registerNamespace('dc', self::DC_NS);
-		$xpath->registerNamespace('meta', self::ODF_META_NS);
+		$xpath = new DOMXPath( $dom );
+		$xpath->registerNamespace( 'office', self::ODF_OFFICE_NS );
+		$xpath->registerNamespace( 'dc', self::DC_NS );
+		$xpath->registerNamespace( 'meta', self::ODF_META_NS );
 
 		// Find office:meta element.
-		$office_meta_list = $xpath->query('//office:meta');
-		if (0 === $office_meta_list->length) {
+		$office_meta_list = $xpath->query( '//office:meta' );
+		if ( 0 === $office_meta_list->length ) {
 			$zip->close();
-			return new WP_Error('documentate_meta_element', __('office:meta element not found.', 'documentate'));
+			return new WP_Error( 'documentate_meta_element', __( 'office:meta element not found.', 'documentate' ) );
 		}
-		$office_meta = $office_meta_list->item(0);
+		$office_meta = $office_meta_list->item( 0 );
 
 		// Helper to set or update an element.
-		$set_element = function ($ns_uri, $local_name, $value) use ($dom, $xpath, $office_meta) {
-			if (empty($value)) {
+		$set_element = function ( $ns_uri, $local_name, $value ) use ( $dom, $xpath, $office_meta ) {
+			if ( empty( $value ) ) {
 				return;
 			}
-			$prefix = 'dc' === substr($local_name, 0, 2) || in_array($local_name, array('title', 'subject', 'creator'), true)
+			$prefix = 'dc' === substr( $local_name, 0, 2 ) || in_array( $local_name, array( 'title', 'subject', 'creator' ), true )
 				? 'dc'
 				: 'meta';
 			$query = ".//{$prefix}:{$local_name}";
-			$nodes = $xpath->query($query, $office_meta);
+			$nodes = $xpath->query( $query, $office_meta );
 
-			if ($nodes->length > 0) {
+			if ( $nodes->length > 0 ) {
 				// Update existing element.
-				$nodes->item(0)->textContent = $value;
+				$nodes->item( 0 )->textContent = $value;
 			} else {
 				// Create new element.
-				$new_el = $dom->createElementNS($ns_uri, "{$prefix}:{$local_name}");
-				$new_el->appendChild($dom->createTextNode($value));
-				$office_meta->appendChild($new_el);
+				$new_el = $dom->createElementNS( $ns_uri, "{$prefix}:{$local_name}" );
+				$new_el->appendChild( $dom->createTextNode( $value ) );
+				$office_meta->appendChild( $new_el );
 			}
 		};
 
 		// Set title.
-		if (!empty($metadata['title'])) {
-			$set_element(self::DC_NS, 'title', $metadata['title']);
+		if ( ! empty( $metadata['title'] ) ) {
+			$set_element( self::DC_NS, 'title', $metadata['title'] );
 		}
 
 		// Set subject.
-		if (!empty($metadata['subject'])) {
-			$set_element(self::DC_NS, 'subject', $metadata['subject']);
+		if ( ! empty( $metadata['subject'] ) ) {
+			$set_element( self::DC_NS, 'subject', $metadata['subject'] );
 		}
 
 		// Set creator (author) - both initial-creator (LibreOffice author) and dc:creator.
-		if (!empty($metadata['author'])) {
-			$set_element(self::ODF_META_NS, 'initial-creator', $metadata['author']);
-			$set_element(self::DC_NS, 'creator', $metadata['author']);
+		if ( ! empty( $metadata['author'] ) ) {
+			$set_element( self::ODF_META_NS, 'initial-creator', $metadata['author'] );
+			$set_element( self::DC_NS, 'creator', $metadata['author'] );
 		}
 
 		// Set keywords - remove existing and add new ones.
-		if (!empty($metadata['keywords'])) {
+		if ( ! empty( $metadata['keywords'] ) ) {
 			// Remove existing keyword elements.
-			$existing_keywords = $xpath->query('.//meta:keyword', $office_meta);
-			foreach ($existing_keywords as $kw) {
-				$office_meta->removeChild($kw);
+			$existing_keywords = $xpath->query( './/meta:keyword', $office_meta );
+			foreach ( $existing_keywords as $kw ) {
+				$office_meta->removeChild( $kw );
 			}
 
 			// Add new keyword elements.
-			$keywords_array = array_map('trim', explode(',', $metadata['keywords']));
-			$keywords_array = array_filter($keywords_array);
-			foreach ($keywords_array as $keyword) {
-				$kw_el = $dom->createElementNS(self::ODF_META_NS, 'meta:keyword');
-				$kw_el->appendChild($dom->createTextNode($keyword));
-				$office_meta->appendChild($kw_el);
+			$keywords_array = array_map( 'trim', explode( ',', $metadata['keywords'] ) );
+			$keywords_array = array_filter( $keywords_array );
+			foreach ( $keywords_array as $keyword ) {
+				$kw_el = $dom->createElementNS( self::ODF_META_NS, 'meta:keyword' );
+				$kw_el->appendChild( $dom->createTextNode( $keyword ) );
+				$office_meta->appendChild( $kw_el );
 			}
 		}
 
 		// Save updated meta.xml.
 		$updated_xml = $dom->saveXML();
-		$zip->addFromString('meta.xml', $updated_xml);
+		$zip->addFromString( 'meta.xml', $updated_xml );
 		$zip->close();
 
 		return true;
@@ -972,98 +992,98 @@ class Documentate_OpenTBS {
 	 * @param array  $metadata  Associative array with keys: title, subject, author, keywords.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	public static function apply_docx_metadata($docx_path, $metadata) {
-		if (empty($metadata) || !is_array($metadata)) {
+	public static function apply_docx_metadata( $docx_path, $metadata ) {
+		if ( empty( $metadata ) || ! is_array( $metadata ) ) {
 			return true;
 		}
 
 		// Check if any metadata value is non-empty.
 		$has_values = false;
-		foreach ($metadata as $value) {
-			if (!empty($value)) {
+		foreach ( $metadata as $value ) {
+			if ( ! empty( $value ) ) {
 				$has_values = true;
 				break;
 			}
 		}
-		if (!$has_values) {
+		if ( ! $has_values ) {
 			return true;
 		}
 
-		if (!class_exists('ZipArchive')) {
-			return new WP_Error('documentate_docx_zip_missing', __('ZipArchive is not available for metadata.', 'documentate'));
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new WP_Error( 'documentate_docx_zip_missing', __( 'ZipArchive is not available for metadata.', 'documentate' ) );
 		}
 
 		$zip = new ZipArchive();
-		if (true !== $zip->open($docx_path)) {
-			return new WP_Error('documentate_docx_open_failed', __('Could not open the DOCX file for metadata.', 'documentate'));
+		if ( true !== $zip->open( $docx_path ) ) {
+			return new WP_Error( 'documentate_docx_open_failed', __( 'Could not open the DOCX file for metadata.', 'documentate' ) );
 		}
 
-		$xml = $zip->getFromName('docProps/core.xml');
-		if (false === $xml) {
+		$xml = $zip->getFromName( 'docProps/core.xml' );
+		if ( false === $xml ) {
 			$zip->close();
-			return new WP_Error('documentate_core_missing', __('docProps/core.xml not found in DOCX.', 'documentate'));
+			return new WP_Error( 'documentate_core_missing', __( 'docProps/core.xml not found in DOCX.', 'documentate' ) );
 		}
 
-		$dom = self::create_xml_document($xml);
-		if (!$dom) {
+		$dom = self::create_xml_document( $xml );
+		if ( ! $dom ) {
 			$zip->close();
-			return new WP_Error('documentate_core_parse', __('Could not parse core.xml.', 'documentate'));
+			return new WP_Error( 'documentate_core_parse', __( 'Could not parse core.xml.', 'documentate' ) );
 		}
 
-		$xpath = new DOMXPath($dom);
-		$xpath->registerNamespace('cp', self::CP_NS);
-		$xpath->registerNamespace('dc', self::DC_NS);
+		$xpath = new DOMXPath( $dom );
+		$xpath->registerNamespace( 'cp', self::CP_NS );
+		$xpath->registerNamespace( 'dc', self::DC_NS );
 
 		// Find cp:coreProperties element.
-		$core_props_list = $xpath->query('//cp:coreProperties');
-		if (0 === $core_props_list->length) {
+		$core_props_list = $xpath->query( '//cp:coreProperties' );
+		if ( 0 === $core_props_list->length ) {
 			$zip->close();
-			return new WP_Error('documentate_core_element', __('cp:coreProperties element not found.', 'documentate'));
+			return new WP_Error( 'documentate_core_element', __( 'cp:coreProperties element not found.', 'documentate' ) );
 		}
-		$core_props = $core_props_list->item(0);
+		$core_props = $core_props_list->item( 0 );
 
 		// Helper to set or update an element.
-		$set_element = static function ($ns_uri, $prefix, $local_name, $value) use ($dom, $xpath, $core_props) {
-			if (empty($value)) {
+		$set_element = static function ( $ns_uri, $prefix, $local_name, $value ) use ( $dom, $xpath, $core_props ) {
+			if ( empty( $value ) ) {
 				return;
 			}
 			$query = ".//{$prefix}:{$local_name}";
-			$nodes = $xpath->query($query, $core_props);
+			$nodes = $xpath->query( $query, $core_props );
 
-			if ($nodes->length > 0) {
+			if ( $nodes->length > 0 ) {
 				// Update existing element.
-				$nodes->item(0)->textContent = $value;
+				$nodes->item( 0 )->textContent = $value;
 			} else {
 				// Create new element.
-				$new_el = $dom->createElementNS($ns_uri, "{$prefix}:{$local_name}");
-				$new_el->appendChild($dom->createTextNode($value));
-				$core_props->appendChild($new_el);
+				$new_el = $dom->createElementNS( $ns_uri, "{$prefix}:{$local_name}" );
+				$new_el->appendChild( $dom->createTextNode( $value ) );
+				$core_props->appendChild( $new_el );
 			}
 		};
 
 		// Set title.
-		if (!empty($metadata['title'])) {
-			$set_element(self::DC_NS, 'dc', 'title', $metadata['title']);
+		if ( ! empty( $metadata['title'] ) ) {
+			$set_element( self::DC_NS, 'dc', 'title', $metadata['title'] );
 		}
 
 		// Set subject.
-		if (!empty($metadata['subject'])) {
-			$set_element(self::DC_NS, 'dc', 'subject', $metadata['subject']);
+		if ( ! empty( $metadata['subject'] ) ) {
+			$set_element( self::DC_NS, 'dc', 'subject', $metadata['subject'] );
 		}
 
 		// Set creator (author).
-		if (!empty($metadata['author'])) {
-			$set_element(self::DC_NS, 'dc', 'creator', $metadata['author']);
+		if ( ! empty( $metadata['author'] ) ) {
+			$set_element( self::DC_NS, 'dc', 'creator', $metadata['author'] );
 		}
 
 		// Set keywords (DOCX uses cp:keywords as comma-separated string).
-		if (!empty($metadata['keywords'])) {
-			$set_element(self::CP_NS, 'cp', 'keywords', $metadata['keywords']);
+		if ( ! empty( $metadata['keywords'] ) ) {
+			$set_element( self::CP_NS, 'cp', 'keywords', $metadata['keywords'] );
 		}
 
 		// Save updated core.xml.
 		$updated_xml = $dom->saveXML();
-		$zip->addFromString('docProps/core.xml', $updated_xml);
+		$zip->addFromString( 'docProps/core.xml', $updated_xml );
 		$zip->close();
 
 		return true;
@@ -1078,69 +1098,69 @@ class Documentate_OpenTBS {
 	 * @param array<string,string> $lookup Rich text lookup table.
 	 * @return string|WP_Error
 	 */
-	public static function convert_odt_part_rich_text($xml, $lookup) {
-		$lookup = self::prepare_rich_lookup($lookup); // CHANGE: Normalize raw lookup values defensively.
-		if (empty($lookup)) {
+	public static function convert_odt_part_rich_text( $xml, $lookup ) {
+		$lookup = self::prepare_rich_lookup( $lookup ); // CHANGE: Normalize raw lookup values defensively.
+		if ( empty( $lookup ) ) {
 			return $xml;
 		}
 
-		$lookup = self::normalize_lookup_line_endings($lookup);
+		$lookup = self::normalize_lookup_line_endings( $lookup );
 
-		$doc = self::create_xml_document($xml);
-		if (!$doc) {
+		$doc = self::create_xml_document( $xml );
+		if ( ! $doc ) {
 			return $xml;
 		}
 
-		$xpath = new DOMXPath($doc);
-		$xpath->registerNamespace('office', self::ODF_OFFICE_NS);
-		$xpath->registerNamespace('text', self::ODF_TEXT_NS);
-		$xpath->registerNamespace('style', self::ODF_STYLE_NS);
+		$xpath = new DOMXPath( $doc );
+		$xpath->registerNamespace( 'office', self::ODF_OFFICE_NS );
+		$xpath->registerNamespace( 'text', self::ODF_TEXT_NS );
+		$xpath->registerNamespace( 'style', self::ODF_STYLE_NS );
 
 		$modified = false;
 		$style_require = array();
 
 		// Process paragraph by paragraph to handle HTML split by text:line-break elements.
-		$paragraphs = $xpath->query('//text:p');
-		if ($paragraphs instanceof DOMNodeList) {
+		$paragraphs = $xpath->query( '//text:p' );
+		if ( $paragraphs instanceof DOMNodeList ) {
 			// Convert to array to avoid issues with DOM modification during iteration.
 			$para_array = array();
-			foreach ($paragraphs as $para) {
+			foreach ( $paragraphs as $para ) {
 				$para_array[] = $para;
 			}
 
-			foreach ($para_array as $paragraph) {
-				if (!$paragraph instanceof DOMElement) {
+			foreach ( $para_array as $paragraph ) {
+				if ( ! $paragraph instanceof DOMElement ) {
 					continue;
 				}
 
 				// Collect all text nodes in the paragraph.
 				$text_nodes = array();
 				$coalesced = '';
-				foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-					if ($child instanceof DOMText) {
+				foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+					if ( $child instanceof DOMText ) {
 						$text_nodes[] = $child;
 						$coalesced .= $child->wholeText; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 					}
 				}
 
-				if (empty($coalesced)) {
+				if ( empty( $coalesced ) ) {
 					continue;
 				}
 
 				// Decode HTML entities and normalize newlines.
-				$coalesced = self::normalize_text_newlines($coalesced);
-				$coalesced = html_entity_decode($coalesced, ENT_QUOTES | ENT_XML1, 'UTF-8');
+				$coalesced = self::normalize_text_newlines( $coalesced );
+				$coalesced = html_entity_decode( $coalesced, ENT_QUOTES | ENT_XML1, 'UTF-8' );
 
 				// Normalize for matching (removes orphaned indentation spaces left by TBS).
-				$coalesced = self::normalize_for_html_matching($coalesced);
+				$coalesced = self::normalize_for_html_matching( $coalesced );
 
 				// Check if there's an HTML match in the coalesced text.
-				$match = self::find_next_html_match($coalesced, $lookup, 0);
-				if (false === $match) {
+				$match = self::find_next_html_match( $coalesced, $lookup, 0 );
+				if ( false === $match ) {
 					// No match found; try individual text nodes for backward compatibility.
-					foreach ($text_nodes as $node) {
-						$changed = self::replace_odt_text_node_html($node, $lookup, $style_require);
-						if ($changed) {
+					foreach ( $text_nodes as $node ) {
+						$changed = self::replace_odt_text_node_html( $node, $lookup, $style_require );
+						if ( $changed ) {
 							$modified = true;
 						}
 					}
@@ -1148,16 +1168,16 @@ class Documentate_OpenTBS {
 				}
 
 				// Found a match; process the entire paragraph's text content.
-				$changed = self::replace_odt_paragraph_html($paragraph, $coalesced, $text_nodes, $lookup, $style_require, $doc);
-				if ($changed) {
+				$changed = self::replace_odt_paragraph_html( $paragraph, $coalesced, $text_nodes, $lookup, $style_require, $doc );
+				if ( $changed ) {
 					$modified = true;
 				}
 			}
 		}
 
-		if ($modified) {
-			if (!empty($style_require)) {
-				self::ensure_odt_styles($doc, $style_require);
+		if ( $modified ) {
+			if ( ! empty( $style_require ) ) {
+				self::ensure_odt_styles( $doc, $style_require );
 			}
 			return $doc->saveXML();
 		}
@@ -1190,75 +1210,75 @@ class Documentate_OpenTBS {
 		$modified = false;
 		$nodes_to_insert = array();
 
-		while (true) {
-			$match = self::find_next_html_match($coalesced, $lookup, $position);
-			if (false === $match) {
+		while ( true ) {
+			$match = self::find_next_html_match( $coalesced, $lookup, $position );
+			if ( false === $match ) {
 				break;
 			}
 
 			list($match_pos, $match_key, $match_raw) = $match;
 
 			// Add text before match.
-			if ($match_pos > $position) {
-				$segment = substr($coalesced, $position, $match_pos - $position);
-				if ('' !== $segment) {
-					$nodes_to_insert[] = $doc->createTextNode($segment);
+			if ( $match_pos > $position ) {
+				$segment = substr( $coalesced, $position, $match_pos - $position );
+				if ( '' !== $segment ) {
+					$nodes_to_insert[] = $doc->createTextNode( $segment );
 				}
 			}
 
 			// Convert HTML to ODT nodes.
-			$html_nodes = self::build_odt_inline_nodes($doc, $match_raw, $style_require);
-			foreach ($html_nodes as $node) {
+			$html_nodes = self::build_odt_inline_nodes( $doc, $match_raw, $style_require );
+			foreach ( $html_nodes as $node ) {
 				$nodes_to_insert[] = $node;
 			}
 
-			$position = $match_pos + strlen($match_key);
+			$position = $match_pos + strlen( $match_key );
 			$modified = true;
 		}
 
-		if (!$modified) {
+		if ( ! $modified ) {
 			return false;
 		}
 
 		// Add remaining text after last match.
-		$tail = substr($coalesced, $position);
-		if ('' !== $tail) {
-			$nodes_to_insert[] = $doc->createTextNode($tail);
+		$tail = substr( $coalesced, $position );
+		if ( '' !== $tail ) {
+			$nodes_to_insert[] = $doc->createTextNode( $tail );
 		}
 
-		if (self::contains_odt_block_nodes($nodes_to_insert)) {
-			return self::replace_odt_paragraph_with_blocks($paragraph, $nodes_to_insert);
+		if ( self::contains_odt_block_nodes( $nodes_to_insert ) ) {
+			return self::replace_odt_paragraph_with_blocks( $paragraph, $nodes_to_insert );
 		}
 
 		// Remove all existing text nodes and line-break elements.
 		$children_to_remove = array();
-		foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMText) {
+		foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMText ) {
 				$children_to_remove[] = $child;
-			} elseif ($child instanceof DOMElement && 'line-break' === $child->localName) {
+			} elseif ( $child instanceof DOMElement && 'line-break' === $child->localName ) {
 				$children_to_remove[] = $child;
 			}
 		}
-		foreach ($children_to_remove as $child) {
-			$paragraph->removeChild($child);
+		foreach ( $children_to_remove as $child ) {
+			$paragraph->removeChild( $child );
 		}
 
 		// Insert new nodes. Block-level elements need to be inserted after the paragraph.
 		$parent = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		$next_sibling = $paragraph->nextSibling; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 
-		foreach ($nodes_to_insert as $node) {
+		foreach ( $nodes_to_insert as $node ) {
 			$is_table =
 				$node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName;
 			$is_paragraph = $node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName;
 
-			if ($is_table || $is_paragraph) {
+			if ( $is_table || $is_paragraph ) {
 				// Tables and paragraphs must be siblings, not children.
-				if ($parent instanceof DOMNode) {
-					$parent->insertBefore($node, $next_sibling);
+				if ( $parent instanceof DOMNode ) {
+					$parent->insertBefore( $node, $next_sibling );
 				}
 			} else {
-				$paragraph->appendChild($node);
+				$paragraph->appendChild( $node );
 			}
 		}
 
@@ -1271,9 +1291,9 @@ class Documentate_OpenTBS {
 	 * @param array<int,DOMNode> $nodes Nodes to inspect.
 	 * @return bool
 	 */
-	private static function contains_odt_block_nodes(array $nodes) {
-		foreach ($nodes as $node) {
-			if (self::is_odt_block_node($node)) {
+	private static function contains_odt_block_nodes( array $nodes ) {
+		foreach ( $nodes as $node ) {
+			if ( self::is_odt_block_node( $node ) ) {
 				return true;
 			}
 		}
@@ -1287,8 +1307,8 @@ class Documentate_OpenTBS {
 	 * @param DOMNode $node Candidate node.
 	 * @return bool
 	 */
-	private static function is_odt_block_node(DOMNode $node) {
-		if (!$node instanceof DOMElement) {
+	private static function is_odt_block_node( DOMNode $node ) {
+		if ( ! $node instanceof DOMElement ) {
 			return false;
 		}
 
@@ -1308,57 +1328,57 @@ class Documentate_OpenTBS {
 	 * @param array<int,DOMNode> $nodes     Replacement nodes.
 	 * @return bool
 	 */
-	private static function replace_odt_paragraph_with_blocks(DOMElement $paragraph, array $nodes) {
+	private static function replace_odt_paragraph_with_blocks( DOMElement $paragraph, array $nodes ) {
 		$parent = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-		if (!$parent instanceof DOMNode) {
+		if ( ! $parent instanceof DOMNode ) {
 			return false;
 		}
 
 		$replacement_nodes = array();
 		$inline_buffer = array();
 
-		foreach ($nodes as $node) {
-			if (!self::is_odt_block_node($node)) {
+		foreach ( $nodes as $node ) {
+			if ( ! self::is_odt_block_node( $node ) ) {
 				$inline_buffer[] = $node;
 				continue;
 			}
 
-			if ($node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName) {
-				self::inherit_odt_paragraph_style($paragraph, $node);
-				if (!empty($inline_buffer)) {
-					self::prepend_odt_inline_nodes($node, $inline_buffer);
+			if ( $node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName ) {
+				self::inherit_odt_paragraph_style( $paragraph, $node );
+				if ( ! empty( $inline_buffer ) ) {
+					self::prepend_odt_inline_nodes( $node, $inline_buffer );
 					$inline_buffer = array();
 				}
 				$replacement_nodes[] = $node;
 				continue;
 			}
 
-			if (!empty($inline_buffer)) {
-				$replacement_nodes[] = self::create_odt_paragraph_from_inline_nodes($paragraph, $inline_buffer);
+			if ( ! empty( $inline_buffer ) ) {
+				$replacement_nodes[] = self::create_odt_paragraph_from_inline_nodes( $paragraph, $inline_buffer );
 				$inline_buffer = array();
 			}
 
 			$replacement_nodes[] = $node;
 		}
 
-		if (!empty($inline_buffer)) {
-			$last_node = !empty($replacement_nodes) ? end($replacement_nodes) : null;
+		if ( ! empty( $inline_buffer ) ) {
+			$last_node = ! empty( $replacement_nodes ) ? end( $replacement_nodes ) : null;
 			if (
 				$last_node instanceof DOMElement
 				&& self::ODF_TEXT_NS === $last_node->namespaceURI
 				&& 'p' === $last_node->localName
 			) {
-				self::append_odt_inline_nodes($last_node, $inline_buffer);
+				self::append_odt_inline_nodes( $last_node, $inline_buffer );
 			} else {
-				$replacement_nodes[] = self::create_odt_paragraph_from_inline_nodes($paragraph, $inline_buffer);
+				$replacement_nodes[] = self::create_odt_paragraph_from_inline_nodes( $paragraph, $inline_buffer );
 			}
 		}
 
-		foreach ($replacement_nodes as $replacement_node) {
-			$parent->insertBefore($replacement_node, $paragraph);
+		foreach ( $replacement_nodes as $replacement_node ) {
+			$parent->insertBefore( $replacement_node, $paragraph );
 		}
 
-		$parent->removeChild($paragraph);
+		$parent->removeChild( $paragraph );
 		return true;
 	}
 
@@ -1369,10 +1389,10 @@ class Documentate_OpenTBS {
 	 * @param array<int,DOMNode> $nodes            Inline nodes to append.
 	 * @return DOMElement
 	 */
-	private static function create_odt_paragraph_from_inline_nodes(DOMElement $source_paragraph, array $nodes) {
-		$paragraph = $source_paragraph->cloneNode(false);
-		foreach ($nodes as $node) {
-			$paragraph->appendChild($node);
+	private static function create_odt_paragraph_from_inline_nodes( DOMElement $source_paragraph, array $nodes ) {
+		$paragraph = $source_paragraph->cloneNode( false );
+		foreach ( $nodes as $node ) {
+			$paragraph->appendChild( $node );
 		}
 		return $paragraph;
 	}
@@ -1383,14 +1403,14 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $source_paragraph Template paragraph.
 	 * @param DOMElement $target_paragraph Generated paragraph.
 	 */
-	private static function inherit_odt_paragraph_style(DOMElement $source_paragraph, DOMElement $target_paragraph) {
-		if ($target_paragraph->hasAttributeNS(self::ODF_TEXT_NS, 'style-name')) {
+	private static function inherit_odt_paragraph_style( DOMElement $source_paragraph, DOMElement $target_paragraph ) {
+		if ( $target_paragraph->hasAttributeNS( self::ODF_TEXT_NS, 'style-name' ) ) {
 			return;
 		}
 
-		$style_name = $source_paragraph->getAttributeNS(self::ODF_TEXT_NS, 'style-name');
-		if ('' !== $style_name) {
-			$target_paragraph->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', $style_name);
+		$style_name = $source_paragraph->getAttributeNS( self::ODF_TEXT_NS, 'style-name' );
+		if ( '' !== $style_name ) {
+			$target_paragraph->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', $style_name );
 		}
 	}
 
@@ -1400,15 +1420,15 @@ class Documentate_OpenTBS {
 	 * @param DOMElement         $paragraph Paragraph to update.
 	 * @param array<int,DOMNode> $nodes     Nodes to prepend.
 	 */
-	private static function prepend_odt_inline_nodes(DOMElement $paragraph, array $nodes) {
+	private static function prepend_odt_inline_nodes( DOMElement $paragraph, array $nodes ) {
 		$reference = $paragraph->firstChild; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-		foreach ($nodes as $node) {
-			if ($reference instanceof DOMNode) {
-				$paragraph->insertBefore($node, $reference);
+		foreach ( $nodes as $node ) {
+			if ( $reference instanceof DOMNode ) {
+				$paragraph->insertBefore( $node, $reference );
 				continue;
 			}
 
-			$paragraph->appendChild($node);
+			$paragraph->appendChild( $node );
 		}
 	}
 
@@ -1418,9 +1438,9 @@ class Documentate_OpenTBS {
 	 * @param DOMElement         $paragraph Paragraph to update.
 	 * @param array<int,DOMNode> $nodes     Nodes to append.
 	 */
-	private static function append_odt_inline_nodes(DOMElement $paragraph, array $nodes) {
-		foreach ($nodes as $node) {
-			$paragraph->appendChild($node);
+	private static function append_odt_inline_nodes( DOMElement $paragraph, array $nodes ) {
+		foreach ( $nodes as $node ) {
+			$paragraph->appendChild( $node );
 		}
 	}
 
@@ -1432,45 +1452,45 @@ class Documentate_OpenTBS {
 	 * @param array<string,bool>   $style_require Styles required so far.
 	 * @return bool
 	 */
-	private static function replace_odt_text_node_html(DOMText $text_node, $lookup, array &$style_require) {
-		$value = self::normalize_text_newlines($text_node->wholeText); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+	private static function replace_odt_text_node_html( DOMText $text_node, $lookup, array &$style_require ) {
+		$value = self::normalize_text_newlines( $text_node->wholeText ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		// Decode HTML entities so we can match raw HTML fragments like <table> inside text nodes that contain &lt;table&gt;.
-		$value = html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+		$value = html_entity_decode( $value, ENT_QUOTES | ENT_XML1, 'UTF-8' );
 		// Normalize for matching (removes orphaned indentation spaces left by TBS).
-		$value = self::normalize_for_html_matching($value);
+		$value = self::normalize_for_html_matching( $value );
 		$doc = $text_node->ownerDocument;
 		$parent = $text_node->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-		if (!$doc || !$parent) {
+		if ( ! $doc || ! $parent ) {
 			return false;
 		}
 
 		$position = 0;
 		$modified = false;
 
-		while (true) {
-			$match = self::find_next_html_match($value, $lookup, $position);
-			if (false === $match) {
+		while ( true ) {
+			$match = self::find_next_html_match( $value, $lookup, $position );
+			if ( false === $match ) {
 				break;
 			}
 
 			list($match_pos, $match_key, $match_raw) = $match;
-			if ($match_pos > $position) {
-				$segment = substr($value, $position, $match_pos - $position);
-				if ('' !== $segment) {
-					$parent->insertBefore($doc->createTextNode($segment), $text_node);
+			if ( $match_pos > $position ) {
+				$segment = substr( $value, $position, $match_pos - $position );
+				if ( '' !== $segment ) {
+					$parent->insertBefore( $doc->createTextNode( $segment ), $text_node );
 				}
 			}
 
 			// Use raw HTML for parsing, not the possibly-encoded key.
-			$nodes = self::build_odt_inline_nodes($doc, $match_raw, $style_require);
-			foreach ($nodes as $node) {
+			$nodes = self::build_odt_inline_nodes( $doc, $match_raw, $style_require );
+			foreach ( $nodes as $node ) {
 				// Check if node is a block-level element that must be a sibling of paragraphs.
 				$is_table =
 					$node instanceof DOMElement && self::ODF_TABLE_NS === $node->namespaceURI && 'table' === $node->localName;
 				$is_paragraph =
 					$node instanceof DOMElement && self::ODF_TEXT_NS === $node->namespaceURI && 'p' === $node->localName;
 
-				if ($is_table || $is_paragraph) {
+				if ( $is_table || $is_paragraph ) {
 					// Tables and paragraphs must be siblings of the containing paragraph, not children.
 					$target_parent = $parent;
 					$reference = $text_node;
@@ -1485,27 +1505,27 @@ class Documentate_OpenTBS {
 						$reference = $parent->nextSibling;
 					}
 
-					if ($target_parent instanceof DOMNode) {
-						$target_parent->insertBefore($node, $reference);
+					if ( $target_parent instanceof DOMNode ) {
+						$target_parent->insertBefore( $node, $reference );
 					} else {
-						$parent->insertBefore($node, $text_node);
+						$parent->insertBefore( $node, $text_node );
 					}
 				} else {
-					$parent->insertBefore($node, $text_node);
+					$parent->insertBefore( $node, $text_node );
 				}
 			}
 
 			// Use key length for position calculation (matches what's in source text).
-			$position = $match_pos + strlen($match_key);
+			$position = $match_pos + strlen( $match_key );
 			$modified = true;
 		}
 
-		if ($modified) {
-			$tail = substr($value, $position);
-			if ('' !== $tail) {
-				$parent->insertBefore($doc->createTextNode($tail), $text_node);
+		if ( $modified ) {
+			$tail = substr( $value, $position );
+			if ( '' !== $tail ) {
+				$parent->insertBefore( $doc->createTextNode( $tail ), $text_node );
 			}
-			$parent->removeChild($text_node);
+			$parent->removeChild( $text_node );
 		}
 
 		return $modified;
@@ -1519,8 +1539,8 @@ class Documentate_OpenTBS {
 	 * @param int                  $position Starting offset.
 	 * @return array{int,string,string}|false Position, matched key for length, raw HTML for parsing.
 	 */
-	private static function find_next_html_match($text, $lookup, $position) {
-		return OpenTBS_HTML_Parser::find_next_html_match($text, $lookup, $position);
+	private static function find_next_html_match( $text, $lookup, $position ) {
+		return OpenTBS_HTML_Parser::find_next_html_match( $text, $lookup, $position );
 	}
 
 	/**
@@ -1531,20 +1551,20 @@ class Documentate_OpenTBS {
 	 * @param array<string,bool> $style_require Styles required so far.
 	 * @return array<int,DOMNode>
 	 */
-	private static function build_odt_inline_nodes(DOMDocument $doc, $html, array &$style_require) {
-		$html = trim((string) $html);
-		if ('' === $html) {
+	private static function build_odt_inline_nodes( DOMDocument $doc, $html, array &$style_require ) {
+		$html = trim( (string) $html );
+		if ( '' === $html ) {
 			return array();
 		}
 
-		$tmp = self::create_html_document($html);
-		if (!$tmp) {
-			return array($doc->createTextNode($html));
+		$tmp = self::create_html_document( $html );
+		if ( ! $tmp ) {
+			return array( $doc->createTextNode( $html ) );
 		}
 
-		$container = $tmp->getElementsByTagName('div')->item(0);
-		if (!$container) {
-			return array($doc->createTextNode($html));
+		$container = $tmp->getElementsByTagName( 'div' )->item( 0 );
+		if ( ! $container ) {
+			return array( $doc->createTextNode( $html ) );
 		}
 
 		$list_state = array(
@@ -1553,14 +1573,14 @@ class Documentate_OpenTBS {
 		);
 
 		$result = array();
-		foreach ($container->childNodes as $child) {
-			$converted = self::convert_html_node_to_odt($doc, $child, array(), $style_require, $list_state);
-			if (!empty($converted)) {
-				$result = array_merge($result, $converted);
+		foreach ( $container->childNodes as $child ) {
+			$converted = self::convert_html_node_to_odt( $doc, $child, array(), $style_require, $list_state );
+			if ( ! empty( $converted ) ) {
+				$result = array_merge( $result, $converted );
 			}
 		}
 
-		self::trim_odt_inline_nodes($result);
+		self::trim_odt_inline_nodes( $result );
 		return $result;
 	}
 
@@ -1581,36 +1601,36 @@ class Documentate_OpenTBS {
 		array &$style_require,
 		array &$list_state,
 	) {
-		if (XML_TEXT_NODE === $node->nodeType) {
+		if ( XML_TEXT_NODE === $node->nodeType ) {
 			// phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			$text = $node->nodeValue;
-			if ('' === $text) {
+			if ( '' === $text ) {
 				return array();
 			}
 
-			$text_node = $doc->createTextNode($text);
-			return self::wrap_nodes_with_formatting($doc, array($text_node), $formatting, $style_require);
+			$text_node = $doc->createTextNode( $text );
+			return self::wrap_nodes_with_formatting( $doc, array( $text_node ), $formatting, $style_require );
 		}
 
-		if (XML_ELEMENT_NODE !== $node->nodeType) {
+		if ( XML_ELEMENT_NODE !== $node->nodeType ) {
 			return array();
 		}
 
-		$tag = strtolower($node->nodeName);
-		switch ($tag) {
+		$tag = strtolower( $node->nodeName );
+		switch ( $tag ) {
 			case 'br':
-				return array($doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break'));
+				return array( $doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ) );
 			case 'strong':
 			case 'b':
 				$formatting['bold'] = true;
-				return self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 			case 'em':
 			case 'i':
 				$formatting['italic'] = true;
-				return self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 			case 'u':
 				$formatting['underline'] = true;
-				return self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 			case 'h1':
 			case 'h2':
 			case 'h3':
@@ -1619,89 +1639,92 @@ class Documentate_OpenTBS {
 			case 'h6':
 				$formatting['bold'] = true;
 				$spacing = array(
-					$doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break'),
-					$doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break'),
+					$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
+					$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
 				);
-				$heading_nodes = self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				$heading_nodes = self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 				$tail_spacing = array(
-					$doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break'),
-					$doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break'),
+					$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
+					$doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' ),
 				);
-				return array_merge($spacing, $heading_nodes, $tail_spacing);
+				return array_merge( $spacing, $heading_nodes, $tail_spacing );
 			case 'span':
-				if ($node->hasAttribute('style')) {
-					$style_attr = strtolower($node->getAttribute('style'));
-					if (false !== strpos($style_attr, 'font-weight:bold') || false !== strpos($style_attr, 'font-weight:700')) {
+				if ( $node->hasAttribute( 'style' ) ) {
+					$style_attr = strtolower( $node->getAttribute( 'style' ) );
+					if ( false !== strpos( $style_attr, 'font-weight:bold' ) || false !== strpos( $style_attr, 'font-weight:700' ) ) {
 						$formatting['bold'] = true;
 					}
-					if (false !== strpos($style_attr, 'font-style:italic')) {
+					if ( false !== strpos( $style_attr, 'font-style:italic' ) ) {
 						$formatting['italic'] = true;
 					}
-					if (false !== strpos($style_attr, 'text-decoration:underline')) {
+					if ( false !== strpos( $style_attr, 'text-decoration:underline' ) ) {
 						$formatting['underline'] = true;
 					}
 				}
-				return self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 			case 'a':
-				$href = trim($node->getAttribute('href'));
-				if ('' !== $href) {
+				$href = trim( $node->getAttribute( 'href' ) );
+				if ( '' !== $href ) {
 					$formatting['link'] = $href;
 				}
-				return self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 			case 'p':
 			case 'div':
-				$alignment = self::extract_text_alignment($node);
-				$children = self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
-				$is_spacing_paragraph = self::is_nbsp_only_paragraph($node);
+				$alignment = self::extract_text_alignment( $node );
+				$children = self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
+				$is_spacing_paragraph = self::is_nbsp_only_paragraph( $node );
 
-				if (empty($children) && !$is_spacing_paragraph) {
+				if ( empty( $children ) && ! $is_spacing_paragraph ) {
 					return array();
 				}
 
 				// Always create a real ODT paragraph for proper spacing control.
-				$paragraph = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
+				$paragraph = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
 
 				// Apply alignment style if specified.
-				if (null !== $alignment && 'left' !== $alignment) {
-					$style_name = 'DocumentateAlign' . ucfirst($alignment);
-					$paragraph->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', $style_name);
-					$style_require['align_' . $alignment] = true;
+				if ( null !== $alignment && 'left' !== $alignment ) {
+					$style_name = 'DocumentateAlign' . ucfirst( $alignment );
+					$paragraph->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', $style_name );
+					$style_require[ 'align_' . $alignment ] = true;
 				}
 
-				if (!empty($children)) {
-					self::trim_odt_inline_nodes($children);
-					foreach ($children as $child_node) {
-						$paragraph->appendChild($child_node);
+				if ( ! empty( $children ) ) {
+					self::trim_odt_inline_nodes( $children );
+					foreach ( $children as $child_node ) {
+						$paragraph->appendChild( $child_node );
 					}
-				} elseif ($is_spacing_paragraph) {
+				} elseif ( $is_spacing_paragraph ) {
 					// For spacing paragraphs, add a non-breaking space.
-					$paragraph->appendChild($doc->createTextNode("\xC2\xA0"));
+					$paragraph->appendChild( $doc->createTextNode( "\xC2\xA0" ) );
 				}
 
-				return array($paragraph);
+				return array( $paragraph );
 			case 'table':
-				return self::convert_table_node_to_odt($doc, $node, $formatting, $style_require);
+				return self::convert_table_node_to_odt( $doc, $node, $formatting, $style_require );
 			case 'ul':
 				$list_state['unordered']++;
 				$prev_type = $list_state['current_type'] ?? null;
 				$list_state['current_type'] = 'ul';
 				$items = array();
-				foreach ($node->childNodes as $child) {
-					if ('li' !== strtolower($child->nodeName)) {
+				foreach ( $node->childNodes as $child ) {
+					if ( 'li' !== strtolower( $child->nodeName ) ) {
 						continue;
 					}
-					if (!empty($items)) {
-						$items[] = $doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break');
+					if ( ! empty( $items ) ) {
+						$items[] = $doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' );
 					}
-					$items = array_merge($items, self::convert_html_node_to_odt(
-						$doc,
-						$child,
-						$formatting,
-						$style_require,
-						$list_state,
-					));
+					$items = array_merge(
+						$items,
+						self::convert_html_node_to_odt(
+							$doc,
+							$child,
+							$formatting,
+							$style_require,
+							$list_state,
+						)
+					);
 				}
-				$list_state['unordered'] = max(0, $list_state['unordered'] - 1);
+				$list_state['unordered'] = max( 0, $list_state['unordered'] - 1 );
 				$list_state['current_type'] = $prev_type;
 				return $items;
 			case 'ol':
@@ -1709,43 +1732,46 @@ class Documentate_OpenTBS {
 				$prev_type = $list_state['current_type'] ?? null;
 				$list_state['current_type'] = 'ol';
 				$ordered = array();
-				foreach ($node->childNodes as $child) {
-					if ('li' !== strtolower($child->nodeName)) {
+				foreach ( $node->childNodes as $child ) {
+					if ( 'li' !== strtolower( $child->nodeName ) ) {
 						continue;
 					}
-					if (!empty($ordered)) {
-						$ordered[] = $doc->createElementNS(self::ODF_TEXT_NS, 'text:line-break');
+					if ( ! empty( $ordered ) ) {
+						$ordered[] = $doc->createElementNS( self::ODF_TEXT_NS, 'text:line-break' );
 					}
-					$ordered = array_merge($ordered, self::convert_html_node_to_odt(
-						$doc,
-						$child,
-						$formatting,
-						$style_require,
-						$list_state,
-					));
+					$ordered = array_merge(
+						$ordered,
+						self::convert_html_node_to_odt(
+							$doc,
+							$child,
+							$formatting,
+							$style_require,
+							$list_state,
+						)
+					);
 				}
-				array_pop($list_state['ordered']);
+				array_pop( $list_state['ordered'] );
 				$list_state['current_type'] = $prev_type;
 				return $ordered;
 			case 'li':
 				$line = array();
 				$current_type = $list_state['current_type'] ?? '';
-				if ('ol' === $current_type && !empty($list_state['ordered'])) {
-					$index = count($list_state['ordered']) - 1;
-					$number = $list_state['ordered'][$index];
+				if ( 'ol' === $current_type && ! empty( $list_state['ordered'] ) ) {
+					$index = count( $list_state['ordered'] ) - 1;
+					$number = $list_state['ordered'][ $index ];
 					$prefix = $number . '. ';
-					$line = self::wrap_nodes_with_formatting($doc, array($doc->createTextNode($prefix)), $formatting, $style_require);
-					$list_state['ordered'][$index]++;
-				} elseif ('ul' === $current_type || $list_state['unordered'] > 0) {
-					$indent = str_repeat('  ', max(0, $list_state['unordered'] - 1));
+					$line = self::wrap_nodes_with_formatting( $doc, array( $doc->createTextNode( $prefix ) ), $formatting, $style_require );
+					$list_state['ordered'][ $index ]++;
+				} elseif ( 'ul' === $current_type || $list_state['unordered'] > 0 ) {
+					$indent = str_repeat( '  ', max( 0, $list_state['unordered'] - 1 ) );
 					$bullet = $indent . '• ';
-					$line = self::wrap_nodes_with_formatting($doc, array($doc->createTextNode($bullet)), $formatting, $style_require);
+					$line = self::wrap_nodes_with_formatting( $doc, array( $doc->createTextNode( $bullet ) ), $formatting, $style_require );
 				}
-				$children = self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
-				$line = array_merge($line, $children);
+				$children = self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
+				$line = array_merge( $line, $children );
 				return $line;
 			default:
-				return self::collect_html_children_as_odt($doc, $node, $formatting, $style_require, $list_state);
+				return self::collect_html_children_as_odt( $doc, $node, $formatting, $style_require, $list_state );
 		}
 	}
 
@@ -1767,10 +1793,10 @@ class Documentate_OpenTBS {
 		array &$list_state,
 	) {
 		$result = array();
-		foreach ($node->childNodes as $child) {
-			$converted = self::convert_html_node_to_odt($doc, $child, $formatting, $style_require, $list_state);
-			if (!empty($converted)) {
-				$result = array_merge($result, $converted);
+		foreach ( $node->childNodes as $child ) {
+			$converted = self::convert_html_node_to_odt( $doc, $child, $formatting, $style_require, $list_state );
+			if ( ! empty( $converted ) ) {
+				$result = array_merge( $result, $converted );
 			}
 		}
 		return $result;
@@ -1785,14 +1811,14 @@ class Documentate_OpenTBS {
 	 * @param array<string,bool>  $style_require Styles required so far.
 	 * @return array<int,DOMNode>
 	 */
-	private static function convert_table_node_to_odt(DOMDocument $doc, $node, $formatting, array &$style_require) {
-		$row_nodes = self::extract_table_row_nodes($node);
-		if (empty($row_nodes)) {
+	private static function convert_table_node_to_odt( DOMDocument $doc, $node, $formatting, array &$style_require ) {
+		$row_nodes = self::extract_table_row_nodes( $node );
+		if ( empty( $row_nodes ) ) {
 			return array();
 		}
 
-		$table_element = $doc->createElementNS(self::ODF_TABLE_NS, 'table:table');
-		$table_element->setAttributeNS(self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTable');
+		$table_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table' );
+		$table_element->setAttributeNS( self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTable' );
 		$style_require['table'] = true;
 		$row_elements = array();
 		$max_columns = 0;
@@ -1800,41 +1826,41 @@ class Documentate_OpenTBS {
 		// Track rowspan coverage: column_index => remaining rows needing covered cells.
 		$rowspan_map = array();
 
-		foreach ($row_nodes as $row) {
-			$row_data = self::convert_table_row_to_odt($doc, $row, $formatting, $style_require, $rowspan_map);
-			if ($row_data['element']) {
+		foreach ( $row_nodes as $row ) {
+			$row_data = self::convert_table_row_to_odt( $doc, $row, $formatting, $style_require, $rowspan_map );
+			if ( $row_data['element'] ) {
 				$row_elements[] = $row_data['element'];
-				if ($row_data['columns'] > $max_columns) {
+				if ( $row_data['columns'] > $max_columns ) {
 					$max_columns = $row_data['columns'];
 				}
 			}
 		}
 
-		if (empty($row_elements)) {
+		if ( empty( $row_elements ) ) {
 			return array();
 		}
 
-		for ($i = 0; $i < $max_columns; $i++) {
-			$table_element->appendChild($doc->createElementNS(self::ODF_TABLE_NS, 'table:table-column'));
+		for ( $i = 0; $i < $max_columns; $i++ ) {
+			$table_element->appendChild( $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-column' ) );
 		}
 
-		foreach ($row_elements as $row_element) {
-			$table_element->appendChild($row_element);
+		foreach ( $row_elements as $row_element ) {
+			$table_element->appendChild( $row_element );
 		}
 
 		// Tables in ODT are block-level elements that are siblings of paragraphs.
 		// No line-breaks needed - the XML structure provides natural separation.
-		return array($table_element);
+		return array( $table_element );
 	}
 
 	/**
 	 * Convert a single table row to ODT.
 	 *
-	 * @param DOMDocument          $doc           Target document.
-	 * @param DOMElement           $row           Row element.
-	 * @param array<string,mixed>  $formatting    Active formatting flags.
-	 * @param array<string,bool>   $style_require Styles required so far.
-	 * @param array<int,int>       $rowspan_map   Column index => remaining rows covered by rowspan.
+	 * @param DOMDocument         $doc           Target document.
+	 * @param DOMElement          $row           Row element.
+	 * @param array<string,mixed> $formatting    Active formatting flags.
+	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @param array<int,int>      $rowspan_map   Column index => remaining rows covered by rowspan.
 	 * @return array{element: DOMElement|null, columns: int}
 	 */
 	private static function convert_table_row_to_odt(
@@ -1844,58 +1870,59 @@ class Documentate_OpenTBS {
 		array &$style_require,
 		array &$rowspan_map = array(),
 	) {
-		$row_element = $doc->createElementNS(self::ODF_TABLE_NS, 'table:table-row');
+		$row_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-row' );
 		$column_index = 0;
 		$column_count = 0;
 
 		$cells = array();
-		foreach ($row->childNodes as $cell) {
-			if (!$cell instanceof DOMElement) {
+		foreach ( $row->childNodes as $cell ) {
+			if ( ! $cell instanceof DOMElement ) {
 				continue;
 			}
-			$cell_tag = strtolower($cell->nodeName);
-			if ('td' === $cell_tag || 'th' === $cell_tag) {
+			$cell_tag = strtolower( $cell->nodeName );
+			if ( 'td' === $cell_tag || 'th' === $cell_tag ) {
 				$cells[] = $cell;
 			}
 		}
 
-		$cell_iter = 0;
-		while ($cell_iter < count($cells) || isset($rowspan_map[$column_index])) {
+		$cell_iter  = 0;
+		$cell_count = count( $cells );
+		while ( $cell_iter < $cell_count || isset( $rowspan_map[ $column_index ] ) ) {
 			// Insert covered cells for rowspan from previous rows.
-			while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
-				$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
-				$row_element->appendChild($covered);
+			while ( isset( $rowspan_map[ $column_index ] ) && $rowspan_map[ $column_index ] > 0 ) {
+				$covered = $doc->createElementNS( self::ODF_TABLE_NS, 'table:covered-table-cell' );
+				$row_element->appendChild( $covered );
 				// Consume: decrement and remove if exhausted.
-				$rowspan_map[$column_index]--;
-				if (0 === $rowspan_map[$column_index]) {
-					unset($rowspan_map[$column_index]);
+				$rowspan_map[ $column_index ]--;
+				if ( 0 === $rowspan_map[ $column_index ] ) {
+					unset( $rowspan_map[ $column_index ] );
 				}
 				$column_index++;
 				$column_count++;
 			}
 
-			if ($cell_iter >= count($cells)) {
+			if ( $cell_iter >= count( $cells ) ) {
 				break;
 			}
 
-			$cell = $cells[$cell_iter];
-			$cell_element = self::convert_table_cell_to_odt($doc, $cell, $formatting, $style_require);
-			$row_element->appendChild($cell_element);
+			$cell = $cells[ $cell_iter ];
+			$cell_element = self::convert_table_cell_to_odt( $doc, $cell, $formatting, $style_require );
+			$row_element->appendChild( $cell_element );
 
-			$colspan = max(1, (int) $cell->getAttribute('colspan'));
-			$rowspan = max(1, (int) $cell->getAttribute('rowspan'));
+			$colspan = max( 1, (int) $cell->getAttribute( 'colspan' ) );
+			$rowspan = max( 1, (int) $cell->getAttribute( 'rowspan' ) );
 
 			// Register rowspan for subsequent rows.
-			if ($rowspan > 1) {
-				for ($c = 0; $c < $colspan; $c++) {
-					$rowspan_map[$column_index + $c] = $rowspan - 1;
+			if ( $rowspan > 1 ) {
+				for ( $c = 0; $c < $colspan; $c++ ) {
+					$rowspan_map[ $column_index + $c ] = $rowspan - 1;
 				}
 			}
 
 			// Append covered-table-cell for extra columns from colspan.
-			for ($c = 1; $c < $colspan; $c++) {
-				$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
-				$row_element->appendChild($covered);
+			for ( $c = 1; $c < $colspan; $c++ ) {
+				$covered = $doc->createElementNS( self::ODF_TABLE_NS, 'table:covered-table-cell' );
+				$row_element->appendChild( $covered );
 			}
 
 			$column_index += $colspan;
@@ -1904,12 +1931,12 @@ class Documentate_OpenTBS {
 		}
 
 		// Handle any remaining covered columns after all cells.
-		while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
-			$covered = $doc->createElementNS(self::ODF_TABLE_NS, 'table:covered-table-cell');
-			$row_element->appendChild($covered);
-			$rowspan_map[$column_index]--;
-			if (0 === $rowspan_map[$column_index]) {
-				unset($rowspan_map[$column_index]);
+		while ( isset( $rowspan_map[ $column_index ] ) && $rowspan_map[ $column_index ] > 0 ) {
+			$covered = $doc->createElementNS( self::ODF_TABLE_NS, 'table:covered-table-cell' );
+			$row_element->appendChild( $covered );
+			$rowspan_map[ $column_index ]--;
+			if ( 0 === $rowspan_map[ $column_index ] ) {
+				unset( $rowspan_map[ $column_index ] );
 			}
 			$column_index++;
 			$column_count++;
@@ -1941,35 +1968,35 @@ class Documentate_OpenTBS {
 		array &$style_require,
 	) {
 		$cell_formatting = $formatting;
-		if ('th' === strtolower($cell->nodeName)) {
+		if ( 'th' === strtolower( $cell->nodeName ) ) {
 			$cell_formatting['bold'] = true;
 		}
 
 		// Extract alignment from cell or first paragraph child.
-		$cell_alignment = self::extract_text_alignment($cell);
-		if (null === $cell_alignment) {
-			foreach ($cell->childNodes as $child) {
-				if ($child instanceof DOMElement && 'p' === strtolower($child->nodeName)) {
-					$cell_alignment = self::extract_text_alignment($child);
+		$cell_alignment = self::extract_text_alignment( $cell );
+		if ( null === $cell_alignment ) {
+			foreach ( $cell->childNodes as $child ) {
+				if ( $child instanceof DOMElement && 'p' === strtolower( $child->nodeName ) ) {
+					$cell_alignment = self::extract_text_alignment( $child );
 					break;
 				}
 			}
 		}
 
-		$cell_element = $doc->createElementNS(self::ODF_TABLE_NS, 'table:table-cell');
-		$cell_element->setAttributeNS(self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTableCell');
+		$cell_element = $doc->createElementNS( self::ODF_TABLE_NS, 'table:table-cell' );
+		$cell_element->setAttributeNS( self::ODF_TABLE_NS, 'table:style-name', 'DocumentateRichTableCell' );
 		$style_require['table_cell'] = true;
 
 		// Handle colspan attribute.
-		$colspan = (int) $cell->getAttribute('colspan');
-		if ($colspan > 1) {
-			$cell_element->setAttributeNS(self::ODF_TABLE_NS, 'table:number-columns-spanned', (string) $colspan);
+		$colspan = (int) $cell->getAttribute( 'colspan' );
+		if ( $colspan > 1 ) {
+			$cell_element->setAttributeNS( self::ODF_TABLE_NS, 'table:number-columns-spanned', (string) $colspan );
 		}
 
 		// Handle rowspan attribute.
-		$rowspan = (int) $cell->getAttribute('rowspan');
-		if ($rowspan > 1) {
-			$cell_element->setAttributeNS(self::ODF_TABLE_NS, 'table:number-rows-spanned', (string) $rowspan);
+		$rowspan = (int) $cell->getAttribute( 'rowspan' );
+		if ( $rowspan > 1 ) {
+			$cell_element->setAttributeNS( self::ODF_TABLE_NS, 'table:number-rows-spanned', (string) $rowspan );
 		}
 
 		// Walk cell children, separating block elements from inline content.
@@ -1979,36 +2006,38 @@ class Documentate_OpenTBS {
 			'ordered' => array(),
 		);
 		$current_inline = array();
-		$block_elements = array('p', 'div', 'ul', 'ol', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6');
+		$block_elements = array( 'p', 'div', 'ul', 'ol', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
 
-		foreach ($cell->childNodes as $child) {
-			if (!$child instanceof DOMElement) {
+		foreach ( $cell->childNodes as $child ) {
+			if ( ! $child instanceof DOMElement ) {
 				// Text nodes or other non-element nodes: collect as inline.
-				$inline_nodes = self::convert_html_node_to_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
-				$current_inline = array_merge($current_inline, $inline_nodes);
+				$inline_nodes = self::convert_html_node_to_odt( $doc, $child, $cell_formatting, $style_require, $cell_list_state );
+				$current_inline = array_merge( $current_inline, $inline_nodes );
 				continue;
 			}
 
-			$tag = strtolower($child->nodeName);
+			$tag = strtolower( $child->nodeName );
 
-			if (!in_array($tag, $block_elements, true)) {
+			if ( ! in_array( $tag, $block_elements, true ) ) {
 				// Inline element (strong, em, span, a, br, etc.): collect.
-				$inline_nodes = self::convert_html_node_to_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
+				$inline_nodes = self::convert_html_node_to_odt( $doc, $child, $cell_formatting, $style_require, $cell_list_state );
 				// Filter out any text:p elements that inline converters may return
 				// (e.g. from nested block content) and append them separately.
-				foreach ($inline_nodes as $inline_node) {
-					if ($inline_node instanceof DOMElement && 'text:p' === $inline_node->nodeName) {
+				foreach ( $inline_nodes as $inline_node ) {
+					if ( $inline_node instanceof DOMElement && 'text:p' === $inline_node->nodeName ) {
 						// Flush current inline content first.
-						if (!empty($current_inline)) {
-							$cell_element->appendChild(self::create_odt_paragraph_from_inline(
-								$doc,
-								$current_inline,
-								$cell_alignment,
-								$style_require,
-							));
+						if ( ! empty( $current_inline ) ) {
+							$cell_element->appendChild(
+								self::create_odt_paragraph_from_inline(
+									$doc,
+									$current_inline,
+									$cell_alignment,
+									$style_require,
+								)
+							);
 							$current_inline = array();
 						}
-						$cell_element->appendChild($inline_node);
+						$cell_element->appendChild( $inline_node );
 					} else {
 						$current_inline[] = $inline_node;
 					}
@@ -2017,94 +2046,102 @@ class Documentate_OpenTBS {
 			}
 
 			// Block element: flush any accumulated inline content first.
-			if (!empty($current_inline)) {
-				$cell_element->appendChild(self::create_odt_paragraph_from_inline(
-					$doc,
-					$current_inline,
-					$cell_alignment,
-					$style_require,
-				));
+			if ( ! empty( $current_inline ) ) {
+				$cell_element->appendChild(
+					self::create_odt_paragraph_from_inline(
+						$doc,
+						$current_inline,
+						$cell_alignment,
+						$style_require,
+					)
+				);
 				$current_inline = array();
 			}
 
-			if ('table' === $tag) {
-				$table_nodes = self::convert_table_node_to_odt($doc, $child, $cell_formatting, $style_require);
-				foreach ($table_nodes as $table_node) {
-					$cell_element->appendChild($table_node);
+			if ( 'table' === $tag ) {
+				$table_nodes = self::convert_table_node_to_odt( $doc, $child, $cell_formatting, $style_require );
+				foreach ( $table_nodes as $table_node ) {
+					$cell_element->appendChild( $table_node );
 				}
-			} elseif ('ul' === $tag || 'ol' === $tag) {
+			} elseif ( 'ul' === $tag || 'ol' === $tag ) {
 				// Lists inside cells: convert and wrap in paragraphs.
-				$list_nodes = self::convert_html_node_to_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
-				if (!empty($list_nodes)) {
-					$cell_element->appendChild(self::create_odt_paragraph_from_inline(
-						$doc,
-						$list_nodes,
-						$cell_alignment,
-						$style_require,
-					));
+				$list_nodes = self::convert_html_node_to_odt( $doc, $child, $cell_formatting, $style_require, $cell_list_state );
+				if ( ! empty( $list_nodes ) ) {
+					$cell_element->appendChild(
+						self::create_odt_paragraph_from_inline(
+							$doc,
+							$list_nodes,
+							$cell_alignment,
+							$style_require,
+						)
+					);
 				}
 			} else {
 				// p, div, h1-h6: extract alignment and create a paragraph with their content.
-				$p_alignment = self::extract_text_alignment($child);
-				if (null === $p_alignment) {
+				$p_alignment = self::extract_text_alignment( $child );
+				if ( null === $p_alignment ) {
 					$p_alignment = $cell_alignment;
 				}
-				$p_nodes = self::collect_html_children_as_odt($doc, $child, $cell_formatting, $style_require, $cell_list_state);
+				$p_nodes = self::collect_html_children_as_odt( $doc, $child, $cell_formatting, $style_require, $cell_list_state );
 				// Filter: if collect returned text:p elements (from nested blocks), append directly.
 				$inline_part = array();
-				foreach ($p_nodes as $p_node) {
-					if ($p_node instanceof DOMElement && 'text:p' === $p_node->nodeName) {
-						if (!empty($inline_part)) {
-							$cell_element->appendChild(self::create_odt_paragraph_from_inline(
-								$doc,
-								$inline_part,
-								$p_alignment,
-								$style_require,
-							));
+				foreach ( $p_nodes as $p_node ) {
+					if ( $p_node instanceof DOMElement && 'text:p' === $p_node->nodeName ) {
+						if ( ! empty( $inline_part ) ) {
+							$cell_element->appendChild(
+								self::create_odt_paragraph_from_inline(
+									$doc,
+									$inline_part,
+									$p_alignment,
+									$style_require,
+								)
+							);
 							$inline_part = array();
 						}
-						$cell_element->appendChild($p_node);
+						$cell_element->appendChild( $p_node );
 					} else {
 						$inline_part[] = $p_node;
 					}
 				}
 				// Create paragraph from inline content (or empty paragraph for spacing).
-				$is_spacing = self::is_nbsp_only_paragraph($child);
-				if (!empty($inline_part) || $is_spacing) {
-					$paragraph = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
-					if (null !== $p_alignment && 'left' !== $p_alignment) {
-						$style_name = 'DocumentateAlign' . ucfirst($p_alignment);
-						$paragraph->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', $style_name);
-						$style_require['align_' . $p_alignment] = true;
+				$is_spacing = self::is_nbsp_only_paragraph( $child );
+				if ( ! empty( $inline_part ) || $is_spacing ) {
+					$paragraph = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
+					if ( null !== $p_alignment && 'left' !== $p_alignment ) {
+						$style_name = 'DocumentateAlign' . ucfirst( $p_alignment );
+						$paragraph->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', $style_name );
+						$style_require[ 'align_' . $p_alignment ] = true;
 					}
-					if (!empty($inline_part)) {
-						self::trim_odt_inline_nodes($inline_part);
-						foreach ($inline_part as $node) {
-							$paragraph->appendChild($node);
+					if ( ! empty( $inline_part ) ) {
+						self::trim_odt_inline_nodes( $inline_part );
+						foreach ( $inline_part as $node ) {
+							$paragraph->appendChild( $node );
 						}
-					} elseif ($is_spacing) {
-						$paragraph->appendChild($doc->createTextNode("\xC2\xA0"));
+					} elseif ( $is_spacing ) {
+						$paragraph->appendChild( $doc->createTextNode( "\xC2\xA0" ) );
 					}
-					$cell_element->appendChild($paragraph);
+					$cell_element->appendChild( $paragraph );
 				}
 			}
 		}
 
 		// Flush remaining inline content.
-		if (!empty($current_inline)) {
-			$cell_element->appendChild(self::create_odt_paragraph_from_inline(
-				$doc,
-				$current_inline,
-				$cell_alignment,
-				$style_require,
-			));
+		if ( ! empty( $current_inline ) ) {
+			$cell_element->appendChild(
+				self::create_odt_paragraph_from_inline(
+					$doc,
+					$current_inline,
+					$cell_alignment,
+					$style_require,
+				)
+			);
 		}
 
 		// Ensure cell has at least one paragraph (required by ODF spec).
-		if (0 === $cell_element->childNodes->length) {
-			$empty_p = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
-			$empty_p->appendChild($doc->createTextNode(''));
-			$cell_element->appendChild($empty_p);
+		if ( 0 === $cell_element->childNodes->length ) {
+			$empty_p = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
+			$empty_p->appendChild( $doc->createTextNode( '' ) );
+			$cell_element->appendChild( $empty_p );
 		}
 
 		return $cell_element;
@@ -2113,10 +2150,10 @@ class Documentate_OpenTBS {
 	/**
 	 * Create an ODT paragraph from inline nodes.
 	 *
-	 * @param DOMDocument         $doc           Target document.
-	 * @param array<int,DOMNode>  $nodes         Inline nodes.
-	 * @param string|null         $alignment     Text alignment.
-	 * @param array<string,bool>  $style_require Styles required so far.
+	 * @param DOMDocument        $doc           Target document.
+	 * @param array<int,DOMNode> $nodes         Inline nodes.
+	 * @param string|null        $alignment     Text alignment.
+	 * @param array<string,bool> $style_require Styles required so far.
 	 * @return DOMElement
 	 */
 	private static function create_odt_paragraph_from_inline(
@@ -2125,15 +2162,15 @@ class Documentate_OpenTBS {
 		$alignment,
 		array &$style_require,
 	) {
-		$paragraph = $doc->createElementNS(self::ODF_TEXT_NS, 'text:p');
-		if (null !== $alignment && 'left' !== $alignment) {
-			$style_name = 'DocumentateAlign' . ucfirst($alignment);
-			$paragraph->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', $style_name);
-			$style_require['align_' . $alignment] = true;
+		$paragraph = $doc->createElementNS( self::ODF_TEXT_NS, 'text:p' );
+		if ( null !== $alignment && 'left' !== $alignment ) {
+			$style_name = 'DocumentateAlign' . ucfirst( $alignment );
+			$paragraph->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', $style_name );
+			$style_require[ 'align_' . $alignment ] = true;
 		}
-		self::trim_odt_inline_nodes($nodes);
-		foreach ($nodes as $node) {
-			$paragraph->appendChild($node);
+		self::trim_odt_inline_nodes( $nodes );
+		foreach ( $nodes as $node ) {
+			$paragraph->appendChild( $node );
 		}
 		return $paragraph;
 	}
@@ -2144,19 +2181,19 @@ class Documentate_OpenTBS {
 	 * @param DOMNode $node Table DOM node.
 	 * @return array<int,DOMElement>
 	 */
-	private static function extract_table_row_nodes(DOMNode $node) {
+	private static function extract_table_row_nodes( DOMNode $node ) {
 		$rows = array();
-		foreach ($node->childNodes as $child) {
-			if (!$child instanceof DOMElement) {
+		foreach ( $node->childNodes as $child ) {
+			if ( ! $child instanceof DOMElement ) {
 				continue;
 			}
-			$tag = strtolower($child->nodeName);
-			if ('tr' === $tag) {
+			$tag = strtolower( $child->nodeName );
+			if ( 'tr' === $tag ) {
 				$rows[] = $child;
 				continue;
 			}
-			if (in_array($tag, array('thead', 'tbody', 'tfoot'), true)) {
-				$rows = array_merge($rows, self::extract_table_row_nodes($child));
+			if ( in_array( $tag, array( 'thead', 'tbody', 'tfoot' ), true ) ) {
+				$rows = array_merge( $rows, self::extract_table_row_nodes( $child ) );
 			}
 		}
 		return $rows;
@@ -2170,8 +2207,8 @@ class Documentate_OpenTBS {
 	 * @param array<string,string> $lookup Original lookup table.
 	 * @return array<string,string>
 	 */
-	private static function normalize_lookup_line_endings(array $lookup) {
-		return OpenTBS_HTML_Parser::normalize_lookup_line_endings($lookup);
+	private static function normalize_lookup_line_endings( array $lookup ) {
+		return OpenTBS_HTML_Parser::normalize_lookup_line_endings( $lookup );
 	}
 
 	/**
@@ -2182,8 +2219,8 @@ class Documentate_OpenTBS {
 	 * @param string $text Text to normalize.
 	 * @return string Normalized text.
 	 */
-	private static function normalize_for_html_matching($text) {
-		return OpenTBS_HTML_Parser::normalize_for_html_matching($text);
+	private static function normalize_for_html_matching( $text ) {
+		return OpenTBS_HTML_Parser::normalize_for_html_matching( $text );
 	}
 
 	/**
@@ -2194,8 +2231,8 @@ class Documentate_OpenTBS {
 	 * @param string $value Source value.
 	 * @return string
 	 */
-	private static function normalize_text_newlines($value) {
-		return OpenTBS_HTML_Parser::normalize_text_newlines($value);
+	private static function normalize_text_newlines( $value ) {
+		return OpenTBS_HTML_Parser::normalize_text_newlines( $value );
 	}
 
 	/**
@@ -2214,51 +2251,51 @@ class Documentate_OpenTBS {
 		array &$style_require,
 	) {
 		$result = $nodes;
-		if (empty($result)) {
+		if ( empty( $result ) ) {
 			return $result;
 		}
 
-		if (!empty($formatting['bold'])) {
+		if ( ! empty( $formatting['bold'] ) ) {
 			$style_require['bold'] = true;
-			$span = $doc->createElementNS(self::ODF_TEXT_NS, 'text:span');
-			$span->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichBold');
-			foreach ($result as $child) {
-				$span->appendChild($child);
+			$span = $doc->createElementNS( self::ODF_TEXT_NS, 'text:span' );
+			$span->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichBold' );
+			foreach ( $result as $child ) {
+				$span->appendChild( $child );
 			}
-			$result = array($span);
+			$result = array( $span );
 		}
 
-		if (!empty($formatting['italic'])) {
+		if ( ! empty( $formatting['italic'] ) ) {
 			$style_require['italic'] = true;
-			$span = $doc->createElementNS(self::ODF_TEXT_NS, 'text:span');
-			$span->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichItalic');
-			foreach ($result as $child) {
-				$span->appendChild($child);
+			$span = $doc->createElementNS( self::ODF_TEXT_NS, 'text:span' );
+			$span->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichItalic' );
+			foreach ( $result as $child ) {
+				$span->appendChild( $child );
 			}
-			$result = array($span);
+			$result = array( $span );
 		}
 
-		if (!empty($formatting['underline'])) {
+		if ( ! empty( $formatting['underline'] ) ) {
 			$style_require['underline'] = true;
-			$span = $doc->createElementNS(self::ODF_TEXT_NS, 'text:span');
-			$span->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichUnderline');
-			foreach ($result as $child) {
-				$span->appendChild($child);
+			$span = $doc->createElementNS( self::ODF_TEXT_NS, 'text:span' );
+			$span->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichUnderline' );
+			foreach ( $result as $child ) {
+				$span->appendChild( $child );
 			}
-			$result = array($span);
+			$result = array( $span );
 		}
 
-		if (!empty($formatting['link'])) {
+		if ( ! empty( $formatting['link'] ) ) {
 			$href = (string) $formatting['link'];
-			$link = $doc->createElementNS(self::ODF_TEXT_NS, 'text:a');
-			$link->setAttributeNS(self::ODF_XLINK_NS, 'xlink:href', $href);
-			$link->setAttributeNS(self::ODF_XLINK_NS, 'xlink:type', 'simple');
-			$link->setAttributeNS(self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichLink');
+			$link = $doc->createElementNS( self::ODF_TEXT_NS, 'text:a' );
+			$link->setAttributeNS( self::ODF_XLINK_NS, 'xlink:href', $href );
+			$link->setAttributeNS( self::ODF_XLINK_NS, 'xlink:type', 'simple' );
+			$link->setAttributeNS( self::ODF_TEXT_NS, 'text:style-name', 'DocumentateRichLink' );
 			$style_require['link'] = true;
-			foreach ($result as $child) {
-				$link->appendChild($child);
+			foreach ( $result as $child ) {
+				$link->appendChild( $child );
 			}
-			$result = array($link);
+			$result = array( $link );
 		}
 
 		return $result;
@@ -2270,19 +2307,19 @@ class Documentate_OpenTBS {
 	 * @param array<int,DOMNode> $nodes Node list reference.
 	 * @return void
 	 */
-	private static function trim_odt_inline_nodes(array &$nodes) {
-		while (!empty($nodes)) {
-			$last = end($nodes);
-			if ($last instanceof DOMElement && self::ODF_TEXT_NS === $last->namespaceURI && 'line-break' === $last->localName) {
-				array_pop($nodes);
+	private static function trim_odt_inline_nodes( array &$nodes ) {
+		while ( ! empty( $nodes ) ) {
+			$last = end( $nodes );
+			if ( $last instanceof DOMElement && self::ODF_TEXT_NS === $last->namespaceURI && 'line-break' === $last->localName ) {
+				array_pop( $nodes );
 				continue;
 			}
-			if ($last instanceof DOMText) {
+			if ( $last instanceof DOMText ) {
 				$value = $last->nodeValue;
-				$trimmed = rtrim($value, "\r\n");
-				if ($trimmed !== $value) {
-					if ('' === $trimmed) {
-						array_pop($nodes);
+				$trimmed = rtrim( $value, "\r\n" );
+				if ( $trimmed !== $value ) {
+					if ( '' === $trimmed ) {
+						array_pop( $nodes );
 						continue;
 					}
 					$last->nodeValue = $trimmed;
@@ -2299,26 +2336,26 @@ class Documentate_OpenTBS {
 	 * @param array<string,bool> $style_require Styles that must exist.
 	 * @return void
 	 */
-	private static function ensure_odt_styles(DOMDocument $doc, array $style_require) {
-		if (empty($style_require)) {
+	private static function ensure_odt_styles( DOMDocument $doc, array $style_require ) {
+		if ( empty( $style_require ) ) {
 			return;
 		}
 
-		$xpath = new DOMXPath($doc);
-		$xpath->registerNamespace('office', self::ODF_OFFICE_NS);
-		$xpath->registerNamespace('style', self::ODF_STYLE_NS);
-		$xpath->registerNamespace('text', self::ODF_TEXT_NS);
-		$xpath->registerNamespace('fo', self::ODF_FO_NS);
-		$xpath->registerNamespace('table', self::ODF_TABLE_NS);
+		$xpath = new DOMXPath( $doc );
+		$xpath->registerNamespace( 'office', self::ODF_OFFICE_NS );
+		$xpath->registerNamespace( 'style', self::ODF_STYLE_NS );
+		$xpath->registerNamespace( 'text', self::ODF_TEXT_NS );
+		$xpath->registerNamespace( 'fo', self::ODF_FO_NS );
+		$xpath->registerNamespace( 'table', self::ODF_TABLE_NS );
 
-		$auto = $xpath->query('/*/office:automatic-styles')->item(0);
-		if (!$auto instanceof DOMElement) {
+		$auto = $xpath->query( '/*/office:automatic-styles' )->item( 0 );
+		if ( ! $auto instanceof DOMElement ) {
 			$root = $doc->documentElement;
-			if (!$root instanceof DOMElement) {
+			if ( ! $root instanceof DOMElement ) {
 				return;
 			}
-			$auto = $doc->createElementNS(self::ODF_OFFICE_NS, 'office:automatic-styles');
-			$root->insertBefore($auto, $root->firstChild);
+			$auto = $doc->createElementNS( self::ODF_OFFICE_NS, 'office:automatic-styles' );
+			$root->insertBefore( $auto, $root->firstChild );
 		}
 
 		$styles = array(
@@ -2478,35 +2515,35 @@ class Documentate_OpenTBS {
 			),
 		);
 
-		foreach ($style_require as $key => $flag) {
-			if (empty($flag) || !isset($styles[$key])) {
+		foreach ( $style_require as $key => $flag ) {
+			if ( empty( $flag ) || ! isset( $styles[ $key ] ) ) {
 				continue;
 			}
-			$info = $styles[$key];
-			$exists = $xpath->query('.//style:style[@style:name="' . $info['name'] . '"]', $auto);
-			if ($exists instanceof DOMNodeList && $exists->length > 0) {
+			$info = $styles[ $key ];
+			$exists = $xpath->query( './/style:style[@style:name="' . $info['name'] . '"]', $auto );
+			if ( $exists instanceof DOMNodeList && $exists->length > 0 ) {
 				continue;
 			}
-			$style = $doc->createElementNS(self::ODF_STYLE_NS, 'style:style');
-			$style->setAttributeNS(self::ODF_STYLE_NS, 'style:name', $info['name']);
-			$style->setAttributeNS(self::ODF_STYLE_NS, 'style:family', $info['family']);
+			$style = $doc->createElementNS( self::ODF_STYLE_NS, 'style:style' );
+			$style->setAttributeNS( self::ODF_STYLE_NS, 'style:name', $info['name'] );
+			$style->setAttributeNS( self::ODF_STYLE_NS, 'style:family', $info['family'] );
 			// Select the correct properties element depending on the family.
-			if ('text' === $info['family']) {
-				$props = $doc->createElementNS(self::ODF_STYLE_NS, 'style:text-properties');
-			} elseif ('table' === $info['family']) {
-				$props = $doc->createElementNS(self::ODF_STYLE_NS, 'style:table-properties');
-			} elseif ('table-cell' === $info['family']) {
-				$props = $doc->createElementNS(self::ODF_STYLE_NS, 'style:table-cell-properties');
-			} elseif ('paragraph' === $info['family']) {
-				$props = $doc->createElementNS(self::ODF_STYLE_NS, 'style:paragraph-properties');
+			if ( 'text' === $info['family'] ) {
+				$props = $doc->createElementNS( self::ODF_STYLE_NS, 'style:text-properties' );
+			} elseif ( 'table' === $info['family'] ) {
+				$props = $doc->createElementNS( self::ODF_STYLE_NS, 'style:table-properties' );
+			} elseif ( 'table-cell' === $info['family'] ) {
+				$props = $doc->createElementNS( self::ODF_STYLE_NS, 'style:table-cell-properties' );
+			} elseif ( 'paragraph' === $info['family'] ) {
+				$props = $doc->createElementNS( self::ODF_STYLE_NS, 'style:paragraph-properties' );
 			} else {
-				$props = $doc->createElementNS(self::ODF_STYLE_NS, 'style:text-properties');
+				$props = $doc->createElementNS( self::ODF_STYLE_NS, 'style:text-properties' );
 			}
-			foreach ($info['props'] as $prop) {
-				$props->setAttributeNS($prop['ns'], $prop['name'], $prop['value']);
+			foreach ( $info['props'] as $prop ) {
+				$props->setAttributeNS( $prop['ns'], $prop['name'], $prop['value'] );
 			}
-			$style->appendChild($props);
-			$auto->appendChild($style);
+			$style->appendChild( $props );
+			$auto->appendChild( $style );
 		}
 	}
 
@@ -2519,33 +2556,33 @@ class Documentate_OpenTBS {
 	 * @param array<string,mixed>|null $relationships  Relationships context, passed by reference.
 	 * @return array<int, DOMElement>
 	 */
-	private static function build_docx_nodes_from_html(DOMDocument $doc, $html, $base_rpr = null, &$relationships = null) {
-		$html = trim((string) $html);
-		if ('' === $html) {
+	private static function build_docx_nodes_from_html( DOMDocument $doc, $html, $base_rpr = null, &$relationships = null ) {
+		$html = trim( (string) $html );
+		if ( '' === $html ) {
 			return array(
 				'block' => false,
 				'nodes' => array(),
 			);
 		}
 
-		$tmp = self::create_html_document($html);
-		if (!$tmp) {
+		$tmp = self::create_html_document( $html );
+		if ( ! $tmp ) {
 			return array(
 				'block' => false,
 				'nodes' => array(),
 			);
 		}
 
-		$body = $tmp->getElementsByTagName('div')->item(0);
-		if (!$body) {
+		$body = $tmp->getElementsByTagName( 'div' )->item( 0 );
+		if ( ! $body ) {
 			return array(
 				'block' => false,
 				'nodes' => array(),
 			);
 		}
 
-		$conversion = self::convert_html_children_to_docx($doc, $body->childNodes, $base_rpr, array(), $relationships, true);
-		if (empty($conversion['nodes'])) {
+		$conversion = self::convert_html_children_to_docx( $doc, $body->childNodes, $base_rpr, array(), $relationships, true );
+		if ( empty( $conversion['nodes'] ) ) {
 			return array(
 				'block' => false,
 				'nodes' => array(),
@@ -2570,23 +2607,23 @@ class Documentate_OpenTBS {
 		$base_rpr = null,
 		&$relationships = null,
 	) {
-		$html = trim((string) $html);
-		if ('' === $html) {
+		$html = trim( (string) $html );
+		if ( '' === $html ) {
 			return array();
 		}
 
-		$tmp = self::create_html_document($html);
-		if (!$tmp) {
+		$tmp = self::create_html_document( $html );
+		if ( ! $tmp ) {
 			return array();
 		}
 
-		$body = $tmp->getElementsByTagName('div')->item(0);
-		if (!$body) {
+		$body = $tmp->getElementsByTagName( 'div' )->item( 0 );
+		if ( ! $body ) {
 			return array();
 		}
 
-		$runs = self::collect_runs_from_children($doc, $body->childNodes, $base_rpr, array(), $relationships);
-		self::trim_trailing_break_runs($runs);
+		$runs = self::collect_runs_from_children( $doc, $body->childNodes, $base_rpr, array(), $relationships );
+		self::trim_trailing_break_runs( $runs );
 		return $runs;
 	}
 
@@ -2613,31 +2650,31 @@ class Documentate_OpenTBS {
 		$current_runs = array();
 		$has_block = false;
 
-		if (!$nodes instanceof DOMNodeList) {
+		if ( ! $nodes instanceof DOMNodeList ) {
 			return array(
 				'block' => false,
 				'nodes' => array(),
 			);
 		}
 
-		foreach ($nodes as $node) {
-			if (XML_TEXT_NODE === $node->nodeType) {
-				$current_runs = array_merge($current_runs, self::collect_runs_from_text($doc, $node, $base_rpr, $formatting));
+		foreach ( $nodes as $node ) {
+			if ( XML_TEXT_NODE === $node->nodeType ) {
+				$current_runs = array_merge( $current_runs, self::collect_runs_from_text( $doc, $node, $base_rpr, $formatting ) );
 				continue;
 			}
 
-			if (!$node instanceof DOMElement) {
+			if ( ! $node instanceof DOMElement ) {
 				continue;
 			}
 
-			$tag = strtolower($node->nodeName);
-			if (self::is_block_tag($tag)) {
-				if (!empty($current_runs)) {
-					$result[] = self::create_paragraph_from_runs($doc, $current_runs, $base_rpr);
+			$tag = strtolower( $node->nodeName );
+			if ( self::is_block_tag( $tag ) ) {
+				if ( ! empty( $current_runs ) ) {
+					$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr );
 					$current_runs = array();
 				}
 
-				switch ($tag) {
+				switch ( $tag ) {
 					case 'h1':
 					case 'h2':
 					case 'h3':
@@ -2645,18 +2682,21 @@ class Documentate_OpenTBS {
 					case 'h5':
 					case 'h6':
 						$has_block = true;
-						$result = array_merge($result, self::convert_heading_node_to_paragraphs(
-							$doc,
-							$node,
-							$base_rpr,
-							$relationships,
-							$tag,
-						));
+						$result = array_merge(
+							$result,
+							self::convert_heading_node_to_paragraphs(
+								$doc,
+								$node,
+								$base_rpr,
+								$relationships,
+								$tag,
+							)
+						);
 						break;
 					case 'table':
 						$has_block = true;
-						$table = self::convert_table_node_to_docx($doc, $node, $base_rpr, $relationships);
-						if ($table) {
+						$table = self::convert_table_node_to_docx( $doc, $node, $base_rpr, $relationships );
+						if ( $table ) {
 							$result[] = $table;
 						}
 						break;
@@ -2671,14 +2711,14 @@ class Documentate_OpenTBS {
 							'ol' === $tag,
 							$relationships,
 						);
-						if (!empty($list_paragraphs)) {
-							$result = array_merge($result, $list_paragraphs);
+						if ( ! empty( $list_paragraphs ) ) {
+							$result = array_merge( $result, $list_paragraphs );
 						}
 						break;
 					case 'p':
 					case 'div':
 						$has_block = true;
-						$p_alignment = self::extract_text_alignment($node);
+						$p_alignment = self::extract_text_alignment( $node );
 						$paragraph_runs = self::collect_runs_from_children(
 							$doc,
 							$node->childNodes,
@@ -2686,7 +2726,7 @@ class Documentate_OpenTBS {
 							$formatting,
 							$relationships,
 						);
-						$block_paragraph = self::create_paragraph_from_runs($doc, $paragraph_runs, $base_rpr, $p_alignment);
+						$block_paragraph = self::create_paragraph_from_runs( $doc, $paragraph_runs, $base_rpr, $p_alignment );
 						$result[] = $block_paragraph;
 						break;
 					default:
@@ -2698,28 +2738,31 @@ class Documentate_OpenTBS {
 							$formatting,
 							$relationships,
 						);
-						$block_paragraph = self::create_paragraph_from_runs($doc, $paragraph_runs, $base_rpr);
+						$block_paragraph = self::create_paragraph_from_runs( $doc, $paragraph_runs, $base_rpr );
 						$result[] = $block_paragraph;
 				}
 			} else {
-				$current_runs = array_merge($current_runs, self::collect_runs_from_element(
-					$doc,
-					$node,
-					$base_rpr,
-					$formatting,
-					$relationships,
-				));
+				$current_runs = array_merge(
+					$current_runs,
+					self::collect_runs_from_element(
+						$doc,
+						$node,
+						$base_rpr,
+						$formatting,
+						$relationships,
+					)
+				);
 			}
 		}
 
-		if (!empty($current_runs)) {
-			if ($has_block || !$allow_inline_result) {
-				$result[] = self::create_paragraph_from_runs($doc, $current_runs, $base_rpr);
+		if ( ! empty( $current_runs ) ) {
+			if ( $has_block || ! $allow_inline_result ) {
+				$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr );
 				$current_runs = array();
 			}
 		}
 
-		if ($has_block || !$allow_inline_result) {
+		if ( $has_block || ! $allow_inline_result ) {
 			return array(
 				'block' => true,
 				'nodes' => $result,
@@ -2738,7 +2781,7 @@ class Documentate_OpenTBS {
 	 * @param string $tag Lowercase tag name.
 	 * @return bool
 	 */
-	private static function is_block_tag($tag) {
+	private static function is_block_tag( $tag ) {
 		$block_tags = array(
 			'p',
 			'div',
@@ -2756,7 +2799,7 @@ class Documentate_OpenTBS {
 			'ol',
 			'table',
 		);
-		return in_array($tag, $block_tags, true);
+		return in_array( $tag, $block_tags, true );
 	}
 
 	/**
@@ -2777,12 +2820,12 @@ class Documentate_OpenTBS {
 		&$relationships,
 	) {
 		$runs = array();
-		if (!$children instanceof DOMNodeList) {
+		if ( ! $children instanceof DOMNodeList ) {
 			return $runs;
 		}
 
-		foreach ($children as $child) {
-			$runs = array_merge($runs, self::collect_runs_from_node($doc, $child, $base_rpr, $formatting, $relationships));
+		foreach ( $children as $child ) {
+			$runs = array_merge( $runs, self::collect_runs_from_node( $doc, $child, $base_rpr, $formatting, $relationships ) );
 		}
 
 		return $runs;
@@ -2805,15 +2848,15 @@ class Documentate_OpenTBS {
 		array $formatting,
 		&$relationships,
 	) {
-		if (XML_TEXT_NODE === $node->nodeType) {
-			return self::collect_runs_from_text($doc, $node, $base_rpr, $formatting);
+		if ( XML_TEXT_NODE === $node->nodeType ) {
+			return self::collect_runs_from_text( $doc, $node, $base_rpr, $formatting );
 		}
 
-		if (!$node instanceof DOMElement) {
+		if ( ! $node instanceof DOMElement ) {
 			return array();
 		}
 
-		return self::collect_runs_from_element($doc, $node, $base_rpr, $formatting, $relationships);
+		return self::collect_runs_from_element( $doc, $node, $base_rpr, $formatting, $relationships );
 	}
 
 	/**
@@ -2825,21 +2868,21 @@ class Documentate_OpenTBS {
 	 * @param array<string,bool> $formatting Formatting flags.
 	 * @return array<int,DOMElement>
 	 */
-	private static function collect_runs_from_text(DOMDocument $doc, DOMText $text_node, $base_rpr, array $formatting) {
-		$text = str_replace(array("\r\n", "\r"), "\n", $text_node->wholeText);
-		$parts = explode("\n", $text);
+	private static function collect_runs_from_text( DOMDocument $doc, DOMText $text_node, $base_rpr, array $formatting ) {
+		$text = str_replace( array( "\r\n", "\r" ), "\n", $text_node->wholeText );
+		$parts = explode( "\n", $text );
 		$runs = array();
 
-		foreach ($parts as $index => $part) {
-			if ('' !== $part) {
-				$run = self::create_text_run($doc, $part, $base_rpr, $formatting);
-				if ($run) {
+		foreach ( $parts as $index => $part ) {
+			if ( '' !== $part ) {
+				$run = self::create_text_run( $doc, $part, $base_rpr, $formatting );
+				if ( $run ) {
 					$runs[] = $run;
 				}
 			}
 
-			if ($index < (count($parts) - 1)) {
-				$runs[] = self::create_break_run($doc, $base_rpr);
+			if ( $index < ( count( $parts ) - 1 ) ) {
+				$runs[] = self::create_break_run( $doc, $base_rpr );
 			}
 		}
 
@@ -2863,15 +2906,15 @@ class Documentate_OpenTBS {
 		array $formatting,
 		&$relationships,
 	) {
-		$tag = strtolower($element->nodeName);
-		switch ($tag) {
+		$tag = strtolower( $element->nodeName );
+		switch ( $tag ) {
 			case 'strong':
 			case 'b':
 				return self::collect_runs_from_children(
 					$doc,
 					$element->childNodes,
 					$base_rpr,
-					self::with_format_flag($formatting, 'bold', true),
+					self::with_format_flag( $formatting, 'bold', true ),
 					$relationships,
 				);
 			case 'em':
@@ -2880,7 +2923,7 @@ class Documentate_OpenTBS {
 					$doc,
 					$element->childNodes,
 					$base_rpr,
-					self::with_format_flag($formatting, 'italic', true),
+					self::with_format_flag( $formatting, 'italic', true ),
 					$relationships,
 				);
 			case 'u':
@@ -2888,7 +2931,7 @@ class Documentate_OpenTBS {
 					$doc,
 					$element->childNodes,
 					$base_rpr,
-					self::with_format_flag($formatting, 'underline', true),
+					self::with_format_flag( $formatting, 'underline', true ),
 					$relationships,
 				);
 			case 'span':
@@ -2896,15 +2939,15 @@ class Documentate_OpenTBS {
 					$doc,
 					$element->childNodes,
 					$base_rpr,
-					self::extract_span_formatting($formatting, $element),
+					self::extract_span_formatting( $formatting, $element ),
 					$relationships,
 				);
 			case 'br':
-				return array(self::create_break_run($doc, $base_rpr));
+				return array( self::create_break_run( $doc, $base_rpr ) );
 			case 'a':
-				$href = trim($element->getAttribute('href'));
-				$link_formatting = self::with_format_flag($formatting, 'hyperlink', true);
-				$link_formatting = self::with_format_flag($link_formatting, 'underline', true);
+				$href = trim( $element->getAttribute( 'href' ) );
+				$link_formatting = self::with_format_flag( $formatting, 'hyperlink', true );
+				$link_formatting = self::with_format_flag( $link_formatting, 'underline', true );
 				$link_runs = self::collect_runs_from_children(
 					$doc,
 					$element->childNodes,
@@ -2913,21 +2956,21 @@ class Documentate_OpenTBS {
 					$relationships,
 				);
 
-				if (empty($link_runs) && '' !== $href) {
-					$fallback_run = self::create_text_run($doc, $href, $base_rpr, $link_formatting);
-					if ($fallback_run) {
+				if ( empty( $link_runs ) && '' !== $href ) {
+					$fallback_run = self::create_text_run( $doc, $href, $base_rpr, $link_formatting );
+					if ( $fallback_run ) {
 						$link_runs[] = $fallback_run;
 					}
 				}
 
-				$hyperlink = self::create_hyperlink_container($doc, $link_runs, $relationships, $href);
-				if ($hyperlink) {
-					return array($hyperlink);
+				$hyperlink = self::create_hyperlink_container( $doc, $link_runs, $relationships, $href );
+				if ( $hyperlink ) {
+					return array( $hyperlink );
 				}
 
 				return $link_runs;
 			default:
-				return self::collect_runs_from_children($doc, $element->childNodes, $base_rpr, $formatting, $relationships);
+				return self::collect_runs_from_children( $doc, $element->childNodes, $base_rpr, $formatting, $relationships );
 		}
 	}
 
@@ -2949,14 +2992,14 @@ class Documentate_OpenTBS {
 		$tag,
 	) {
 		$paragraphs = array();
-		$paragraphs[] = self::create_blank_paragraph($doc, $base_rpr);
+		$paragraphs[] = self::create_blank_paragraph( $doc, $base_rpr );
 
-		$formatting = self::with_format_flag(array(), 'bold', true);
-		$runs = self::collect_runs_from_children($doc, $heading->childNodes, $base_rpr, $formatting, $relationships);
-		$heading_p = self::create_paragraph_from_runs($doc, $runs, $base_rpr);
+		$formatting = self::with_format_flag( array(), 'bold', true );
+		$runs = self::collect_runs_from_children( $doc, $heading->childNodes, $base_rpr, $formatting, $relationships );
+		$heading_p = self::create_paragraph_from_runs( $doc, $runs, $base_rpr );
 		$paragraphs[] = $heading_p;
 
-		$paragraphs[] = self::create_blank_paragraph($doc, $base_rpr);
+		$paragraphs[] = self::create_blank_paragraph( $doc, $base_rpr );
 
 		return $paragraphs;
 	}
@@ -2984,27 +3027,27 @@ class Documentate_OpenTBS {
 	) {
 		$paragraphs = array();
 		$index = 1;
-		$indent = str_repeat('  ', $depth);
+		$indent = str_repeat( '  ', $depth );
 
-		foreach ($list->childNodes as $item) {
-			if (!$item instanceof DOMElement || 'li' !== strtolower($item->nodeName)) {
+		foreach ( $list->childNodes as $item ) {
+			if ( ! $item instanceof DOMElement || 'li' !== strtolower( $item->nodeName ) ) {
 				continue;
 			}
 
 			$prefix = $ordered ? $indent . $index . '. ' : $indent . '• ';
 			$runs = array();
 
-			$prefix_run = self::create_text_run($doc, $prefix, $base_rpr, $formatting);
-			if ($prefix_run) {
+			$prefix_run = self::create_text_run( $doc, $prefix, $base_rpr, $formatting );
+			if ( $prefix_run ) {
 				$runs[] = $prefix_run;
 			}
 
 			// Collect runs from inline content, but handle nested lists separately.
 			$nested_lists = array();
-			foreach ($item->childNodes as $child) {
-				if ($child instanceof DOMElement) {
-					$child_tag = strtolower($child->nodeName);
-					if ('ul' === $child_tag || 'ol' === $child_tag) {
+			foreach ( $item->childNodes as $child ) {
+				if ( $child instanceof DOMElement ) {
+					$child_tag = strtolower( $child->nodeName );
+					if ( 'ul' === $child_tag || 'ol' === $child_tag ) {
 						$nested_lists[] = array(
 							'node' => $child,
 							'ordered' => 'ol' === $child_tag,
@@ -3013,17 +3056,17 @@ class Documentate_OpenTBS {
 					}
 				}
 				// Collect runs from non-list child nodes.
-				if (XML_TEXT_NODE === $child->nodeType) {
-					$runs = array_merge($runs, self::collect_runs_from_text($doc, $child, $base_rpr, $formatting));
-				} elseif ($child instanceof DOMElement) {
-					$runs = array_merge($runs, self::collect_runs_from_element($doc, $child, $base_rpr, $formatting, $relationships));
+				if ( XML_TEXT_NODE === $child->nodeType ) {
+					$runs = array_merge( $runs, self::collect_runs_from_text( $doc, $child, $base_rpr, $formatting ) );
+				} elseif ( $child instanceof DOMElement ) {
+					$runs = array_merge( $runs, self::collect_runs_from_element( $doc, $child, $base_rpr, $formatting, $relationships ) );
 				}
 			}
 
-			$paragraphs[] = self::create_paragraph_from_runs($doc, $runs, $base_rpr);
+			$paragraphs[] = self::create_paragraph_from_runs( $doc, $runs, $base_rpr );
 
 			// Process nested lists recursively.
-			foreach ($nested_lists as $nested) {
+			foreach ( $nested_lists as $nested ) {
 				$nested_paragraphs = self::convert_list_to_paragraphs(
 					$doc,
 					$nested['node'],
@@ -3033,7 +3076,7 @@ class Documentate_OpenTBS {
 					$relationships,
 					$depth + 1,
 				);
-				$paragraphs = array_merge($paragraphs, $nested_paragraphs);
+				$paragraphs = array_merge( $paragraphs, $nested_paragraphs );
 			}
 
 			$index++;
@@ -3051,121 +3094,122 @@ class Documentate_OpenTBS {
 	 * @param array<string,mixed>|null $relationships Relationships context.
 	 * @return DOMElement|null
 	 */
-	private static function convert_table_node_to_docx(DOMDocument $doc, DOMElement $table, $base_rpr, &$relationships) {
-		$rows = self::extract_table_row_nodes($table);
-		if (empty($rows)) {
+	private static function convert_table_node_to_docx( DOMDocument $doc, DOMElement $table, $base_rpr, &$relationships ) {
+		$rows = self::extract_table_row_nodes( $table );
+		if ( empty( $rows ) ) {
 			return null;
 		}
 
-		$tbl = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tbl');
+		$tbl = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tbl' );
 		// Add default table borders: 1px black for all edges and inner lines.
 		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tblPr matches WordprocessingML spec (w:tblPr).
-		$tblPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tblPr');
-		$borders = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tblBorders');
-		$edges = array('top', 'left', 'bottom', 'right', 'insideH', 'insideV');
-		foreach ($edges as $edge) {
-			$el = $doc->createElementNS(self::WORD_NAMESPACE, 'w:' . $edge);
-			$el->setAttribute('w:val', 'single');
-			$el->setAttribute('w:sz', '8');
-			$el->setAttribute('w:space', '0');
-			$el->setAttribute('w:color', '000000');
-			$borders->appendChild($el);
+		$tblPr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tblPr' );
+		$borders = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tblBorders' );
+		$edges = array( 'top', 'left', 'bottom', 'right', 'insideH', 'insideV' );
+		foreach ( $edges as $edge ) {
+			$el = $doc->createElementNS( self::WORD_NAMESPACE, 'w:' . $edge );
+			$el->setAttribute( 'w:val', 'single' );
+			$el->setAttribute( 'w:sz', '8' );
+			$el->setAttribute( 'w:space', '0' );
+			$el->setAttribute( 'w:color', '000000' );
+			$borders->appendChild( $el );
 		}
 		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tblPr matches WordprocessingML spec.
-		$tblPr->appendChild($borders);
+		$tblPr->appendChild( $borders );
 		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tblPr matches WordprocessingML spec.
-		$tbl->appendChild($tblPr);
+		$tbl->appendChild( $tblPr );
 
 		// Track rowspan coverage: column_index => remaining rows to cover.
 		$rowspan_map = array();
 
-		foreach ($rows as $row) {
-			$tr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tr');
+		foreach ( $rows as $row ) {
+			$tr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tr' );
 			$column_index = 0;
 
 			$cells = array();
-			foreach ($row->childNodes as $cell) {
-				if (!$cell instanceof DOMElement) {
+			foreach ( $row->childNodes as $cell ) {
+				if ( ! $cell instanceof DOMElement ) {
 					continue;
 				}
-				$cell_tag = strtolower($cell->nodeName);
-				if ('td' === $cell_tag || 'th' === $cell_tag) {
+				$cell_tag = strtolower( $cell->nodeName );
+				if ( 'td' === $cell_tag || 'th' === $cell_tag ) {
 					$cells[] = $cell;
 				}
 			}
 
-			$cell_iter = 0;
-			while ($cell_iter < count($cells) || isset($rowspan_map[$column_index])) {
+			$cell_iter  = 0;
+			$cell_count = count( $cells );
+			while ( $cell_iter < $cell_count || isset( $rowspan_map[ $column_index ] ) ) {
 				// Insert continuation cells for rowspan from previous rows.
-				while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
-					$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
+				while ( isset( $rowspan_map[ $column_index ] ) && $rowspan_map[ $column_index ] > 0 ) {
+					$tc = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tc' );
 					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-					$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
-					$vmerge = $doc->createElementNS(self::WORD_NAMESPACE, 'w:vMerge');
+					$tcPr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tcPr' );
+					$vmerge = $doc->createElementNS( self::WORD_NAMESPACE, 'w:vMerge' );
 					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-					$tcPr->appendChild($vmerge);
+					$tcPr->appendChild( $vmerge );
 					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-					$tc->appendChild($tcPr);
-					$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
-					$tr->appendChild($tc);
+					$tc->appendChild( $tcPr );
+					$tc->appendChild( self::create_blank_paragraph( $doc, $base_rpr ) );
+					$tr->appendChild( $tc );
 					// Consume: decrement and remove if exhausted.
-					$rowspan_map[$column_index]--;
-					if (0 === $rowspan_map[$column_index]) {
-						unset($rowspan_map[$column_index]);
+					$rowspan_map[ $column_index ]--;
+					if ( 0 === $rowspan_map[ $column_index ] ) {
+						unset( $rowspan_map[ $column_index ] );
 					}
 					$column_index++;
 				}
 
-				if ($cell_iter >= count($cells)) {
+				if ( $cell_iter >= count( $cells ) ) {
 					break;
 				}
 
-				$cell = $cells[$cell_iter];
-				$cell_tag = strtolower($cell->nodeName);
+				$cell = $cells[ $cell_iter ];
+				$cell_tag = strtolower( $cell->nodeName );
 
-				$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
+				$tc = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tc' );
 
-				$colspan = max(1, (int) $cell->getAttribute('colspan'));
-				$rowspan = max(1, (int) $cell->getAttribute('rowspan'));
+				$colspan = max( 1, (int) $cell->getAttribute( 'colspan' ) );
+				$rowspan = max( 1, (int) $cell->getAttribute( 'rowspan' ) );
 
 				// Build cell properties if colspan or rowspan are used.
-				if ($colspan > 1 || $rowspan > 1) {
+				if ( $colspan > 1 || $rowspan > 1 ) {
 					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-					$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
-					if ($colspan > 1) {
-						$grid_span = $doc->createElementNS(self::WORD_NAMESPACE, 'w:gridSpan');
-						$grid_span->setAttribute('w:val', (string) $colspan);
+					$tcPr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tcPr' );
+					if ( $colspan > 1 ) {
+						$grid_span = $doc->createElementNS( self::WORD_NAMESPACE, 'w:gridSpan' );
+						$grid_span->setAttribute( 'w:val', (string) $colspan );
 						// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-						$tcPr->appendChild($grid_span);
+						$tcPr->appendChild( $grid_span );
 					}
-					if ($rowspan > 1) {
-						$vmerge = $doc->createElementNS(self::WORD_NAMESPACE, 'w:vMerge');
-						$vmerge->setAttribute('w:val', 'restart');
+					if ( $rowspan > 1 ) {
+						$vmerge = $doc->createElementNS( self::WORD_NAMESPACE, 'w:vMerge' );
+						$vmerge->setAttribute( 'w:val', 'restart' );
 						// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-						$tcPr->appendChild($vmerge);
+						$tcPr->appendChild( $vmerge );
 					}
 					// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-					$tc->appendChild($tcPr);
+					$tc->appendChild( $tcPr );
 				}
 
 				// Register rowspan for subsequent rows.
-				if ($rowspan > 1) {
-					for ($c = 0; $c < $colspan; $c++) {
-						$rowspan_map[$column_index + $c] = $rowspan - 1;
+				if ( $rowspan > 1 ) {
+					for ( $c = 0; $c < $colspan; $c++ ) {
+						$rowspan_map[ $column_index + $c ] = $rowspan - 1;
 					}
 				}
 
 				$cell_formatting = array();
-				if ('th' === $cell_tag) {
+				if ( 'th' === $cell_tag ) {
 					$cell_formatting['bold'] = true;
 				}
 
 				// Extract alignment from cell or first paragraph child.
-				$cell_alignment = self::extract_text_alignment($cell);
-				if (null === $cell_alignment) {
-					foreach ($cell->childNodes as $child) {
-						if ($child instanceof DOMElement && 'p' === strtolower($child->nodeName)) {
-							$cell_alignment = self::extract_text_alignment($child);
+				$cell_alignment = self::extract_text_alignment( $cell );
+				if ( null === $cell_alignment ) {
+					foreach ( $cell->childNodes as $child ) {
+						if ( $child instanceof DOMElement && 'p' === strtolower( $child->nodeName ) ) {
+							$cell_alignment = self::extract_text_alignment( $child );
 							break;
 						}
 					}
@@ -3180,55 +3224,55 @@ class Documentate_OpenTBS {
 					$relationships,
 					$cell_alignment,
 				);
-				foreach ($cell_content as $content_node) {
-					if ($content_node instanceof DOMElement) {
-						$tc->appendChild($content_node);
+				foreach ( $cell_content as $content_node ) {
+					if ( $content_node instanceof DOMElement ) {
+						$tc->appendChild( $content_node );
 					}
 				}
 
 				// Ensure cell has at least one paragraph (required by OOXML).
 				// Check if there's a paragraph after tcPr (tcPr doesn't count as content).
 				$has_content = false;
-				foreach ($tc->childNodes as $tc_child) {
-					if ($tc_child instanceof DOMElement && 'w:tcPr' !== $tc_child->nodeName) {
+				foreach ( $tc->childNodes as $tc_child ) {
+					if ( $tc_child instanceof DOMElement && 'w:tcPr' !== $tc_child->nodeName ) {
 						$has_content = true;
 						break;
 					}
 				}
-				if (!$has_content) {
-					$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
+				if ( ! $has_content ) {
+					$tc->appendChild( self::create_blank_paragraph( $doc, $base_rpr ) );
 				}
 
-				$tr->appendChild($tc);
+				$tr->appendChild( $tc );
 				$column_index += $colspan;
 				$cell_iter++;
 			}
 
 			// Handle any remaining covered columns after all cells.
-			while (isset($rowspan_map[$column_index]) && $rowspan_map[$column_index] > 0) {
-				$tc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tc');
+			while ( isset( $rowspan_map[ $column_index ] ) && $rowspan_map[ $column_index ] > 0 ) {
+				$tc = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tc' );
 				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-				$tcPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:tcPr');
-				$vmerge = $doc->createElementNS(self::WORD_NAMESPACE, 'w:vMerge');
+				$tcPr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:tcPr' );
+				$vmerge = $doc->createElementNS( self::WORD_NAMESPACE, 'w:vMerge' );
 				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-				$tcPr->appendChild($vmerge);
+				$tcPr->appendChild( $vmerge );
 				// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $tcPr matches WordprocessingML spec.
-				$tc->appendChild($tcPr);
-				$tc->appendChild(self::create_blank_paragraph($doc, $base_rpr));
-				$tr->appendChild($tc);
-				$rowspan_map[$column_index]--;
-				if (0 === $rowspan_map[$column_index]) {
-					unset($rowspan_map[$column_index]);
+				$tc->appendChild( $tcPr );
+				$tc->appendChild( self::create_blank_paragraph( $doc, $base_rpr ) );
+				$tr->appendChild( $tc );
+				$rowspan_map[ $column_index ]--;
+				if ( 0 === $rowspan_map[ $column_index ] ) {
+					unset( $rowspan_map[ $column_index ] );
 				}
 				$column_index++;
 			}
 
-			if ($tr->childNodes->length > 0) {
-				$tbl->appendChild($tr);
+			if ( $tr->childNodes->length > 0 ) {
+				$tbl->appendChild( $tr );
 			}
 		}
 
-		if (0 === $tbl->childNodes->length) {
+		if ( 0 === $tbl->childNodes->length ) {
 			return null;
 		}
 
@@ -3260,27 +3304,27 @@ class Documentate_OpenTBS {
 		$result = array();
 		$current_runs = array();
 
-		if (!$children instanceof DOMNodeList) {
+		if ( ! $children instanceof DOMNodeList ) {
 			return $result;
 		}
 
-		foreach ($children as $child) {
-			if (XML_TEXT_NODE === $child->nodeType) {
-				$current_runs = array_merge($current_runs, self::collect_runs_from_text($doc, $child, $base_rpr, $formatting));
+		foreach ( $children as $child ) {
+			if ( XML_TEXT_NODE === $child->nodeType ) {
+				$current_runs = array_merge( $current_runs, self::collect_runs_from_text( $doc, $child, $base_rpr, $formatting ) );
 				continue;
 			}
 
-			if (!$child instanceof DOMElement) {
+			if ( ! $child instanceof DOMElement ) {
 				continue;
 			}
 
-			$tag = strtolower($child->nodeName);
+			$tag = strtolower( $child->nodeName );
 
 			// Handle block elements.
-			if ('ul' === $tag || 'ol' === $tag) {
+			if ( 'ul' === $tag || 'ol' === $tag ) {
 				// Flush any accumulated inline runs.
-				if (!empty($current_runs)) {
-					$result[] = self::create_paragraph_from_runs($doc, $current_runs, $base_rpr, $alignment);
+				if ( ! empty( $current_runs ) ) {
+					$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr, $alignment );
 					$current_runs = array();
 				}
 				// Convert list to paragraphs.
@@ -3292,54 +3336,57 @@ class Documentate_OpenTBS {
 					'ol' === $tag,
 					$relationships,
 				);
-				$result = array_merge($result, $list_paragraphs);
+				$result = array_merge( $result, $list_paragraphs );
 				continue;
 			}
 
-			if ('table' === $tag) {
+			if ( 'table' === $tag ) {
 				// Flush any accumulated inline runs.
-				if (!empty($current_runs)) {
-					$result[] = self::create_paragraph_from_runs($doc, $current_runs, $base_rpr, $alignment);
+				if ( ! empty( $current_runs ) ) {
+					$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr, $alignment );
 					$current_runs = array();
 				}
 				// Convert nested table.
-				$nested_table = self::convert_table_node_to_docx($doc, $child, $base_rpr, $relationships);
-				if ($nested_table) {
+				$nested_table = self::convert_table_node_to_docx( $doc, $child, $base_rpr, $relationships );
+				if ( $nested_table ) {
 					$result[] = $nested_table;
 				}
 				continue;
 			}
 
-			if ('p' === $tag || 'div' === $tag) {
+			if ( 'p' === $tag || 'div' === $tag ) {
 				// Flush any accumulated inline runs.
-				if (!empty($current_runs)) {
-					$result[] = self::create_paragraph_from_runs($doc, $current_runs, $base_rpr, $alignment);
+				if ( ! empty( $current_runs ) ) {
+					$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr, $alignment );
 					$current_runs = array();
 				}
 				// Extract paragraph-specific alignment or use cell alignment.
-				$p_alignment = self::extract_text_alignment($child);
-				if (null === $p_alignment) {
+				$p_alignment = self::extract_text_alignment( $child );
+				if ( null === $p_alignment ) {
 					$p_alignment = $alignment;
 				}
 				// Convert paragraph content.
-				$p_runs = self::collect_runs_from_children($doc, $child->childNodes, $base_rpr, $formatting, $relationships);
-				$result[] = self::create_paragraph_from_runs($doc, $p_runs, $base_rpr, $p_alignment);
+				$p_runs = self::collect_runs_from_children( $doc, $child->childNodes, $base_rpr, $formatting, $relationships );
+				$result[] = self::create_paragraph_from_runs( $doc, $p_runs, $base_rpr, $p_alignment );
 				continue;
 			}
 
 			// Handle inline elements.
-			$current_runs = array_merge($current_runs, self::collect_runs_from_element(
-				$doc,
-				$child,
-				$base_rpr,
-				$formatting,
-				$relationships,
-			));
+			$current_runs = array_merge(
+				$current_runs,
+				self::collect_runs_from_element(
+					$doc,
+					$child,
+					$base_rpr,
+					$formatting,
+					$relationships,
+				)
+			);
 		}
 
 		// Flush remaining inline runs.
-		if (!empty($current_runs)) {
-			$result[] = self::create_paragraph_from_runs($doc, $current_runs, $base_rpr, $alignment);
+		if ( ! empty( $current_runs ) ) {
+			$result[] = self::create_paragraph_from_runs( $doc, $current_runs, $base_rpr, $alignment );
 		}
 
 		return $result;
@@ -3362,43 +3409,43 @@ class Documentate_OpenTBS {
 		$alignment = null,
 		$base_ppr = null,
 	) {
-		$paragraph = $doc->createElementNS(self::WORD_NAMESPACE, 'w:p');
+		$paragraph = $doc->createElementNS( self::WORD_NAMESPACE, 'w:p' );
 
-		if ($base_ppr instanceof DOMElement) {
-			$paragraph->appendChild($base_ppr->cloneNode(true));
-		} elseif (null !== $alignment && 'left' !== $alignment) {
+		if ( $base_ppr instanceof DOMElement ) {
+			$paragraph->appendChild( $base_ppr->cloneNode( true ) );
+		} elseif ( null !== $alignment && 'left' !== $alignment ) {
 			// Add paragraph properties with justification if alignment is specified.
 			// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $pPr matches WordprocessingML spec.
-			$pPr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:pPr');
-			$jc = $doc->createElementNS(self::WORD_NAMESPACE, 'w:jc');
-			$jc->setAttribute('w:val', self::css_alignment_to_docx($alignment));
+			$pPr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:pPr' );
+			$jc = $doc->createElementNS( self::WORD_NAMESPACE, 'w:jc' );
+			$jc->setAttribute( 'w:val', self::css_alignment_to_docx( $alignment ) );
 			// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $pPr matches WordprocessingML spec.
-			$pPr->appendChild($jc);
+			$pPr->appendChild( $jc );
 			// phpcs:ignore WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase -- $pPr matches WordprocessingML spec.
-			$paragraph->appendChild($pPr);
+			$paragraph->appendChild( $pPr );
 		}
 
-		if (empty($runs)) {
-			$paragraph->appendChild(self::create_blank_run($doc, $base_rpr));
+		if ( empty( $runs ) ) {
+			$paragraph->appendChild( self::create_blank_run( $doc, $base_rpr ) );
 			return $paragraph;
 		}
 
-		foreach ($runs as $run) {
-			if ($run instanceof DOMElement) {
-				$paragraph->appendChild($run);
+		foreach ( $runs as $run ) {
+			if ( $run instanceof DOMElement ) {
+				$paragraph->appendChild( $run );
 			}
 		}
 
 		// Check if paragraph only contains pPr (no actual content).
 		$has_content = false;
-		foreach ($paragraph->childNodes as $child) {
-			if ($child instanceof DOMElement && 'w:pPr' !== $child->nodeName) {
+		foreach ( $paragraph->childNodes as $child ) {
+			if ( $child instanceof DOMElement && 'w:pPr' !== $child->nodeName ) {
 				$has_content = true;
 				break;
 			}
 		}
-		if (!$has_content) {
-			$paragraph->appendChild(self::create_blank_run($doc, $base_rpr));
+		if ( ! $has_content ) {
+			$paragraph->appendChild( self::create_blank_run( $doc, $base_rpr ) );
 		}
 
 		return $paragraph;
@@ -3410,12 +3457,12 @@ class Documentate_OpenTBS {
 	 * Prefix and suffix text are merged into the first and last generated
 	 * paragraphs when possible so inline placeholders keep their surrounding text.
 	 *
-	 * @param DOMDocument          $doc            Target DOMDocument.
-	 * @param DOMElement           $source_para    Original paragraph.
+	 * @param DOMDocument           $doc            Target DOMDocument.
+	 * @param DOMElement            $source_para    Original paragraph.
 	 * @param array<int,DOMElement> $nodes         Converted block nodes.
-	 * @param string               $prefix         Text before the placeholder.
-	 * @param string               $suffix         Text after the placeholder.
-	 * @param DOMElement|null      $base_rpr       Base run properties.
+	 * @param string                $prefix         Text before the placeholder.
+	 * @param string                $suffix         Text after the placeholder.
+	 * @param DOMElement|null       $base_rpr       Base run properties.
 	 * @return array<int,DOMElement>
 	 */
 	private static function build_docx_block_replacement_nodes(
@@ -3427,13 +3474,13 @@ class Documentate_OpenTBS {
 		$base_rpr,
 	) {
 		$replacement_nodes = array();
-		$inline_buffer = self::build_docx_runs_from_plain_text($doc, $prefix, $base_rpr);
-		$base_ppr = self::clone_paragraph_properties($source_para);
+		$inline_buffer = self::build_docx_runs_from_plain_text( $doc, $prefix, $base_rpr );
+		$base_ppr = self::clone_paragraph_properties( $source_para );
 
-		foreach ($nodes as $node) {
-			if (!self::is_docx_paragraph($node)) {
-				if (!empty($inline_buffer)) {
-					$replacement_nodes[] = self::create_paragraph_from_runs($doc, $inline_buffer, $base_rpr, null, $base_ppr);
+		foreach ( $nodes as $node ) {
+			if ( ! self::is_docx_paragraph( $node ) ) {
+				if ( ! empty( $inline_buffer ) ) {
+					$replacement_nodes[] = self::create_paragraph_from_runs( $doc, $inline_buffer, $base_rpr, null, $base_ppr );
 					$inline_buffer = array();
 				}
 
@@ -3441,22 +3488,22 @@ class Documentate_OpenTBS {
 				continue;
 			}
 
-			self::inherit_docx_paragraph_properties($node, $base_ppr);
-			if (!empty($inline_buffer)) {
-				self::prepend_runs_to_docx_paragraph($node, $inline_buffer);
+			self::inherit_docx_paragraph_properties( $node, $base_ppr );
+			if ( ! empty( $inline_buffer ) ) {
+				self::prepend_runs_to_docx_paragraph( $node, $inline_buffer );
 				$inline_buffer = array();
 			}
 
 			$replacement_nodes[] = $node;
 		}
 
-		$inline_buffer = array_merge($inline_buffer, self::build_docx_runs_from_plain_text($doc, $suffix, $base_rpr));
-		if (!empty($inline_buffer)) {
-			$last_node = !empty($replacement_nodes) ? end($replacement_nodes) : null;
-			if ($last_node instanceof DOMElement && self::is_docx_paragraph($last_node)) {
-				self::append_runs_to_docx_paragraph($last_node, $inline_buffer);
+		$inline_buffer = array_merge( $inline_buffer, self::build_docx_runs_from_plain_text( $doc, $suffix, $base_rpr ) );
+		if ( ! empty( $inline_buffer ) ) {
+			$last_node = ! empty( $replacement_nodes ) ? end( $replacement_nodes ) : null;
+			if ( $last_node instanceof DOMElement && self::is_docx_paragraph( $last_node ) ) {
+				self::append_runs_to_docx_paragraph( $last_node, $inline_buffer );
 			} else {
-				$replacement_nodes[] = self::create_paragraph_from_runs($doc, $inline_buffer, $base_rpr, null, $base_ppr);
+				$replacement_nodes[] = self::create_paragraph_from_runs( $doc, $inline_buffer, $base_rpr, null, $base_ppr );
 			}
 		}
 
@@ -3471,21 +3518,21 @@ class Documentate_OpenTBS {
 	 * @param DOMElement|null $base_rpr Base run properties.
 	 * @return array<int,DOMElement>
 	 */
-	private static function build_docx_runs_from_plain_text(DOMDocument $doc, $text, $base_rpr) {
-		$text = str_replace(array("\r\n", "\r"), "\n", (string) $text);
-		if ('' === $text) {
+	private static function build_docx_runs_from_plain_text( DOMDocument $doc, $text, $base_rpr ) {
+		$text = str_replace( array( "\r\n", "\r" ), "\n", (string) $text );
+		if ( '' === $text ) {
 			return array();
 		}
 
-		$parts = explode("\n", $text);
+		$parts = explode( "\n", $text );
 		$runs = array();
-		foreach ($parts as $index => $part) {
-			if ('' !== $part) {
-				$runs[] = self::build_docx_text_run($doc, $part, $base_rpr);
+		foreach ( $parts as $index => $part ) {
+			if ( '' !== $part ) {
+				$runs[] = self::build_docx_text_run( $doc, $part, $base_rpr );
 			}
 
-			if ($index < (count($parts) - 1)) {
-				$runs[] = self::create_break_run($doc, $base_rpr);
+			if ( $index < ( count( $parts ) - 1 ) ) {
+				$runs[] = self::create_break_run( $doc, $base_rpr );
 			}
 		}
 
@@ -3498,7 +3545,7 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $node Candidate node.
 	 * @return bool
 	 */
-	private static function is_docx_paragraph(DOMElement $node) {
+	private static function is_docx_paragraph( DOMElement $node ) {
 		return self::WORD_NAMESPACE === $node->namespaceURI && 'p' === $node->localName;
 	}
 
@@ -3508,10 +3555,10 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $paragraph Paragraph to inspect.
 	 * @return DOMElement|null
 	 */
-	private static function clone_paragraph_properties(DOMElement $paragraph) {
-		foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName) {
-				return $child->cloneNode(true);
+	private static function clone_paragraph_properties( DOMElement $paragraph ) {
+		foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName ) {
+				return $child->cloneNode( true );
 			}
 		}
 
@@ -3524,30 +3571,30 @@ class Documentate_OpenTBS {
 	 * @param DOMElement      $paragraph Paragraph to update.
 	 * @param DOMElement|null $base_ppr  Paragraph properties to inherit.
 	 */
-	private static function inherit_docx_paragraph_properties(DOMElement $paragraph, $base_ppr) {
-		if (!$base_ppr instanceof DOMElement) {
+	private static function inherit_docx_paragraph_properties( DOMElement $paragraph, $base_ppr ) {
+		if ( ! $base_ppr instanceof DOMElement ) {
 			return;
 		}
 
-		foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName) {
+		foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName ) {
 				return;
 			}
 		}
 
-		$paragraph->insertBefore($base_ppr->cloneNode(true), $paragraph->firstChild); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		$paragraph->insertBefore( $base_ppr->cloneNode( true ), $paragraph->firstChild ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 	}
 
 	/**
 	 * Prepend runs to a DOCX paragraph after its paragraph properties.
 	 *
-	 * @param DOMElement         $paragraph Paragraph to update.
+	 * @param DOMElement            $paragraph Paragraph to update.
 	 * @param array<int,DOMElement> $runs   Runs to prepend.
 	 */
-	private static function prepend_runs_to_docx_paragraph(DOMElement $paragraph, array $runs) {
+	private static function prepend_runs_to_docx_paragraph( DOMElement $paragraph, array $runs ) {
 		$reference = null;
-		foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName) {
+		foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'pPr' === $child->localName ) {
 				continue;
 			}
 
@@ -3555,25 +3602,25 @@ class Documentate_OpenTBS {
 			break;
 		}
 
-		foreach ($runs as $run) {
-			if ($reference instanceof DOMNode) {
-				$paragraph->insertBefore($run, $reference);
+		foreach ( $runs as $run ) {
+			if ( $reference instanceof DOMNode ) {
+				$paragraph->insertBefore( $run, $reference );
 				continue;
 			}
 
-			$paragraph->appendChild($run);
+			$paragraph->appendChild( $run );
 		}
 	}
 
 	/**
 	 * Append runs to a DOCX paragraph.
 	 *
-	 * @param DOMElement         $paragraph Paragraph to update.
+	 * @param DOMElement            $paragraph Paragraph to update.
 	 * @param array<int,DOMElement> $runs   Runs to append.
 	 */
-	private static function append_runs_to_docx_paragraph(DOMElement $paragraph, array $runs) {
-		foreach ($runs as $run) {
-			$paragraph->appendChild($run);
+	private static function append_runs_to_docx_paragraph( DOMElement $paragraph, array $runs ) {
+		foreach ( $runs as $run ) {
+			$paragraph->appendChild( $run );
 		}
 	}
 
@@ -3584,16 +3631,16 @@ class Documentate_OpenTBS {
 	 * @param DOMElement|null $base_rpr Base run properties.
 	 * @return DOMElement
 	 */
-	private static function create_blank_run(DOMDocument $doc, $base_rpr) {
-		$run = $doc->createElementNS(self::WORD_NAMESPACE, 'w:r');
-		if ($base_rpr instanceof DOMElement) {
-			$run->appendChild($base_rpr->cloneNode(true));
+	private static function create_blank_run( DOMDocument $doc, $base_rpr ) {
+		$run = $doc->createElementNS( self::WORD_NAMESPACE, 'w:r' );
+		if ( $base_rpr instanceof DOMElement ) {
+			$run->appendChild( $base_rpr->cloneNode( true ) );
 		}
 
-		$text = $doc->createElementNS(self::WORD_NAMESPACE, 'w:t');
-		$text->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
-		$text->appendChild($doc->createTextNode(''));
-		$run->appendChild($text);
+		$text = $doc->createElementNS( self::WORD_NAMESPACE, 'w:t' );
+		$text->setAttributeNS( 'http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve' );
+		$text->appendChild( $doc->createTextNode( '' ) );
+		$run->appendChild( $text );
 
 		return $run;
 	}
@@ -3605,9 +3652,9 @@ class Documentate_OpenTBS {
 	 * @param DOMElement|null $base_rpr Base run properties reference.
 	 * @return DOMElement
 	 */
-	private static function create_blank_paragraph(DOMDocument $doc, $base_rpr) {
-		$paragraph = $doc->createElementNS(self::WORD_NAMESPACE, 'w:p');
-		$paragraph->appendChild(self::create_blank_run($doc, $base_rpr));
+	private static function create_blank_paragraph( DOMDocument $doc, $base_rpr ) {
+		$paragraph = $doc->createElementNS( self::WORD_NAMESPACE, 'w:p' );
+		$paragraph->appendChild( self::create_blank_run( $doc, $base_rpr ) );
 		return $paragraph;
 	}
 
@@ -3618,28 +3665,28 @@ class Documentate_OpenTBS {
 	 * @param DOMElement         $node       Current span element.
 	 * @return array<string,bool>
 	 */
-	private static function extract_span_formatting(array $formatting, DOMElement $node) {
-		$style = $node->getAttribute('style');
-		if ($style) {
-			$styles = array_map('trim', explode(';', strtolower($style)));
-			foreach ($styles as $rule) {
-				if ('' === $rule) {
+	private static function extract_span_formatting( array $formatting, DOMElement $node ) {
+		$style = $node->getAttribute( 'style' );
+		if ( $style ) {
+			$styles = array_map( 'trim', explode( ';', strtolower( $style ) ) );
+			foreach ( $styles as $rule ) {
+				if ( '' === $rule ) {
 					continue;
 				}
-				list($prop, $val) = array_map('trim', explode(':', $rule) + array('', ''));
-				switch ($prop) {
+				list($prop, $val) = array_map( 'trim', explode( ':', $rule ) + array( '', '' ) );
+				switch ( $prop ) {
 					case 'font-weight':
-						if ('bold' === $val || '700' === $val) {
+						if ( 'bold' === $val || '700' === $val ) {
 							$formatting['bold'] = true;
 						}
 						break;
 					case 'font-style':
-						if ('italic' === $val) {
+						if ( 'italic' === $val ) {
 							$formatting['italic'] = true;
 						}
 						break;
 					case 'text-decoration':
-						if (false !== strpos($val, 'underline')) {
+						if ( false !== strpos( $val, 'underline' ) ) {
 							$formatting['underline'] = true;
 						}
 						break;
@@ -3657,8 +3704,8 @@ class Documentate_OpenTBS {
 	 * @param bool               $value      Flag value.
 	 * @return array<string,bool>
 	 */
-	private static function with_format_flag(array $formatting, $flag, $value) {
-		$formatting[$flag] = $value;
+	private static function with_format_flag( array $formatting, $flag, $value ) {
+		$formatting[ $flag ] = $value;
 		return $formatting;
 	}
 
@@ -3668,14 +3715,14 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $node Element to check for alignment.
 	 * @return string|null Alignment value (left, center, right, justify) or null.
 	 */
-	private static function extract_text_alignment(DOMElement $node) {
-		$style = $node->getAttribute('style');
-		if (empty($style)) {
+	private static function extract_text_alignment( DOMElement $node ) {
+		$style = $node->getAttribute( 'style' );
+		if ( empty( $style ) ) {
 			return null;
 		}
 
-		if (preg_match('/text-align\s*:\s*(left|center|right|justify)/i', $style, $matches)) {
-			return strtolower($matches[1]);
+		if ( preg_match( '/text-align\s*:\s*(left|center|right|justify)/i', $style, $matches ) ) {
+			return strtolower( $matches[1] );
 		}
 
 		return null;
@@ -3689,23 +3736,23 @@ class Documentate_OpenTBS {
 	 * @param DOMNode $node The paragraph node to check.
 	 * @return bool True if the paragraph contains only nbsp characters.
 	 */
-	private static function is_nbsp_only_paragraph(DOMNode $node) {
+	private static function is_nbsp_only_paragraph( DOMNode $node ) {
 		$text_content = '';
-		foreach ($node->childNodes as $child) {
-			if ($child instanceof DOMText) {
+		foreach ( $node->childNodes as $child ) {
+			if ( $child instanceof DOMText ) {
 				$text_content .= $child->wholeText;
-			} elseif ($child instanceof DOMElement) {
+			} elseif ( $child instanceof DOMElement ) {
 				// If there are child elements (like <strong>), it's not a spacing-only paragraph.
 				return false;
 			}
 		}
 
 		// Decode HTML entities.
-		$decoded = html_entity_decode($text_content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+		$decoded = html_entity_decode( $text_content, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 
 		// Check if it only contains non-breaking space characters (U+00A0).
-		$trimmed = trim($decoded);
-		$nbsp_only = preg_replace('/[\x{00A0}]+/u', '', $trimmed);
+		$trimmed = trim( $decoded );
+		$nbsp_only = preg_replace( '/[\x{00A0}]+/u', '', $trimmed );
 
 		return '' === $nbsp_only && '' !== $trimmed;
 	}
@@ -3716,8 +3763,8 @@ class Documentate_OpenTBS {
 	 * @param string $alignment CSS alignment value.
 	 * @return string DOCX justification value.
 	 */
-	private static function css_alignment_to_docx($alignment) {
-		switch ($alignment) {
+	private static function css_alignment_to_docx( $alignment ) {
+		switch ( $alignment ) {
 			case 'center':
 				return 'center';
 			case 'right':
@@ -3738,43 +3785,43 @@ class Documentate_OpenTBS {
 	 * @param array<string,bool> $formatting Formatting flags.
 	 * @return DOMElement|null
 	 */
-	private static function create_text_run(DOMDocument $doc, $text, $base_rpr, array $formatting) {
-		if ('' === $text) {
+	private static function create_text_run( DOMDocument $doc, $text, $base_rpr, array $formatting ) {
+		if ( '' === $text ) {
 			return null;
 		}
-		$run = $doc->createElementNS(self::WORD_NAMESPACE, 'w:r');
-		if ($base_rpr instanceof DOMElement) {
-			$run->appendChild($base_rpr->cloneNode(true));
+		$run = $doc->createElementNS( self::WORD_NAMESPACE, 'w:r' );
+		if ( $base_rpr instanceof DOMElement ) {
+			$run->appendChild( $base_rpr->cloneNode( true ) );
 		}
-		$rpr = self::get_or_create_run_properties($doc, $run);
-		if (!empty($formatting['bold'])) {
-			$rpr->appendChild($doc->createElementNS(self::WORD_NAMESPACE, 'w:b'));
+		$rpr = self::get_or_create_run_properties( $doc, $run );
+		if ( ! empty( $formatting['bold'] ) ) {
+			$rpr->appendChild( $doc->createElementNS( self::WORD_NAMESPACE, 'w:b' ) );
 		}
-		if (!empty($formatting['italic'])) {
-			$rpr->appendChild($doc->createElementNS(self::WORD_NAMESPACE, 'w:i'));
+		if ( ! empty( $formatting['italic'] ) ) {
+			$rpr->appendChild( $doc->createElementNS( self::WORD_NAMESPACE, 'w:i' ) );
 		}
-		if (!empty($formatting['underline'])) {
-			$u = $doc->createElementNS(self::WORD_NAMESPACE, 'w:u');
-			$u->setAttribute('w:val', 'single');
-			$rpr->appendChild($u);
+		if ( ! empty( $formatting['underline'] ) ) {
+			$u = $doc->createElementNS( self::WORD_NAMESPACE, 'w:u' );
+			$u->setAttribute( 'w:val', 'single' );
+			$rpr->appendChild( $u );
 		}
-		if (!empty($formatting['hyperlink'])) {
-			$style = $doc->createElementNS(self::WORD_NAMESPACE, 'w:rStyle');
-			$style->setAttribute('w:val', 'Hyperlink');
-			$rpr->appendChild($style);
-			$color = $doc->createElementNS(self::WORD_NAMESPACE, 'w:color');
-			$color->setAttribute('w:val', '0000FF');
-			$rpr->appendChild($color);
+		if ( ! empty( $formatting['hyperlink'] ) ) {
+			$style = $doc->createElementNS( self::WORD_NAMESPACE, 'w:rStyle' );
+			$style->setAttribute( 'w:val', 'Hyperlink' );
+			$rpr->appendChild( $style );
+			$color = $doc->createElementNS( self::WORD_NAMESPACE, 'w:color' );
+			$color->setAttribute( 'w:val', '0000FF' );
+			$rpr->appendChild( $color );
 		}
-		if (0 === $rpr->childNodes->length) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			$run->removeChild($rpr);
+		if ( 0 === $rpr->childNodes->length ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			$run->removeChild( $rpr );
 		}
-		$text_node = $doc->createElementNS(self::WORD_NAMESPACE, 'w:t');
-		if (preg_match('/^\s|\s$/u', $text)) {
-			$text_node->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+		$text_node = $doc->createElementNS( self::WORD_NAMESPACE, 'w:t' );
+		if ( preg_match( '/^\s|\s$/u', $text ) ) {
+			$text_node->setAttributeNS( 'http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve' );
 		}
-		$text_node->appendChild($doc->createTextNode($text));
-		$run->appendChild($text_node);
+		$text_node->appendChild( $doc->createTextNode( $text ) );
+		$run->appendChild( $text_node );
 		return $run;
 	}
 
@@ -3786,14 +3833,14 @@ class Documentate_OpenTBS {
 	 * @param int             $count    Number of line breaks to append.
 	 * @return DOMElement
 	 */
-	private static function create_break_run(DOMDocument $doc, $base_rpr, $count = 1) {
-		$run = $doc->createElementNS(self::WORD_NAMESPACE, 'w:r');
-		if ($base_rpr instanceof DOMElement) {
-			$run->appendChild($base_rpr->cloneNode(true));
+	private static function create_break_run( DOMDocument $doc, $base_rpr, $count = 1 ) {
+		$run = $doc->createElementNS( self::WORD_NAMESPACE, 'w:r' );
+		if ( $base_rpr instanceof DOMElement ) {
+			$run->appendChild( $base_rpr->cloneNode( true ) );
 		}
-		$count = max(1, (int) $count);
-		for ($i = 0; $i < $count; $i++) {
-			$run->appendChild($doc->createElementNS(self::WORD_NAMESPACE, 'w:br'));
+		$count = max( 1, (int) $count );
+		for ( $i = 0; $i < $count; $i++ ) {
+			$run->appendChild( $doc->createElementNS( self::WORD_NAMESPACE, 'w:br' ) );
 		}
 		return $run;
 	}
@@ -3805,14 +3852,14 @@ class Documentate_OpenTBS {
 	 * @param DOMElement  $run Run element.
 	 * @return DOMElement
 	 */
-	private static function get_or_create_run_properties(DOMDocument $doc, DOMElement $run) {
-		foreach ($run->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'rPr' === $child->localName) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+	private static function get_or_create_run_properties( DOMDocument $doc, DOMElement $run ) {
+		foreach ( $run->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'rPr' === $child->localName ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 				return $child;
 			}
 		}
-		$rpr = $doc->createElementNS(self::WORD_NAMESPACE, 'w:rPr');
-		$run->insertBefore($rpr, $run->firstChild); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		$rpr = $doc->createElementNS( self::WORD_NAMESPACE, 'w:rPr' );
+		$run->insertBefore( $rpr, $run->firstChild ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		return $rpr;
 	}
 
@@ -3822,10 +3869,10 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $run Run element to inspect.
 	 * @return DOMElement|null
 	 */
-	private static function clone_run_properties(DOMElement $run) {
-		foreach ($run->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'rPr' === $child->localName) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-				return $child->cloneNode(true);
+	private static function clone_run_properties( DOMElement $run ) {
+		foreach ( $run->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'rPr' === $child->localName ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+				return $child->cloneNode( true );
 			}
 		}
 		return null;
@@ -3836,11 +3883,11 @@ class Documentate_OpenTBS {
 	 *
 	 * @param array<int, DOMElement> $runs Run collection.
 	 */
-	private static function trim_trailing_break_runs(array &$runs) {
-		while (!empty($runs)) {
-			$last = end($runs);
-			if (self::run_is_break($last)) {
-				array_pop($runs);
+	private static function trim_trailing_break_runs( array &$runs ) {
+		while ( ! empty( $runs ) ) {
+			$last = end( $runs );
+			if ( self::run_is_break( $last ) ) {
+				array_pop( $runs );
 				continue;
 			}
 			break;
@@ -3853,12 +3900,12 @@ class Documentate_OpenTBS {
 	 * @param DOMElement|null $run Run element.
 	 * @return bool
 	 */
-	private static function run_is_break($run) {
-		if (!$run instanceof DOMElement) {
+	private static function run_is_break( $run ) {
+		if ( ! $run instanceof DOMElement ) {
 			return false;
 		}
-		foreach ($run->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'br' === $child->localName) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		foreach ( $run->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child instanceof DOMElement && self::WORD_NAMESPACE === $child->namespaceURI && 'br' === $child->localName ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 				return true;
 			}
 		}
@@ -3872,41 +3919,41 @@ class Documentate_OpenTBS {
 	 * @param string     $target Target XML part path.
 	 * @return array<string,mixed>|null
 	 */
-	private static function load_relationships_for_part(ZipArchive $zip, $target) {
-		$rel_path = self::get_relationship_part_path($target);
-		if ('' === $rel_path) {
+	private static function load_relationships_for_part( ZipArchive $zip, $target ) {
+		$rel_path = self::get_relationship_part_path( $target );
+		if ( '' === $rel_path ) {
 			return null;
 		}
-		$rels_xml = $zip->getFromName($rel_path);
+		$rels_xml = $zip->getFromName( $rel_path );
 		$doc = new DOMDocument();
 		$doc->preserveWhiteSpace = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		$doc->formatOutput = false; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 		$map = array();
 		$next_id = 0;
-		libxml_use_internal_errors(true);
-		if (false === $rels_xml || '' === trim((string) $rels_xml) || !$doc->loadXML($rels_xml, LIBXML_NONET)) {
-			$doc->loadXML('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships" />', LIBXML_NONET);
+		libxml_use_internal_errors( true );
+		if ( false === $rels_xml || '' === trim( (string) $rels_xml ) || ! $doc->loadXML( $rels_xml, LIBXML_NONET ) ) {
+			$doc->loadXML( '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships" />', LIBXML_NONET );
 		}
 		libxml_clear_errors();
 		$root = $doc->documentElement;
-		if ($root instanceof DOMElement) {
-			$relationships = $root->getElementsByTagNameNS($root->namespaceURI, 'Relationship');
-			foreach ($relationships as $relationship) {
-				if (!$relationship instanceof DOMElement) {
+		if ( $root instanceof DOMElement ) {
+			$relationships = $root->getElementsByTagNameNS( $root->namespaceURI, 'Relationship' );
+			foreach ( $relationships as $relationship ) {
+				if ( ! $relationship instanceof DOMElement ) {
 					continue;
 				}
-				$id = $relationship->getAttribute('Id');
-				if (preg_match('/^rId(\d+)$/', $id, $matches)) {
-					$next_id = max($next_id, (int) $matches[1]);
+				$id = $relationship->getAttribute( 'Id' );
+				if ( preg_match( '/^rId(\d+)$/', $id, $matches ) ) {
+					$next_id = max( $next_id, (int) $matches[1] );
 				}
 				if (
 					'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink' === $relationship->getAttribute(
 						'Type',
 					)
 				) {
-					$target = $relationship->getAttribute('Target');
-					if ('' !== $target) {
-						$map[$target] = $id;
+					$target = $relationship->getAttribute( 'Target' );
+					if ( '' !== $target ) {
+						$map[ $target ] = $id;
 					}
 				}
 			}
@@ -3926,13 +3973,13 @@ class Documentate_OpenTBS {
 	 * @param string $target Target XML part path.
 	 * @return string
 	 */
-	private static function get_relationship_part_path($target) {
-		if ('' === $target) {
+	private static function get_relationship_part_path( $target ) {
+		if ( '' === $target ) {
 			return '';
 		}
-		$dir = dirname($target);
-		$file = basename($target);
-		if ('.' === $dir) {
+		$dir = dirname( $target );
+		$file = basename( $target );
+		if ( '.' === $dir ) {
 			$dir = '';
 		}
 		$rel_dir = '' !== $dir ? $dir . '/_rels' : '_rels';
@@ -3946,30 +3993,30 @@ class Documentate_OpenTBS {
 	 * @param string                   $target        Hyperlink URL.
 	 * @return string
 	 */
-	private static function register_hyperlink_relationship(&$relationships, $target) {
-		if (empty($target) || !is_array($relationships)) {
+	private static function register_hyperlink_relationship( &$relationships, $target ) {
+		if ( empty( $target ) || ! is_array( $relationships ) ) {
 			return '';
 		}
-		if (isset($relationships['map'][$target])) {
-			return $relationships['map'][$target];
+		if ( isset( $relationships['map'][ $target ] ) ) {
+			return $relationships['map'][ $target ];
 		}
-		if (empty($relationships['doc']) || !$relationships['doc'] instanceof DOMDocument) {
+		if ( empty( $relationships['doc'] ) || ! $relationships['doc'] instanceof DOMDocument ) {
 			return '';
 		}
 		$doc = $relationships['doc'];
 		$root = $doc->documentElement;
-		if (!$root instanceof DOMElement) {
+		if ( ! $root instanceof DOMElement ) {
 			return '';
 		}
 		$relationships['next_index'] = (int) $relationships['next_index'] + 1;
 		$r_id = 'rId' . $relationships['next_index'];
-		$relationship = $doc->createElementNS($root->namespaceURI, 'Relationship');
-		$relationship->setAttribute('Id', $r_id);
-		$relationship->setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink');
-		$relationship->setAttribute('Target', $target);
-		$relationship->setAttribute('TargetMode', 'External');
-		$root->appendChild($relationship);
-		$relationships['map'][$target] = $r_id;
+		$relationship = $doc->createElementNS( $root->namespaceURI, 'Relationship' );
+		$relationship->setAttribute( 'Id', $r_id );
+		$relationship->setAttribute( 'Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink' );
+		$relationship->setAttribute( 'Target', $target );
+		$relationship->setAttribute( 'TargetMode', 'External' );
+		$root->appendChild( $relationship );
+		$relationships['map'][ $target ] = $r_id;
 		$relationships['modified'] = true;
 		return $r_id;
 	}
@@ -3983,27 +4030,27 @@ class Documentate_OpenTBS {
 	 * @param string                   $href          Hyperlink URL.
 	 * @return DOMElement|null
 	 */
-	private static function create_hyperlink_container(DOMDocument $doc, array $link_runs, &$relationships, $href) {
-		if (empty($link_runs)) {
+	private static function create_hyperlink_container( DOMDocument $doc, array $link_runs, &$relationships, $href ) {
+		if ( empty( $link_runs ) ) {
 			return null;
 		}
-		$relationship_id = self::register_hyperlink_relationship($relationships, $href);
-		if ('' === $relationship_id) {
+		$relationship_id = self::register_hyperlink_relationship( $relationships, $href );
+		if ( '' === $relationship_id ) {
 			return null;
 		}
-		$hyperlink = $doc->createElementNS(self::WORD_NAMESPACE, 'w:hyperlink');
+		$hyperlink = $doc->createElementNS( self::WORD_NAMESPACE, 'w:hyperlink' );
 		$hyperlink->setAttributeNS(
 			'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
 			'r:id',
 			$relationship_id,
 		);
-		$hyperlink->setAttribute('w:history', '1');
-		foreach ($link_runs as $run) {
-			if (!$run instanceof DOMElement) {
+		$hyperlink->setAttribute( 'w:history', '1' );
+		foreach ( $link_runs as $run ) {
+			if ( ! $run instanceof DOMElement ) {
 				continue;
 			}
 
-			$hyperlink->appendChild($run);
+			$hyperlink->appendChild( $run );
 		}
 		return $hyperlink;
 	}
@@ -4019,14 +4066,14 @@ class Documentate_OpenTBS {
 	 * @param string $xml Raw content.xml XML string.
 	 * @return string Possibly-modified XML string.
 	 */
-	public static function split_odt_content_paragraphs($xml) {
-		$doc = self::create_xml_document($xml);
-		if (!$doc) {
+	public static function split_odt_content_paragraphs( $xml ) {
+		$doc = self::create_xml_document( $xml );
+		if ( ! $doc ) {
 			return $xml;
 		}
 
-		$xpath = new DOMXPath($doc);
-		$xpath->registerNamespace('text', self::ODF_TEXT_NS);
+		$xpath = new DOMXPath( $doc );
+		$xpath->registerNamespace( 'text', self::ODF_TEXT_NS );
 
 		$modified = false;
 
@@ -4034,41 +4081,41 @@ class Documentate_OpenTBS {
 		do {
 			$changed = false;
 
-			$paragraphs = $xpath->query('//text:p');
-			if (!$paragraphs instanceof DOMNodeList) {
+			$paragraphs = $xpath->query( '//text:p' );
+			if ( ! $paragraphs instanceof DOMNodeList ) {
 				break;
 			}
 
 			$para_array = array();
-			foreach ($paragraphs as $para) {
+			foreach ( $paragraphs as $para ) {
 				$para_array[] = $para;
 			}
 
-			foreach ($para_array as $paragraph) {
-				if (!$paragraph instanceof DOMElement) {
+			foreach ( $para_array as $paragraph ) {
+				if ( ! $paragraph instanceof DOMElement ) {
 					continue;
 				}
 
 				// Look for the first span that contains any line-break.
-				foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-					if (!$child instanceof DOMElement || self::ODF_TEXT_NS !== $child->namespaceURI || 'span' !== $child->localName) {
+				foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+					if ( ! $child instanceof DOMElement || self::ODF_TEXT_NS !== $child->namespaceURI || 'span' !== $child->localName ) {
 						continue;
 					}
 
-					if (!self::odt_span_has_any_linebreak($child)) {
+					if ( ! self::odt_span_has_any_linebreak( $child ) ) {
 						continue;
 					}
 
-					if (self::split_odt_paragraph_at_span_linebreaks($paragraph, $child)) {
+					if ( self::split_odt_paragraph_at_span_linebreaks( $paragraph, $child ) ) {
 						$changed = true;
 						$modified = true;
 					}
 					break; // Process one span at a time; restart the paragraph scan.
 				}
 			}
-		} while ($changed);
+		} while ( $changed );
 
-		if ($modified) {
+		if ( $modified ) {
 			return $doc->saveXML();
 		}
 
@@ -4081,8 +4128,8 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $span The span element to inspect.
 	 * @return bool
 	 */
-	private static function odt_span_has_any_linebreak(DOMElement $span) {
-		foreach ($span->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+	private static function odt_span_has_any_linebreak( DOMElement $span ) {
+		foreach ( $span->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			if (
 				$child instanceof DOMElement
 				&& self::ODF_TEXT_NS === $child->namespaceURI
@@ -4108,14 +4155,14 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $span      The span that contains line-break sequences.
 	 * @return bool True if the paragraph was actually split.
 	 */
-	private static function split_odt_paragraph_at_span_linebreaks(DOMElement $paragraph, DOMElement $span) {
+	private static function split_odt_paragraph_at_span_linebreaks( DOMElement $paragraph, DOMElement $span ) {
 		$parent = $paragraph->parentNode; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-		if (!$parent instanceof DOMNode) {
+		if ( ! $parent instanceof DOMNode ) {
 			return false;
 		}
 
-		$segments = self::split_span_content_at_linebreaks($span);
-		if (count($segments) <= 1) {
+		$segments = self::split_span_content_at_linebreaks( $span );
+		if ( count( $segments ) <= 1 ) {
 			return false;
 		}
 
@@ -4123,59 +4170,59 @@ class Documentate_OpenTBS {
 		$before_span = array();
 		$after_span = array();
 		$found = false;
-		foreach ($paragraph->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
-			if ($child === $span) {
+		foreach ( $paragraph->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+			if ( $child === $span ) {
 				$found = true;
 				continue;
 			}
-			if (!$found) {
+			if ( ! $found ) {
 				$before_span[] = $child;
 			} else {
 				$after_span[] = $child;
 			}
 		}
 
-		$segment_count = count($segments);
+		$segment_count = count( $segments );
 		$new_paragraphs = array();
 
-		foreach ($segments as $idx => $segment) {
-			$new_para = $paragraph->cloneNode(false);
+		foreach ( $segments as $idx => $segment ) {
+			$new_para = $paragraph->cloneNode( false );
 
 			// The first new paragraph inherits any nodes that preceded the split span.
-			if (0 === $idx) {
-				foreach ($before_span as $node) {
-					$new_para->appendChild($node->cloneNode(true));
+			if ( 0 === $idx ) {
+				foreach ( $before_span as $node ) {
+					$new_para->appendChild( $node->cloneNode( true ) );
 				}
 			}
 
 			// Wrap segment content in a clone of the original span (preserving its style).
-			if (!empty($segment['nodes'])) {
-				$new_span = $span->cloneNode(false);
-				foreach ($segment['nodes'] as $node) {
-					$new_span->appendChild($node->cloneNode(true));
+			if ( ! empty( $segment['nodes'] ) ) {
+				$new_span = $span->cloneNode( false );
+				foreach ( $segment['nodes'] as $node ) {
+					$new_span->appendChild( $node->cloneNode( true ) );
 				}
-				$new_para->appendChild($new_span);
+				$new_para->appendChild( $new_span );
 			}
 
 			// The last new paragraph inherits any nodes that followed the split span.
-			if ($idx === ($segment_count - 1)) {
-				foreach ($after_span as $node) {
-					$new_para->appendChild($node->cloneNode(true));
+			if ( ( $segment_count - 1 ) === $idx ) {
+				foreach ( $after_span as $node ) {
+					$new_para->appendChild( $node->cloneNode( true ) );
 				}
 			}
 
 			$new_paragraphs[] = $new_para;
 
 			// A double (or more) line-break separator means a visual gap: insert an empty paragraph.
-			if ($segment['gap_after']) {
-				$new_paragraphs[] = $paragraph->cloneNode(false);
+			if ( $segment['gap_after'] ) {
+				$new_paragraphs[] = $paragraph->cloneNode( false );
 			}
 		}
 
-		foreach ($new_paragraphs as $new_para) {
-			$parent->insertBefore($new_para, $paragraph);
+		foreach ( $new_paragraphs as $new_para ) {
+			$parent->insertBefore( $new_para, $paragraph );
 		}
-		$parent->removeChild($paragraph);
+		$parent->removeChild( $paragraph );
 
 		return true;
 	}
@@ -4195,36 +4242,39 @@ class Documentate_OpenTBS {
 	 * @param DOMElement $span The span to analyse.
 	 * @return array<int,array{nodes:array<int,DOMNode>,gap_after:bool}>
 	 */
-	private static function split_span_content_at_linebreaks(DOMElement $span) {
+	private static function split_span_content_at_linebreaks( DOMElement $span ) {
 		// Index all children for look-ahead.
 		$children = array();
-		foreach ($span->childNodes as $child) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
+		foreach ( $span->childNodes as $child ) { // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			$children[] = $child;
 		}
-		$n = count($children);
+		$n = count( $children );
 
 		$segments = array();
 		$current = array();
 		$i = 0;
 
-		while ($i < $n) {
-			$child = $children[$i];
+		while ( $i < $n ) {
+			$child = $children[ $i ];
 			$is_lb =
 				$child instanceof DOMElement && self::ODF_TEXT_NS === $child->namespaceURI && 'line-break' === $child->localName;
 
-			if ($is_lb) {
+			if ( $is_lb ) {
 				// Count how many consecutive line-breaks follow.
 				$lb_count = 0;
-				while ($i < $n) {
-					$c = $children[$i];
-					if (!($c instanceof DOMElement && self::ODF_TEXT_NS === $c->namespaceURI && 'line-break' === $c->localName)) {
+				while ( $i < $n ) {
+					$c = $children[ $i ];
+					if ( ! ( $c instanceof DOMElement && self::ODF_TEXT_NS === $c->namespaceURI && 'line-break' === $c->localName ) ) {
 						break;
 					}
 					$lb_count++;
 					$i++;
 				}
 				// Close current segment; gap_after = true for 2+ consecutive line-breaks.
-				$segments[] = array('nodes' => $current, 'gap_after' => $lb_count >= 2);
+				$segments[] = array(
+					'nodes' => $current,
+					'gap_after' => $lb_count >= 2,
+				);
 				$current = array();
 			} else {
 				$current[] = $child;
@@ -4233,7 +4283,10 @@ class Documentate_OpenTBS {
 		}
 
 		// Push the last (or only) segment.
-		$segments[] = array('nodes' => $current, 'gap_after' => false);
+		$segments[] = array(
+			'nodes' => $current,
+			'gap_after' => false,
+		);
 
 		return $segments;
 	}

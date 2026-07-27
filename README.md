@@ -39,9 +39,9 @@ Try it in the browser with WordPress Playground (includes sample data; changes a
 Requires Docker (wp-env).
 
 ```bash
-make up             # Start Docker wp-env (http://localhost:8889, admin / password)
+make up             # Start Docker wp-env (http://localhost:8989, admin / password)
 make down           # Stop containers
-make check          # fix + lint + plugin-check + tests + translations
+make check          # lint + plugin-check + tests + translations (no auto-fix)
 ```
 
 See `AGENTS.md` for the full agent/developer instructions and `ARCHITECTURE.md` for system design.
@@ -50,12 +50,14 @@ See `AGENTS.md` for the full agent/developer instructions and `ARCHITECTURE.md` 
 
 | Target                 | Description                                            |
 |------------------------|--------------------------------------------------------|
-| `make fix`             | Format PHP with mago                                   |
-| `make lint`            | Lint PHP with mago                                     |
+| `make fix`             | Format PHP with PHPCBF / WordPress Coding Standards    |
+| `make lint`            | Lint PHP with PHPCS / WordPress Coding Standards       |
+| `make mago-lint`       | Optional secondary Mago lint (may be removed)          |
+| `make mago-format`     | Optional secondary Mago format (may be removed)        |
 | `make check-plugin`    | WordPress plugin-check                                 |
 | `make test`            | PHPUnit unit tests                                     |
 | `make test-e2e`        | Playwright E2E tests                                   |
-| `make check`           | Full verification suite                                |
+| `make check`           | Full verification suite (does not modify source)       |
 
 ### Testing
 

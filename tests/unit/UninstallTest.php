@@ -39,8 +39,8 @@ class UninstallTest extends WP_UnitTestCase {
 		$file    = plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'uninstall.php';
 		$content = file_get_contents( $file );
 
-		// Verify the guard clause pattern.
-		$this->assertStringContainsString( "if (!defined('WP_UNINSTALL_PLUGIN'))", $content );
+		// Verify the guard clause pattern (WordPress Coding Standards spacing).
+		$this->assertStringContainsString( "if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) )", $content );
 	}
 
 	/**

@@ -49,6 +49,16 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Attach a valid core taxonomy edit nonce for direct save_term() calls.
+	 *
+	 * @param int $term_id Term ID being saved.
+	 * @return void
+	 */
+	private function with_term_save_nonce( $term_id ) {
+		$_POST['_wpnonce'] = wp_create_nonce( 'update-tag_' . $term_id );
+	}
+
+	/**
 	 * Test constructor registers hooks.
 	 */
 	public function test_constructor_registers_hooks() {
@@ -142,8 +152,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#00ff00';
 		$_POST['documentate_type_template_id'] = 0;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_color = get_term_meta( $term_id, 'documentate_type_color', true );
 		$this->assertSame( '#00ff00', $saved_color );
 	}
@@ -159,8 +169,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '';
 		$_POST['documentate_type_template_id'] = 0;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_color = get_term_meta( $term_id, 'documentate_type_color', true );
 		$this->assertSame( '#37517e', $saved_color );
 	}
@@ -179,8 +189,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#37517e';
 		$_POST['documentate_type_template_id'] = 0;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_schema = get_term_meta( $term_id, 'schema', true );
 		$this->assertEmpty( $saved_schema );
 	}
@@ -376,8 +386,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#37517e';
 		$_POST['documentate_type_template_id'] = 123;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_template = get_term_meta( $term_id, 'documentate_type_template_id', true );
 		$this->assertEquals( 123, intval( $saved_template ) );
 	}
@@ -439,8 +449,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = 'invalid<script>color';
 		$_POST['documentate_type_template_id'] = 0;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_color = get_term_meta( $term_id, 'documentate_type_color', true );
 		$this->assertStringNotContainsString( '<script>', $saved_color );
 	}
@@ -643,8 +653,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#AABBCC';
 		$_POST['documentate_type_template_id'] = 0;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_color = get_term_meta( $term_id, 'documentate_type_color', true );
 		$this->assertSame( '#AABBCC', $saved_color );
 	}
@@ -704,8 +714,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#37517e';
 		$_POST['documentate_type_template_id'] = 0;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$this->assertEquals( 0, intval( get_term_meta( $term_id, 'documentate_type_template_id', true ) ) );
 	}
 
@@ -945,8 +955,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#37517e';
 		$_POST['documentate_type_template_id'] = $attachment_id;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		// Check template type was detected.
 		$saved_type = get_term_meta( $term_id, 'documentate_type_template_type', true );
 		$this->assertSame( 'odt', $saved_type );
@@ -970,8 +980,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#37517e';
 		$_POST['documentate_type_template_id'] = $attachment_id;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		// Schema should be cleared.
 		$storage = new Documentate\DocType\SchemaStorage();
 		$schema = $storage->get_schema( $term_id );
@@ -1065,8 +1075,8 @@ class DocumentateDocTypesAdminTest extends Documentate_Test_Base {
 		$_POST['documentate_type_color'] = '#37517e';
 		$_POST['documentate_type_template_id'] = -100;
 
+		$this->with_term_save_nonce( $term_id );
 		$this->admin->save_term( $term_id );
-
 		$saved_template = get_term_meta( $term_id, 'documentate_type_template_id', true );
 		$this->assertEmpty( $saved_template );
 	}

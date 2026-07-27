@@ -12,8 +12,8 @@ process.env.STORAGE_STATE_PATH ??= path.join(
 	'storage-states/admin.json'
 );
 
-// Docker (port 8889) is the source of truth for E2E, in CI and locally.
-const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8889';
+// Docker (port 8989) is the source of truth for E2E, in CI and locally.
+const baseUrl = process.env.WP_BASE_URL || 'http://localhost:8989';
 
 module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'github' ] ] : [ [ 'list' ] ],

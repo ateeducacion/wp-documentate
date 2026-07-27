@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Demo data generator for the Documentate plugin.
  *
@@ -10,7 +9,7 @@
  */
 
 // If this file is called directly, abort.
-if (!defined('WPINC')) {
+if ( ! defined( 'WPINC' ) ) {
 	die();
 }
 
@@ -31,13 +30,13 @@ class Documentate_Demo_Data {
 	 * @param string $plugin_file Main plugin file path.
 	 * @return void
 	 */
-	public static function init($plugin_file) {
-		self::$plugin_dir = plugin_dir_path($plugin_file);
+	public static function init( $plugin_file ) {
+		self::$plugin_dir = plugin_dir_path( $plugin_file );
 
-		add_action('init', array(__CLASS__, 'maybe_seed_default_doc_types'), 40);
-		add_action('init', array(__CLASS__, 'maybe_seed_demo_categories'), 45);
-		add_action('init', array(__CLASS__, 'maybe_seed_demo_users'), 50);
-		add_action('init', array(__CLASS__, 'maybe_seed_demo_documents'), 60);
+		add_action( 'init', array( __CLASS__, 'maybe_seed_default_doc_types' ), 40 );
+		add_action( 'init', array( __CLASS__, 'maybe_seed_demo_categories' ), 45 );
+		add_action( 'init', array( __CLASS__, 'maybe_seed_demo_users' ), 50 );
+		add_action( 'init', array( __CLASS__, 'maybe_seed_demo_documents' ), 60 );
 	}
 
 	/**
@@ -51,11 +50,11 @@ class Documentate_Demo_Data {
 	 * @return bool True when demo seeding is permitted.
 	 */
 	public static function should_allow_demo_seeding() {
-		if (!class_exists('Documentate_Collabora_Converter')) {
-			require_once plugin_dir_path(__FILE__) . 'class-documentate-collabora-converter.php';
+		if ( ! class_exists( 'Documentate_Collabora_Converter' ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-documentate-collabora-converter.php';
 		}
 
-		if (Documentate_Collabora_Converter::is_playground()) {
+		if ( Documentate_Collabora_Converter::is_playground() ) {
 			return true;
 		}
 
@@ -71,76 +70,109 @@ class Documentate_Demo_Data {
 	 * @param string $filename Filename inside fixtures/ (e.g., 'resolucion.odt').
 	 * @return int Attachment ID or 0 on failure/missing file.
 	 */
-	public static function import_fixture_file($filename) {
-		$base_dir = self::$plugin_dir;
+	public static function import_fixture_file( $filename ) {
+		$source = self::locate_fixture_source( $filename );
+		if ( '' === $source ) {
+			return 0;
+		}
+
+		$hash       = md5_file( $source );
+		$existing_id = self::find_fixture_attachment_by_hash( $hash );
+		if ( $existing_id > 0 ) {
+			return $existing_id;
+		}
+
+		return self::create_fixture_attachment( $source, $hash ? $hash : '' );
+	}
+
+	/**
+	 * Resolve the absolute path of a fixture file.
+	 *
+	 * @param string $filename Fixture basename.
+	 * @return string Absolute path, or empty string if not found.
+	 */
+	private static function locate_fixture_source( $filename ) {
 		$paths = array(
-			$base_dir . 'fixtures/' . $filename,
-			$base_dir . $filename,
+			self::$plugin_dir . 'fixtures/' . $filename,
+			self::$plugin_dir . $filename,
 		);
-		$source = '';
-		foreach ($paths as $p) {
-			if (file_exists($p) && is_readable($p)) {
-				$source = $p;
-				break;
+		foreach ( $paths as $path ) {
+			if ( file_exists( $path ) && is_readable( $path ) ) {
+				return $path;
 			}
 		}
-		if ('' === $source) {
+		return '';
+	}
+
+	/**
+	 * Find an existing media attachment tagged with a fixture hash.
+	 *
+	 * @param string|false $hash MD5 hash, or false on failure.
+	 * @return int Attachment ID or 0.
+	 */
+	private static function find_fixture_attachment_by_hash( $hash ) {
+		if ( ! $hash ) {
 			return 0;
 		}
-
-		$hash = md5_file($source);
-		if ($hash) {
-			$found = get_posts(array(
-				'post_type' => 'attachment',
+		$found = get_posts(
+			array(
+				'post_type'   => 'attachment',
 				'post_status' => 'inherit',
-				'meta_key' => '_documentate_fixture_hash',
-				'meta_value' => $hash,
-				'fields' => 'ids',
+				'meta_key'    => '_documentate_fixture_hash',
+				'meta_value'  => $hash,
+				'fields'      => 'ids',
 				'numberposts' => 1,
-			));
-			if (!empty($found)) {
-				return intval($found[0]);
-			}
-		}
-
-		$contents = file_get_contents($source);
-		if (false === $contents) {
-			return 0;
-		}
-
-		$upload = wp_upload_bits(basename($source), null, $contents);
-		if (!empty($upload['error'])) {
-			return 0;
-		}
-
-		$filetype = wp_check_filetype_and_ext($upload['file'], basename($upload['file']));
-		$attachment = array(
-			'post_mime_type' => $filetype['type'] ? $filetype['type'] : 'application/octet-stream',
-			'post_title' => sanitize_file_name(basename($source)),
-			'post_content' => '',
-			'post_status' => 'inherit',
+			)
 		);
-		$attach_id = wp_insert_attachment($attachment, $upload['file']);
-		if (!$attach_id) {
+		return ! empty( $found ) ? intval( $found[0] ) : 0;
+	}
+
+	/**
+	 * Create a Media Library attachment from a fixture file path.
+	 *
+	 * @param string $source Absolute source path.
+	 * @param string $hash   Optional fixture hash for reuse tagging.
+	 * @return int Attachment ID or 0 on failure.
+	 */
+	private static function create_fixture_attachment( $source, $hash ) {
+		$contents = file_get_contents( $source );
+		if ( false === $contents ) {
 			return 0;
 		}
 
-		// Generate and save attachment metadata (for images).
-		if (!function_exists('wp_generate_attachment_metadata')) {
+		$upload = wp_upload_bits( basename( $source ), null, $contents );
+		if ( ! empty( $upload['error'] ) ) {
+			return 0;
+		}
+
+		$filetype   = wp_check_filetype_and_ext( $upload['file'], basename( $upload['file'] ) );
+		$attach_id  = wp_insert_attachment(
+			array(
+				'post_mime_type' => $filetype['type'] ? $filetype['type'] : 'application/octet-stream',
+				'post_title'     => sanitize_file_name( basename( $source ) ),
+				'post_content'   => '',
+				'post_status'    => 'inherit',
+			),
+			$upload['file']
+		);
+		if ( ! $attach_id ) {
+			return 0;
+		}
+
+		if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/image.php';
 		}
-		$attach_data = wp_generate_attachment_metadata($attach_id, $upload['file']);
-		if (!empty($attach_data)) {
-			wp_update_attachment_metadata($attach_id, $attach_data);
+		$attach_data = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
+		if ( ! empty( $attach_data ) ) {
+			wp_update_attachment_metadata( $attach_id, $attach_data );
 		}
 
-		// Tag as fixture to allow reuse.
-		if ($hash) {
-			update_post_meta($attach_id, '_documentate_fixture_hash', $hash);
+		if ( '' !== $hash ) {
+			update_post_meta( $attach_id, '_documentate_fixture_hash', $hash );
 		}
-		update_post_meta($attach_id, '_documentate_fixture_name', basename($source));
+		update_post_meta( $attach_id, '_documentate_fixture_name', basename( $source ) );
 
-		return intval($attach_id);
+		return intval( $attach_id );
 	}
 
 	/**
@@ -150,18 +182,18 @@ class Documentate_Demo_Data {
 	 */
 	public static function ensure_default_media() {
 		// ODT template for resolutions.
-		self::import_fixture_file('resolucion.odt');
+		self::import_fixture_file( 'resolucion.odt' );
 
 		// Ensure demo fixtures are present for testing scenarios.
-		self::import_fixture_file('demo-wp-documentate.odt');
-		self::import_fixture_file('demo-wp-documentate.docx');
-		self::import_fixture_file('autorizacionviaje.odt');
-		self::import_fixture_file('gastossuplidos.odt');
-		self::import_fixture_file('propuestagasto.odt');
-		self::import_fixture_file('convocatoriareunion.odt');
-		self::import_fixture_file('memoria_pago_cep.odt');
-		self::import_fixture_file('respuesta_escrito.odt');
-		self::import_fixture_file('haceconstar.odt');
+		self::import_fixture_file( 'demo-wp-documentate.odt' );
+		self::import_fixture_file( 'demo-wp-documentate.docx' );
+		self::import_fixture_file( 'autorizacionviaje.odt' );
+		self::import_fixture_file( 'gastossuplidos.odt' );
+		self::import_fixture_file( 'propuestagasto.odt' );
+		self::import_fixture_file( 'convocatoriareunion.odt' );
+		self::import_fixture_file( 'memoria_pago_cep.odt' );
+		self::import_fixture_file( 'respuesta_escrito.odt' );
+		self::import_fixture_file( 'haceconstar.odt' );
 	}
 
 	/**
@@ -170,12 +202,12 @@ class Documentate_Demo_Data {
 	 * @return void
 	 */
 	public static function maybe_seed_default_doc_types() {
-		if (!taxonomy_exists('documentate_doc_type')) {
+		if ( ! taxonomy_exists( 'documentate_doc_type' ) ) {
 			return;
 		}
 
-		$should_seed = (bool) get_option('documentate_seed_demo_documents', false);
-		if (!$should_seed) {
+		$should_seed = (bool) get_option( 'documentate_seed_demo_documents', false );
+		if ( ! $should_seed ) {
 			return;
 		}
 
@@ -183,87 +215,91 @@ class Documentate_Demo_Data {
 
 		$definitions = self::get_doc_type_definitions();
 
-		if (empty($definitions)) {
+		if ( empty( $definitions ) ) {
 			return;
 		}
 
-		foreach ($definitions as $definition) {
+		foreach ( $definitions as $definition ) {
 			$slug = $definition['slug'];
-			$template_id = intval($definition['template_id']);
-			if ($template_id <= 0) {
+			$template_id = intval( $definition['template_id'] );
+			if ( $template_id <= 0 ) {
 				continue;
 			}
 
-			$term = get_term_by('slug', $slug, 'documentate_doc_type');
-			$term_id = $term instanceof WP_Term ? intval($term->term_id) : 0;
+			$term = get_term_by( 'slug', $slug, 'documentate_doc_type' );
+			$term_id = $term instanceof WP_Term ? intval( $term->term_id ) : 0;
 
-			if ($term_id <= 0) {
-				$created = wp_insert_term($definition['name'], 'documentate_doc_type', array(
-					'slug' => $slug,
-					'description' => $definition['description'],
-				));
+			if ( $term_id <= 0 ) {
+				$created = wp_insert_term(
+					$definition['name'],
+					'documentate_doc_type',
+					array(
+						'slug' => $slug,
+						'description' => $definition['description'],
+					)
+				);
 
-				if (is_wp_error($created)) {
+				if ( is_wp_error( $created ) ) {
 					continue;
 				}
 
-				$term_id = intval($created['term_id']);
+				$term_id = intval( $created['term_id'] );
 			}
 
-			if ($term_id <= 0) {
+			if ( $term_id <= 0 ) {
 				continue;
 			}
 
-			$fixture_key = get_term_meta($term_id, '_documentate_fixture', true);
-			if (!empty($fixture_key) && $fixture_key !== $definition['fixture_key']) {
+			$fixture_key = get_term_meta( $term_id, '_documentate_fixture', true );
+			if ( ! empty( $fixture_key ) && $fixture_key !== $definition['fixture_key'] ) {
 				continue;
 			}
 
-			update_term_meta($term_id, '_documentate_fixture', $definition['fixture_key']);
-			update_term_meta($term_id, 'documentate_type_color', $definition['color']);
-			update_term_meta($term_id, 'documentate_type_template_id', $template_id);
+			update_term_meta( $term_id, '_documentate_fixture', $definition['fixture_key'] );
+			update_term_meta( $term_id, 'documentate_type_color', $definition['color'] );
+			update_term_meta( $term_id, 'documentate_type_template_id', $template_id );
 
-			$path = get_attached_file($template_id);
-			if (!$path) {
+			$path = get_attached_file( $template_id );
+			if ( ! $path ) {
 				continue;
 			}
 
 			$extractor = new Documentate\DocType\SchemaExtractor();
 			$storage = new Documentate\DocType\SchemaStorage();
 
-			$existing_schema = $storage->get_schema($term_id);
-			$template_hash = @md5_file($path);
+			$existing_schema = $storage->get_schema( $term_id );
+			$template_hash = @md5_file( $path );
 
 			if (
-				!empty($existing_schema)
+				! empty( $existing_schema )
 				&& $template_hash
-				&& isset($existing_schema['meta']['hash'])
+				&& isset( $existing_schema['meta']['hash'] )
 				&& $template_hash === $existing_schema['meta']['hash']
 			) {
-				$template_type = isset($existing_schema['meta']['template_type'])
+				$template_type = isset( $existing_schema['meta']['template_type'] )
 					? (string) $existing_schema['meta']['template_type']
-					: strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
-				update_term_meta($term_id, 'documentate_type_template_type', $template_type);
+					: strtolower( (string) pathinfo( $path, PATHINFO_EXTENSION ) );
+				update_term_meta( $term_id, 'documentate_type_template_type', $template_type );
 				continue;
 			}
 
-			$schema = $extractor->extract($path);
-			if (is_wp_error($schema)) {
+			$schema = $extractor->extract( $path );
+			if ( is_wp_error( $schema ) ) {
 				continue;
 			}
 
 			$schema['meta']['template_id'] = $template_id;
-			$schema['meta']['template_type'] = isset($schema['meta']['template_type'])
+			$schema['meta']['template_type'] = isset( $schema['meta']['template_type'] )
 				? (string) $schema['meta']['template_type']
-				: strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
-			$schema['meta']['template_name'] = basename($path);
-			if (empty($schema['meta']['hash']) && $template_hash) {
+				: strtolower( (string) pathinfo( $path, PATHINFO_EXTENSION ) );
+			$schema['meta']['template_name'] = basename( $path );
+			if ( empty( $schema['meta']['hash'] ) && $template_hash ) {
 				$schema['meta']['hash'] = $template_hash;
 			}
 
-			update_term_meta($term_id, 'documentate_type_template_type', $schema['meta']['template_type']);
+			update_term_meta( $term_id, 'documentate_type_template_type', $schema['meta']['template_type'] );
 
-			$storage->save_schema($term_id, $schema);
+			$storage->save_schema( $term_id, $schema );
 		}
 	}
 
@@ -275,8 +311,8 @@ class Documentate_Demo_Data {
 	private static function get_doc_type_definitions() {
 		$definitions = array();
 
-		$odt_id = self::import_fixture_file('resolucion.odt');
-		if ($odt_id > 0) {
+		$odt_id = self::import_fixture_file( 'resolucion.odt' );
+		if ( $odt_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'resolucion-administrativa',
 				'name' => 'Resolución Administrativa',
@@ -287,11 +323,11 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$advanced_odt_id = self::import_fixture_file('demo-wp-documentate.odt');
-		if ($advanced_odt_id > 0) {
+		$advanced_odt_id = self::import_fixture_file( 'demo-wp-documentate.odt' );
+		if ( $advanced_odt_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'documentate-demo-wp-documentate-odt',
-				'name' => __('Advanced test document type (ODT)', 'documentate'),
+				'name' => __( 'Advanced test document type (ODT)', 'documentate' ),
 				'description' => __(
 					'Example automatically created with the included demo-wp-documentate.odt template.',
 					'documentate',
@@ -302,11 +338,11 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$advanced_docx_id = self::import_fixture_file('demo-wp-documentate.docx');
-		if ($advanced_docx_id > 0) {
+		$advanced_docx_id = self::import_fixture_file( 'demo-wp-documentate.docx' );
+		if ( $advanced_docx_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'documentate-demo-wp-documentate-docx',
-				'name' => __('Advanced test document type (DOCX)', 'documentate'),
+				'name' => __( 'Advanced test document type (DOCX)', 'documentate' ),
 				'description' => __(
 					'Example automatically created with the included demo-wp-documentate.docx template.',
 					'documentate',
@@ -317,8 +353,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$autorizacion_id = self::import_fixture_file('autorizacionviaje.odt');
-		if ($autorizacion_id > 0) {
+		$autorizacion_id = self::import_fixture_file( 'autorizacionviaje.odt' );
+		if ( $autorizacion_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'autorizacion-viaje',
 				'name' => 'Autorización de viaje',
@@ -329,8 +365,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$gastos_id = self::import_fixture_file('gastossuplidos.odt');
-		if ($gastos_id > 0) {
+		$gastos_id = self::import_fixture_file( 'gastossuplidos.odt' );
+		if ( $gastos_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'gastos-suplidos',
 				'name' => 'Solicitud de gastos suplidos',
@@ -341,8 +377,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$propuesta_id = self::import_fixture_file('propuestagasto.odt');
-		if ($propuesta_id > 0) {
+		$propuesta_id = self::import_fixture_file( 'propuestagasto.odt' );
+		if ( $propuesta_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'propuesta-gasto',
 				'name' => 'Propuesta de gasto',
@@ -353,8 +389,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$convocatoria_id = self::import_fixture_file('convocatoriareunion.odt');
-		if ($convocatoria_id > 0) {
+		$convocatoria_id = self::import_fixture_file( 'convocatoriareunion.odt' );
+		if ( $convocatoria_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'convocatoria-reunion',
 				'name' => 'Convocatoria de reunión',
@@ -365,8 +401,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$memoria_pago_id = self::import_fixture_file('memoria_pago_cep.odt');
-		if ($memoria_pago_id > 0) {
+		$memoria_pago_id = self::import_fixture_file( 'memoria_pago_cep.odt' );
+		if ( $memoria_pago_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'memoria-pago',
 				'name' => 'Memoria justificativa de pago',
@@ -377,8 +413,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$respuesta_escrito_id = self::import_fixture_file('respuesta_escrito.odt');
-		if ($respuesta_escrito_id > 0) {
+		$respuesta_escrito_id = self::import_fixture_file( 'respuesta_escrito.odt' );
+		if ( $respuesta_escrito_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'respuesta-escrito',
 				'name' => 'Respuesta a escrito',
@@ -389,8 +425,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$modelo_informe_id = self::import_fixture_file('modelo_informe.odt');
-		if ($modelo_informe_id > 0) {
+		$modelo_informe_id = self::import_fixture_file( 'modelo_informe.odt' );
+		if ( $modelo_informe_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'modelo-informe',
 				'name' => 'Modelo de informe',
@@ -401,8 +437,8 @@ class Documentate_Demo_Data {
 			);
 		}
 
-		$hace_constar_id = self::import_fixture_file('haceconstar.odt');
-		if ($hace_constar_id > 0) {
+		$hace_constar_id = self::import_fixture_file( 'haceconstar.odt' );
+		if ( $hace_constar_id > 0 ) {
 			$definitions[] = array(
 				'slug' => 'hace-constar',
 				'name' => 'Hace constar',
@@ -422,144 +458,148 @@ class Documentate_Demo_Data {
 	 * @return void
 	 */
 	public static function maybe_seed_demo_documents() {
-		if (!post_type_exists('documentate_document') || !taxonomy_exists('documentate_doc_type')) {
+		if ( ! post_type_exists( 'documentate_document' ) || ! taxonomy_exists( 'documentate_doc_type' ) ) {
 			return;
 		}
 
-		$should_seed = (bool) get_option('documentate_seed_demo_documents', false);
-		if (!$should_seed) {
+		$should_seed = (bool) get_option( 'documentate_seed_demo_documents', false );
+		if ( ! $should_seed ) {
 			return;
 		}
 
 		// Check if demo documents already exist - if so, skip seeding.
-		$existing_demos = get_posts(array(
-			'post_type' => 'documentate_document',
-			'post_status' => 'any',
-			'posts_per_page' => 1,
-			'fields' => 'ids',
-			'meta_query' => array(
-				'relation' => 'OR',
-				array(
-					'key' => '_documentate_demo_key',
-					'compare' => 'EXISTS',
+		$existing_demos = get_posts(
+			array(
+				'post_type' => 'documentate_document',
+				'post_status' => 'any',
+				'posts_per_page' => 1,
+				'fields' => 'ids',
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key' => '_documentate_demo_key',
+						'compare' => 'EXISTS',
+					),
+					array(
+						'key' => '_documentate_demo_type_id',
+						'compare' => 'EXISTS',
+					),
 				),
-				array(
-					'key' => '_documentate_demo_type_id',
-					'compare' => 'EXISTS',
-				),
-			),
-		));
+			)
+		);
 
-		if (!empty($existing_demos)) {
-			delete_option('documentate_seed_demo_documents');
+		if ( ! empty( $existing_demos ) ) {
+			delete_option( 'documentate_seed_demo_documents' );
 			return;
 		}
 
 		self::maybe_seed_default_doc_types();
 
 		// Get the Resolución Administrativa document type.
-		$term = get_term_by('slug', 'resolucion-administrativa', 'documentate_doc_type');
-		if ($term instanceof WP_Term) {
+		$term = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
+		if ( $term instanceof WP_Term ) {
 			// Create the 3 specific demo documents for Resolución Administrativa.
-			self::create_resolucion_demo_documents($term);
+			self::create_resolucion_demo_documents( $term );
 		}
 
 		// Create specific demo document for Autorización de viaje.
-		$autorizacion_term = get_term_by('slug', 'autorizacion-viaje', 'documentate_doc_type');
-		if ($autorizacion_term instanceof WP_Term) {
-			self::create_specific_demo_documents($autorizacion_term, self::get_autorizacion_viaje_demo());
+		$autorizacion_term = get_term_by( 'slug', 'autorizacion-viaje', 'documentate_doc_type' );
+		if ( $autorizacion_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $autorizacion_term, self::get_autorizacion_viaje_demo() );
 		}
 
 		// Create specific demo document for Gastos suplidos.
-		$gastos_term = get_term_by('slug', 'gastos-suplidos', 'documentate_doc_type');
-		if ($gastos_term instanceof WP_Term) {
-			self::create_specific_demo_documents($gastos_term, self::get_gastos_suplidos_demo());
+		$gastos_term = get_term_by( 'slug', 'gastos-suplidos', 'documentate_doc_type' );
+		if ( $gastos_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $gastos_term, self::get_gastos_suplidos_demo() );
 		}
 
 		// Create specific demo document for Propuesta de gasto.
-		$propuesta_term = get_term_by('slug', 'propuesta-gasto', 'documentate_doc_type');
-		if ($propuesta_term instanceof WP_Term) {
-			self::create_specific_demo_documents($propuesta_term, self::get_propuesta_gasto_demo());
+		$propuesta_term = get_term_by( 'slug', 'propuesta-gasto', 'documentate_doc_type' );
+		if ( $propuesta_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $propuesta_term, self::get_propuesta_gasto_demo() );
 		}
 
 		// Create specific demo document for Convocatoria de reunión.
-		$convocatoria_term = get_term_by('slug', 'convocatoria-reunion', 'documentate_doc_type');
-		if ($convocatoria_term instanceof WP_Term) {
-			self::create_specific_demo_documents($convocatoria_term, self::get_convocatoria_reunion_demo());
+		$convocatoria_term = get_term_by( 'slug', 'convocatoria-reunion', 'documentate_doc_type' );
+		if ( $convocatoria_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $convocatoria_term, self::get_convocatoria_reunion_demo() );
 		}
 
 		// Create specific demo document for Memoria justificativa de pago.
-		$memoria_pago_term = get_term_by('slug', 'memoria-pago', 'documentate_doc_type');
-		if ($memoria_pago_term instanceof WP_Term) {
-			self::create_specific_demo_documents($memoria_pago_term, self::get_memoria_pago_demo());
+		$memoria_pago_term = get_term_by( 'slug', 'memoria-pago', 'documentate_doc_type' );
+		if ( $memoria_pago_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $memoria_pago_term, self::get_memoria_pago_demo() );
 		}
 
 		// Create specific demo document for Respuesta a escrito.
-		$respuesta_escrito_term = get_term_by('slug', 'respuesta-escrito', 'documentate_doc_type');
-		if ($respuesta_escrito_term instanceof WP_Term) {
-			self::create_specific_demo_documents($respuesta_escrito_term, self::get_respuesta_escrito_demo());
+		$respuesta_escrito_term = get_term_by( 'slug', 'respuesta-escrito', 'documentate_doc_type' );
+		if ( $respuesta_escrito_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $respuesta_escrito_term, self::get_respuesta_escrito_demo() );
 		}
 
 		// Create specific demo document for Modelo de informe.
-		$modelo_informe_term = get_term_by('slug', 'modelo-informe', 'documentate_doc_type');
-		if ($modelo_informe_term instanceof WP_Term) {
-			self::create_specific_demo_documents($modelo_informe_term, self::get_modelo_informe_demo());
+		$modelo_informe_term = get_term_by( 'slug', 'modelo-informe', 'documentate_doc_type' );
+		if ( $modelo_informe_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $modelo_informe_term, self::get_modelo_informe_demo() );
 		}
 
 		// Create specific demo document for Hace constar.
-		$hace_constar_term = get_term_by('slug', 'hace-constar', 'documentate_doc_type');
-		if ($hace_constar_term instanceof WP_Term) {
-			self::create_specific_demo_documents($hace_constar_term, self::get_hace_constar_demo());
+		$hace_constar_term = get_term_by( 'slug', 'hace-constar', 'documentate_doc_type' );
+		if ( $hace_constar_term instanceof WP_Term ) {
+			self::create_specific_demo_documents( $hace_constar_term, self::get_hace_constar_demo() );
 		}
 
 		// Also create demo documents for other document types (advanced demos).
 		$exclude_ids = array();
-		if ($term instanceof WP_Term) {
+		if ( $term instanceof WP_Term ) {
 			$exclude_ids[] = $term->term_id;
 		}
-		if ($autorizacion_term instanceof WP_Term) {
+		if ( $autorizacion_term instanceof WP_Term ) {
 			$exclude_ids[] = $autorizacion_term->term_id;
 		}
-		if ($gastos_term instanceof WP_Term) {
+		if ( $gastos_term instanceof WP_Term ) {
 			$exclude_ids[] = $gastos_term->term_id;
 		}
-		if ($propuesta_term instanceof WP_Term) {
+		if ( $propuesta_term instanceof WP_Term ) {
 			$exclude_ids[] = $propuesta_term->term_id;
 		}
-		if ($convocatoria_term instanceof WP_Term) {
+		if ( $convocatoria_term instanceof WP_Term ) {
 			$exclude_ids[] = $convocatoria_term->term_id;
 		}
-		if ($memoria_pago_term instanceof WP_Term) {
+		if ( $memoria_pago_term instanceof WP_Term ) {
 			$exclude_ids[] = $memoria_pago_term->term_id;
 		}
-		if ($respuesta_escrito_term instanceof WP_Term) {
+		if ( $respuesta_escrito_term instanceof WP_Term ) {
 			$exclude_ids[] = $respuesta_escrito_term->term_id;
 		}
-		if ($modelo_informe_term instanceof WP_Term) {
+		if ( $modelo_informe_term instanceof WP_Term ) {
 			$exclude_ids[] = $modelo_informe_term->term_id;
 		}
-		if ($hace_constar_term instanceof WP_Term) {
+		if ( $hace_constar_term instanceof WP_Term ) {
 			$exclude_ids[] = $hace_constar_term->term_id;
 		}
 
-		$terms = get_terms(array(
-			'taxonomy' => 'documentate_doc_type',
-			'hide_empty' => false,
-			'exclude' => $exclude_ids,
-		));
+		$terms = get_terms(
+			array(
+				'taxonomy' => 'documentate_doc_type',
+				'hide_empty' => false,
+				'exclude' => $exclude_ids,
+			)
+		);
 
-		if (!is_wp_error($terms) && !empty($terms)) {
-			foreach ($terms as $other_term) {
-				if (self::demo_document_exists($other_term->term_id)) {
+		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+			foreach ( $terms as $other_term ) {
+				if ( self::demo_document_exists( $other_term->term_id ) ) {
 					continue;
 				}
-				self::create_demo_document_for_type($other_term);
+				self::create_demo_document_for_type( $other_term );
 			}
 		}
 
 		self::assign_demo_document_metadata();
 
-		delete_option('documentate_seed_demo_documents');
+		delete_option( 'documentate_seed_demo_documents' );
 	}
 
 	/**
@@ -568,12 +608,12 @@ class Documentate_Demo_Data {
 	 * @return void
 	 */
 	public static function maybe_seed_demo_categories() {
-		$should_seed = (bool) get_option('documentate_seed_demo_documents', false);
-		if (!$should_seed) {
+		$should_seed = (bool) get_option( 'documentate_seed_demo_documents', false );
+		if ( ! $should_seed ) {
 			return;
 		}
 
-		if (term_exists('Organización', 'category')) {
+		if ( term_exists( 'Organización', 'category' ) ) {
 			return;
 		}
 
@@ -594,7 +634,7 @@ class Documentate_Demo_Data {
 			),
 		);
 
-		self::create_category_tree($tree, 0);
+		self::create_category_tree( $tree, 0 );
 	}
 
 	/**
@@ -604,18 +644,18 @@ class Documentate_Demo_Data {
 	 * @param int   $parent_id Parent term ID (0 for top-level).
 	 * @return void
 	 */
-	private static function create_category_tree($tree, $parent_id = 0) {
-		foreach ($tree as $name => $children) {
-			$result = wp_insert_term($name, 'category', array('parent' => $parent_id));
+	private static function create_category_tree( $tree, $parent_id = 0 ) {
+		foreach ( $tree as $name => $children ) {
+			$result = wp_insert_term( $name, 'category', array( 'parent' => $parent_id ) );
 
-			if (is_wp_error($result)) {
+			if ( is_wp_error( $result ) ) {
 				continue;
 			}
 
-			$term_id = intval($result['term_id']);
+			$term_id = intval( $result['term_id'] );
 
-			if (!empty($children)) {
-				self::create_category_tree($children, $term_id);
+			if ( ! empty( $children ) ) {
+				self::create_category_tree( $children, $term_id );
 			}
 		}
 	}
@@ -626,13 +666,13 @@ class Documentate_Demo_Data {
 	 * @return void
 	 */
 	public static function maybe_seed_demo_users() {
-		$should_seed = (bool) get_option('documentate_seed_demo_documents', false);
-		if (!$should_seed) {
+		$should_seed = (bool) get_option( 'documentate_seed_demo_documents', false );
+		if ( ! $should_seed ) {
 			return;
 		}
 
 		// Defence in depth: never create real login accounts on production.
-		if (!self::should_allow_demo_seeding()) {
+		if ( ! self::should_allow_demo_seeding() ) {
 			return;
 		}
 
@@ -669,24 +709,24 @@ class Documentate_Demo_Data {
 			),
 		);
 
-		foreach ($users as $user_data) {
+		foreach ( $users as $user_data ) {
 			$scope_name = $user_data['scope'];
-			unset($user_data['scope']);
+			unset( $user_data['scope'] );
 
 			// Skip if user already exists.
-			if (username_exists($user_data['user_login'])) {
+			if ( username_exists( $user_data['user_login'] ) ) {
 				continue;
 			}
 
-			$user_id = wp_insert_user($user_data);
-			if (is_wp_error($user_id)) {
+			$user_id = wp_insert_user( $user_data );
+			if ( is_wp_error( $user_id ) ) {
 				continue;
 			}
 
 			// Assign scope category.
-			$scope_term = get_term_by('name', $scope_name, 'category');
-			if ($scope_term instanceof WP_Term) {
-				update_user_meta($user_id, Documentate_User_Scope::META_KEY, $scope_term->term_id);
+			$scope_term = get_term_by( 'name', $scope_name, 'category' );
+			if ( $scope_term instanceof WP_Term ) {
+				update_user_meta( $user_id, Documentate_User_Scope::META_KEY, $scope_term->term_id );
 			}
 		}
 	}
@@ -698,70 +738,76 @@ class Documentate_Demo_Data {
 	 */
 	private static function assign_demo_document_metadata() {
 		// Get the root "Organización" term.
-		$root = get_term_by('name', 'Organización', 'category');
-		if (!$root instanceof WP_Term) {
+		$root = get_term_by( 'name', 'Organización', 'category' );
+		if ( ! $root instanceof WP_Term ) {
 			return;
 		}
 
 		// Get all descendant categories (excluding root and Uncategorized).
-		$all_cats = get_terms(array(
-			'taxonomy' => 'category',
-			'child_of' => $root->term_id,
-			'hide_empty' => false,
-			'fields' => 'ids',
-		));
+		$all_cats = get_terms(
+			array(
+				'taxonomy' => 'category',
+				'child_of' => $root->term_id,
+				'hide_empty' => false,
+				'fields' => 'ids',
+			)
+		);
 
-		if (is_wp_error($all_cats) || empty($all_cats)) {
+		if ( is_wp_error( $all_cats ) || empty( $all_cats ) ) {
 			return;
 		}
 
 		// Get all demo documents.
-		$demo_docs = get_posts(array(
-			'post_type' => 'documentate_document',
-			'post_status' => 'any',
-			'posts_per_page' => -1,
-			'fields' => 'ids',
-			'meta_query' => array(
-				'relation' => 'OR',
-				array(
-					'key' => '_documentate_demo_key',
-					'compare' => 'EXISTS',
+		$demo_docs = get_posts(
+			array(
+				'post_type' => 'documentate_document',
+				'post_status' => 'any',
+				'posts_per_page' => -1,
+				'fields' => 'ids',
+				'meta_query' => array(
+					'relation' => 'OR',
+					array(
+						'key' => '_documentate_demo_key',
+						'compare' => 'EXISTS',
+					),
+					array(
+						'key' => '_documentate_demo_type_id',
+						'compare' => 'EXISTS',
+					),
 				),
-				array(
-					'key' => '_documentate_demo_type_id',
-					'compare' => 'EXISTS',
-				),
-			),
-		));
+			)
+		);
 
-		if (empty($demo_docs)) {
+		if ( empty( $demo_docs ) ) {
 			return;
 		}
 
 		// Build list of authors to round-robin: admin + editor1 + author1.
-		$author_ids = array(get_current_user_id());
-		$editor_user = get_user_by('login', 'editor1');
-		$author_user = get_user_by('login', 'author1');
-		if ($editor_user) {
+		$author_ids = array( get_current_user_id() );
+		$editor_user = get_user_by( 'login', 'editor1' );
+		$author_user = get_user_by( 'login', 'author1' );
+		if ( $editor_user ) {
 			$author_ids[] = $editor_user->ID;
 		}
-		if ($author_user) {
+		if ( $author_user ) {
 			$author_ids[] = $author_user->ID;
 		}
 
-		$cat_count = count($all_cats);
-		$author_count = count($author_ids);
+		$cat_count = count( $all_cats );
+		$author_count = count( $author_ids );
 
-		foreach ($demo_docs as $index => $post_id) {
+		foreach ( $demo_docs as $index => $post_id ) {
 			// Round-robin category assignment.
-			$cat_id = $all_cats[$index % $cat_count];
-			wp_set_post_terms($post_id, array($cat_id), 'category', false);
+			$cat_id = $all_cats[ $index % $cat_count ];
+			wp_set_post_terms( $post_id, array( $cat_id ), 'category', false );
 
 			// Round-robin author assignment.
-			wp_update_post(array(
-				'ID' => $post_id,
-				'post_author' => $author_ids[$index % $author_count],
-			));
+			wp_update_post(
+				array(
+					'ID' => $post_id,
+					'post_author' => $author_ids[ $index % $author_count ],
+				)
+			);
 		}
 	}
 
@@ -771,74 +817,81 @@ class Documentate_Demo_Data {
 	 * @param WP_Term $term Document type term.
 	 * @return void
 	 */
-	private static function create_resolucion_demo_documents($term) {
-		if (!$term instanceof WP_Term) {
+	private static function create_resolucion_demo_documents( $term ) {
+		if ( ! $term instanceof WP_Term ) {
 			return;
 		}
 
-		$term_id = absint($term->term_id);
-		if ($term_id <= 0) {
+		$term_id = absint( $term->term_id );
+		if ( $term_id <= 0 ) {
 			return;
 		}
 
 		$demo_documents = self::get_resolucion_demo_data();
 
-		foreach ($demo_documents as $demo_key => $demo_data) {
+		foreach ( $demo_documents as $demo_key => $demo_data ) {
 			// Check if this specific demo document already exists.
-			$existing = get_posts(array(
-				'post_type' => 'documentate_document',
-				'post_status' => 'any',
-				'posts_per_page' => 1,
-				'fields' => 'ids',
-				'meta_key' => '_documentate_demo_key',
-				'meta_value' => $demo_key,
-			));
+			$existing = get_posts(
+				array(
+					'post_type' => 'documentate_document',
+					'post_status' => 'any',
+					'posts_per_page' => 1,
+					'fields' => 'ids',
+					'meta_key' => '_documentate_demo_key',
+					'meta_value' => $demo_key,
+				)
+			);
 
-			if (!empty($existing)) {
+			if ( ! empty( $existing ) ) {
 				continue;
 			}
 
-			$post_id = wp_insert_post(array(
-				'post_type' => 'documentate_document',
-				'post_title' => $demo_data['title'],
-				'post_status' => 'private',
-				'post_content' => '',
-				'post_author' => get_current_user_id(),
-			), true);
+			$post_id = wp_insert_post(
+				array(
+					'post_type' => 'documentate_document',
+					'post_title' => $demo_data['title'],
+					'post_status' => 'private',
+					'post_content' => '',
+					'post_author' => get_current_user_id(),
+				),
+				true
+			);
 
-			if (is_wp_error($post_id) || 0 === $post_id) {
+			if ( is_wp_error( $post_id ) || 0 === $post_id ) {
 				continue;
 			}
 
-			wp_set_post_terms($post_id, array($term_id), 'documentate_doc_type', false);
+			wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
 
 			// Save field values.
-			$structured_fields = self::save_demo_fields($post_id, $demo_data['fields']);
+			$structured_fields = self::save_demo_fields( $post_id, $demo_data['fields'] );
 
-			update_post_meta($post_id, '_documentate_demo_type_id', (string) $term_id);
-			update_post_meta($post_id, '_documentate_demo_key', $demo_key);
+			update_post_meta( $post_id, '_documentate_demo_type_id', (string) $term_id );
+			update_post_meta( $post_id, '_documentate_demo_key', $demo_key );
 			update_post_meta(
 				$post_id,
 				\Documentate\Document\Meta\Document_Meta_Box::META_KEY_SUBJECT,
-				sanitize_text_field($demo_data['title']),
+				sanitize_text_field( $demo_data['title'] ),
 			);
 			update_post_meta(
 				$post_id,
 				\Documentate\Document\Meta\Document_Meta_Box::META_KEY_AUTHOR,
-				sanitize_text_field($demo_data['author']),
+				sanitize_text_field( $demo_data['author'] ),
 			);
 			update_post_meta(
 				$post_id,
 				\Documentate\Document\Meta\Document_Meta_Box::META_KEY_KEYWORDS,
-				sanitize_text_field($demo_data['keywords']),
+				sanitize_text_field( $demo_data['keywords'] ),
 			);
 
-			$content = self::build_structured_demo_content($structured_fields);
-			if ('' !== $content) {
-				wp_update_post(array(
-					'ID' => $post_id,
-					'post_content' => $content,
-				));
+			$content = self::build_structured_demo_content( $structured_fields );
+			if ( '' !== $content ) {
+				wp_update_post(
+					array(
+						'ID' => $post_id,
+						'post_content' => $content,
+					)
+				);
 			}
 		}
 	}
@@ -850,72 +903,79 @@ class Documentate_Demo_Data {
 	 * @param array   $demo_data Array of demo documents keyed by demo_key.
 	 * @return void
 	 */
-	private static function create_specific_demo_documents($term, $demo_data) {
-		if (!$term instanceof WP_Term) {
+	private static function create_specific_demo_documents( $term, $demo_data ) {
+		if ( ! $term instanceof WP_Term ) {
 			return;
 		}
 
-		$term_id = absint($term->term_id);
-		if ($term_id <= 0 || empty($demo_data)) {
+		$term_id = absint( $term->term_id );
+		if ( $term_id <= 0 || empty( $demo_data ) ) {
 			return;
 		}
 
-		foreach ($demo_data as $demo_key => $data) {
+		foreach ( $demo_data as $demo_key => $data ) {
 			// Check if this specific demo document already exists.
-			$existing = get_posts(array(
-				'post_type' => 'documentate_document',
-				'post_status' => 'any',
-				'posts_per_page' => 1,
-				'fields' => 'ids',
-				'meta_key' => '_documentate_demo_key',
-				'meta_value' => $demo_key,
-			));
+			$existing = get_posts(
+				array(
+					'post_type' => 'documentate_document',
+					'post_status' => 'any',
+					'posts_per_page' => 1,
+					'fields' => 'ids',
+					'meta_key' => '_documentate_demo_key',
+					'meta_value' => $demo_key,
+				)
+			);
 
-			if (!empty($existing)) {
+			if ( ! empty( $existing ) ) {
 				continue;
 			}
 
-			$post_id = wp_insert_post(array(
-				'post_type' => 'documentate_document',
-				'post_title' => $data['title'],
-				'post_status' => 'private',
-				'post_content' => '',
-				'post_author' => get_current_user_id(),
-			), true);
+			$post_id = wp_insert_post(
+				array(
+					'post_type' => 'documentate_document',
+					'post_title' => $data['title'],
+					'post_status' => 'private',
+					'post_content' => '',
+					'post_author' => get_current_user_id(),
+				),
+				true
+			);
 
-			if (is_wp_error($post_id) || 0 === $post_id) {
+			if ( is_wp_error( $post_id ) || 0 === $post_id ) {
 				continue;
 			}
 
-			wp_set_post_terms($post_id, array($term_id), 'documentate_doc_type', false);
+			wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
 
 			// Save field values.
-			$structured_fields = self::save_demo_fields($post_id, $data['fields']);
+			$structured_fields = self::save_demo_fields( $post_id, $data['fields'] );
 
-			update_post_meta($post_id, '_documentate_demo_type_id', (string) $term_id);
-			update_post_meta($post_id, '_documentate_demo_key', $demo_key);
+			update_post_meta( $post_id, '_documentate_demo_type_id', (string) $term_id );
+			update_post_meta( $post_id, '_documentate_demo_key', $demo_key );
 			update_post_meta(
 				$post_id,
 				\Documentate\Document\Meta\Document_Meta_Box::META_KEY_SUBJECT,
-				sanitize_text_field($data['title']),
+				sanitize_text_field( $data['title'] ),
 			);
 			update_post_meta(
 				$post_id,
 				\Documentate\Document\Meta\Document_Meta_Box::META_KEY_AUTHOR,
-				sanitize_text_field($data['author']),
+				sanitize_text_field( $data['author'] ),
 			);
 			update_post_meta(
 				$post_id,
 				\Documentate\Document\Meta\Document_Meta_Box::META_KEY_KEYWORDS,
-				sanitize_text_field($data['keywords']),
+				sanitize_text_field( $data['keywords'] ),
 			);
 
-			$content = self::build_structured_demo_content($structured_fields);
-			if ('' !== $content) {
-				wp_update_post(array(
-					'ID' => $post_id,
-					'post_content' => $content,
-				));
+			$content = self::build_structured_demo_content( $structured_fields );
+			if ( '' !== $content ) {
+				wp_update_post(
+					array(
+						'ID' => $post_id,
+						'post_content' => $content,
+					)
+				);
 			}
 		}
 	}
@@ -927,30 +987,30 @@ class Documentate_Demo_Data {
 	 * @param array $fields  Fields data.
 	 * @return array Structured fields for content building.
 	 */
-	private static function save_demo_fields($post_id, $fields) {
+	private static function save_demo_fields( $post_id, $fields ) {
 		$structured_fields = array();
 
-		foreach ($fields as $slug => $field_data) {
+		foreach ( $fields as $slug => $field_data ) {
 			$value = $field_data['value'];
 			$type = $field_data['type'];
 
-			if ('array' === $type) {
-				$encoded = wp_json_encode($value, JSON_UNESCAPED_UNICODE);
-				update_post_meta($post_id, 'documentate_field_' . $slug, $encoded);
-				$structured_fields[$slug] = array(
+			if ( 'array' === $type ) {
+				$encoded = wp_json_encode( $value, JSON_UNESCAPED_UNICODE );
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $encoded );
+				$structured_fields[ $slug ] = array(
 					'type' => 'array',
 					'value' => $encoded,
 				);
 			} else {
-				if ('rich' === $type) {
-					$value = wp_kses_post($value);
-				} elseif ('single' === $type) {
-					$value = sanitize_text_field($value);
+				if ( 'rich' === $type ) {
+					$value = wp_kses_post( $value );
+				} elseif ( 'single' === $type ) {
+					$value = sanitize_text_field( $value );
 				} else {
-					$value = sanitize_textarea_field($value);
+					$value = sanitize_textarea_field( $value );
 				}
-				update_post_meta($post_id, 'documentate_field_' . $slug, $value);
-				$structured_fields[$slug] = array(
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $value );
+				$structured_fields[ $slug ] = array(
 					'type' => $type,
 					'value' => $value,
 				);
@@ -1688,22 +1748,24 @@ class Documentate_Demo_Data {
 	 * @param int $term_id Term ID.
 	 * @return bool
 	 */
-	public static function demo_document_exists($term_id) {
-		$term_id = absint($term_id);
-		if ($term_id <= 0) {
+	public static function demo_document_exists( $term_id ) {
+		$term_id = absint( $term_id );
+		if ( $term_id <= 0 ) {
 			return true;
 		}
 
-		$existing = get_posts(array(
-			'post_type' => 'documentate_document',
-			'post_status' => 'any',
-			'posts_per_page' => 1,
-			'fields' => 'ids',
-			'meta_key' => '_documentate_demo_type_id',
-			'meta_value' => (string) $term_id,
-		));
+		$existing = get_posts(
+			array(
+				'post_type' => 'documentate_document',
+				'post_status' => 'any',
+				'posts_per_page' => 1,
+				'fields' => 'ids',
+				'meta_key' => '_documentate_demo_type_id',
+				'meta_value' => (string) $term_id,
+			)
+		);
 
-		return !empty($existing);
+		return ! empty( $existing );
 	}
 
 	/**
@@ -1712,126 +1774,178 @@ class Documentate_Demo_Data {
 	 * @param WP_Term $term Document type term.
 	 * @return bool
 	 */
-	public static function create_demo_document_for_type($term) {
-		if (!$term instanceof WP_Term) {
+	public static function create_demo_document_for_type( $term ) {
+		if ( ! $term instanceof WP_Term ) {
 			return false;
 		}
 
-		$term_id = absint($term->term_id);
-		if ($term_id <= 0) {
+		$term_id = absint( $term->term_id );
+		if ( $term_id <= 0 ) {
 			return false;
 		}
 
-		$schema = Documentate_Documents::get_term_schema($term_id);
-		if (empty($schema) || !is_array($schema)) {
+		$schema = Documentate_Documents::get_term_schema( $term_id );
+		if ( empty( $schema ) || ! is_array( $schema ) ) {
 			return false;
 		}
 
 		/* translators: %s: document type name. */
-		$title = sprintf(__('Test document – %s', 'documentate'), $term->name);
-		$author = __('Demo team', 'documentate');
-		$keywords = __('lorem, ipsum, demo', 'documentate');
+		$title    = sprintf( __( 'Test document – %s', 'documentate' ), $term->name );
+		$author   = __( 'Demo team', 'documentate' );
+		$keywords = __( 'lorem, ipsum, demo', 'documentate' );
 
-		$post_id = wp_insert_post(array(
-			'post_type' => 'documentate_document',
-			'post_title' => $title,
-			'post_status' => 'private',
-			'post_content' => '',
-			'post_author' => get_current_user_id(),
-		), true);
+		$post_id = wp_insert_post(
+			array(
+				'post_type'    => 'documentate_document',
+				'post_title'   => $title,
+				'post_status'  => 'private',
+				'post_content' => '',
+				'post_author'  => get_current_user_id(),
+			),
+			true
+		);
 
-		if (is_wp_error($post_id) || 0 === $post_id) {
+		if ( is_wp_error( $post_id ) || 0 === $post_id ) {
 			return false;
 		}
 
-		wp_set_post_terms($post_id, array($term_id), 'documentate_doc_type', false);
+		wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
+		$structured_fields = self::populate_demo_document_fields( $post_id, $schema, $title );
 
-		$structured_fields = array();
-		foreach ($schema as $definition) {
-			if (empty($definition['slug'])) {
-				continue;
-			}
-
-			$slug = sanitize_key($definition['slug']);
-			$type = isset($definition['type']) ? sanitize_key($definition['type']) : 'textarea';
-			$data_type = isset($definition['data_type']) ? sanitize_key($definition['data_type']) : 'text';
-
-			if ('' === $slug) {
-				continue;
-			}
-
-			if ('array' === $type) {
-				$item_schema = isset($definition['item_schema']) && is_array($definition['item_schema'])
-					? $definition['item_schema']
-					: array();
-				$items = self::generate_demo_array_items($slug, $item_schema, array(
-					'document_title' => $title,
-				));
-
-				if (empty($items)) {
-					continue;
-				}
-
-				$encoded = wp_json_encode($items, JSON_UNESCAPED_UNICODE);
-				update_post_meta($post_id, 'documentate_field_' . $slug, $encoded);
-
-				$structured_fields[$slug] = array(
-					'type' => 'array',
-					'value' => $encoded,
-				);
-				continue;
-			}
-
-			if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
-				$type = 'textarea';
-			}
-
-			$value = self::generate_demo_scalar_value($slug, $type, $data_type, 1, array(
-				'document_title' => $title,
-			));
-
-			if ('rich' === $type) {
-				$value = wp_kses_post($value);
-			} elseif ('single' === $type) {
-				$value = sanitize_text_field($value);
-			} else {
-				$value = sanitize_textarea_field($value);
-			}
-
-			update_post_meta($post_id, 'documentate_field_' . $slug, $value);
-
-			$structured_fields[$slug] = array(
-				'type' => $type,
-				'value' => $value,
-			);
-		}
-
-		update_post_meta($post_id, '_documentate_demo_type_id', (string) $term_id);
+		update_post_meta( $post_id, '_documentate_demo_type_id', (string) $term_id );
 		update_post_meta(
 			$post_id,
 			\Documentate\Document\Meta\Document_Meta_Box::META_KEY_SUBJECT,
-			sanitize_text_field($title),
+			sanitize_text_field( $title )
 		);
 		update_post_meta(
 			$post_id,
 			\Documentate\Document\Meta\Document_Meta_Box::META_KEY_AUTHOR,
-			sanitize_text_field($author),
+			sanitize_text_field( $author )
 		);
 		update_post_meta(
 			$post_id,
 			\Documentate\Document\Meta\Document_Meta_Box::META_KEY_KEYWORDS,
-			sanitize_text_field($keywords),
+			sanitize_text_field( $keywords )
 		);
 
-		$content = self::build_structured_demo_content($structured_fields);
-		if ('' !== $content) {
-			wp_update_post(array(
-				'ID' => $post_id,
-				'post_content' => $content,
-			));
+		$content = self::build_structured_demo_content( $structured_fields );
+		if ( '' !== $content ) {
+			wp_update_post(
+				array(
+					'ID'           => $post_id,
+					'post_content' => $content,
+				)
+			);
 		}
 
 		return true;
+	}
+
+	/**
+	 * Fill post meta for each field in a document-type schema.
+	 *
+	 * @param int    $post_id Document post ID.
+	 * @param array  $schema  Schema field definitions.
+	 * @param string $title   Demo document title (context for generators).
+	 * @return array Structured field map for build_structured_demo_content().
+	 */
+	private static function populate_demo_document_fields( $post_id, $schema, $title ) {
+		$structured_fields = array();
+		$context           = array( 'document_title' => $title );
+
+		foreach ( $schema as $definition ) {
+			if ( empty( $definition['slug'] ) ) {
+				continue;
+			}
+
+			$slug      = sanitize_key( $definition['slug'] );
+			$type      = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
+			$data_type = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : 'text';
+
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			if ( 'array' === $type ) {
+				$entry = self::build_demo_array_field_entry( $slug, $definition, $context );
+				if ( null === $entry ) {
+					continue;
+				}
+				update_post_meta( $post_id, 'documentate_field_' . $slug, $entry['value'] );
+				$structured_fields[ $slug ] = $entry;
+				continue;
+			}
+
+			$entry = self::build_demo_scalar_field_entry( $slug, $type, $data_type, $context );
+			update_post_meta( $post_id, 'documentate_field_' . $slug, $entry['value'] );
+			$structured_fields[ $slug ] = $entry;
+		}
+
+		return $structured_fields;
+	}
+
+	/**
+	 * Build and encode a demo array field value.
+	 *
+	 * @param string $slug       Field slug.
+	 * @param array  $definition Field definition.
+	 * @param array  $context    Generator context.
+	 * @return array{type: string, value: string}|null
+	 */
+	private static function build_demo_array_field_entry( $slug, $definition, $context ) {
+		$item_schema = isset( $definition['item_schema'] ) && is_array( $definition['item_schema'] )
+			? $definition['item_schema']
+			: array();
+		$items       = self::generate_demo_array_items( $slug, $item_schema, $context );
+		if ( empty( $items ) ) {
+			return null;
+		}
+
+		return array(
+			'type'  => 'array',
+			'value' => wp_json_encode( $items, JSON_UNESCAPED_UNICODE ),
+		);
+	}
+
+	/**
+	 * Build a sanitized demo scalar field value.
+	 *
+	 * @param string $slug      Field slug.
+	 * @param string $type      Field type.
+	 * @param string $data_type Field data type.
+	 * @param array  $context   Generator context.
+	 * @return array{type: string, value: string}
+	 */
+	private static function build_demo_scalar_field_entry( $slug, $type, $data_type, $context ) {
+		if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+			$type = 'textarea';
+		}
+
+		$value = self::generate_demo_scalar_value( $slug, $type, $data_type, 1, $context );
+		$value = self::sanitize_demo_field_value( $value, $type );
+
+		return array(
+			'type'  => $type,
+			'value' => $value,
+		);
+	}
+
+	/**
+	 * Sanitize a generated demo value for its field type.
+	 *
+	 * @param string $value Raw demo value.
+	 * @param string $type  Field type.
+	 * @return string
+	 */
+	private static function sanitize_demo_field_value( $value, $type ) {
+		if ( 'rich' === $type ) {
+			return wp_kses_post( $value );
+		}
+		if ( 'single' === $type ) {
+			return sanitize_text_field( $value );
+		}
+		return sanitize_textarea_field( $value );
 	}
 
 	/**
@@ -1842,55 +1956,64 @@ class Documentate_Demo_Data {
 	 * @param array  $context     Additional context.
 	 * @return array<int, array<string, string>>
 	 */
-	public static function generate_demo_array_items($slug, $item_schema, $context = array()) {
-		$slug = sanitize_key($slug);
-		$item_schema = is_array($item_schema) ? $item_schema : array();
+	public static function generate_demo_array_items( $slug, $item_schema, $context = array() ) {
+		$slug = sanitize_key( $slug );
+		$item_schema = is_array( $item_schema ) ? $item_schema : array();
 
-		if (empty($item_schema)) {
-			$value = self::generate_demo_scalar_value('contenido', 'textarea', 'text', 1, $context);
+		if ( empty( $item_schema ) ) {
+			$value = self::generate_demo_scalar_value( 'contenido', 'textarea', 'text', 1, $context );
 
 			return array(
 				array(
-					'contenido' => sanitize_textarea_field($value),
+					'contenido' => sanitize_textarea_field( $value ),
 				),
 			);
 		}
 
 		$items = array();
 
-		for ($index = 1; $index <= 2; $index++) {
+		for ( $index = 1; $index <= 2; $index++ ) {
 			$item = array();
 
-			foreach ($item_schema as $item_slug => $definition) {
-				$item_slug = sanitize_key($item_slug);
-				if ('' === $item_slug) {
+			foreach ( $item_schema as $item_slug => $definition ) {
+				$item_slug = sanitize_key( $item_slug );
+				if ( '' === $item_slug ) {
 					continue;
 				}
 
-				$type = isset($definition['type']) ? sanitize_key($definition['type']) : 'textarea';
-				$data_type = isset($definition['data_type']) ? sanitize_key($definition['data_type']) : 'text';
+				$type = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
+				$data_type = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : 'text';
 
-				if (!in_array($type, array('single', 'textarea', 'rich'), true)) {
+				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
 					$type = 'textarea';
 				}
 
-				$value = self::generate_demo_scalar_value($item_slug, $type, $data_type, $index, array_merge($context, array(
-					'index' => $index,
-					'parent_slug' => $slug,
-				)));
+				$value = self::generate_demo_scalar_value(
+					$item_slug,
+					$type,
+					$data_type,
+					$index,
+					array_merge(
+						$context,
+						array(
+							'index' => $index,
+							'parent_slug' => $slug,
+						)
+					)
+				);
 
-				if ('rich' === $type) {
-					$value = wp_kses_post($value);
-				} elseif ('single' === $type) {
-					$value = sanitize_text_field($value);
+				if ( 'rich' === $type ) {
+					$value = wp_kses_post( $value );
+				} elseif ( 'single' === $type ) {
+					$value = sanitize_text_field( $value );
 				} else {
-					$value = sanitize_textarea_field($value);
+					$value = sanitize_textarea_field( $value );
 				}
 
-				$item[$item_slug] = $value;
+				$item[ $item_slug ] = $value;
 			}
 
-			if (!empty($item)) {
+			if ( ! empty( $item ) ) {
 				$items[] = $item;
 			}
 		}
@@ -1908,210 +2031,309 @@ class Documentate_Demo_Data {
 	 * @param array  $context   Additional context.
 	 * @return string
 	 */
-	public static function generate_demo_scalar_value($slug, $type, $data_type, $index = 1, $context = array()) {
-		$slug = strtolower((string) $slug);
-		$type = sanitize_key($type);
-		$data_type = sanitize_key($data_type);
-		$index = max(1, absint($index));
+	public static function generate_demo_scalar_value( $slug, $type, $data_type, $index = 1, $context = array() ) {
+		$slug      = strtolower( (string) $slug );
+		$type      = sanitize_key( $type );
+		$data_type = sanitize_key( $data_type );
+		$index     = max( 1, absint( $index ) );
 
-		$document_title = isset($context['document_title'])
+		$document_title = isset( $context['document_title'] )
 			? (string) $context['document_title']
-			: __('Demo resolution', 'documentate');
-		$number_value = (string) (1 + $index);
+			: __( 'Demo resolution', 'documentate' );
 
-		if ('date' === $data_type) {
-			$month = max(1, min(12, $index));
-			$day = max(1, min(28, 10 + $index));
-			return sprintf('2025-%02d-%02d', $month, $day);
+		$by_data_type = self::demo_value_for_data_type( $data_type, $index );
+		if ( null !== $by_data_type ) {
+			return $by_data_type;
 		}
 
-		if ('number' === $data_type) {
-			return $number_value;
+		$by_slug = self::demo_value_for_slug( $slug, $index, $document_title );
+		if ( null !== $by_slug ) {
+			return $by_slug;
 		}
 
-		if ('boolean' === $data_type) {
+		return __( 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 'documentate' );
+	}
+
+	/**
+	 * Demo value derived from the field data type, if applicable.
+	 *
+	 * @param string $data_type Field data type.
+	 * @param int    $index     Item index.
+	 * @return string|null
+	 */
+	private static function demo_value_for_data_type( $data_type, $index ) {
+		if ( 'date' === $data_type ) {
+			$month = max( 1, min( 12, $index ) );
+			$day   = max( 1, min( 28, 10 + $index ) );
+			return sprintf( '2025-%02d-%02d', $month, $day );
+		}
+		if ( 'number' === $data_type ) {
+			return (string) ( 1 + $index );
+		}
+		if ( 'boolean' === $data_type ) {
 			return $index % 2 ? '1' : '0';
 		}
+		return null;
+	}
 
-		if (false !== strpos($slug, 'email')) {
-			return 'demo' . $index . '@ejemplo.es';
+	/**
+	 * Demo value derived from slug keywords.
+	 *
+	 * @param string $slug           Lowercased field slug.
+	 * @param int    $index          Item index.
+	 * @param string $document_title Demo document title.
+	 * @return string|null
+	 */
+	private static function demo_value_for_slug( $slug, $index, $document_title ) {
+		$special = self::demo_value_for_special_slug( $slug, $index, $document_title );
+		if ( null !== $special ) {
+			return $special;
 		}
 
-		if (false !== strpos($slug, 'phone') || false !== strpos($slug, 'tel')) {
-			return '+3460000000' . $index;
-		}
-
-		if (false !== strpos($slug, 'dni')) {
-			return '1234567' . $index . 'A';
-		}
-
-		if (false !== strpos($slug, 'url') || false !== strpos($slug, 'sitio') || false !== strpos($slug, 'web')) {
-			return 'https://ejemplo.es/recurso-' . $index;
-		}
-
-		if (false !== strpos($slug, 'nombre') || false !== strpos($slug, 'name')) {
-			return 1 === $index ? 'Jane Doe' : 'John Smith';
-		}
-
-		if (false !== strpos($slug, 'title') || false !== strpos($slug, 'titulo') || 'post_title' === $slug) {
-			if ('post_title' === $slug) {
-				return $document_title;
+		foreach ( self::demo_slug_value_matchers() as $matcher ) {
+			if ( self::slug_contains_any( $slug, $matcher[0] ) ) {
+				return (string) call_user_func( $matcher[1], $index );
 			}
-
-			/* translators: %d: item sequence number. */
-			return sprintf(__('Demo item %d', 'documentate'), $index);
 		}
 
-		if (false !== strpos($slug, 'summary') || false !== strpos($slug, 'resumen')) {
-			/* translators: %d: item sequence number. */
-			return sprintf(__('Demo summary %d with brief information.', 'documentate'), $index);
-		}
+		return null;
+	}
 
-		if (false !== strpos($slug, 'objeto')) {
-			return __('Subject of the example resolution to illustrate the workflow.', 'documentate');
-		}
-
-		if (false !== strpos($slug, 'antecedentes')) {
-			return __('Background facts written with test content.', 'documentate');
-		}
-
-		if (false !== strpos($slug, 'fundamentos')) {
-			return __('Legal grounds for testing with generic references.', 'documentate');
-		}
-
-		if (false !== strpos($slug, 'resuelv')) {
-			return (
-				'<p>'
-				. __('First. Approve the demo action.', 'documentate')
-				. '</p><p>'
-				. __('Second. Notify interested parties.', 'documentate')
-				. '</p>'
-			);
-		}
-
-		if (false !== strpos($slug, 'observaciones')) {
-			return __('Additional observations to complete the template.', 'documentate');
-		}
-
-		// Repeater "gastos" fields (table row repeater).
-		if (false !== strpos($slug, 'proveedor')) {
-			return 1 === $index ? 'Suministros Ejemplo S.L.' : 'Servicios Demo S.A.';
-		}
-
-		if ('cif' === $slug) {
+	/**
+	 * Special-case slug handlers that need more than a simple keyword map.
+	 *
+	 * @param string $slug           Lowercased field slug.
+	 * @param int    $index          Item index.
+	 * @param string $document_title Demo document title.
+	 * @return string|null
+	 */
+	private static function demo_value_for_special_slug( $slug, $index, $document_title ) {
+		if ( 'cif' === $slug ) {
 			return 1 === $index ? 'B12345678' : 'A87654321';
 		}
 
-		if (false !== strpos($slug, 'factura')) {
-			return sprintf('%03d/2025', 100 + $index);
+		if ( self::slug_contains_any( $slug, array( 'title', 'titulo' ) ) || 'post_title' === $slug ) {
+			if ( 'post_title' === $slug ) {
+				return $document_title;
+			}
+			/* translators: %d: item sequence number. */
+			return sprintf( __( 'Demo item %d', 'documentate' ), $index );
 		}
 
-		if (false !== strpos($slug, 'importe')) {
-			return 1 === $index ? '1250' : '3475.50';
+		if ( self::slug_contains_any( $slug, array( 'body', 'cuerpo', 'content', 'contenido', 'html' ) ) ) {
+			return self::build_rich_demo_html();
 		}
 
-		// Fields for autorizacionviaje.odt template.
-		if (false !== strpos($slug, 'lugar')) {
-			return 'Madrid';
-		}
+		return null;
+	}
 
-		if (false !== strpos($slug, 'invitante')) {
-			return 'Ministerio de Educación';
-		}
+	/**
+	 * Keyword matchers for demo scalar values.
+	 *
+	 * Each entry is [ needles[], callable($index): string ].
+	 *
+	 * @return array<int, array{0: string[], 1: callable}>
+	 */
+	private static function demo_slug_value_matchers() {
+		return array(
+			array(
+				array( 'email' ),
+				static function ( $i ) {
+					return 'demo' . $i . '@ejemplo.es';
+				},
+			),
+			array(
+				array( 'phone', 'tel' ),
+				static function ( $i ) {
+					return '+3460000000' . $i;
+				},
+			),
+			array(
+				array( 'dni' ),
+				static function ( $i ) {
+					return '1234567' . $i . 'A';
+				},
+			),
+			array(
+				array( 'url', 'sitio', 'web' ),
+				static function ( $i ) {
+					return 'https://ejemplo.es/recurso-' . $i;
+				},
+			),
+			array(
+				array( 'nombre', 'name' ),
+				static function ( $i ) {
+					return 1 === $i ? 'Jane Doe' : 'John Smith';
+				},
+			),
+			array(
+				array( 'summary', 'resumen' ),
+				static function ( $i ) {
+					/* translators: %d: item sequence number. */
+					return sprintf( __( 'Demo summary %d with brief information.', 'documentate' ), $i );
+				},
+			),
+			array(
+				array( 'objeto' ),
+				static function () {
+					return __( 'Subject of the example resolution to illustrate the workflow.', 'documentate' );
+				},
+			),
+			array(
+				array( 'antecedentes' ),
+				static function () {
+					return __( 'Background facts written with test content.', 'documentate' );
+				},
+			),
+			array(
+				array( 'fundamentos' ),
+				static function () {
+					return __( 'Legal grounds for testing with generic references.', 'documentate' );
+				},
+			),
+			array(
+				array( 'resuelv' ),
+				static function () {
+					return (
+						'<p>'
+						. __( 'First. Approve the demo action.', 'documentate' )
+						. '</p><p>'
+						. __( 'Second. Notify interested parties.', 'documentate' )
+						. '</p>'
+					);
+				},
+			),
+			array(
+				array( 'observaciones' ),
+				static function () {
+					return __( 'Additional observations to complete the template.', 'documentate' );
+				},
+			),
+			array(
+				array( 'proveedor' ),
+				static function ( $i ) {
+					return 1 === $i ? 'Suministros Ejemplo S.L.' : 'Servicios Demo S.A.';
+				},
+			),
+			array(
+				array( 'factura' ),
+				static function ( $i ) {
+					return sprintf( '%03d/2025', 100 + $i );
+				},
+			),
+			array(
+				array( 'importe' ),
+				static function ( $i ) {
+					return 1 === $i ? '1250' : '3475.50';
+				},
+			),
+			array(
+				array( 'lugar' ),
+				static function () {
+					return 'Madrid';
+				},
+			),
+			array(
+				array( 'invitante' ),
+				static function () {
+					return 'Ministerio de Educación';
+				},
+			),
+			array(
+				array( 'temas' ),
+				static function () {
+					return 'Discusión de programas de innovación educativa y coordinación interterritorial.';
+				},
+			),
+			array(
+				array( 'pagador' ),
+				static function () {
+					return 'Consejería de Educación del Gobierno de Canarias';
+				},
+			),
+			array(
+				array( 'apellido1' ),
+				static function ( $i ) {
+					return 1 === $i ? 'García' : 'Rodríguez';
+				},
+			),
+			array(
+				array( 'apellido2' ),
+				static function ( $i ) {
+					return 1 === $i ? 'López' : 'Martínez';
+				},
+			),
+			array(
+				array( 'iban' ),
+				static function () {
+					return 'ES9121000418450200051332';
+				},
+			),
+			array(
+				array( 'nombre_completo' ),
+				static function ( $i ) {
+					return 1 === $i ? 'María García López' : 'Juan Rodríguez Martínez';
+				},
+			),
+			array(
+				array( 'keywords', 'palabras' ),
+				static function () {
+					return __( 'keywords, tags, demo', 'documentate' );
+				},
+			),
+		);
+	}
 
-		if (false !== strpos($slug, 'temas')) {
-			return 'Discusión de programas de innovación educativa y coordinación interterritorial.';
+	/**
+	 * Whether a slug contains any of the given needles.
+	 *
+	 * @param string   $slug    Lowercased slug.
+	 * @param string[] $needles Substrings to search for.
+	 * @return bool
+	 */
+	private static function slug_contains_any( $slug, $needles ) {
+		foreach ( $needles as $needle ) {
+			if ( false !== strpos( $slug, $needle ) ) {
+				return true;
+			}
 		}
+		return false;
+	}
 
-		if (false !== strpos($slug, 'pagador')) {
-			return 'Consejería de Educación del Gobierno de Canarias';
-		}
-
-		if (false !== strpos($slug, 'apellido1')) {
-			return 1 === $index ? 'García' : 'Rodríguez';
-		}
-
-		if (false !== strpos($slug, 'apellido2')) {
-			return 1 === $index ? 'López' : 'Martínez';
-		}
-
-		// Fields for gastossuplidos.odt template.
-		if (false !== strpos($slug, 'iban')) {
-			return 'ES9121000418450200051332';
-		}
-
-		if (false !== strpos($slug, 'nombre_completo')) {
-			return 1 === $index ? 'María García López' : 'Juan Rodríguez Martínez';
-		}
-
-		if (false !== strpos($slug, 'body') || false !== strpos($slug, 'cuerpo')) {
-			$rich = '<h3>' . __('Test heading', 'documentate') . '</h3>';
-			$rich .= '<p>' . __('First paragraph with example text.', 'documentate') . '</p>';
-			$rich .=
-				'<p>'
-				. sprintf(
-					/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
-					__('Second paragraph with %1$s, %2$s and %3$s.', 'documentate'),
-					'<strong>' . __('bold', 'documentate') . '</strong>',
-					'<em>' . __('italics', 'documentate') . '</em>',
-					'<u>' . __('underline', 'documentate') . '</u>',
-				)
-				. '</p>';
-			$rich .= '<ul><li>' . __('Item one', 'documentate') . '</li><li>' . __('Item two', 'documentate') . '</li></ul>';
-			$rich .=
-				'<table><tr><th>'
-				. __('Col 1', 'documentate')
-				. '</th><th>'
-				. __('Col 2', 'documentate')
-				. '</th></tr><tr><td>'
-				. __('Data A1', 'documentate')
-				. '</td><td>'
-				. __('Data A2', 'documentate')
-				. '</td></tr><tr><td>'
-				. __('Data B1', 'documentate')
-				. '</td><td>'
-				. __('Data B2', 'documentate')
-				. '</td></tr></table>';
-			return $rich;
-		}
-
-		// Generic HTML content fields: enrich demo data with formatted HTML.
-		if (false !== strpos($slug, 'content') || false !== strpos($slug, 'contenido') || false !== strpos($slug, 'html')) {
-			$rich = '<h3>' . __('Test heading', 'documentate') . '</h3>';
-			$rich .= '<p>' . __('First paragraph with example text.', 'documentate') . '</p>';
-			$rich .=
-				'<p>'
-				. sprintf(
-					/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
-					__('Second paragraph with %1$s, %2$s and %3$s.', 'documentate'),
-					'<strong>' . __('bold', 'documentate') . '</strong>',
-					'<em>' . __('italics', 'documentate') . '</em>',
-					'<u>' . __('underline', 'documentate') . '</u>',
-				)
-				. '</p>';
-			$rich .= '<ul><li>' . __('Item one', 'documentate') . '</li><li>' . __('Item two', 'documentate') . '</li></ul>';
-			$rich .=
-				'<table><tr><th>'
-				. __('Col 1', 'documentate')
-				. '</th><th>'
-				. __('Col 2', 'documentate')
-				. '</th></tr><tr><td>'
-				. __('Data A1', 'documentate')
-				. '</td><td>'
-				. __('Data A2', 'documentate')
-				. '</td></tr><tr><td>'
-				. __('Data B1', 'documentate')
-				. '</td><td>'
-				. __('Data B2', 'documentate')
-				. '</td></tr></table>';
-			return $rich;
-		}
-
-		if (false !== strpos($slug, 'keywords') || false !== strpos($slug, 'palabras')) {
-			return __('keywords, tags, demo', 'documentate');
-		}
-
-		return __('Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 'documentate');
+	/**
+	 * Shared rich-text HTML sample used by body/content demo fields.
+	 *
+	 * @return string
+	 */
+	private static function build_rich_demo_html() {
+		$rich  = '<h3>' . __( 'Test heading', 'documentate' ) . '</h3>';
+		$rich .= '<p>' . __( 'First paragraph with example text.', 'documentate' ) . '</p>';
+		$rich .=
+			'<p>'
+			. sprintf(
+				/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
+				__( 'Second paragraph with %1$s, %2$s and %3$s.', 'documentate' ),
+				'<strong>' . __( 'bold', 'documentate' ) . '</strong>',
+				'<em>' . __( 'italics', 'documentate' ) . '</em>',
+				'<u>' . __( 'underline', 'documentate' ) . '</u>'
+			)
+			. '</p>';
+		$rich .= '<ul><li>' . __( 'Item one', 'documentate' ) . '</li><li>' . __( 'Item two', 'documentate' ) . '</li></ul>';
+		$rich .=
+			'<table><tr><th>'
+			. __( 'Col 1', 'documentate' )
+			. '</th><th>'
+			. __( 'Col 2', 'documentate' )
+			. '</th></tr><tr><td>'
+			. __( 'Data A1', 'documentate' )
+			. '</td><td>'
+			. __( 'Data A2', 'documentate' )
+			. '</td></tr><tr><td>'
+			. __( 'Data B1', 'documentate' )
+			. '</td><td>'
+			. __( 'Data B2', 'documentate' )
+			. '</td></tr></table>';
+		return $rich;
 	}
 
 	/**
@@ -2120,31 +2342,31 @@ class Documentate_Demo_Data {
 	 * @param array<string, array{type:string,value:string}> $fields Structured fields.
 	 * @return string
 	 */
-	public static function build_structured_demo_content($fields) {
-		if (empty($fields) || !is_array($fields)) {
+	public static function build_structured_demo_content( $fields ) {
+		if ( empty( $fields ) || ! is_array( $fields ) ) {
 			return '';
 		}
 
 		$fragments = array();
 
-		foreach ($fields as $slug => $info) {
-			$slug = sanitize_key($slug);
-			if ('' === $slug) {
+		foreach ( $fields as $slug => $info ) {
+			$slug = sanitize_key( $slug );
+			if ( '' === $slug ) {
 				continue;
 			}
 
-			$type = isset($info['type']) ? sanitize_key($info['type']) : '';
-			$value = isset($info['value']) ? (string) $info['value'] : '';
+			$type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : '';
+			$value = isset( $info['value'] ) ? (string) $info['value'] : '';
 
-			$attributes = 'slug="' . esc_attr($slug) . '"';
-			if ('' !== $type && in_array($type, array('single', 'textarea', 'rich', 'array'), true)) {
-				$attributes .= ' type="' . esc_attr($type) . '"';
+			$attributes = 'slug="' . esc_attr( $slug ) . '"';
+			if ( '' !== $type && in_array( $type, array( 'single', 'textarea', 'rich', 'array' ), true ) ) {
+				$attributes .= ' type="' . esc_attr( $type ) . '"';
 			}
 
 			$fragments[] = '<!-- documentate-field ' . $attributes . " -->\n" . $value . "\n<!-- /documentate-field -->";
 		}
 
-		return implode("\n\n", $fragments);
+		return implode( "\n\n", $fragments );
 	}
 
 	/**
@@ -2153,20 +2375,20 @@ class Documentate_Demo_Data {
 	 * @param string $slug Slug.
 	 * @return string
 	 */
-	public static function humanize_slug($slug) {
-		$slug = str_replace(array('-', '_'), ' ', $slug);
-		$slug = preg_replace('/\s+/', ' ', $slug);
-		$slug = trim((string) $slug);
+	public static function humanize_slug( $slug ) {
+		$slug = str_replace( array( '-', '_' ), ' ', $slug );
+		$slug = preg_replace( '/\s+/', ' ', $slug );
+		$slug = trim( (string) $slug );
 
-		if ('' === $slug) {
+		if ( '' === $slug ) {
 			return '';
 		}
 
-		if (function_exists('mb_convert_case')) {
-			return mb_convert_case($slug, MB_CASE_TITLE, 'UTF-8');
+		if ( function_exists( 'mb_convert_case' ) ) {
+			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
 		}
 
-		return ucwords(strtolower($slug));
+		return ucwords( strtolower( $slug ) );
 	}
 
 	/**
@@ -2178,19 +2400,19 @@ class Documentate_Demo_Data {
 		// Temporarily elevate permissions.
 		$current_user = wp_get_current_user();
 		$old_user = $current_user;
-		wp_set_current_user(1); // Switch to admin user (ID 1).
+		wp_set_current_user( 1 ); // Switch to admin user (ID 1).
 
 		// Set up alert settings for demo data.
-		$options = get_option('documentate_settings', array());
+		$options = get_option( 'documentate_settings', array() );
 		$options['alert_color'] = 'danger';
 		$options['alert_message'] =
 			'<strong>'
-			. __('Warning', 'documentate')
+			. __( 'Warning', 'documentate' )
 			. ':</strong> '
-			. __('You are running this site with demo data.', 'documentate');
-		update_option('documentate_settings', $options);
+			. __( 'You are running this site with demo data.', 'documentate' );
+		update_option( 'documentate_settings', $options );
 
 		// Restore original user.
-		wp_set_current_user($old_user->ID);
+		wp_set_current_user( $old_user->ID );
 	}
 }

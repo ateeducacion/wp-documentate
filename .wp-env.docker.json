@@ -1,6 +1,6 @@
 {
-    "port": 8889,
-    "testsPort": 8890,
+    "port": 8989,
+    "testsPort": 8990,
     "config": {
         "WP_DEBUG": true,
         "SCRIPT_DEBUG": true,

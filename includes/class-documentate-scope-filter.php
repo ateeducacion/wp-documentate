@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Scope-based document filtering for Documentate.
  *
@@ -16,7 +15,7 @@
  * @subpackage Documentate/includes
  */
 
-defined('ABSPATH') || exit();
+defined( 'ABSPATH' ) || exit();
 
 /**
  * Class Documentate_Scope_Filter
@@ -55,16 +54,16 @@ class Documentate_Scope_Filter {
 	 *
 	 * @var string[]
 	 */
-	const ALL_LIST_STATUSES = array('publish', 'future', 'draft', 'pending', 'private');
+	const ALL_LIST_STATUSES = array( 'publish', 'future', 'draft', 'pending', 'private' );
 
 	/**
 	 * Register hooks.
 	 */
 	public function __construct() {
-		add_action('pre_get_posts', array($this, 'filter_documents_by_scope'));
+		add_action( 'pre_get_posts', array( $this, 'filter_documents_by_scope' ) );
 		// Recalculate the admin list view counters using the same scope rules.
 		// Priority 20 so it runs after add_archived_view() has added its link.
-		add_filter('views_edit-' . self::POST_TYPE, array($this, 'filter_view_counts'), 20);
+		add_filter( 'views_edit-' . self::POST_TYPE, array( $this, 'filter_view_counts' ), 20 );
 	}
 
 	/**
@@ -77,25 +76,25 @@ class Documentate_Scope_Filter {
 	 */
 	public function get_scope_term_ids() {
 		// Administrators (anyone who can manage options) are unrestricted.
-		if (current_user_can('manage_options')) {
+		if ( current_user_can( 'manage_options' ) ) {
 			return null;
 		}
 
 		$user_id = get_current_user_id();
-		$scope_term = absint(get_user_meta($user_id, self::SCOPE_META_KEY, true));
+		$scope_term = absint( get_user_meta( $user_id, self::SCOPE_META_KEY, true ) );
 
 		// Restricted user without a scope assigned: nothing is visible.
-		if (0 === $scope_term) {
+		if ( 0 === $scope_term ) {
 			return array();
 		}
 
-		$term_ids = array($scope_term);
-		$children = get_term_children($scope_term, self::SCOPE_TAXONOMY);
-		if (!is_wp_error($children) && !empty($children)) {
-			$term_ids = array_merge($term_ids, $children);
+		$term_ids = array( $scope_term );
+		$children = get_term_children( $scope_term, self::SCOPE_TAXONOMY );
+		if ( ! is_wp_error( $children ) && ! empty( $children ) ) {
+			$term_ids = array_merge( $term_ids, $children );
 		}
 
-		return array_map('absint', $term_ids);
+		return array_map( 'absint', $term_ids );
 	}
 
 	/**
@@ -104,34 +103,34 @@ class Documentate_Scope_Filter {
 	 * @param WP_Query $query The query object being modified.
 	 * @return void
 	 */
-	public function filter_documents_by_scope($query) {
+	public function filter_documents_by_scope( $query ) {
 		// Only run in wp-admin on the main query for our post type.
-		if (!is_admin() || !$query->is_main_query()) {
+		if ( ! is_admin() || ! $query->is_main_query() ) {
 			return;
 		}
 
-		if (self::POST_TYPE !== $query->get('post_type')) {
+		if ( self::POST_TYPE !== $query->get( 'post_type' ) ) {
 			return;
 		}
 
 		$term_ids = $this->get_scope_term_ids();
 
 		// Unrestricted user (administrator): leave the query untouched.
-		if (null === $term_ids) {
+		if ( null === $term_ids ) {
 			return;
 		}
 
 		// Restricted user without a scope assigned: show nothing.
-		if (empty($term_ids)) {
-			$query->set('post__in', array(0));
+		if ( empty( $term_ids ) ) {
+			$query->set( 'post__in', array( 0 ) );
 			return;
 		}
 
 		// Merge the scope restriction with any taxonomy filter already on the
 		// query (e.g. an explicitly selected category) using AND, so explicit
 		// filters narrow the scope instead of replacing it.
-		$tax_query = $query->get('tax_query');
-		if (!is_array($tax_query)) {
+		$tax_query = $query->get( 'tax_query' );
+		if ( ! is_array( $tax_query ) ) {
 			$tax_query = array();
 		}
 
@@ -144,12 +143,12 @@ class Documentate_Scope_Filter {
 
 		// If more than one taxonomy clause is present (besides any existing
 		// 'relation' key), combine them with AND so the scope always applies.
-		$clause_count = count($tax_query) - (isset($tax_query['relation']) ? 1 : 0);
-		if ($clause_count > 1) {
+		$clause_count = count( $tax_query ) - ( isset( $tax_query['relation'] ) ? 1 : 0 );
+		if ( $clause_count > 1 ) {
 			$tax_query['relation'] = 'AND';
 		}
 
-		$query->set('tax_query', $tax_query);
+		$query->set( 'tax_query', $tax_query );
 	}
 
 	/**
@@ -162,11 +161,11 @@ class Documentate_Scope_Filter {
 	 * @param int             $author      Optional author ID to restrict to (0 = any author).
 	 * @return int Number of visible documents.
 	 */
-	public function count_visible_documents($post_status, $author = 0) {
+	public function count_visible_documents( $post_status, $author = 0 ) {
 		$term_ids = $this->get_scope_term_ids();
 
 		// Restricted user without a scope assigned: nothing is visible.
-		if (is_array($term_ids) && empty($term_ids)) {
+		if ( is_array( $term_ids ) && empty( $term_ids ) ) {
 			return 0;
 		}
 
@@ -181,12 +180,12 @@ class Documentate_Scope_Filter {
 			'update_post_term_cache' => false,
 		);
 
-		if ($author > 0) {
+		if ( $author > 0 ) {
 			$args['author'] = (int) $author;
 		}
 
 		// Apply the scope restriction (null = unrestricted, so no tax_query).
-		if (!empty($term_ids)) {
+		if ( ! empty( $term_ids ) ) {
 			$args['tax_query'] = array(
 				array(
 					'taxonomy' => self::SCOPE_TAXONOMY,
@@ -197,7 +196,7 @@ class Documentate_Scope_Filter {
 			);
 		}
 
-		$query = new WP_Query($args);
+		$query = new WP_Query( $args );
 
 		return (int) $query->found_posts;
 	}
@@ -214,9 +213,9 @@ class Documentate_Scope_Filter {
 	 * @param string[] $views View links keyed by status/view name.
 	 * @return string[] Filtered view links.
 	 */
-	public function filter_view_counts($views) {
+	public function filter_view_counts( $views ) {
 		// Unrestricted users keep WordPress' native counters.
-		if (null === $this->get_scope_term_ids()) {
+		if ( null === $this->get_scope_term_ids() ) {
 			return $views;
 		}
 
@@ -236,22 +235,22 @@ class Documentate_Scope_Filter {
 			'trash' => 'trash',
 		);
 
-		foreach ($views as $key => $view) {
-			if (!isset($status_map[$key])) {
+		foreach ( $views as $key => $view ) {
+			if ( ! isset( $status_map[ $key ] ) ) {
 				continue;
 			}
 
 			// "Mine" is restricted to the current user's documents.
-			$source = ('mine' === $key) ? $counts['mine'] : $counts['any'];
-			$count = $this->sum_status_counts($source, $status_map[$key]);
+			$source = ( 'mine' === $key ) ? $counts['mine'] : $counts['any'];
+			$count = $this->sum_status_counts( $source, $status_map[ $key ] );
 
 			// Drop empty status views, but keep "All" and the active view.
-			if (0 === $count && 'all' !== $key && !$this->is_current_view($key)) {
-				unset($views[$key]);
+			if ( 0 === $count && 'all' !== $key && ! $this->is_current_view( $key ) ) {
+				unset( $views[ $key ] );
 				continue;
 			}
 
-			$views[$key] = $this->replace_view_count($view, $count);
+			$views[ $key ] = $this->replace_view_count( $view, $count );
 		}
 
 		return $views;
@@ -272,17 +271,20 @@ class Documentate_Scope_Filter {
 	private function get_scoped_status_counts() {
 		global $wpdb;
 
-		$empty = array('any' => array(), 'mine' => array());
+		$empty = array(
+			'any' => array(),
+			'mine' => array(),
+		);
 
 		$term_ids = $this->get_scope_term_ids();
 
 		// Unrestricted (null) or restricted-without-scope (empty): count nothing.
-		if (empty($term_ids)) {
+		if ( empty( $term_ids ) ) {
 			return $empty;
 		}
 
 		$current_user = get_current_user_id();
-		$placeholders = implode(', ', array_fill(0, count($term_ids), '%d'));
+		$placeholders = implode( ', ', array_fill( 0, count( $term_ids ), '%d' ) );
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Only table names and %d placeholders are interpolated; values are bound via wpdb::prepare() below.
 		$sql = "SELECT p.post_status AS status, p.post_author AS author, COUNT(DISTINCT p.ID) AS num
@@ -294,27 +296,30 @@ class Documentate_Scope_Filter {
 			AND tt.term_id IN ($placeholders)
 			GROUP BY p.post_status, p.post_author";
 
-		$params = array_merge(array(self::POST_TYPE, self::SCOPE_TAXONOMY), $term_ids);
+		$params = array_merge( array( self::POST_TYPE, self::SCOPE_TAXONOMY ), $term_ids );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- Aggregated admin counters via a prepared statement, executed once per list render.
-		$rows = $wpdb->get_results($wpdb->prepare($sql, $params));
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $params ) );
 
 		$any = array();
 		$mine = array();
-		foreach ((array) $rows as $row) {
+		foreach ( (array) $rows as $row ) {
 			$status = (string) $row->status;
 			$num = (int) $row->num;
 
-			$any[$status] = (isset($any[$status]) ? $any[$status] : 0) + $num;
+			$any[ $status ] = ( isset( $any[ $status ] ) ? $any[ $status ] : 0 ) + $num;
 
-			if ((int) $row->author !== $current_user) {
+			if ( (int) $row->author !== $current_user ) {
 				continue;
 			}
 
-			$mine[$status] = (isset($mine[$status]) ? $mine[$status] : 0) + $num;
+			$mine[ $status ] = ( isset( $mine[ $status ] ) ? $mine[ $status ] : 0 ) + $num;
 		}
 
-		return array('any' => $any, 'mine' => $mine);
+		return array(
+			'any' => $any,
+			'mine' => $mine,
+		);
 	}
 
 	/**
@@ -324,18 +329,18 @@ class Documentate_Scope_Filter {
 	 * @param string|string[]    $statuses Status or statuses to sum.
 	 * @return int Total count across the requested statuses.
 	 */
-	private function sum_status_counts($counts, $statuses) {
-		if (!is_array($statuses)) {
-			$statuses = array($statuses);
+	private function sum_status_counts( $counts, $statuses ) {
+		if ( ! is_array( $statuses ) ) {
+			$statuses = array( $statuses );
 		}
 
 		$total = 0;
-		foreach ($statuses as $status) {
-			if (!isset($counts[$status])) {
+		foreach ( $statuses as $status ) {
+			if ( ! isset( $counts[ $status ] ) ) {
 				continue;
 			}
 
-			$total += (int) $counts[$status];
+			$total += (int) $counts[ $status ];
 		}
 
 		return $total;
@@ -347,17 +352,17 @@ class Documentate_Scope_Filter {
 	 * @param string $key View key (all, mine, draft, ...).
 	 * @return bool
 	 */
-	private function is_current_view($key) {
+	private function is_current_view( $key ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$status = isset($_GET['post_status']) ? sanitize_key(wp_unslash($_GET['post_status'])) : '';
+		$status = isset( $_GET['post_status'] ) ? sanitize_key( wp_unslash( $_GET['post_status'] ) ) : '';
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$author = isset($_GET['author']) ? absint(wp_unslash($_GET['author'])) : 0;
+		$author = isset( $_GET['author'] ) ? absint( wp_unslash( $_GET['author'] ) ) : 0;
 
-		if ('mine' === $key) {
-			return 0 !== $author && $author === get_current_user_id();
+		if ( 'mine' === $key ) {
+			return 0 !== $author && get_current_user_id() === $author;
 		}
 
-		if ('all' === $key) {
+		if ( 'all' === $key ) {
 			return '' === $status && 0 === $author;
 		}
 
@@ -371,9 +376,9 @@ class Documentate_Scope_Filter {
 	 * @param int    $count The new count.
 	 * @return string Updated view link.
 	 */
-	private function replace_view_count($view, $count) {
-		$replacement = '<span class="count">(' . number_format_i18n($count) . ')</span>';
-		$updated = preg_replace('#<span class="count">\([^)]*\)</span>#', $replacement, $view, 1);
+	private function replace_view_count( $view, $count ) {
+		$replacement = '<span class="count">(' . number_format_i18n( $count ) . ')</span>';
+		$updated = preg_replace( '#<span class="count">\([^)]*\)</span>#', $replacement, $view, 1 );
 
 		return null === $updated ? $view : $updated;
 	}

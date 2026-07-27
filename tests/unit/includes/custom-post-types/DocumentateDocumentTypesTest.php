@@ -51,6 +51,7 @@ class DocumentateDocumentTypesTest extends WP_UnitTestCase {
 
         $_POST['documentate_type_template_id'] = (string) $attach_id;
         $_POST['documentate_type_color']       = '#123abc';
+        $_POST['_wpnonce']                    = wp_create_nonce( 'update-tag_' . $tid );
 
         $admin = new Documentate_Doc_Types_Admin();
         $admin->save_term( $tid );
