@@ -10,12 +10,65 @@
  */
 class Documentate_Template_Parser {
 	/**
+	 * OpenTBS `ope` operators mapped to the data type they imply.
+	 *
+	 * Consulted in declaration order.
+	 *
+	 * @var array<string,array<int,string>>
+	 */
+	private static $operator_data_types = array(
+		'number' => array( 'tbs:num', 'tbs:curr', 'tbs:percent', 'xlsxnum', 'odsnum' ),
+		'boolean' => array( 'tbs:bool', 'xlsxbool', 'odsbool' ),
+		'date' => array( 'tbs:date', 'tbs:time', 'xlsxdate', 'odsdate', 'odstime' ),
+	);
+
+	/**
+	 * Placeholder naming heuristics mapped to the data type they imply.
+	 *
+	 * Consulted in declaration order, and within each type in pattern order.
+	 *
+	 * @var array<string,array<int,string>>
+	 */
+	private static $slug_data_types = array(
+		'date' => array( '/(date|fecha)$/' ),
+		'number' => array( '/(total|amount|importe|suma|numero|number|qty|cantidad)$/' ),
+		'boolean' => array(
+			'/^(is|has|tiene|flag|activo|enabled)[._-]?/',
+			'/(flag|activo|enabled)$/',
+		),
+	);
+
+	/**
 	 * Extract placeholders from an OpenTBS-compatible template.
 	 *
 	 * @param string $template_path Absolute path to template file.
 	 * @return array|string[]|WP_Error Array of unique placeholder slugs or WP_Error on failure.
 	 */
 	public static function extract_fields( $template_path ) {
+		$extension = self::validate_template( $template_path );
+		if ( is_wp_error( $extension ) ) {
+			return $extension;
+		}
+
+		$zip = new ZipArchive();
+		if ( true !== $zip->open( $template_path ) ) {
+			return new WP_Error( 'documentate_template_unzip', __( 'Could not open the template for analysis.', 'documentate' ) );
+		}
+
+		$placeholders = self::collect_placeholders( $zip, self::locate_target_parts( $zip, $extension ) );
+
+		$zip->close();
+
+		return self::build_sorted_fields( $placeholders );
+	}
+
+	/**
+	 * Check that a template can be analysed and return its extension.
+	 *
+	 * @param string $template_path Absolute path to template file.
+	 * @return string|WP_Error Lowercased extension, or WP_Error when unusable.
+	 */
+	private static function validate_template( $template_path ) {
 		if ( empty( $template_path ) || ! file_exists( $template_path ) ) {
 			return new WP_Error( 'documentate_template_missing', __( 'The selected template was not found.', 'documentate' ) );
 		}
@@ -29,81 +82,126 @@ class Documentate_Template_Parser {
 			return new WP_Error( 'documentate_zip_missing', __( 'ZipArchive is not available on the server.', 'documentate' ) );
 		}
 
-		$zip = new ZipArchive();
-		if ( true !== $zip->open( $template_path ) ) {
-			return new WP_Error( 'documentate_template_unzip', __( 'Could not open the template for analysis.', 'documentate' ) );
-		}
+		return $extension;
+	}
 
+	/**
+	 * List the archive entries that may contain placeholders.
+	 *
+	 * @param ZipArchive $zip       Opened template archive.
+	 * @param string     $extension Template extension.
+	 * @return string[]
+	 */
+	private static function locate_target_parts( ZipArchive $zip, $extension ) {
 		$targets = array();
-		if ( 'docx' === $extension ) {
-			// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive exposes camelCase properties.
-			for ( $i = 0; $i < $zip->numFiles; $i++ ) {
-				$name = $zip->getNameIndex( $i );
-				if ( str_starts_with( $name, 'word/' ) && self::ends_with( $name, '.xml' ) ) {
-					$targets[] = $name;
-				}
-			}
-		} else {
+
+		if ( 'docx' !== $extension ) {
 			// ODT: main content plus styles (headers/footers).
 			foreach ( array( 'content.xml', 'styles.xml' ) as $candidate ) {
 				if ( false !== $zip->locateName( $candidate ) ) {
 					$targets[] = $candidate;
 				}
 			}
+
+			return $targets;
 		}
 
+		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive exposes camelCase properties.
+		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+			$name = $zip->getNameIndex( $i );
+			if ( str_starts_with( $name, 'word/' ) && self::ends_with( $name, '.xml' ) ) {
+				$targets[] = $name;
+			}
+		}
+
+		return $targets;
+	}
+
+	/**
+	 * Parse every placeholder found across the given archive entries.
+	 *
+	 * @param ZipArchive $zip     Opened template archive.
+	 * @param string[]   $targets Archive entries to read.
+	 * @return array<string,array> Parsed placeholders keyed by lowercased name.
+	 */
+	private static function collect_placeholders( ZipArchive $zip, array $targets ) {
 		$placeholders = array();
+
 		foreach ( $targets as $file ) {
-			$contents = $zip->getFromName( $file );
-			if ( false === $contents ) {
-				continue;
-			}
-			$normalized = self::normalize_xml_text( $contents );
-			if ( '' === $normalized ) {
-				continue;
-			}
-			preg_match_all( '/\[([^\]\r\n]+)\]/', $normalized, $matches );
-			if ( empty( $matches[1] ) ) {
-				continue;
-			}
-			foreach ( $matches[1] as $raw_field ) {
-				$parsed = self::parse_placeholder( $raw_field );
-				if ( empty( $parsed['placeholder'] ) ) {
-					continue;
-				}
-				$key = strtolower( $parsed['placeholder'] );
-				if ( isset( $placeholders[ $key ] ) ) {
-					// Prefer keeping parameters when multiple instances exist.
-					if ( empty( $placeholders[ $key ]['parameters'] ) && ! empty( $parsed['parameters'] ) ) {
-						$placeholders[ $key ] = $parsed;
-					}
-					continue;
-				}
-				$placeholders[ $key ] = $parsed;
+			foreach ( self::match_placeholders( $zip->getFromName( $file ) ) as $raw_field ) {
+				self::merge_placeholder( $placeholders, $raw_field );
 			}
 		}
 
-		$zip->close();
+		return $placeholders;
+	}
 
-		if ( empty( $placeholders ) ) {
+	/**
+	 * Extract the raw bracketed placeholders from an archive entry.
+	 *
+	 * @param string|false $contents Raw entry contents, or false when unreadable.
+	 * @return string[]
+	 */
+	private static function match_placeholders( $contents ) {
+		if ( false === $contents ) {
 			return array();
 		}
 
+		$normalized = self::normalize_xml_text( $contents );
+		if ( '' === $normalized ) {
+			return array();
+		}
+
+		preg_match_all( '/\[([^\]\r\n]+)\]/', $normalized, $matches );
+
+		return empty( $matches[1] ) ? array() : $matches[1];
+	}
+
+	/**
+	 * Add a parsed placeholder to the accumulator, keeping the richest copy.
+	 *
+	 * @param array<string,array> $placeholders Accumulated placeholders.
+	 * @param string              $raw_field    Raw placeholder body.
+	 * @return void
+	 */
+	private static function merge_placeholder( array &$placeholders, $raw_field ) {
+		$parsed = self::parse_placeholder( $raw_field );
+		if ( empty( $parsed['placeholder'] ) ) {
+			return;
+		}
+
+		$key = strtolower( $parsed['placeholder'] );
+		if ( ! isset( $placeholders[ $key ] ) ) {
+			$placeholders[ $key ] = $parsed;
+			return;
+		}
+
+		// Prefer keeping parameters when multiple instances exist.
+		if ( empty( $placeholders[ $key ]['parameters'] ) && ! empty( $parsed['parameters'] ) ) {
+			$placeholders[ $key ] = $parsed;
+		}
+	}
+
+	/**
+	 * Format parsed placeholders into field definitions sorted by label.
+	 *
+	 * @param array<string,array> $placeholders Parsed placeholders.
+	 * @return array[]
+	 */
+	private static function build_sorted_fields( array $placeholders ) {
 		$fields = array();
 		foreach ( $placeholders as $parsed ) {
 			$fields[] = self::format_field_info( $parsed );
 		}
 
-		if ( ! empty( $fields ) ) {
-			usort(
-				$fields,
-				static function ( $a, $b ) {
-					$label_a = isset( $a['label'] ) ? $a['label'] : '';
-					$label_b = isset( $b['label'] ) ? $b['label'] : '';
-					return strnatcasecmp( $label_a, $label_b );
-				}
-			);
-		}
+		usort(
+			$fields,
+			static function ( $a, $b ) {
+				$label_a = isset( $a['label'] ) ? $a['label'] : '';
+				$label_b = isset( $b['label'] ) ? $b['label'] : '';
+				return strnatcasecmp( $label_a, $label_b );
+			}
+		);
 
 		return $fields;
 	}
@@ -566,45 +664,72 @@ class Documentate_Template_Parser {
 	 * @return string One of text|number|boolean|date.
 	 */
 	private static function detect_data_type( $placeholder, $parameters ) {
-		$placeholder = strtolower( (string) $placeholder );
 		$parameters = is_array( $parameters ) ? $parameters : array();
 
-		if ( isset( $parameters['ope'] ) ) {
-			$ope = strtolower( (string) $parameters['ope'] );
-			if ( in_array( $ope, array( 'tbs:num', 'tbs:curr', 'tbs:percent', 'xlsxnum', 'odsnum' ), true ) ) {
-				return 'number';
+		$type = self::type_from_operator( $parameters );
+		if ( '' === $type ) {
+			$type = self::type_from_format( $parameters );
+		}
+		if ( '' === $type ) {
+			$type = self::type_from_slug( strtolower( (string) $placeholder ) );
+		}
+
+		return '' === $type ? 'text' : $type;
+	}
+
+	/**
+	 * Resolve the data type from the OpenTBS `ope` parameter.
+	 *
+	 * @param array $parameters Placeholder parameters.
+	 * @return string Detected type, or an empty string when undecided.
+	 */
+	private static function type_from_operator( array $parameters ) {
+		if ( ! isset( $parameters['ope'] ) ) {
+			return '';
+		}
+
+		$ope = strtolower( (string) $parameters['ope'] );
+		foreach ( self::$operator_data_types as $type => $operators ) {
+			if ( in_array( $ope, $operators, true ) ) {
+				return $type;
 			}
-			if ( in_array( $ope, array( 'tbs:bool', 'xlsxbool', 'odsbool' ), true ) ) {
-				return 'boolean';
-			}
-			if ( in_array( $ope, array( 'tbs:date', 'tbs:time', 'xlsxdate', 'odsdate', 'odstime' ), true ) ) {
+		}
+
+		return '';
+	}
+
+	/**
+	 * Resolve the data type from a date-like format parameter.
+	 *
+	 * @param array $parameters Placeholder parameters.
+	 * @return string Detected type, or an empty string when undecided.
+	 */
+	private static function type_from_format( array $parameters ) {
+		foreach ( array( 'frm', 'format' ) as $key ) {
+			if ( isset( $parameters[ $key ] ) && preg_match( '/[dmyhs]/', strtolower( (string) $parameters[ $key ] ) ) ) {
 				return 'date';
 			}
 		}
 
-		foreach ( array( 'frm', 'format' ) as $key ) {
-			if ( isset( $parameters[ $key ] ) ) {
-				$candidate = strtolower( (string) $parameters[ $key ] );
-				if ( preg_match( '/[dmyhs]/', $candidate ) ) {
-					return 'date';
+		return '';
+	}
+
+	/**
+	 * Resolve the data type from naming heuristics on the placeholder slug.
+	 *
+	 * @param string $placeholder Lowercased placeholder name.
+	 * @return string Detected type, or an empty string when undecided.
+	 */
+	private static function type_from_slug( $placeholder ) {
+		foreach ( self::$slug_data_types as $type => $patterns ) {
+			foreach ( $patterns as $pattern ) {
+				if ( preg_match( $pattern, $placeholder ) ) {
+					return $type;
 				}
 			}
 		}
 
-		if ( preg_match( '/(date|fecha)$/', $placeholder ) ) {
-			return 'date';
-		}
-		if ( preg_match( '/(total|amount|importe|suma|numero|number|qty|cantidad)$/', $placeholder ) ) {
-			return 'number';
-		}
-		if (
-			preg_match( '/^(is|has|tiene|flag|activo|enabled)[._-]?/', $placeholder )
-			|| preg_match( '/(flag|activo|enabled)$/', $placeholder )
-		) {
-			return 'boolean';
-		}
-
-		return 'text';
+		return '';
 	}
 
 	/**
