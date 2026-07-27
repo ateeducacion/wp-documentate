@@ -120,6 +120,13 @@ class Document_Meta_Box {
 			return;
 		}
 
+		if (
+			class_exists( 'Documentate_Workflow' )
+			&& ! \Documentate_Workflow::current_user_can_modify_document( $post_id )
+		) {
+			return;
+		}
+
 		if ( null === $post ) {
 			$post = get_post( $post_id );
 		}

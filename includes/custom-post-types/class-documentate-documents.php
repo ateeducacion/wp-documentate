@@ -2149,6 +2149,14 @@ class Documentate_Documents {
 			return;
 		}
 
+		// Server-side lock: non-admins must not persist field meta on locked docs.
+		if (
+			class_exists( 'Documentate_Workflow' )
+			&& ! Documentate_Workflow::current_user_can_modify_document( $post_id )
+		) {
+			return;
+		}
+
 		// Handle type selection (lock after set).
 		if (
 			isset( $_POST['documentate_type_nonce'] )

@@ -196,4 +196,37 @@ class DocumentateUserScopeTest extends WP_UnitTestCase {
 
 		unset( $_POST['documentate_scope_nonce'], $_POST[ Documentate_User_Scope::META_KEY ] );
 	}
+
+	/**
+	 * Editors must not be able to change their own scope (authorization boundary).
+	 */
+	public function test_editor_cannot_self_assign_scope() {
+		wp_set_current_user( $this->editor_user_id );
+		update_user_meta( $this->editor_user_id, Documentate_User_Scope::META_KEY, 0 );
+
+		$nonce = wp_create_nonce( 'documentate_save_scope_' . $this->editor_user_id );
+		$_POST['documentate_scope_nonce']          = $nonce;
+		$_POST[ Documentate_User_Scope::META_KEY ] = $this->cat_id;
+
+		$this->user_scope->save_scope_field( $this->editor_user_id );
+
+		$saved = absint( get_user_meta( $this->editor_user_id, Documentate_User_Scope::META_KEY, true ) );
+		$this->assertSame( 0, $saved, 'Editor must not self-assign a broader scope.' );
+
+		unset( $_POST['documentate_scope_nonce'], $_POST[ Documentate_User_Scope::META_KEY ] );
+	}
+
+	/**
+	 * Scope field is hidden on the profile for non-administrators.
+	 */
+	public function test_render_scope_field_hidden_for_editor_self() {
+		wp_set_current_user( $this->editor_user_id );
+		$user = get_userdata( $this->editor_user_id );
+
+		ob_start();
+		$this->user_scope->render_scope_field( $user );
+		$output = ob_get_clean();
+
+		$this->assertSame( '', $output, 'Non-admins must not see the scope assignment field.' );
+	}
 }

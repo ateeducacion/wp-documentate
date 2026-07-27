@@ -441,6 +441,62 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Non-admins must not change title/content of published documents (server-side).
+	 */
+	public function test_editor_cannot_change_published_document_content() {
+		global $wpdb;
+
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Original title',
+				'post_status' => 'draft',
+			)
+		);
+		$this->assertNotWPError( $post_id );
+
+		wp_set_object_terms( $post_id, $this->doc_type_id, 'documentate_doc_type' );
+		update_post_meta( $post_id, 'documentate_locked_doc_type', $this->doc_type_id );
+		wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			)
+		);
+
+		// Seed known content without going through the compose filter.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->posts,
+			array(
+				'post_title'   => 'Original title',
+				'post_content' => 'Original content',
+			),
+			array( 'ID' => $post_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+		clean_post_cache( $post_id );
+
+		wp_set_current_user( $this->editor_user_id );
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_title'   => 'Hijacked title',
+				'post_content' => 'Hijacked content',
+				'post_status'  => 'publish',
+			)
+		);
+
+		$stored = get_post( $post_id );
+		$this->assertSame( 'Original title', $stored->post_title, 'Published title must stay frozen for non-admins.' );
+		$this->assertSame( 'Original content', $stored->post_content, 'Published content must stay frozen for non-admins.' );
+		$this->assertSame( 'publish', $stored->post_status );
+	}
+
+	/**
 	 * Test that other post types are not affected by workflow.
 	 */
 	public function test_other_post_types_not_affected() {

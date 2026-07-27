@@ -43,13 +43,27 @@ class Documentate_User_Scope {
 	}
 
 	/**
+	 * Whether the current user may assign document scopes.
+	 *
+	 * Scope assignment is an authorization control: only administrators may
+	 * set or change a user's scope category. Being able to edit a profile
+	 * (including one's own) is not sufficient.
+	 *
+	 * @param int $user_id User ID being edited.
+	 * @return bool
+	 */
+	private function current_user_can_assign_scope( $user_id ) {
+		return current_user_can( 'manage_options' ) && current_user_can( 'edit_user', $user_id );
+	}
+
+	/**
 	 * Render the scope category field on the user profile page.
 	 *
 	 * @param WP_User $user The user object being edited.
 	 * @return void
 	 */
 	public function render_scope_field( $user ) {
-		if ( ! current_user_can( 'edit_user', $user->ID ) ) {
+		if ( ! $this->current_user_can_assign_scope( $user->ID ) ) {
 			return;
 		}
 
@@ -97,7 +111,7 @@ class Documentate_User_Scope {
 	 * @return void
 	 */
 	public function save_scope_field( $user_id ) {
-		if ( ! current_user_can( 'edit_user', $user_id ) ) {
+		if ( ! $this->current_user_can_assign_scope( $user_id ) ) {
 			return;
 		}
 

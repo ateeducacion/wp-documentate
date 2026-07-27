@@ -384,6 +384,66 @@ class DocumentateScopeCountsTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Object-level access: editor may open in-scope documents and not out-of-scope ones.
+	 */
+	public function test_user_can_access_document_respects_scope() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+
+		$in_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $in_scope, array( $this->cat_a ), 'category' );
+
+		$out_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $out_scope, array( $this->cat_b ), 'category' );
+
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $in_scope, $this->editor_id ),
+			'In-scope document should be accessible.'
+		);
+		$this->assertFalse(
+			$this->filter->user_can_access_document( $out_scope, $this->editor_id ),
+			'Out-of-scope document must be denied.'
+		);
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $out_scope, $this->admin_id ),
+			'Administrators remain unrestricted.'
+		);
+	}
+
+	/**
+	 * map_meta_cap must deny edit_post for out-of-scope documents.
+	 */
+	public function test_map_meta_cap_denies_out_of_scope_edit() {
+		update_user_meta( $this->editor_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->cat_a );
+		wp_set_current_user( $this->editor_id );
+
+		$out_scope = self::factory()->post->create(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'draft',
+				'post_author' => $this->admin_id,
+			)
+		);
+		wp_set_object_terms( $out_scope, array( $this->cat_b ), 'category' );
+
+		$this->assertFalse(
+			current_user_can( 'edit_post', $out_scope ),
+			'Editor must not edit_post out-of-scope documents by ID.'
+		);
+	}
+
+	/**
 	 * The view counters are computed with a single grouped query rather than one
 	 * WP_Query per view (regression guard against the previous N+1 pattern), and
 	 * the resulting counts remain correct.

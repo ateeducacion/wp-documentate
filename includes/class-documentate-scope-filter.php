@@ -64,23 +64,27 @@ class Documentate_Scope_Filter {
 		// Recalculate the admin list view counters using the same scope rules.
 		// Priority 20 so it runs after add_archived_view() has added its link.
 		add_filter( 'views_edit-' . self::POST_TYPE, array( $this, 'filter_view_counts' ), 20 );
+		// Enforce scope on object-level caps (edit/export/delete by ID).
+		add_filter( 'map_meta_cap', array( $this, 'map_meta_cap_scope' ), 10, 4 );
 	}
 
 	/**
-	 * Resolve the scope term IDs that constrain the current user's documents.
+	 * Resolve the scope term IDs that constrain a user's documents.
 	 *
+	 * @param int|null $user_id Optional user ID. Defaults to the current user.
 	 * @return int[]|null Array of term IDs (scope term plus descendants) the user
 	 *                    is restricted to; an empty array when the user is
 	 *                    restricted but has no scope assigned (sees nothing); or
 	 *                    null when the user is unrestricted (administrator).
 	 */
-	public function get_scope_term_ids() {
+	public function get_scope_term_ids( $user_id = null ) {
+		$user_id = null === $user_id ? get_current_user_id() : absint( $user_id );
+
 		// Administrators (anyone who can manage options) are unrestricted.
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( $user_id > 0 && user_can( $user_id, 'manage_options' ) ) {
 			return null;
 		}
 
-		$user_id = get_current_user_id();
 		$scope_term = absint( get_user_meta( $user_id, self::SCOPE_META_KEY, true ) );
 
 		// Restricted user without a scope assigned: nothing is visible.
@@ -95,6 +99,79 @@ class Documentate_Scope_Filter {
 		}
 
 		return array_map( 'absint', $term_ids );
+	}
+
+	/**
+	 * Whether a user may access a document under the scope rules.
+	 *
+	 * Administrators always pass. Scoped users must share at least one
+	 * category term (including descendants of their assigned scope) with the
+	 * document. Documents with no category are out of every non-admin scope.
+	 *
+	 * @param int      $post_id Document post ID.
+	 * @param int|null $user_id Optional user ID. Defaults to the current user.
+	 * @return bool
+	 */
+	public function user_can_access_document( $post_id, $user_id = null ) {
+		$post_id = absint( $post_id );
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post || self::POST_TYPE !== $post->post_type ) {
+			return true;
+		}
+
+		$term_ids = $this->get_scope_term_ids( $user_id );
+		if ( null === $term_ids ) {
+			return true;
+		}
+		if ( empty( $term_ids ) ) {
+			return false;
+		}
+
+		$post_terms = wp_get_post_terms( $post_id, self::SCOPE_TAXONOMY, array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $post_terms ) || empty( $post_terms ) ) {
+			return false;
+		}
+
+		$post_terms = array_map( 'absint', $post_terms );
+		return (bool) array_intersect( $post_terms, $term_ids );
+	}
+
+	/**
+	 * Deny object-level capabilities when a document is outside the user's scope.
+	 *
+	 * List filtering alone is not enough: editors with `edit_others_posts` could
+	 * otherwise open or export any document by guessing its post ID.
+	 *
+	 * @param string[] $caps    Required primitive capabilities.
+	 * @param string   $cap     Meta capability being mapped.
+	 * @param int      $user_id User ID.
+	 * @param array    $args    Extra arguments (post ID at index 0).
+	 * @return string[]
+	 */
+	public function map_meta_cap_scope( $caps, $cap, $user_id, $args ) {
+		if ( ! in_array( $cap, array( 'edit_post', 'delete_post', 'read_post' ), true ) ) {
+			return $caps;
+		}
+
+		if ( empty( $args[0] ) ) {
+			return $caps;
+		}
+
+		$post_id = absint( $args[0] );
+		$post    = get_post( $post_id );
+		if ( ! $post || self::POST_TYPE !== $post->post_type ) {
+			return $caps;
+		}
+
+		if ( ! $this->user_can_access_document( $post_id, $user_id ) ) {
+			$caps[] = 'do_not_allow';
+		}
+
+		return $caps;
 	}
 
 	/**
