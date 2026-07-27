@@ -9,7 +9,7 @@
  *
  * Notes on robustness:
  * - Fixtures are created on the SAME wp-env instance the browser uses. The E2E
- *   suite runs against the development site (`WP_BASE_URL`, port 8889), which
+ *   suite runs against the development site (`WP_BASE_URL`, port 8989), which
  *   wp-env serves from the `cli` container — so WP-CLI fixtures must target
  *   `cli`, not the `tests-cli` (tests) instance.
  * - Every fixture is suffixed with a unique per-run id so parallel specs and

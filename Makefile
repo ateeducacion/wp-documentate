@@ -12,10 +12,11 @@ endif
 WP_ENV = npx wp-env
 
 # Ports — single source of truth for the Makefile. Keep in sync with the
-# `port`/`testsPort` declared in .wp-env.docker.json. Override from the
-# environment if they ever clash.
-DOCKER_PORT       ?= 8889
-DOCKER_TESTS_PORT ?= 8890
+# `port`/`testsPort` declared in .wp-env.docker.json.
+# Chosen away from the common wp-env defaults (8888/8889) so documentate can
+# run alongside other local WordPress stacks without freeing ports.
+DOCKER_PORT       ?= 8989
+DOCKER_TESTS_PORT ?= 8990
 
 # Docker test config used for all wp-env run commands
 DOCKER_CONFIG = --config=.wp-env.docker.json
@@ -23,14 +24,11 @@ DOCKER_CONFIG = --config=.wp-env.docker.json
 # WP-CLI inside the Docker dev container (the instance the browser/tests use).
 WP_CLI = $(WP_ENV) run cli $(DOCKER_CONFIG) wp
 
-# ─── Port arbitration (local dev) ────────────────────────────────────────────
-# documentate and wp-decker both default to ports 8888/8889, so only one wp-env
-# stack can own them at a time. Before starting ours, stop whatever publishes
-# the ports we need. `docker stop` (not `rm`) keeps the other stack's data — its
-# own `make up` brings it back. Skipped under CI ($$CI set) and a no-op when
-# Docker is down, so it only ever acts on a developer's machine — never
-# stopping an environment CI just started.
-# Usage: $(call free_ports,8889 8890)
+# ─── Port arbitration (local dev, safety net only) ───────────────────────────
+# Ports 8989/8990 are documentate-specific and should not collide with other
+# stacks. If something else is bound to them, stop those containers only.
+# Skipped under CI ($$CI set) and a no-op when Docker is down.
+# Usage: $(call free_ports,8989 8990)
 define free_ports
 	@if [ -z "$$CI" ] && docker version >/dev/null 2>&1; then \
 		ids="$$(docker ps -q $(patsubst %,--filter publish=%,$(1)))"; \
@@ -49,7 +47,7 @@ install-requirements:
 	npm -g i @wordpress/env
 
 
-# ─── Docker (port 8889, requires Docker) ─────────────────────────────────────
+# ─── Docker (port 8989, requires Docker) ─────────────────────────────────────
 
 start-docker-if-not-running: check-docker
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$(DOCKER_PORT))" = "000" ]; then \
@@ -85,7 +83,7 @@ clean: check-docker
 destroy:
 	$(WP_ENV) destroy
 
-# ─── PHPUnit tests (Docker, port 8889) ───────────────────────────────────────
+# ─── PHPUnit tests (Docker, port 8989) ───────────────────────────────────────
 
 tests: test
 
@@ -130,7 +128,7 @@ test-coverage: start-docker-if-not-running
 
 # ─── E2E tests ────────────────────────────────────────────────────────────────
 
-# Ensure dev environment (port 8889) has admin user and plugin active for E2E
+# Ensure dev environment (port 8989) has admin user and plugin active for E2E
 setup-e2e-env:
 	@echo "Setting up E2E environment..."
 	@$(WP_CLI) core install \
@@ -145,7 +143,7 @@ setup-e2e-env:
 	@$(WP_CLI) plugin activate documentate 2>/dev/null || true
 	@$(WP_CLI) rewrite structure '/%postname%/' --hard 2>/dev/null || true
 
-# Run E2E tests against Docker (port 8889) — the default.
+# Run E2E tests against Docker (port 8989) — the default.
 test-e2e: start-docker-if-not-running setup-e2e-env
 	WP_BASE_URL=http://localhost:$(DOCKER_PORT) npm run test:e2e -- $(ARGS)
 

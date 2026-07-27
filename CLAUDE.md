@@ -54,9 +54,9 @@ A task is **not done** until all relevant checks pass.
 
 ## Environment
 
-Docker (wp-env) on port 8889 for tests / check-plugin / WP-CLI.
+Docker (wp-env) on port 8989 for tests / check-plugin / WP-CLI.
 
 ```bash
-make up             # start Docker env (http://localhost:8889, admin/password)
+make up             # start Docker env (http://localhost:8989, admin/password)
 make down           # stop Docker env
 ```

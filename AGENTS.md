@@ -43,7 +43,7 @@ Read `ARCHITECTURE.md` before implementing new features or significant changes.
 ### Environment setup (requires Docker)
 
 ```bash
-make up          # Start wp-env Docker containers (http://localhost:8888)
+make up          # Start wp-env Docker containers (http://localhost:8989)
 make down        # Stop containers
 make clean       # Reset WordPress environment
 ```

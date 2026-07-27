@@ -39,7 +39,7 @@ Try it in the browser with WordPress Playground (includes sample data; changes a
 Requires Docker (wp-env).
 
 ```bash
-make up             # Start Docker wp-env (http://localhost:8889, admin / password)
+make up             # Start Docker wp-env (http://localhost:8989, admin / password)
 make down           # Stop containers
 make check          # lint + plugin-check + tests + translations (no auto-fix)
 ```

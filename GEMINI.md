@@ -55,6 +55,6 @@ A task is **not done** until all relevant checks pass.
 ## Environment
 
 ```bash
-make up     # start wp-env (http://localhost:8888, admin/password)
+make up     # start wp-env (http://localhost:8989, admin/password)
 make down   # stop containers
 ```
