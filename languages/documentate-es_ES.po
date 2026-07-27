@@ -8,7 +8,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-05-08T22:20:31+00:00\n"
+"PO-Revision-Date: 2026-07-27T19:38:50+00:00\n"
 "Language: es_ES\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: documentate\n"
@@ -70,8 +70,11 @@ msgstr "Servicio web Collabora Online"
 msgid "LibreOffice WASM in browser (experimental)"
 msgstr "LibreOffice WASM en navegador (experimental)"
 
-msgid "Choose whether conversions are performed via Collabora Online (default) or with LibreOffice WASM in the browser (experimental)."
-msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado) o con LibreOffice WASM en el navegador (experimental)."
+msgid "(not available in WordPress Playground)"
+msgstr "(no disponible en WordPress Playground)"
+
+msgid "Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation."
+msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado, en el servidor) o con LibreOffice WASM en el navegador (experimental). LibreOffice WASM descarga archivos de gran tamaño y requiere un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y SharedArrayBuffer); se recomienda Collabora Online para una generación de PDF fiable en el servidor o en segundo plano."
 
 msgid "Example: https://demo.us.collaboraonline.com"
 msgstr "Ejemplo: https://demo.us.collaboraonline.com"
@@ -111,6 +114,9 @@ msgstr "Conectando..."
 
 msgid "retries"
 msgstr "reintentos"
+
+msgid "You are not authorized to access this resource."
+msgstr "No estás autorizado para acceder a este recurso."
 
 msgid "Field content ↓"
 msgstr "Contenido del campo ↓"
@@ -445,12 +451,6 @@ msgstr "Error en la conversión."
 msgid "Error"
 msgstr "Error"
 
-msgid "Loading LibreOffice..."
-msgstr "Cargando LibreOffice..."
-
-msgid "Processing with LibreOffice WASM."
-msgstr "Procesando con LibreOffice WASM."
-
 msgid "Could not initialize the WordPress filesystem."
 msgstr "No se pudo inicializar el sistema de archivos de WordPress."
 
@@ -552,6 +552,9 @@ msgstr "Error al generar el documento."
 msgid "Connection error. Please try again."
 msgstr "Error de conexión. Por favor, inténtalo de nuevo."
 
+msgid "Loading LibreOffice..."
+msgstr "Cargando LibreOffice..."
+
 msgid "Converting in browser..."
 msgstr "Convirtiendo en el navegador..."
 
@@ -601,11 +604,11 @@ msgstr "No se pudo guardar el fichero convertido en el disco."
 msgid "Collabora Online"
 msgstr "Collabora Online"
 
-msgid "Could not complete the conversion."
-msgstr "No se pudo completar la conversión."
-
 msgid "Collabora Online is not available to convert documents."
 msgstr "Collabora Online no está disponible para convertir documentos."
+
+msgid "In-browser LibreOffice WASM conversion is not available in WordPress Playground. Use Collabora Online instead."
+msgstr "La conversión LibreOffice WASM en el navegador no está disponible en WordPress Playground. Usa Collabora Online en su lugar."
 
 #. translators: 1: source extension, 2: target extension.
 #, php-format
@@ -727,9 +730,6 @@ msgstr "Advertencia"
 msgid "You are running this site with demo data."
 msgstr "Estás ejecutando este sitio con datos de demostración."
 
-msgid "You are not authorized to access this resource."
-msgstr "No estás autorizado para acceder a este recurso."
-
 msgid "Access Denied"
 msgstr "Acceso denegado"
 
@@ -741,6 +741,21 @@ msgstr "Configura una plantilla ODT en el tipo de documento seleccionado."
 
 msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
 msgstr "No se pudo generar el documento base porque el tipo de documento no tiene configurada una plantilla DOCX u ODT."
+
+msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
+msgstr "La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La generación de PDF en el servidor o en segundo plano requiere Collabora Online u otro servicio del lado del servidor."
+
+msgid "The LibreOffice WASM assets are not installed. Run \"npm install\" (or \"npm run copy:libreoffice-converter\") to enable in-browser conversion, or use Collabora Online."
+msgstr "Los recursos de LibreOffice WASM no están instalados. Ejecuta «npm install» (o «npm run copy:libreoffice-converter») para habilitar la conversión en el navegador, o usa Collabora Online."
+
+msgid "In-browser conversion requires a cross-origin isolated context (Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp) and SharedArrayBuffer support. If your browser cannot provide them, use Collabora Online instead."
+msgstr "La conversión en el navegador requiere un contexto con aislamiento de origen cruzado (Cross-Origin-Opener-Policy: same-origin y Cross-Origin-Embedder-Policy: require-corp) y compatibilidad con SharedArrayBuffer. Si tu navegador no puede proporcionarlos, usa Collabora Online en su lugar."
+
+msgid "Downloading LibreOffice WASM components. This may take a while the first time."
+msgstr "Descargando componentes de LibreOffice WASM. Esto puede tardar la primera vez."
+
+msgid "Processing with LibreOffice WASM."
+msgstr "Procesando con LibreOffice WASM."
 
 msgid "Pendiente de revisión"
 msgstr "Pendiente de revisión"
@@ -850,12 +865,6 @@ msgstr "ZipArchive no está disponible para formato de texto enriquecido."
 
 msgid "Could not open the generated DOCX for formatting."
 msgstr "No se pudo abrir el DOCX generado para formatear."
-
-msgid "ZipArchive is not available for rich text formatting in ODT."
-msgstr "ZipArchive no está disponible para formato de texto enriquecido en ODT."
-
-msgid "Could not open the ODT file for rich text formatting."
-msgstr "No se pudo abrir el archivo ODT para formato de texto enriquecido."
 
 msgid "ZipArchive is not available for ODT post-processing."
 msgstr "ZipArchive no está disponible para el post-procesado del ODT."
@@ -1206,24 +1215,3 @@ msgstr "Lista separada por comas."
 
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
-
-msgid "(not available in WordPress Playground)"
-msgstr "(no disponible en WordPress Playground)"
-
-msgid "In-browser LibreOffice WASM conversion is not available in WordPress Playground. Use Collabora Online instead."
-msgstr "La conversión LibreOffice WASM en el navegador no está disponible en WordPress Playground. Usa Collabora Online en su lugar."
-
-msgid "Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation."
-msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado, en el servidor) o con LibreOffice WASM en el navegador (experimental). LibreOffice WASM descarga archivos de gran tamaño y requiere un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y SharedArrayBuffer); se recomienda Collabora Online para una generación de PDF fiable en el servidor o en segundo plano."
-
-msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
-msgstr "La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La generación de PDF en el servidor o en segundo plano requiere Collabora Online u otro servicio del lado del servidor."
-
-msgid "The LibreOffice WASM assets are not installed. Run \"npm install\" (or \"npm run copy:libreoffice-converter\") to enable in-browser conversion, or use Collabora Online."
-msgstr "Los recursos de LibreOffice WASM no están instalados. Ejecuta «npm install» (o «npm run copy:libreoffice-converter») para habilitar la conversión en el navegador, o usa Collabora Online."
-
-msgid "In-browser conversion requires a cross-origin isolated context (Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp) and SharedArrayBuffer support. If your browser cannot provide them, use Collabora Online instead."
-msgstr "La conversión en el navegador requiere un contexto con aislamiento de origen cruzado (Cross-Origin-Opener-Policy: same-origin y Cross-Origin-Embedder-Policy: require-corp) y compatibilidad con SharedArrayBuffer. Si tu navegador no puede proporcionarlos, usa Collabora Online en su lugar."
-
-msgid "Downloading LibreOffice WASM components. This may take a while the first time."
-msgstr "Descargando componentes de LibreOffice WASM. Esto puede tardar la primera vez."
