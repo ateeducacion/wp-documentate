@@ -1,0 +1,17 @@
+---
+# Shared CodeQL configuration for .github/workflows/codeql.yml.
+
+name: Documentate CodeQL config
+
+# Third-party code that ships with the plugin is out of scope: we cannot fix it
+# here, and it would otherwise dominate the Code Scanning results.
+paths-ignore:
+  # TinyButStrong / OpenTBS and the LibreOffice WASM converter bundle.
+  - admin/vendor
+  # Bundled TinyMCE plugins (upstream copies, including minified builds).
+  - admin/mce
+  - admin/js/vendor
+  # Composer and npm dependencies, in case they are present on the runner.
+  - vendor
+  - node_modules
+  - '**/node_modules'
