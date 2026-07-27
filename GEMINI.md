@@ -26,13 +26,15 @@ Read `ARCHITECTURE.md` before making significant changes.
 ## Validation commands
 
 ```bash
-make fix                   # auto-format PHP (mago format)
-make lint                  # lint PHP (mago lint)          — always required
+make fix                   # auto-format PHP (PHPCBF / WPCS)
+make lint                  # lint PHP (PHPCS / WPCS)       — always required
 make check-plugin          # WordPress plugin-check         — always required
 make test                  # PHPUnit tests                  — always required
 make test-e2e              # Playwright E2E                 — UI/browser changes
 make check-untranslated    # translation check              — string changes
-make check                 # run all of the above
+make check                 # verify only (does not reformat)
+make mago-lint             # optional secondary Mago lint
+make mago-format           # optional secondary Mago format
 ```
 
 A task is **not done** until all relevant checks pass.
@@ -42,7 +44,7 @@ A task is **not done** until all relevant checks pass.
 ## Key coding rules
 
 - PHP indentation: **tabs** (WordPress Coding Standards, `.editorconfig`).
-- Linter: `mago` via `make lint` / `make fix` (not PHPCS/PHPCBF directly).
+- Linter: PHPCS / WPCS via `make lint` / `make fix` (canonical). Mago is optional.
 - Escape output, sanitise and unslash input, use nonces, check capabilities.
 - UI text in **Spanish**; code, comments, docblocks in **English**.
 - Text domain: `documentate`.
