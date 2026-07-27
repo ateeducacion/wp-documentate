@@ -1,5 +1,4 @@
 <?php
-
 /**
  * LibreOffice WASM (browser) converter helper for Documentate.
  *
@@ -22,7 +21,7 @@
  */
 
 // Exit if accessed directly.
-defined('ABSPATH') || exit();
+defined( 'ABSPATH' ) || exit();
 
 /**
  * Helper for the browser-based LibreOffice WASM conversion engine.
@@ -43,8 +42,8 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 * @return bool
 	 */
 	public static function is_browser_mode() {
-		$options = get_option('documentate_settings', array());
-		$engine = isset($options['conversion_engine']) ? sanitize_key($options['conversion_engine']) : 'collabora';
+		$options = get_option( 'documentate_settings', array() );
+		$engine = isset( $options['conversion_engine'] ) ? sanitize_key( $options['conversion_engine'] ) : 'collabora';
 		return 'wasm' === $engine;
 	}
 
@@ -83,11 +82,15 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 * @param string $input_format  Optional input format (unused).
 	 * @return WP_Error
 	 */
-	public static function convert($input_path, $output_path, $output_format = '', $input_format = '') { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		return new WP_Error('documentate_libreoffice_wasm_browser_only', self::get_browser_conversion_message(), array(
-			'mode' => 'browser',
-			'engine' => 'wasm',
-		));
+	public static function convert( $input_path, $output_path, $output_format = '', $input_format = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		return new WP_Error(
+			'documentate_libreoffice_wasm_browser_only',
+			self::get_browser_conversion_message(),
+			array(
+				'mode' => 'browser',
+				'engine' => 'wasm',
+			)
+		);
 	}
 
 	/**
@@ -96,7 +99,7 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 * @return string
 	 */
 	public static function get_vendor_dir() {
-		return plugin_dir_path(DOCUMENTATE_PLUGIN_FILE) . self::VENDOR_PATH;
+		return plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . self::VENDOR_PATH;
 	}
 
 	/**
@@ -105,14 +108,14 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 * @return string
 	 */
 	public static function get_vendor_base_url() {
-		$url = plugins_url(self::VENDOR_PATH, DOCUMENTATE_PLUGIN_FILE);
+		$url = plugins_url( self::VENDOR_PATH, DOCUMENTATE_PLUGIN_FILE );
 
 		/**
 		 * Filter the base URL used to load LibreOffice WASM browser assets.
 		 *
 		 * @param string $url Current base URL (no trailing slash).
 		 */
-		return (string) apply_filters('documentate_libreoffice_wasm_base_url', $url);
+		return (string) apply_filters( 'documentate_libreoffice_wasm_base_url', $url );
 	}
 
 	/**
@@ -143,7 +146,7 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 * @return string
 	 */
 	public static function get_wasm_base_url() {
-		return trailingslashit(self::get_vendor_base_url() . '/wasm');
+		return trailingslashit( self::get_vendor_base_url() . '/wasm' );
 	}
 
 	/**
@@ -156,7 +159,7 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 * @return string
 	 */
 	public static function get_binary_base_url() {
-		$url = defined('DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL')
+		$url = defined( 'DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL' )
 			? (string) DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL
 			: self::get_wasm_base_url();
 
@@ -165,9 +168,9 @@ class Documentate_Libreoffice_Wasm_Converter {
 		 *
 		 * @param string $url Current base URL (with trailing slash).
 		 */
-		$url = (string) apply_filters('documentate_libreoffice_wasm_binary_base_url', $url);
+		$url = (string) apply_filters( 'documentate_libreoffice_wasm_binary_base_url', $url );
 
-		return trailingslashit($url);
+		return trailingslashit( $url );
 	}
 
 	/**
@@ -200,9 +203,9 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 */
 	public static function assets_available() {
 		$dir = self::get_vendor_dir();
-		return file_exists($dir . '/dist/browser.js')
-			&& file_exists($dir . '/dist/browser.worker.global.js')
-			&& file_exists($dir . '/wasm/soffice.js');
+		return file_exists( $dir . '/dist/browser.js' )
+			&& file_exists( $dir . '/dist/browser.worker.global.js' )
+			&& file_exists( $dir . '/wasm/soffice.js' );
 	}
 
 	/**
@@ -216,7 +219,7 @@ class Documentate_Libreoffice_Wasm_Converter {
 		 *
 		 * @param array<int, string> $formats Supported input extensions.
 		 */
-		return (array) apply_filters('documentate_libreoffice_wasm_input_formats', array('odt', 'docx'));
+		return (array) apply_filters( 'documentate_libreoffice_wasm_input_formats', array( 'odt', 'docx' ) );
 	}
 
 	/**
@@ -271,21 +274,21 @@ class Documentate_Libreoffice_Wasm_Converter {
 	 */
 	public static function get_browser_strings() {
 		return array(
-			'loading' => __('Loading LibreOffice...', 'documentate'),
+			'loading' => __( 'Loading LibreOffice...', 'documentate' ),
 			'loadingDetail' => __(
 				'Downloading LibreOffice WASM components. This may take a while the first time.',
 				'documentate',
 			),
-			'generating' => __('Generating document...', 'documentate'),
-			'generatingDetail' => __('Processing template on server.', 'documentate'),
-			'downloading' => __('Downloading document...', 'documentate'),
-			'downloadingDetail' => __('Fetching source document.', 'documentate'),
-			'converting' => __('Converting to PDF...', 'documentate'),
-			'convertingDetail' => __('Processing with LibreOffice WASM.', 'documentate'),
-			'completed' => __('Completed!', 'documentate'),
-			'completedDetail' => __('Document converted.', 'documentate'),
-			'error' => __('Error', 'documentate'),
-			'errorGeneric' => __('Conversion error.', 'documentate'),
+			'generating' => __( 'Generating document...', 'documentate' ),
+			'generatingDetail' => __( 'Processing template on server.', 'documentate' ),
+			'downloading' => __( 'Downloading document...', 'documentate' ),
+			'downloadingDetail' => __( 'Fetching source document.', 'documentate' ),
+			'converting' => __( 'Converting to PDF...', 'documentate' ),
+			'convertingDetail' => __( 'Processing with LibreOffice WASM.', 'documentate' ),
+			'completed' => __( 'Completed!', 'documentate' ),
+			'completedDetail' => __( 'Document converted.', 'documentate' ),
+			'error' => __( 'Error', 'documentate' ),
+			'errorGeneric' => __( 'Conversion error.', 'documentate' ),
 			'sharedArrayBufferError' => self::get_headers_help_message(),
 			'missingAssets' => self::get_missing_assets_message(),
 		);
@@ -306,7 +309,7 @@ class Documentate_Libreoffice_Wasm_Converter {
 			'wasmBaseUrl' => self::get_wasm_base_url(),
 			'sofficeWasmUrl' => self::get_soffice_wasm_url(),
 			'sofficeDataUrl' => self::get_soffice_data_url(),
-			'supportedInputFormats' => array_values(self::get_supported_input_formats()),
+			'supportedInputFormats' => array_values( self::get_supported_input_formats() ),
 			'targetFormat' => self::get_target_format(),
 			'assetsAvailable' => self::assets_available(),
 			'strings' => self::get_browser_strings(),

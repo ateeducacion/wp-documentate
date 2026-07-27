@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Document converter template for LibreOffice WASM (browser) mode.
  *
@@ -11,43 +10,47 @@
  * @package Documentate
  */
 
-if (!defined('ABSPATH'))
+if ( ! defined( 'ABSPATH' ) ) {
 	exit();
+}
 
 // This template is included by Documentate_Admin_Helper::render_converter_page()
 // which handles headers, permission checks, and nonce validation.
 
-require_once plugin_dir_path(__FILE__) . '../includes/class-documentate-libreoffice-wasm-converter.php';
+require_once plugin_dir_path( __FILE__ ) . '../includes/class-documentate-libreoffice-wasm-converter.php';
 
 // Get conversion parameters from the validated request.
-$documentate_document_id = isset($_GET['post_id']) ? absint($_GET['post_id']) : 0;
-$documentate_target_format = isset($_GET['format']) ? sanitize_key($_GET['format']) : 'pdf';
-$documentate_source_format = isset($_GET['source']) ? sanitize_key($_GET['source']) : 'odt';
-$documentate_output_action = isset($_GET['output']) ? sanitize_key($_GET['output']) : 'preview';
-$documentate_nonce = isset($_GET['_wpnonce']) ? sanitize_text_field(wp_unslash($_GET['_wpnonce'])) : '';
-$documentate_use_channel = isset($_GET['use_channel']) && '1' === $_GET['use_channel'];
+$documentate_document_id = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
+$documentate_target_format = isset( $_GET['format'] ) ? sanitize_key( $_GET['format'] ) : 'pdf';
+$documentate_source_format = isset( $_GET['source'] ) ? sanitize_key( $_GET['source'] ) : 'odt';
+$documentate_output_action = isset( $_GET['output'] ) ? sanitize_key( $_GET['output'] ) : 'preview';
+$documentate_nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+$documentate_use_channel = isset( $_GET['use_channel'] ) && '1' === $_GET['use_channel'];
 
 // Plugin-local browser runtime assets and the converter wrapper module.
 $documentate_wasm_config = Documentate_Libreoffice_Wasm_Converter::get_browser_config();
-$documentate_wrapper_url = plugins_url('admin/js/documentate-libreoffice-wasm.js', DOCUMENTATE_PLUGIN_FILE);
+$documentate_wrapper_url = plugins_url( 'admin/js/documentate-libreoffice-wasm.js', DOCUMENTATE_PLUGIN_FILE );
 
-$documentate_converter_config = array_merge($documentate_wasm_config, array(
-	'postId' => $documentate_document_id,
-	'targetFormat' => $documentate_target_format,
-	'sourceFormat' => $documentate_source_format,
-	'outputAction' => $documentate_output_action,
-	'nonce' => $documentate_nonce,
-	'ajaxUrl' => admin_url('admin-ajax.php'),
-	'wrapperUrl' => $documentate_wrapper_url,
-	'useChannel' => $documentate_use_channel,
-));
+$documentate_converter_config = array_merge(
+	$documentate_wasm_config,
+	array(
+		'postId' => $documentate_document_id,
+		'targetFormat' => $documentate_target_format,
+		'sourceFormat' => $documentate_source_format,
+		'outputAction' => $documentate_output_action,
+		'nonce' => $documentate_nonce,
+		'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+		'wrapperUrl' => $documentate_wrapper_url,
+		'useChannel' => $documentate_use_channel,
+	)
+);
 
 ?>
 <!DOCTYPE html>
 <html>
 <head>
 	<meta charset="utf-8">
-	<title><?php esc_html_e('Documentate Converter', 'documentate'); ?></title>
+	<title><?php esc_html_e( 'Documentate Converter', 'documentate' ); ?></title>
 	<style>
 		body {
 			margin: 0;
@@ -98,13 +101,13 @@ $documentate_converter_config = array_merge($documentate_wasm_config, array(
 <body>
 	<div class="status" id="status">
 		<div class="spinner" id="spinner"></div>
-		<h2 id="status-title"><?php esc_html_e('Starting...', 'documentate'); ?></h2>
-		<p id="status-message"><?php esc_html_e('Preparing document converter.', 'documentate'); ?></p>
+		<h2 id="status-title"><?php esc_html_e( 'Starting...', 'documentate' ); ?></h2>
+		<p id="status-message"><?php esc_html_e( 'Preparing document converter.', 'documentate' ); ?></p>
 	</div>
 
 	<script type="module">
 		// Conversion parameters and asset URLs from PHP (validated / localized).
-		const conversionConfig = <?php echo wp_json_encode($documentate_converter_config); ?>;
+		const conversionConfig = <?php echo wp_json_encode( $documentate_converter_config ); ?>;
 		const strings = conversionConfig.strings || {};
 
 		// BroadcastChannel for sending results to opener (when useChannel is true).

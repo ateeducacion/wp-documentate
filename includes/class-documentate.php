@@ -1,5 +1,4 @@
 <?php
-
 /**
  * The file that defines the core plugin class
  *
@@ -12,8 +11,9 @@
  * @subpackage Documentate/includes
  */
 
-if (!defined('ABSPATH'))
+if ( ! defined( 'ABSPATH' ) ) {
 	exit();
+}
 
 /**
  * The core plugin class.
@@ -88,106 +88,106 @@ class Documentate {
 		 * The class responsible for orchestrating the actions and filters of the
 		 * core plugin.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-loader.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-loader.php';
 
 		/**
 		 * Refactored document classes following Single Responsibility Principle.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-meta-handler.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-cpt-registration.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-comments-handler.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-revision-handler.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-field-validator.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/documents/class-documents-field-renderer.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-meta-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-cpt-registration.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-comments-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-revision-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-field-validator.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-field-renderer.php';
 
 		/**
 		 * Refactored OpenTBS classes.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/opentbs/class-opentbs-html-parser.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/opentbs/class-opentbs-html-parser.php';
 
 		/**
 		 * Refactored export handlers.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/export/class-export-handler.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/export/class-export-docx-handler.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/export/class-export-odt-handler.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/export/class-export-pdf-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-docx-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-odt-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/export/class-export-pdf-handler.php';
 
 		/**
 		 * The classes responsible for defining the custom-post-types.
 		 */
 		// Documentate: Documents CPT and taxonomies.
-		require_once plugin_dir_path(__DIR__) . 'includes/custom-post-types/class-documentate-documents.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-meta-box.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-meta.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/document/meta/class-document-attachments-meta-box.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-documents.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/document/meta/class-document-meta-box.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/document/meta/class-document-meta.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/document/meta/class-document-attachments-meta-box.php';
 
 		// Schema extraction/storage services.
-		require_once plugin_dir_path(__DIR__) . 'includes/doc-type/class-schemaextractor.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/doc-type/class-schemastorage.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/doc-type/class-schemaconverter.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-template-parser.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/doc-type/class-schemaextractor.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/doc-type/class-schemastorage.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/doc-type/class-schemaconverter.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-template-parser.php';
 
 		// Document generator and templating helpers.
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-document-generator.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-opentbs.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-document-generator.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
 
-		if (class_exists('\Documentate\Document\Meta\Document_Meta_Box')) {
+		if ( class_exists( '\Documentate\Document\Meta\Document_Meta_Box' ) ) {
 			$document_meta_box = new \Documentate\Document\Meta\Document_Meta_Box();
 			$document_meta_box->register();
 		}
 
-		if (class_exists('\Documentate\Document\Meta\Document_Attachments_Meta_Box')) {
+		if ( class_exists( '\Documentate\Document\Meta\Document_Attachments_Meta_Box' ) ) {
 			$attachments_meta_box = new \Documentate\Document\Meta\Document_Attachments_Meta_Box();
 			$attachments_meta_box->register();
 		}
 
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-disable-comment-notifications.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-disable-comment-notifications.php';
 
 		/**
 		 * The class responsible for sending email notifications on document state changes.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-notifications.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-notifications.php';
 
 		/**
 		 * The class responsible for protecting comments on custom post types via the REST API.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-rest-comment-protection.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-rest-comment-protection.php';
 
 		/**
 		 * The class responsible for protecting document access from unauthorized users.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-document-access-protection.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-document-access-protection.php';
 
 		/**
 		 * The class responsible for restricting template (doc_type) management to admins.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-template-access.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-template-access.php';
 
 		/**
 		 * The class responsible for filtering documents by user scope category.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-scope-filter.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-scope-filter.php';
 
 		/**
 		 * The class responsible for the user scope profile field.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-user-scope.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-user-scope.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the admin area.
 		 */
-		require_once plugin_dir_path(__DIR__) . 'admin/class-documentate-admin.php';
+		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-admin.php';
 
 		// Documentate admin helpers (row actions, exports for resolutions).
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-admin-helper.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-admin-helper.php';
 
 		// Admin UI for document types (taxonomy meta for templates, fields, etc.).
-		require_once plugin_dir_path(__DIR__) . 'admin/class-documentate-doc-types-admin.php';
-		require_once plugin_dir_path(__DIR__) . 'admin/class-documentate-doctype-help-notice.php';
+		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doc-types-admin.php';
+		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doctype-help-notice.php';
 
 		// Workflow management (role-based restrictions, read-only published state).
-		require_once plugin_dir_path(__DIR__) . 'includes/class-documentate-workflow.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-workflow.php';
 		new Documentate_Workflow();
 
 		$this->loader = new Documentate_Loader();
@@ -200,15 +200,15 @@ class Documentate {
 	 * @access   private
 	 */
 	private function define_admin_hooks() {
-		$plugin_admin = new Documentate_Admin($this->get_plugin_name(), $this->get_version());
+		$plugin_admin = new Documentate_Admin( $this->get_plugin_name(), $this->get_version() );
 
-		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_styles', 10, 1);
-		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts', 10, 1);
-		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_collaborative_editor', 10, 1);
-		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_revisions_assets', 10, 1);
-		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_attachments_assets', 10, 1);
-		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'deregister_heartbeat_for_collaborative', 1, 1);
-		$this->loader->add_action('admin_init', $plugin_admin, 'remove_post_lock_for_collaborative', 1);
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles', 10, 1 );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts', 10, 1 );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_collaborative_editor', 10, 1 );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_revisions_assets', 10, 1 );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_attachments_assets', 10, 1 );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'deregister_heartbeat_for_collaborative', 1, 1 );
+		$this->loader->add_action( 'admin_init', $plugin_admin, 'remove_post_lock_for_collaborative', 1 );
 		$this->loader->add_action(
 			'add_meta_boxes_documentate_document',
 			$plugin_admin,
@@ -216,14 +216,14 @@ class Documentate {
 			10,
 			1,
 		);
-		$this->loader->add_action('wp_ajax_documentate_get_collab_avatars', $plugin_admin, 'ajax_get_user_avatars');
-		$this->loader->add_filter('show_post_locked_dialog', $plugin_admin, 'disable_post_lock_dialog', 10, 3);
-		$this->loader->add_filter('wp_check_post_lock', $plugin_admin, 'disable_post_lock', 10, 2);
-		$this->loader->add_filter('wp_check_post_lock_window', $plugin_admin, 'disable_post_lock_window', 10, 1);
+		$this->loader->add_action( 'wp_ajax_documentate_get_collab_avatars', $plugin_admin, 'ajax_get_user_avatars' );
+		$this->loader->add_filter( 'show_post_locked_dialog', $plugin_admin, 'disable_post_lock_dialog', 10, 3 );
+		$this->loader->add_filter( 'wp_check_post_lock', $plugin_admin, 'disable_post_lock', 10, 2 );
+		$this->loader->add_filter( 'wp_check_post_lock_window', $plugin_admin, 'disable_post_lock_window', 10, 1 );
 
 		// TinyMCE table plugin for document editors.
-		$this->loader->add_filter('mce_external_plugins', $plugin_admin, 'add_tinymce_table_plugin', 10, 1);
-		$this->loader->add_filter('tiny_mce_before_init', $plugin_admin, 'configure_tinymce_table_options', 10, 1);
+		$this->loader->add_filter( 'mce_external_plugins', $plugin_admin, 'add_tinymce_table_plugin', 10, 1 );
+		$this->loader->add_filter( 'tiny_mce_before_init', $plugin_admin, 'configure_tinymce_table_options', 10, 1 );
 	}
 
 	/**

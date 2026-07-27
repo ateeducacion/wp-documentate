@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Email notifications for Documentate document state changes.
  *
@@ -12,7 +11,7 @@
  * @subpackage Documentate/includes
  */
 
-defined('ABSPATH') || exit();
+defined( 'ABSPATH' ) || exit();
 
 /**
  * Class Documentate_Notifications
@@ -67,12 +66,12 @@ class Documentate_Notifications {
 	 * Register hooks.
 	 */
 	public function __construct() {
-		add_action('transition_post_status', array($this, 'maybe_notify'), 20, 3);
+		add_action( 'transition_post_status', array( $this, 'maybe_notify' ), 20, 3 );
 
-		add_action('show_user_profile', array($this, 'render_preferences_field'));
-		add_action('edit_user_profile', array($this, 'render_preferences_field'));
-		add_action('personal_options_update', array($this, 'save_preferences'));
-		add_action('edit_user_profile_update', array($this, 'save_preferences'));
+		add_action( 'show_user_profile', array( $this, 'render_preferences_field' ) );
+		add_action( 'edit_user_profile', array( $this, 'render_preferences_field' ) );
+		add_action( 'personal_options_update', array( $this, 'save_preferences' ) );
+		add_action( 'edit_user_profile_update', array( $this, 'save_preferences' ) );
 	}
 
 	/**
@@ -83,12 +82,12 @@ class Documentate_Notifications {
 	 * @param WP_Post $post       Post object.
 	 * @return void
 	 */
-	public function maybe_notify($new_status, $old_status, $post) {
-		if (!$post instanceof WP_Post || self::POST_TYPE !== $post->post_type) {
+	public function maybe_notify( $new_status, $old_status, $post ) {
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type ) {
 			return;
 		}
 
-		if ($new_status === $old_status) {
+		if ( $new_status === $old_status ) {
 			return;
 		}
 
@@ -96,14 +95,14 @@ class Documentate_Notifications {
 		$actor_id = get_current_user_id();
 
 		// Notify the author about their own document's state change.
-		$author_key = $this->get_author_notification_key($old_status, $new_status);
-		if ($author_key && $author_id > 0 && !$this->user_disabled($author_id, $author_key)) {
-			$this->send_state_change_email($post, $old_status, $new_status, $author_id, $actor_id);
+		$author_key = $this->get_author_notification_key( $old_status, $new_status );
+		if ( $author_key && $author_id > 0 && ! $this->user_disabled( $author_id, $author_key ) ) {
+			$this->send_state_change_email( $post, $old_status, $new_status, $author_id, $actor_id );
 		}
 
 		// Notify administrators when someone else's document moves to pending review.
-		if ('pending' === $new_status && 'pending' !== $old_status) {
-			$this->notify_admins_pending_review($post, $author_id, $actor_id);
+		if ( 'pending' === $new_status && 'pending' !== $old_status ) {
+			$this->notify_admins_pending_review( $post, $author_id, $actor_id );
 		}
 	}
 
@@ -114,21 +113,21 @@ class Documentate_Notifications {
 	 * @param string $new_status New post status.
 	 * @return string|null Notification key or null when no author email applies.
 	 */
-	private function get_author_notification_key($old_status, $new_status) {
-		if (in_array($new_status, array('auto-draft', 'inherit', 'new'), true)) {
+	private function get_author_notification_key( $old_status, $new_status ) {
+		if ( in_array( $new_status, array( 'auto-draft', 'inherit', 'new' ), true ) ) {
 			return null;
 		}
 
-		if ('pending' === $new_status) {
+		if ( 'pending' === $new_status ) {
 			return self::KEY_AUTHOR_REVIEW;
 		}
 
-		if ('publish' === $new_status) {
+		if ( 'publish' === $new_status ) {
 			return self::KEY_AUTHOR_PUBLISH;
 		}
 
 		// Skip the initial transition into draft (document creation).
-		if ('draft' === $new_status && in_array($old_status, array('auto-draft', 'new', ''), true)) {
+		if ( 'draft' === $new_status && in_array( $old_status, array( 'auto-draft', 'new', '' ), true ) ) {
 			return null;
 		}
 
@@ -145,17 +144,17 @@ class Documentate_Notifications {
 	 * @param int     $actor_id   ID of the user who triggered the change.
 	 * @return void
 	 */
-	private function send_state_change_email($post, $old_status, $new_status, $author_id, $actor_id) {
-		$author = get_userdata($author_id);
-		if (!$author || empty($author->user_email)) {
+	private function send_state_change_email( $post, $old_status, $new_status, $author_id, $actor_id ) {
+		$author = get_userdata( $author_id );
+		if ( ! $author || empty( $author->user_email ) ) {
 			return;
 		}
 
-		$reason = $this->get_state_change_reason($new_status);
-		$subject = $this->build_subject($reason, $post->post_title);
-		$body = $this->build_body($post, $old_status, $new_status, $actor_id);
+		$reason = $this->get_state_change_reason( $new_status );
+		$subject = $this->build_subject( $reason, $post->post_title );
+		$body = $this->build_body( $post, $old_status, $new_status, $actor_id );
 
-		wp_mail($author->user_email, $subject, $body);
+		wp_mail( $author->user_email, $subject, $body );
 	}
 
 	/**
@@ -166,27 +165,29 @@ class Documentate_Notifications {
 	 * @param int     $actor_id  ID of the user who triggered the change.
 	 * @return void
 	 */
-	private function notify_admins_pending_review($post, $author_id, $actor_id) {
-		$admins = get_users(array(
-			'role__in' => array('administrator'),
-			'fields' => array('ID', 'user_email', 'display_name'),
-		));
+	private function notify_admins_pending_review( $post, $author_id, $actor_id ) {
+		$admins = get_users(
+			array(
+				'role__in' => array( 'administrator' ),
+				'fields' => array( 'ID', 'user_email', 'display_name' ),
+			)
+		);
 
-		foreach ($admins as $admin) {
+		foreach ( $admins as $admin ) {
 			$admin_id = (int) $admin->ID;
-			if ($admin_id === $author_id) {
+			if ( $admin_id === $author_id ) {
 				continue;
 			}
-			if ($this->user_disabled($admin_id, self::KEY_ADMIN_REVIEW)) {
+			if ( $this->user_disabled( $admin_id, self::KEY_ADMIN_REVIEW ) ) {
 				continue;
 			}
-			if (empty($admin->user_email)) {
+			if ( empty( $admin->user_email ) ) {
 				continue;
 			}
 
-			$subject = $this->build_subject(__('Pendiente de revisión', 'documentate'), $post->post_title);
-			$body = $this->build_body($post, '', 'pending', $actor_id);
-			wp_mail($admin->user_email, $subject, $body);
+			$subject = $this->build_subject( __( 'Pendiente de revisión', 'documentate' ), $post->post_title );
+			$body = $this->build_body( $post, '', 'pending', $actor_id );
+			wp_mail( $admin->user_email, $subject, $body );
 		}
 	}
 
@@ -199,16 +200,16 @@ class Documentate_Notifications {
 	 * @param string $title  Document title.
 	 * @return string Final subject line.
 	 */
-	private function build_subject($reason, $title) {
-		$title = wp_strip_all_tags((string) $title);
+	private function build_subject( $reason, $title ) {
+		$title = wp_strip_all_tags( (string) $title );
 		$max = 60;
-		if (function_exists('mb_strlen') && mb_strlen($title) > $max) {
-			$title = mb_substr($title, 0, $max - 1) . '…';
-		} elseif (strlen($title) > $max) {
-			$title = substr($title, 0, $max - 1) . '…';
+		if ( function_exists( 'mb_strlen' ) && mb_strlen( $title ) > $max ) {
+			$title = mb_substr( $title, 0, $max - 1 ) . '…';
+		} elseif ( strlen( $title ) > $max ) {
+			$title = substr( $title, 0, $max - 1 ) . '…';
 		}
 
-		return sprintf('[documentate] %1$s: %2$s', $reason, $title);
+		return sprintf( '[documentate] %1$s: %2$s', $reason, $title );
 	}
 
 	/**
@@ -217,20 +218,20 @@ class Documentate_Notifications {
 	 * @param string $new_status New post status.
 	 * @return string Translated reason.
 	 */
-	private function get_state_change_reason($new_status) {
-		switch ($new_status) {
+	private function get_state_change_reason( $new_status ) {
+		switch ( $new_status ) {
 			case 'pending':
-				return __('Documento enviado a revisión', 'documentate');
+				return __( 'Documento enviado a revisión', 'documentate' );
 			case 'publish':
-				return __('Documento publicado', 'documentate');
+				return __( 'Documento publicado', 'documentate' );
 			case 'draft':
-				return __('Documento devuelto a borrador', 'documentate');
+				return __( 'Documento devuelto a borrador', 'documentate' );
 			case 'archived':
-				return __('Documento archivado', 'documentate');
+				return __( 'Documento archivado', 'documentate' );
 			case 'trash':
-				return __('Documento enviado a la papelera', 'documentate');
+				return __( 'Documento enviado a la papelera', 'documentate' );
 			default:
-				return __('Cambio de estado del documento', 'documentate');
+				return __( 'Cambio de estado del documento', 'documentate' );
 		}
 	}
 
@@ -240,18 +241,18 @@ class Documentate_Notifications {
 	 * @param string $status Post status.
 	 * @return string Translated label, or the raw status if unknown.
 	 */
-	private function status_label($status) {
+	private function status_label( $status ) {
 		$labels = array(
-			'draft' => __('Borrador', 'documentate'),
-			'pending' => __('Pendiente de revisión', 'documentate'),
-			'publish' => __('Publicado', 'documentate'),
-			'archived' => __('Archivado', 'documentate'),
-			'trash' => __('Papelera', 'documentate'),
-			'auto-draft' => __('Borrador inicial', 'documentate'),
-			'new' => __('Nuevo', 'documentate'),
+			'draft' => __( 'Borrador', 'documentate' ),
+			'pending' => __( 'Pendiente de revisión', 'documentate' ),
+			'publish' => __( 'Publicado', 'documentate' ),
+			'archived' => __( 'Archivado', 'documentate' ),
+			'trash' => __( 'Papelera', 'documentate' ),
+			'auto-draft' => __( 'Borrador inicial', 'documentate' ),
+			'new' => __( 'Nuevo', 'documentate' ),
 		);
 
-		return $labels[$status] ?? $status;
+		return $labels[ $status ] ?? $status;
 	}
 
 	/**
@@ -263,50 +264,50 @@ class Documentate_Notifications {
 	 * @param int     $actor_id   ID of the user who triggered the change.
 	 * @return string Email body.
 	 */
-	private function build_body($post, $old_status, $new_status, $actor_id) {
-		$actor = $actor_id > 0 ? get_userdata($actor_id) : null;
-		$actor_name = $actor && !empty($actor->display_name) ? $actor->display_name : __('Sistema', 'documentate');
+	private function build_body( $post, $old_status, $new_status, $actor_id ) {
+		$actor = $actor_id > 0 ? get_userdata( $actor_id ) : null;
+		$actor_name = $actor && ! empty( $actor->display_name ) ? $actor->display_name : __( 'Sistema', 'documentate' );
 
-		$edit_link = get_edit_post_link($post->ID, '');
-		if (!$edit_link) {
-			$edit_link = admin_url('post.php?action=edit&post=' . $post->ID);
+		$edit_link = get_edit_post_link( $post->ID, '' );
+		if ( ! $edit_link ) {
+			$edit_link = admin_url( 'post.php?action=edit&post=' . $post->ID );
 		}
 
 		$lines = array();
 		$lines[] = sprintf(
 			/* translators: %s: document title */
-			__('Documento: %s', 'documentate'),
-			wp_strip_all_tags((string) $post->post_title),
+			__( 'Documento: %s', 'documentate' ),
+			wp_strip_all_tags( (string) $post->post_title ),
 		);
 
-		if ($old_status) {
+		if ( $old_status ) {
 			$lines[] = sprintf(
 				/* translators: 1: previous status, 2: new status */
-				__('Cambio de estado: %1$s → %2$s', 'documentate'),
-				$this->status_label($old_status),
-				$this->status_label($new_status),
+				__( 'Cambio de estado: %1$s → %2$s', 'documentate' ),
+				$this->status_label( $old_status ),
+				$this->status_label( $new_status ),
 			);
 		} else {
 			$lines[] = sprintf(
 				/* translators: %s: post status label */
-				__('Estado: %s', 'documentate'),
-				$this->status_label($new_status),
+				__( 'Estado: %s', 'documentate' ),
+				$this->status_label( $new_status ),
 			);
 		}
 
 		$lines[] = sprintf(
 			/* translators: %s: name of the user who made the change */
-			__('Realizado por: %s', 'documentate'),
+			__( 'Realizado por: %s', 'documentate' ),
 			$actor_name,
 		);
 		$lines[] = '';
 		$lines[] = sprintf(
 			/* translators: %s: edit URL of the document */
-			__('Enlace al documento: %s', 'documentate'),
+			__( 'Enlace al documento: %s', 'documentate' ),
 			$edit_link,
 		);
 
-		return implode("\n", $lines);
+		return implode( "\n", $lines );
 	}
 
 	/**
@@ -316,13 +317,13 @@ class Documentate_Notifications {
 	 * @param string $key     Notification key.
 	 * @return bool True if the user disabled this notification.
 	 */
-	public function user_disabled($user_id, $key) {
-		$disabled = get_user_meta((int) $user_id, self::META_KEY, true);
-		if (!is_array($disabled)) {
+	public function user_disabled( $user_id, $key ) {
+		$disabled = get_user_meta( (int) $user_id, self::META_KEY, true );
+		if ( ! is_array( $disabled ) ) {
 			return false;
 		}
 
-		return in_array($key, $disabled, true);
+		return in_array( $key, $disabled, true );
 	}
 
 	/**
@@ -332,8 +333,8 @@ class Documentate_Notifications {
 	 */
 	private function get_notification_options() {
 		return array(
-			self::KEY_AUTHOR_REVIEW => __('Cuando uno de mis documentos se envía a revisión.', 'documentate'),
-			self::KEY_AUTHOR_PUBLISH => __('Cuando uno de mis documentos se publica.', 'documentate'),
+			self::KEY_AUTHOR_REVIEW => __( 'Cuando uno de mis documentos se envía a revisión.', 'documentate' ),
+			self::KEY_AUTHOR_PUBLISH => __( 'Cuando uno de mis documentos se publica.', 'documentate' ),
 			self::KEY_AUTHOR_OTHER => __(
 				'Otros cambios de estado de mis documentos (devueltos a borrador, archivados, etc.).',
 				'documentate',
@@ -351,47 +352,49 @@ class Documentate_Notifications {
 	 * @param WP_User $user The user being edited.
 	 * @return void
 	 */
-	public function render_preferences_field($user) {
-		if (!current_user_can('edit_user', $user->ID)) {
+	public function render_preferences_field( $user ) {
+		if ( ! current_user_can( 'edit_user', $user->ID ) ) {
 			return;
 		}
 
-		$disabled = get_user_meta($user->ID, self::META_KEY, true);
-		if (!is_array($disabled)) {
+		$disabled = get_user_meta( $user->ID, self::META_KEY, true );
+		if ( ! is_array( $disabled ) ) {
 			$disabled = array();
 		}
 
-		$is_admin_user = user_can($user->ID, 'manage_options');
+		$is_admin_user = user_can( $user->ID, 'manage_options' );
 		$options = $this->get_notification_options();
 
-		wp_nonce_field('documentate_save_notifications_' . $user->ID, 'documentate_notifications_nonce');
+		wp_nonce_field( 'documentate_save_notifications_' . $user->ID, 'documentate_notifications_nonce' );
 		?>
-		<h2><?php esc_html_e('Notificaciones de Documentate', 'documentate'); ?></h2>
+		<h2><?php esc_html_e( 'Notificaciones de Documentate', 'documentate' ); ?></h2>
 		<table class="form-table" role="presentation">
 			<tr>
-				<th scope="row"><?php esc_html_e('Notificaciones por correo', 'documentate'); ?></th>
+				<th scope="row"><?php esc_html_e( 'Notificaciones por correo', 'documentate' ); ?></th>
 				<td>
 					<fieldset>
 						<legend class="screen-reader-text">
-							<span><?php esc_html_e('Notificaciones por correo', 'documentate'); ?></span>
+							<span><?php esc_html_e( 'Notificaciones por correo', 'documentate' ); ?></span>
 						</legend>
 						<p class="description">
-							<?php esc_html_e('Selecciona los avisos que quieres recibir por correo electrónico.', 'documentate'); ?>
+							<?php esc_html_e( 'Selecciona los avisos que quieres recibir por correo electrónico.', 'documentate' ); ?>
 						</p>
-						<?php foreach ($options as $key => $label): ?>
-							<?php if (self::KEY_ADMIN_REVIEW === $key && !$is_admin_user) {
+						<?php foreach ( $options as $key => $label ) : ?>
+							<?php
+							if ( self::KEY_ADMIN_REVIEW === $key && ! $is_admin_user ) {
 								continue;
-							} ?>
+							}
+							?>
 							<p>
-								<label for="documentate_notify_<?php echo esc_attr($key); ?>">
+								<label for="documentate_notify_<?php echo esc_attr( $key ); ?>">
 									<input
 										type="checkbox"
-										id="documentate_notify_<?php echo esc_attr($key); ?>"
-										name="documentate_notify[<?php echo esc_attr($key); ?>]"
+										id="documentate_notify_<?php echo esc_attr( $key ); ?>"
+										name="documentate_notify[<?php echo esc_attr( $key ); ?>]"
 										value="1"
-										<?php checked(!in_array($key, $disabled, true)); ?>
+										<?php checked( ! in_array( $key, $disabled, true ) ); ?>
 									/>
-									<?php echo esc_html($label); ?>
+									<?php echo esc_html( $label ); ?>
 								</label>
 							</p>
 						<?php endforeach; ?>
@@ -408,39 +411,40 @@ class Documentate_Notifications {
 	 * @param int $user_id ID of the user being saved.
 	 * @return void
 	 */
-	public function save_preferences($user_id) {
-		if (!current_user_can('edit_user', $user_id)) {
+	public function save_preferences( $user_id ) {
+		if ( ! current_user_can( 'edit_user', $user_id ) ) {
 			return;
 		}
 
 		if (
-			!isset($_POST['documentate_notifications_nonce'])
-			|| !wp_verify_nonce(
-				sanitize_key(wp_unslash($_POST['documentate_notifications_nonce'])),
+			! isset( $_POST['documentate_notifications_nonce'] )
+			|| ! wp_verify_nonce(
+				sanitize_key( wp_unslash( $_POST['documentate_notifications_nonce'] ) ),
 				'documentate_save_notifications_' . $user_id,
 			)
 		) {
 			return;
 		}
 
-		$enabled_raw = isset($_POST['documentate_notify']) && is_array($_POST['documentate_notify'])
-			? wp_unslash($_POST['documentate_notify'])
-			: array();
+		$enabled_raw = array();
+		if ( isset( $_POST['documentate_notify'] ) && is_array( $_POST['documentate_notify'] ) ) {
+			$enabled_raw = map_deep( wp_unslash( $_POST['documentate_notify'] ), 'sanitize_text_field' );
+		}
 
 		$enabled = array();
-		foreach ($enabled_raw as $key => $value) {
-			$enabled[sanitize_key($key)] = !empty($value);
+		foreach ( $enabled_raw as $key => $value ) {
+			$enabled[ sanitize_key( (string) $key ) ] = ! empty( $value );
 		}
 
 		$disabled = array();
-		foreach (array_keys($this->get_notification_options()) as $key) {
-			if (!empty($enabled[$key])) {
+		foreach ( array_keys( $this->get_notification_options() ) as $key ) {
+			if ( ! empty( $enabled[ $key ] ) ) {
 				continue;
 			}
 			$disabled[] = $key;
 		}
 
-		update_user_meta($user_id, self::META_KEY, $disabled);
+		update_user_meta( $user_id, self::META_KEY, $disabled );
 	}
 }
 

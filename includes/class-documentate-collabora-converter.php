@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Collabora Online converter for Documentate.
  *
@@ -10,7 +9,7 @@
  */
 
 // Exit if accessed directly.
-defined('ABSPATH') || exit();
+defined( 'ABSPATH' ) || exit();
 
 /**
  * Helper to convert documents through a Collabora Online endpoint.
@@ -34,19 +33,19 @@ class Documentate_Collabora_Converter {
 	 * @param array  $context Additional context data.
 	 * @return void
 	 */
-	private static function log($message, $context = array()) {
-		if (!defined('WP_DEBUG') || !WP_DEBUG) {
+	private static function log( $message, $context = array() ) {
+		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
 			return;
 		}
 
 		$log_entry = sprintf(
 			'[Documentate Collabora] %s | Context: %s',
 			$message,
-			wp_json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+			wp_json_encode( $context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
 		);
 
 		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional debug logging when WP_DEBUG is enabled.
-		error_log($log_entry);
+		error_log( $log_entry );
 	}
 
 	/**
@@ -56,24 +55,24 @@ class Documentate_Collabora_Converter {
 	 */
 	public static function is_playground() {
 		// Playground sets specific constants.
-		if (defined('WORDPRESS_PLAYGROUND') && WORDPRESS_PLAYGROUND) {
+		if ( defined( 'WORDPRESS_PLAYGROUND' ) && WORDPRESS_PLAYGROUND ) {
 			return true;
 		}
 
 		// Check for Playground-specific URL patterns.
 		$site_url = get_site_url();
-		if (strpos($site_url, 'playground.wordpress.net') !== false) {
+		if ( strpos( $site_url, 'playground.wordpress.net' ) !== false ) {
 			return true;
 		}
 
 		// Check for Playground request header.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Header existence check only.
-		if (isset($_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'])) {
+		if ( isset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] ) ) {
 			return true;
 		}
 
 		// Check for common Playground indicators in the URL.
-		if (strpos($site_url, 'wasm') !== false || strpos($site_url, 'playground') !== false) {
+		if ( strpos( $site_url, 'wasm' ) !== false || strpos( $site_url, 'playground' ) !== false ) {
 			return true;
 		}
 
@@ -88,19 +87,22 @@ class Documentate_Collabora_Converter {
 	private static function get_wp_filesystem() {
 		global $wp_filesystem;
 
-		if ($wp_filesystem instanceof WP_Filesystem_Base) {
+		if ( $wp_filesystem instanceof WP_Filesystem_Base ) {
 			return $wp_filesystem;
 		}
 
-		if (!function_exists('WP_Filesystem')) {
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
 
-		if (!WP_Filesystem()) {
-			return new WP_Error('documentate_fs_unavailable', __(
-				'Could not initialize the WordPress filesystem.',
-				'documentate',
-			));
+		if ( ! WP_Filesystem() ) {
+			return new WP_Error(
+				'documentate_fs_unavailable',
+				__(
+					'Could not initialize the WordPress filesystem.',
+					'documentate',
+				)
+			);
 		}
 
 		return $wp_filesystem;
@@ -121,8 +123,8 @@ class Documentate_Collabora_Converter {
 	 * @return string
 	 */
 	public static function get_status_message() {
-		if ('' === self::get_base_url()) {
-			return __('Configure the Collabora Online service base URL in settings.', 'documentate');
+		if ( '' === self::get_base_url() ) {
+			return __( 'Configure the Collabora Online service base URL in settings.', 'documentate' );
 		}
 
 		return '';
@@ -137,69 +139,84 @@ class Documentate_Collabora_Converter {
 	 * @param string $input_format  Optional hint with the input extension.
 	 * @return string|WP_Error
 	 */
-	public static function convert($input_path, $output_path, $output_format, $input_format = '') {
-		self::log('Starting conversion', array(
-			'input_path' => $input_path,
-			'output_path' => $output_path,
-			'output_format' => $output_format,
-			'input_format' => $input_format,
-			'is_playground' => self::is_playground(),
-		));
+	public static function convert( $input_path, $output_path, $output_format, $input_format = '' ) {
+		self::log(
+			'Starting conversion',
+			array(
+				'input_path' => $input_path,
+				'output_path' => $output_path,
+				'output_format' => $output_format,
+				'input_format' => $input_format,
+				'is_playground' => self::is_playground(),
+			)
+		);
 
 		$fs = self::get_wp_filesystem();
-		if (is_wp_error($fs)) {
-			self::log('Filesystem error', array('error' => $fs->get_error_message()));
+		if ( is_wp_error( $fs ) ) {
+			self::log( 'Filesystem error', array( 'error' => $fs->get_error_message() ) );
 			return $fs;
 		}
 
-		if (!$fs->exists($input_path)) {
-			self::log('Input file missing', array('path' => $input_path));
-			return new WP_Error('documentate_collabora_input_missing', __(
-				'The source file for conversion does not exist.',
-				'documentate',
-			));
+		if ( ! $fs->exists( $input_path ) ) {
+			self::log( 'Input file missing', array( 'path' => $input_path ) );
+			return new WP_Error(
+				'documentate_collabora_input_missing',
+				__(
+					'The source file for conversion does not exist.',
+					'documentate',
+				)
+			);
 		}
 
 		$base_url = self::get_base_url();
-		if ('' === $base_url) {
-			return new WP_Error('documentate_collabora_not_configured', __(
-				'Configure the Collabora Online service URL to convert documents.',
-				'documentate',
-			));
+		if ( '' === $base_url ) {
+			return new WP_Error(
+				'documentate_collabora_not_configured',
+				__(
+					'Configure the Collabora Online service URL to convert documents.',
+					'documentate',
+				)
+			);
 		}
 
-		$supported_formats = array('pdf', 'docx', 'odt');
-		$output_format = sanitize_key($output_format);
-		if (!in_array($output_format, $supported_formats, true)) {
-			return new WP_Error('documentate_collabora_invalid_target', __(
-				'Output format not supported by Collabora.',
-				'documentate',
-			));
+		$supported_formats = array( 'pdf', 'docx', 'odt' );
+		$output_format = sanitize_key( $output_format );
+		if ( ! in_array( $output_format, $supported_formats, true ) ) {
+			return new WP_Error(
+				'documentate_collabora_invalid_target',
+				__(
+					'Output format not supported by Collabora.',
+					'documentate',
+				)
+			);
 		}
 
-		$endpoint = untrailingslashit($base_url) . '/cool/convert-to/' . rawurlencode($output_format);
+		$endpoint = untrailingslashit( $base_url ) . '/cool/convert-to/' . rawurlencode( $output_format );
 
-		$dir = dirname($output_path);
-		if (!$fs->is_dir($dir)) {
-			wp_mkdir_p($dir);
+		$dir = dirname( $output_path );
+		if ( ! $fs->is_dir( $dir ) ) {
+			wp_mkdir_p( $dir );
 		}
 
-		if ($fs->exists($output_path)) {
-			wp_delete_file($output_path);
+		if ( $fs->exists( $output_path ) ) {
+			wp_delete_file( $output_path );
 		}
 
-		$mime = self::guess_mime_type($input_format, $input_path);
+		$mime = self::guess_mime_type( $input_format, $input_path );
 		$lang = self::get_language();
-		$filename = basename($input_path);
-		$file_body = $fs->get_contents($input_path);
-		if (false === $file_body) {
-			return new WP_Error('documentate_collabora_read_failed', __(
-				'Could not read the input file for conversion.',
-				'documentate',
-			));
+		$filename = basename( $input_path );
+		$file_body = $fs->get_contents( $input_path );
+		if ( false === $file_body ) {
+			return new WP_Error(
+				'documentate_collabora_read_failed',
+				__(
+					'Could not read the input file for conversion.',
+					'documentate',
+				)
+			);
 		}
 
-		$boundary = wp_generate_password(24, false);
+		$boundary = wp_generate_password( 24, false );
 		$eol = "\r\n";
 		$body = '';
 		$body .= '--' . $boundary . $eol;
@@ -212,8 +229,8 @@ class Documentate_Collabora_Converter {
 		$body .= '--' . $boundary . '--' . $eol;
 
 		$args = array(
-			'timeout' => apply_filters('documentate_collabora_timeout', 120),
-			'sslverify' => !self::is_ssl_verification_disabled(),
+			'timeout' => apply_filters( 'documentate_collabora_timeout', 120 ),
+			'sslverify' => ! self::is_ssl_verification_disabled(),
 			'headers' => array(
 				'Accept' => 'application/octet-stream',
 				'Content-Type' => 'multipart/form-data; boundary=' . $boundary,
@@ -221,26 +238,32 @@ class Documentate_Collabora_Converter {
 			'body' => $body,
 		);
 
-		self::log('Sending request to Collabora', array(
-			'endpoint' => $endpoint,
-			'body_size' => strlen($body),
-			'file_size' => strlen($file_body),
-			'timeout' => $args['timeout'],
-			'ssl_verify' => $args['sslverify'],
-			'boundary' => $boundary,
-		));
+		self::log(
+			'Sending request to Collabora',
+			array(
+				'endpoint' => $endpoint,
+				'body_size' => strlen( $body ),
+				'file_size' => strlen( $file_body ),
+				'timeout' => $args['timeout'],
+				'ssl_verify' => $args['sslverify'],
+				'boundary' => $boundary,
+			)
+		);
 
-		$response = wp_remote_post($endpoint, $args);
-		if (is_wp_error($response)) {
-			self::log('Request failed', array(
-				'error_code' => $response->get_error_code(),
-				'error_message' => $response->get_error_message(),
-			));
+		$response = wp_remote_post( $endpoint, $args );
+		if ( is_wp_error( $response ) ) {
+			self::log(
+				'Request failed',
+				array(
+					'error_code' => $response->get_error_code(),
+					'error_message' => $response->get_error_message(),
+				)
+			);
 			return new WP_Error(
 				'documentate_collabora_request_failed',
 				sprintf(
 					/* translators: %s: error message returned by wp_remote_post(). */
-					__('Error connecting to Collabora Online: %s', 'documentate'),
+					__( 'Error connecting to Collabora Online: %s', 'documentate' ),
 					$response->get_error_message(),
 				),
 				array(
@@ -250,46 +273,55 @@ class Documentate_Collabora_Converter {
 			);
 		}
 
-		$status = (int) wp_remote_retrieve_response_code($response);
-		$resp_body = (string) wp_remote_retrieve_body($response);
+		$status = (int) wp_remote_retrieve_response_code( $response );
+		$resp_body = (string) wp_remote_retrieve_body( $response );
 
-		self::log('Response received', array(
-			'status_code' => $status,
-			'body_size' => strlen($resp_body),
-			'body_preview' => substr($resp_body, 0, 200),
-			'headers' => wp_remote_retrieve_headers($response)->getAll(),
-		));
+		self::log(
+			'Response received',
+			array(
+				'status_code' => $status,
+				'body_size' => strlen( $resp_body ),
+				'body_preview' => substr( $resp_body, 0, 200 ),
+				'headers' => wp_remote_retrieve_headers( $response )->getAll(),
+			)
+		);
 
-		if ($status < 200 || $status >= 300) {
-			self::log('HTTP error response', array(
-				'status' => $status,
-				'body' => substr($resp_body, 0, 500),
-			));
+		if ( $status < 200 || $status >= 300 ) {
+			self::log(
+				'HTTP error response',
+				array(
+					'status' => $status,
+					'body' => substr( $resp_body, 0, 500 ),
+				)
+			);
 			return new WP_Error(
 				'documentate_collabora_http_error',
 				sprintf(
 					/* translators: %d: HTTP status code returned by Collabora. */
-					__('Collabora Online returned HTTP code %d during conversion.', 'documentate'),
+					__( 'Collabora Online returned HTTP code %d during conversion.', 'documentate' ),
 					$status,
 				),
 				array(
 					'status' => $status,
-					'body' => substr($resp_body, 0, 500),
+					'body' => substr( $resp_body, 0, 500 ),
 					'endpoint' => $endpoint,
 				),
 			);
 		}
 
-		$written = $fs->put_contents($output_path, $resp_body, FS_CHMOD_FILE);
-		if (false === $written) {
-			self::log('Write failed', array('output_path' => $output_path));
-			return new WP_Error('documentate_collabora_write_failed', __(
-				'Could not save the converted file to disk.',
-				'documentate',
-			));
+		$written = $fs->put_contents( $output_path, $resp_body, FS_CHMOD_FILE );
+		if ( false === $written ) {
+			self::log( 'Write failed', array( 'output_path' => $output_path ) );
+			return new WP_Error(
+				'documentate_collabora_write_failed',
+				__(
+					'Could not save the converted file to disk.',
+					'documentate',
+				)
+			);
 		}
 
-		self::log('Conversion successful', array('output_path' => $output_path));
+		self::log( 'Conversion successful', array( 'output_path' => $output_path ) );
 		return $output_path;
 	}
 
@@ -299,17 +331,17 @@ class Documentate_Collabora_Converter {
 	 * @return string
 	 */
 	private static function get_base_url() {
-		$options = get_option('documentate_settings', array());
-		$value = isset($options['collabora_base_url']) ? trim((string) $options['collabora_base_url']) : '';
-		if ('' === $value && defined('DOCUMENTATE_COLLABORA_DEFAULT_URL')) {
-			$value = trim((string) DOCUMENTATE_COLLABORA_DEFAULT_URL);
+		$options = get_option( 'documentate_settings', array() );
+		$value = isset( $options['collabora_base_url'] ) ? trim( (string) $options['collabora_base_url'] ) : '';
+		if ( '' === $value && defined( 'DOCUMENTATE_COLLABORA_DEFAULT_URL' ) ) {
+			$value = trim( (string) DOCUMENTATE_COLLABORA_DEFAULT_URL );
 		}
 
-		if ('' === $value) {
+		if ( '' === $value ) {
 			return '';
 		}
 
-		return untrailingslashit(esc_url_raw($value));
+		return untrailingslashit( esc_url_raw( $value ) );
 	}
 
 	/**
@@ -318,9 +350,9 @@ class Documentate_Collabora_Converter {
 	 * @return string
 	 */
 	private static function get_language() {
-		$options = get_option('documentate_settings', array());
-		$lang = isset($options['collabora_lang']) ? sanitize_text_field($options['collabora_lang']) : 'es-ES';
-		if ('' === $lang) {
+		$options = get_option( 'documentate_settings', array() );
+		$lang = isset( $options['collabora_lang'] ) ? sanitize_text_field( $options['collabora_lang'] ) : 'es-ES';
+		if ( '' === $lang ) {
 			$lang = 'es-ES';
 		}
 
@@ -336,12 +368,12 @@ class Documentate_Collabora_Converter {
 		// Never skip TLS certificate verification on production, even if the
 		// option is enabled — official documents must not travel over an
 		// unverified connection. The toggle stays available for local testing.
-		if ('production' === wp_get_environment_type()) {
+		if ( 'production' === wp_get_environment_type() ) {
 			return false;
 		}
 
-		$options = get_option('documentate_settings', array());
-		return isset($options['collabora_disable_ssl']) && '1' === $options['collabora_disable_ssl'];
+		$options = get_option( 'documentate_settings', array() );
+		return isset( $options['collabora_disable_ssl'] ) && '1' === $options['collabora_disable_ssl'];
 	}
 
 	/**
@@ -351,14 +383,14 @@ class Documentate_Collabora_Converter {
 	 * @param string $path         Fallback file path.
 	 * @return string
 	 */
-	private static function guess_mime_type($input_format, $path) {
-		$input_format = sanitize_key($input_format);
+	private static function guess_mime_type( $input_format, $path ) {
+		$input_format = sanitize_key( $input_format );
 
-		if (isset(self::$mime_type_map[$input_format])) {
-			return self::$mime_type_map[$input_format];
+		if ( isset( self::$mime_type_map[ $input_format ] ) ) {
+			return self::$mime_type_map[ $input_format ];
 		}
 
-		$mime = function_exists('mime_content_type') ? mime_content_type($path) : 'application/octet-stream';
+		$mime = function_exists( 'mime_content_type' ) ? mime_content_type( $path ) : 'application/octet-stream';
 		return $mime ? $mime : 'application/octet-stream';
 	}
 }
