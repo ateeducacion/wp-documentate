@@ -212,40 +212,54 @@ check-plugin: check-docker start-docker-if-not-running
 
 # ─── Linting & Code Quality ──────────────────────────────────────────────────
 
-# Combined check for lint, tests, untranslated, and more
-check: fix lint check-plugin test check-untranslated mo
+# Combined check for lint, tests, untranslated, and more.
+# Verification targets do not modify source files.
+check: lint check-plugin test check-untranslated mo
 
 check-all: check
 
-# Install Mago PHP toolchain via Composer
+# Install PHP_CodeSniffer and WordPress Coding Standards via Composer.
+install-phpcs:
+	@echo "Checking if PHP_CodeSniffer is installed..."
+	@if [ ! -x "./vendor/bin/phpcs" ]; then \
+		echo "Installing Composer dependencies..."; \
+		composer install --prefer-dist; \
+	else \
+		echo "PHP_CodeSniffer is already installed."; \
+	fi
+
+# Check WordPress Coding Standards. This is the default PHP lint target.
+lint: install-phpcs
+	composer phpcs
+
+# Automatically fix WordPress Coding Standards violations.
+fix: install-phpcs
+	composer phpcbf
+
+# Non-interactive aliases for git hooks.
+fix-no-tty: fix
+lint-no-tty: lint
+
+# Mago is retained as an optional secondary tool while its remaining value is
+# evaluated. It is not part of the default checks and may be removed later.
 install-mago:
 	@echo "Checking if Mago is installed..."
 	@if [ ! -x "./vendor/bin/mago" ]; then \
-		echo "Installing Mago..."; \
+		echo "Installing Composer dependencies..."; \
 		composer install --prefer-dist; \
 	else \
 		echo "Mago is already installed."; \
 	fi
 
-# Check code style with Mago linter
-lint: install-mago
-	./vendor/bin/mago lint
+mago-lint: install-mago
+	composer mago:lint
 
-# Automatically fix code style with Mago formatter
-fix: install-mago
-	./vendor/bin/mago format
+mago-format: install-mago
+	composer mago:format
 
 # Run PHP Mess Detector ignoring vendor and node_modules
 phpmd:
 	phpmd . text cleancode,codesize,controversial,design,naming,unusedcode --exclude vendor,node_modules,tests
-
-# Fix without tty for use on git hooks
-fix-no-tty: install-mago
-	./vendor/bin/mago format
-
-# Lint without tty for use on git hooks
-lint-no-tty: install-mago
-	./vendor/bin/mago lint
 
 # ─── Composer / Translations / Packaging ─────────────────────────────────────
 
@@ -299,7 +313,7 @@ help:
 	@echo "  up / up-docker     - Start the Docker environment on port $(DOCKER_PORT)"
 	@echo "  down / down-docker - Stop the Docker environment"
 	@echo "  logs               - Show Docker container logs"
-	@echo "  logs-test          - Show logs from Docker test environment"
+	@echo "  logs-test          - Show Docker test environment logs"
 	@echo "  clean              - Reset Docker environment"
 	@echo "  destroy            - Destroy all wp-env environments"
 	@echo "  flush-permalinks   - Flush permalinks (Docker)"
@@ -307,14 +321,16 @@ help:
 	@echo "                       Usage: make create-user USER=<username> EMAIL=<email> ROLE=<role> PASSWORD=<password>"
 	@echo ""
 	@echo "Linting & Code Quality:"
-	@echo "  fix                - Automatically fix code style with Mago formatter"
-	@echo "  lint               - Check code style with Mago linter"
-	@echo "  fix-no-tty         - Same as 'fix' but without TTY (for git hooks)"
-	@echo "  lint-no-tty        - Same as 'lint' but without TTY (for git hooks)"
+	@echo "  fix                - Fix PHP with PHPCBF and WordPress Coding Standards"
+	@echo "  lint               - Check PHP with PHPCS and WordPress Coding Standards"
+	@echo "  fix-no-tty         - Alias for fix (for git hooks)"
+	@echo "  lint-no-tty        - Alias for lint (for git hooks)"
+	@echo "  mago-lint          - Optional secondary Mago lint"
+	@echo "  mago-format        - Optional secondary Mago formatter"
 	@echo "  check-plugin       - Run WordPress plugin-check (Docker)"
 	@echo "  check-untranslated - Check for untranslated strings"
-	@echo "  check              - Run fix, lint, plugin-check, tests, untranslated, and mo"
-	@echo "  check-all          - Alias for 'check'"
+	@echo "  check              - Run lint, plugin-check, tests, untranslated, and mo"
+	@echo "  check-all          - Alias for check"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test               - Run PHPUnit tests (Docker, port $(DOCKER_PORT))"
