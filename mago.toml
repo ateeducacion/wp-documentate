@@ -1,8 +1,9 @@
-# Mago configuration for WordPress Coding Standards compliance
-# https://github.com/carthage-software/mago
+# Optional secondary Mago configuration.
 #
-# Mago replaces PHPCS as the primary linting and formatting tool.
-# Rules that conflict with WordPress PHP conventions are disabled below.
+# PHPCS with WordPress Coding Standards is the canonical linting and formatting
+# tool for this project. Mago is retained temporarily for comparison and may be
+# removed if it does not provide enough additional value.
+# https://github.com/carthage-software/mago
 
 php-version = "8.3"
 
@@ -59,8 +60,8 @@ remove-trailing-close-tag = true
 
 [linter]
 excludes = ["tests/", "admin/vendor/"]
-# Baseline file tracks existing issues so CI passes without regressions.
-# New code violations will still be caught. Regenerate with:
+# Baseline file tracks existing issues so optional Mago runs pass without regressions.
+# Regenerate with:
 #   ./vendor/bin/mago lint --generate-baseline --baseline linter-baseline.toml
 baseline = "linter-baseline.toml"
 
