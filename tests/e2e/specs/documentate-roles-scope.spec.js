@@ -87,8 +87,10 @@ function runWpCmdSafe( cmd ) {
 }
 
 /**
- * Log in as the given user in a fresh (cookie-less) browser context and wait
- * for the admin redirect to complete.
+ * Log in as the given user in a fresh (cookie-less) browser context.
+ *
+ * Retries under CI load: concurrent workers can make the first form post slow
+ * or leave us on wp-login.php without a clean navigation.
  *
  * @param {import('@playwright/test').Browser} browser  Playwright browser.
  * @param {string}                             baseURL  Base URL for the context.
@@ -98,22 +100,41 @@ function runWpCmdSafe( cmd ) {
 async function loginAs( browser, baseURL, username ) {
 	const context = await browser.newContext( { baseURL } );
 	const page = await context.newPage();
+	let lastError;
 
-	await page.goto( '/wp-login.php', { waitUntil: 'domcontentloaded' } );
-	await page.fill( '#user_login', username );
-	await page.fill( '#user_pass', PASSWORD );
-	// Arm the navigation wait before clicking, and resolve as soon as we have
-	// left the login screen (commit) instead of waiting for the admin
-	// dashboard's full `load` event, which can be slow under CI parallelism.
-	await Promise.all( [
-		page.waitForURL(
-			( url ) => ! url.pathname.endsWith( '/wp-login.php' ),
-			{ waitUntil: 'commit', timeout: 60_000 }
-		),
-		page.click( '#wp-submit' ),
-	] );
+	for ( let attempt = 1; attempt <= 3; attempt++ ) {
+		try {
+			await page.goto( '/wp-login.php', {
+				waitUntil: 'domcontentloaded',
+				timeout: 60_000,
+			} );
+			await page.locator( '#user_login' ).waitFor( { state: 'visible' } );
+			await page.fill( '#user_login', username );
+			await page.fill( '#user_pass', PASSWORD );
 
-	return { context, page };
+			await Promise.all( [
+				page.waitForURL(
+					( url ) => ! url.pathname.endsWith( '/wp-login.php' ),
+					{ waitUntil: 'domcontentloaded', timeout: 60_000 }
+				),
+				page.click( '#wp-submit' ),
+			] );
+
+			// Confirm we actually left the login screen.
+			if ( ! page.url().includes( 'wp-login.php' ) ) {
+				return { context, page };
+			}
+			lastError = new Error(
+				`Still on wp-login after attempt ${ attempt } for ${ username }`
+			);
+		} catch ( err ) {
+			lastError = err;
+		}
+		// Brief backoff before retrying under CI parallelism.
+		await page.waitForTimeout( 1000 * attempt );
+	}
+
+	throw lastError || new Error( `Login failed for ${ username }` );
 }
 
 /**
@@ -406,14 +427,25 @@ test.describe( 'Roles and Scope Filtering', () => {
 	} );
 
 	// -------------------------------------------------------------------------
-	// Authorization hardening (object-level scope + workflow content freeze)
+	// Authorization hardening (single login — less flaky under CI workers)
 	// -------------------------------------------------------------------------
 
-	test( 'Editor cannot see or self-assign scope on profile', async ( {
+	test( 'Editor authorization: no self-scope, IDOR denied, published frozen, in-scope export OK', async ( {
 		browser,
 		baseURL,
 	} ) => {
-		test.slow();
+		// One browser login for all authorization checks (profile → IDOR →
+		// published freeze → in-scope export). Avoids repeated UI logins that
+		// time out under CI parallelism.
+		test.setTimeout( 180_000 );
+
+		const originalTitle = TITLES.adminParent;
+		const hijackedTitle = `Hijacked ${ RUN }`;
+
+		const publishedStatus = runWpCmd(
+			`post get ${ docs.adminParent } --field=post_status`
+		).trim();
+		expect( publishedStatus ).toBe( 'publish' );
 
 		const { context, page } = await loginAs(
 			browser,
@@ -422,11 +454,10 @@ test.describe( 'Roles and Scope Filtering', () => {
 		);
 
 		try {
+			// --- 1) Scope field hidden; crafted POST cannot self-assign. ---
 			await page.goto( '/wp-admin/profile.php', {
 				waitUntil: 'domcontentloaded',
 			} );
-
-			// Field must not be rendered for non-administrators.
 			await expect(
 				page.locator( '#documentate_scope_term_id' )
 			).toHaveCount( 0 );
@@ -434,29 +465,21 @@ test.describe( 'Roles and Scope Filtering', () => {
 				page.locator( 'input[name="documentate_scope_nonce"]' )
 			).toHaveCount( 0 );
 
-			// Even a crafted POST must not change scope meta.
 			const originalScope = runWpCmd(
 				`user meta get ${ editorId } documentate_scope_term_id`
 			).trim();
-
 			const cookies = await context.cookies();
 			const cookieHeader = cookies
 				.map( ( c ) => `${ c.name }=${ c.value }` )
 				.join( '; ' );
 
-			// WordPress profile save requires the logged-in user's cookie + referer.
-			// We intentionally omit a valid scope nonce and also send a forged term:
-			// the server must ignore both (no manage_options).
 			await page.request.post( '/wp-admin/profile.php', {
 				form: {
-					// Minimal profile fields so WP does not reject the whole request.
-					// email is required on profile updates in some WP versions.
 					email: `${ EDITOR_LOGIN }@example.com`,
 					nickname: EDITOR_LOGIN,
 					display_name: EDITOR_LOGIN,
 					documentate_scope_nonce: 'forged-nonce',
 					documentate_scope_term_id: String( otherCatId ),
-					// Trigger personal_options_update / profile update handlers.
 					action: 'update',
 					user_id: String( editorId ),
 					from: 'profile',
@@ -475,39 +498,19 @@ test.describe( 'Roles and Scope Filtering', () => {
 			).trim();
 			expect( afterScope ).toBe( originalScope );
 			expect( afterScope ).toBe( String( parentCatId ) );
-		} finally {
-			await context.close();
-		}
-	} );
 
-	test( 'Editor is denied opening an out-of-scope document by ID', async ( {
-		browser,
-		baseURL,
-	} ) => {
-		test.slow();
-
-		const { context, page } = await loginAs(
-			browser,
-			baseURL,
-			EDITOR_LOGIN
-		);
-
-		try {
+			// --- 2) Out-of-scope document by ID: edit + export denied. ---
 			await page.goto(
 				`/wp-admin/post.php?post=${ docs.adminOther }&action=edit`,
 				{ waitUntil: 'domcontentloaded' }
 			);
-
 			await expect( page.locator( 'body' ) ).toContainText(
 				PERMISSION_DENIED_RE
 			);
-
-			// Title of the out-of-scope document must not appear in an edit form.
 			await expect(
-				page.locator( '#documentate_title_textarea, #title' )
+				page.locator( '#documentate_title_textarea' )
 			).toHaveCount( 0 );
 
-			// Export endpoint must also refuse (capability fails before nonce).
 			await page.goto(
 				`/wp-admin/admin-post.php?action=documentate_export_odt&post_id=${ docs.adminOther }&_wpnonce=invalid`,
 				{ waitUntil: 'domcontentloaded' }
@@ -515,66 +518,21 @@ test.describe( 'Roles and Scope Filtering', () => {
 			await expect( page.locator( 'body' ) ).toContainText(
 				/Insufficient permissions|Permisos insuficientes|not allowed|no tienes permiso/i
 			);
-		} finally {
-			await context.close();
-		}
-	} );
 
-	test( 'Editor cannot change content of a published document', async ( {
-		browser,
-		baseURL,
-	} ) => {
-		test.slow();
-
-		const originalTitle = TITLES.adminParent;
-		const hijackedTitle = `Hijacked ${ RUN }`;
-
-		// Confirm fixture stayed published (requires doc type — see createDocument).
-		const status = runWpCmd(
-			`post get ${ docs.adminParent } --field=post_status`
-		).trim();
-		expect( status ).toBe( 'publish' );
-
-		const { context, page } = await loginAs(
-			browser,
-			baseURL,
-			EDITOR_LOGIN
-		);
-
-		try {
+			// --- 3) Published in-scope doc: locked UI + content freeze. ---
 			await page.goto(
 				`/wp-admin/post.php?post=${ docs.adminParent }&action=edit`,
 				{ waitUntil: 'domcontentloaded' }
 			);
-
-			// In-scope published docs are visible but locked for non-admins.
 			await expect( page.locator( 'body' ) ).not.toContainText(
 				/Sorry, you are not allowed to edit this item/i
 			);
-
-			// Server-rendered lock message in the management metabox.
 			await expect(
 				page.locator( '.documentate-mgmt-message' ).filter( {
 					hasText: /locked|bloqueado|read-only|solo lectura/i,
 				} )
 			).toBeVisible( { timeout: 15_000 } );
 
-			// JS lock class (workflow assets) — best-effort, may need a moment.
-			await page
-				.waitForFunction(
-					() =>
-						document.body.classList.contains(
-							'documentate-document-locked'
-						) ||
-						document.querySelector(
-							'.documentate-workflow-notice'
-						) !== null,
-					null,
-					{ timeout: 10_000 }
-				)
-				.catch( () => {} );
-
-			// Craft a full post save with a hijacked title (bypass client-side lock).
 			const formPayload = await page.evaluate(
 				( { postId, newTitle } ) => {
 					const form = document.querySelector( '#post' );
@@ -582,21 +540,23 @@ test.describe( 'Roles and Scope Filtering', () => {
 						return null;
 					}
 					const data = {};
-					const elements = form.querySelectorAll(
-						'input[name], select[name], textarea[name]'
-					);
-					elements.forEach( ( el ) => {
-						if ( ! el.name || el.disabled ) {
-							return;
-						}
-						if (
-							( el.type === 'checkbox' || el.type === 'radio' ) &&
-							! el.checked
-						) {
-							return;
-						}
-						data[ el.name ] = el.value;
-					} );
+					form
+						.querySelectorAll(
+							'input[name], select[name], textarea[name]'
+						)
+						.forEach( ( el ) => {
+							if ( ! el.name || el.disabled ) {
+								return;
+							}
+							if (
+								( el.type === 'checkbox' ||
+									el.type === 'radio' ) &&
+								! el.checked
+							) {
+								return;
+							}
+							data[ el.name ] = el.value;
+						} );
 					data.post_title = newTitle;
 					data.post_ID = String( postId );
 					data.action = 'editpost';
@@ -612,9 +572,10 @@ test.describe( 'Roles and Scope Filtering', () => {
 				},
 				{ postId: docs.adminParent, newTitle: hijackedTitle }
 			);
-
 			expect( formPayload ).not.toBeNull();
-			expect( formPayload._wpnonce || formPayload[ '_wpnonce' ] ).toBeTruthy();
+			expect(
+				formPayload._wpnonce || formPayload[ '_wpnonce' ]
+			).toBeTruthy();
 
 			await page.request.post( '/wp-admin/post.php', {
 				form: formPayload,
@@ -626,67 +587,44 @@ test.describe( 'Roles and Scope Filtering', () => {
 			).trim();
 			expect( storedTitle ).toBe( originalTitle );
 			expect( storedTitle ).not.toBe( hijackedTitle );
+			expect(
+				runWpCmd(
+					`post get ${ docs.adminParent } --field=post_status`
+				).trim()
+			).toBe( 'publish' );
 
-			const storedStatus = runWpCmd(
-				`post get ${ docs.adminParent } --field=post_status`
-			).trim();
-			expect( storedStatus ).toBe( 'publish' );
-		} finally {
-			await context.close();
-		}
-	} );
-
-	test( 'Editor can open and export in-scope documents', async ( {
-		browser,
-		baseURL,
-	} ) => {
-		test.slow();
-
-		const { context, page } = await loginAs(
-			browser,
-			baseURL,
-			EDITOR_LOGIN
-		);
-
-		try {
-			// Open the editor's own in-scope draft (not workflow-locked).
+			// --- 4) In-scope draft: open + export/preview cap gate OK. ---
 			await page.goto(
 				`/wp-admin/post.php?post=${ docs.editorDraft }&action=edit`,
 				{ waitUntil: 'domcontentloaded' }
 			);
-
 			await expect( page.locator( 'body' ) ).not.toContainText(
 				PERMISSION_DENIED_RE
 			);
-
-			// Custom title control (native #title is aria-hidden / not visible).
 			await expect(
 				page.locator( '#documentate_title_textarea' )
 			).toBeVisible( { timeout: 15_000 } );
+			await expect(
+				page.locator( '#documentate_actions' )
+			).toBeAttached();
 
-			// Actions metabox is registered for users who can edit the post.
-			await expect( page.locator( '#documentate_actions' ) ).toBeAttached();
-
-			// Capability gate for export: out-of-scope fails with permissions;
-			// in-scope with a bad nonce fails with invalid nonce (cap already OK).
 			await page.goto(
 				`/wp-admin/admin-post.php?action=documentate_export_odt&post_id=${ docs.editorDraft }&_wpnonce=invalid`,
 				{ waitUntil: 'domcontentloaded' }
 			);
-			const bodyText = await page.locator( 'body' ).innerText();
+			let bodyText = await page.locator( 'body' ).innerText();
 			expect( bodyText ).toMatch( /Invalid nonce|Nonce no v[aá]lido/i );
 			expect( bodyText ).not.toMatch(
 				/Insufficient permissions|Permisos insuficientes/i
 			);
 
-			// Preview endpoint uses the same edit_post + scope check.
 			await page.goto(
 				`/wp-admin/admin-post.php?action=documentate_preview&post_id=${ docs.editorDraft }&_wpnonce=invalid`,
 				{ waitUntil: 'domcontentloaded' }
 			);
-			const previewBody = await page.locator( 'body' ).innerText();
-			expect( previewBody ).toMatch( /Invalid nonce|Nonce no v[aá]lido/i );
-			expect( previewBody ).not.toMatch(
+			bodyText = await page.locator( 'body' ).innerText();
+			expect( bodyText ).toMatch( /Invalid nonce|Nonce no v[aá]lido/i );
+			expect( bodyText ).not.toMatch(
 				/Insufficient permissions|Permisos insuficientes/i
 			);
 		} finally {

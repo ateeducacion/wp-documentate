@@ -129,4 +129,39 @@ class DocumentateTemplateAccessTest extends WP_UnitTestCase {
 			$this->fail( 'Non-admin should not be blocked on unrelated screen: ' . $e->getMessage() );
 		}
 	}
+
+	/**
+	 * Taxonomy GET param alone is enough to block (admin_init has no screen).
+	 */
+	public function test_non_admin_blocked_by_taxonomy_get_without_screen() {
+		wp_set_current_user( $this->editor_user_id );
+		// Simulate admin_init: no current screen.
+		unset( $GLOBALS['current_screen'] );
+		$_GET['taxonomy'] = 'documentate_doc_type';
+
+		try {
+			$this->expectException( WPDieException::class );
+			$this->access->block_non_admin_access();
+		} finally {
+			unset( $_GET['taxonomy'] );
+		}
+	}
+
+	/**
+	 * Unrelated taxonomy GET param is not blocked.
+	 */
+	public function test_non_admin_not_blocked_for_other_taxonomy_param() {
+		wp_set_current_user( $this->editor_user_id );
+		unset( $GLOBALS['current_screen'] );
+		$_GET['taxonomy'] = 'category';
+
+		try {
+			$this->access->block_non_admin_access();
+			$this->assertTrue( true );
+		} catch ( WPDieException $e ) {
+			$this->fail( 'Other taxonomies must not trigger the template block.' );
+		} finally {
+			unset( $_GET['taxonomy'] );
+		}
+	}
 }
