@@ -479,18 +479,9 @@ class Documentate_Doc_Types_Admin {
 	 * @return void
 	 */
 	private function render_schema_preview_fallback( $schema ) {
-		if ( empty( $schema ) || ( empty( $schema['fields'] ) && empty( $schema['repeaters'] ) ) ) {
-			echo '<p class="description documentate-schema-empty">'
-					. esc_html__( 'No fields found in template.', 'documentate' )
-					. '</p>';
-			return;
-		}
-
-		$legacy = SchemaConverter::to_legacy( $schema );
+		$legacy = $this->schema_to_legacy_preview_list( $schema );
 		if ( empty( $legacy ) ) {
-			echo '<p class="description documentate-schema-empty">'
-					. esc_html__( 'No fields found in template.', 'documentate' )
-					. '</p>';
+			$this->render_schema_preview_empty();
 			return;
 		}
 
@@ -499,34 +490,93 @@ class Documentate_Doc_Types_Admin {
 			if ( ! is_array( $entry ) || empty( $entry['slug'] ) ) {
 				continue;
 			}
-			$label = isset( $entry['label'] ) && '' !== $entry['label'] ? $entry['label'] : $entry['slug'];
-			$type = isset( $entry['type'] ) ? $entry['type'] : '';
+			$this->render_schema_preview_entry( $entry );
+		}
+		echo '</ul>';
+	}
 
-			if ( 'array' === $type ) {
-				echo '<li><strong>' . esc_html( $label ) . '</strong></li>';
-				if ( isset( $entry['item_schema'] ) && is_array( $entry['item_schema'] ) ) {
-					echo '<ul class="documentate-schema-list-nested">';
-					foreach ( $entry['item_schema'] as $item_slug => $item ) {
-						$item_label = isset( $item['label'] ) ? $item['label'] : $item_slug;
-						$item_type = isset( $item['type'] ) ? $item['type'] : '';
-						echo '<li>' . esc_html( $item_label );
-						if ( '' !== $item_type ) {
-							echo ' <span class="documentate-field-type">(' . esc_html( $item_type ) . ')</span>';
-						}
-						echo '</li>';
-					}
-					echo '</ul>';
-				}
-				continue;
-			}
+	/**
+	 * Convert a v2 schema into a legacy field list for the PHP preview, or empty.
+	 *
+	 * @param array $schema Schema array.
+	 * @return array
+	 */
+	private function schema_to_legacy_preview_list( $schema ) {
+		if ( empty( $schema ) || ( empty( $schema['fields'] ) && empty( $schema['repeaters'] ) ) ) {
+			return array();
+		}
 
-			echo '<li>' . esc_html( $label );
-			if ( '' !== $type ) {
-				echo ' <span class="documentate-field-type">(' . esc_html( $type ) . ')</span>';
-			}
+		$legacy = SchemaConverter::to_legacy( $schema );
+		return is_array( $legacy ) ? $legacy : array();
+	}
+
+	/**
+	 * Echo the empty-schema preview message.
+	 *
+	 * @return void
+	 */
+	private function render_schema_preview_empty() {
+		echo '<p class="description documentate-schema-empty">'
+			. esc_html__( 'No fields found in template.', 'documentate' )
+			. '</p>';
+	}
+
+	/**
+	 * Render one schema preview list entry (scalar or array/repeater).
+	 *
+	 * @param array $entry Legacy field definition.
+	 * @return void
+	 */
+	private function render_schema_preview_entry( $entry ) {
+		$label = isset( $entry['label'] ) && '' !== $entry['label'] ? $entry['label'] : $entry['slug'];
+		$type  = isset( $entry['type'] ) ? (string) $entry['type'] : '';
+
+		if ( 'array' === $type ) {
+			$this->render_schema_preview_array_entry( $label, $entry );
+			return;
+		}
+
+		echo '<li>' . esc_html( $label );
+		$this->render_schema_preview_type_badge( $type );
+		echo '</li>';
+	}
+
+	/**
+	 * Render a repeater/array field and its nested item schema.
+	 *
+	 * @param string $label Entry label.
+	 * @param array  $entry Field definition with optional item_schema.
+	 * @return void
+	 */
+	private function render_schema_preview_array_entry( $label, $entry ) {
+		echo '<li><strong>' . esc_html( $label ) . '</strong></li>';
+
+		if ( empty( $entry['item_schema'] ) || ! is_array( $entry['item_schema'] ) ) {
+			return;
+		}
+
+		echo '<ul class="documentate-schema-list-nested">';
+		foreach ( $entry['item_schema'] as $item_slug => $item ) {
+			$item_label = isset( $item['label'] ) ? $item['label'] : $item_slug;
+			$item_type  = isset( $item['type'] ) ? (string) $item['type'] : '';
+			echo '<li>' . esc_html( $item_label );
+			$this->render_schema_preview_type_badge( $item_type );
 			echo '</li>';
 		}
 		echo '</ul>';
+	}
+
+	/**
+	 * Render a parenthetical field-type badge when a type is present.
+	 *
+	 * @param string $type Field type slug.
+	 * @return void
+	 */
+	private function render_schema_preview_type_badge( $type ) {
+		if ( '' === $type ) {
+			return;
+		}
+		echo ' <span class="documentate-field-type">(' . esc_html( $type ) . ')</span>';
 	}
 
 	/**
