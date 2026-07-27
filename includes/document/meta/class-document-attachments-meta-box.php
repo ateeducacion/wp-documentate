@@ -114,55 +114,82 @@ class Document_Attachments_Meta_Box {
 	/**
 	 * Handle meta box saves.
 	 *
-	 * @param int     $post_id Post ID.
-	 * @param WP_Post $post    Post object.
-	 * @param bool    $update  Whether this is an existing post being updated.
+	 * @param int          $post_id Post ID.
+	 * @param WP_Post|null $post    Post object.
+	 * @param bool         $update  Whether this is an existing post being updated.
 	 * @return void
 	 */
 	public function save( $post_id, $post = null, $update = false ) {
-		unset( $update );
+		unset( $update, $post );
 
-		if ( ! isset( $_POST[ self::NONCE_NAME ] ) ) {
+		if ( ! $this->should_save_attachments( $post_id ) ) {
 			return;
 		}
 
-		$nonce = sanitize_text_field( wp_unslash( $_POST[ self::NONCE_NAME ] ) );
-		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			return;
-		}
-
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
-		}
-
-		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
-			return;
-		}
-
-		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return;
-		}
-
-		if ( null === $post ) {
-			$post = get_post( $post_id );
-		}
-
-		if ( ! $post instanceof WP_Post ) {
-			return;
-		}
-
-		$raw = isset( $_POST['documentate_attachments'] )
-			? sanitize_text_field( wp_unslash( $_POST['documentate_attachments'] ) )
-			: '';
-
-		$ids = self::sanitize_ids( $raw );
-
+		$ids = self::sanitize_ids( $this->read_attachments_post_value() );
 		if ( empty( $ids ) ) {
 			delete_post_meta( $post_id, self::META_KEY );
 			return;
 		}
 
 		update_post_meta( $post_id, self::META_KEY, $ids );
+	}
+
+	/**
+	 * Whether the current request may persist attachment meta for this post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	private function should_save_attachments( $post_id ) {
+		if ( ! $this->verify_attachments_nonce() ) {
+			return false;
+		}
+
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return false;
+		}
+
+		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+			return false;
+		}
+
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			return false;
+		}
+
+		$post = get_post( $post_id );
+		return $post instanceof WP_Post;
+	}
+
+	/**
+	 * Verify the attachments meta box nonce from the request.
+	 *
+	 * @return bool
+	 */
+	private function verify_attachments_nonce() {
+		if ( ! isset( $_POST[ self::NONCE_NAME ] ) ) {
+			return false;
+		}
+
+		$nonce = sanitize_text_field( wp_unslash( $_POST[ self::NONCE_NAME ] ) );
+		return (bool) wp_verify_nonce( $nonce, self::NONCE_ACTION );
+	}
+
+	/**
+	 * Read the raw attachments field from the request.
+	 *
+	 * @return string Comma-separated attachment IDs, or empty string.
+	 */
+	private function read_attachments_post_value() {
+		// Nonce verified in should_save_attachments() / verify_attachments_nonce().
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( ! isset( $_POST['documentate_attachments'] ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		return sanitize_text_field( wp_unslash( $_POST['documentate_attachments'] ) );
 	}
 
 	/**
