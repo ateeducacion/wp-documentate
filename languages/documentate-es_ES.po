@@ -8,7 +8,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-07-27T19:38:50+00:00\n"
+"PO-Revision-Date: 2026-07-27T21:53:15+00:00\n"
 "Language: es_ES\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: documentate\n"
@@ -181,6 +181,15 @@ msgstr "Añadir al documento"
 msgid "Remove"
 msgstr "Eliminar"
 
+msgid "Text"
+msgstr "Texto"
+
+msgid "Number"
+msgstr "Número"
+
+msgid "Boolean"
+msgstr "Booleano"
+
 msgid "Select file"
 msgstr "Seleccionar archivo"
 
@@ -219,15 +228,6 @@ msgstr "Repetidores: %s"
 #, php-format
 msgid "Parsed: %s"
 msgstr "Analizado: %s"
-
-msgid "Text"
-msgstr "Texto"
-
-msgid "Number"
-msgstr "Número"
-
-msgid "Boolean"
-msgstr "Booleano"
 
 msgid "Color"
 msgstr "Color"
@@ -646,6 +646,9 @@ msgstr "lorem, ipsum, demo"
 msgid "Demo resolution"
 msgstr "Resolución de demostración"
 
+msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+msgstr "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+
 #. translators: %d: item sequence number.
 #, php-format
 msgid "Demo item %d"
@@ -673,6 +676,9 @@ msgstr "Segundo. Notificar a los interesados."
 
 msgid "Additional observations to complete the template."
 msgstr "Observaciones adicionales para completar la plantilla."
+
+msgid "keywords, tags, demo"
+msgstr "palabras clave, etiquetas, demo"
 
 msgid "Test heading"
 msgstr "Encabezado de prueba"
@@ -717,12 +723,6 @@ msgstr "Dato B1"
 
 msgid "Data B2"
 msgstr "Dato B2"
-
-msgid "keywords, tags, demo"
-msgstr "palabras clave, etiquetas, demo"
-
-msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
-msgstr "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 
 msgid "Warning"
 msgstr "Advertencia"
@@ -931,6 +931,9 @@ msgstr "Documento establecido como pendiente de revisión. Solo los administrado
 
 msgid "Published documents can only be modified by administrators."
 msgstr "Los documentos publicados solo pueden ser modificados por administradores."
+
+msgid "Documents pending review can only be modified by administrators."
+msgstr "Los documentos pendientes de revisión solo pueden ser modificados por administradores."
 
 msgid "Only published documents can be archived."
 msgstr "Solo se pueden archivar documentos publicados."

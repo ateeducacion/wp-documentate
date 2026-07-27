@@ -180,6 +180,15 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
+msgid "Text"
+msgstr ""
+
+msgid "Number"
+msgstr ""
+
+msgid "Boolean"
+msgstr ""
+
 msgid "Select file"
 msgstr ""
 
@@ -217,15 +226,6 @@ msgstr ""
 #. translators: %s is replaced with the datetime when the template was parsed.
 #, php-format
 msgid "Parsed: %s"
-msgstr ""
-
-msgid "Text"
-msgstr ""
-
-msgid "Number"
-msgstr ""
-
-msgid "Boolean"
 msgstr ""
 
 msgid "Color"
@@ -645,6 +645,9 @@ msgstr ""
 msgid "Demo resolution"
 msgstr ""
 
+msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+msgstr ""
+
 #. translators: %d: item sequence number.
 #, php-format
 msgid "Demo item %d"
@@ -671,6 +674,9 @@ msgid "Second. Notify interested parties."
 msgstr ""
 
 msgid "Additional observations to complete the template."
+msgstr ""
+
+msgid "keywords, tags, demo"
 msgstr ""
 
 msgid "Test heading"
@@ -715,12 +721,6 @@ msgid "Data B1"
 msgstr ""
 
 msgid "Data B2"
-msgstr ""
-
-msgid "keywords, tags, demo"
-msgstr ""
-
-msgid "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
 msgstr ""
 
 msgid "Warning"
@@ -929,6 +929,9 @@ msgid "Document set to pending review. Only administrators can publish documents
 msgstr ""
 
 msgid "Published documents can only be modified by administrators."
+msgstr ""
+
+msgid "Documents pending review can only be modified by administrators."
 msgstr ""
 
 msgid "Only published documents can be archived."
