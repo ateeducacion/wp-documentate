@@ -133,8 +133,8 @@ class Documentate_Collabora_Converter {
 	/**
 	 * Convert a document using the configured Collabora endpoint.
 	 *
-	 * @param string $input_path   Absolute source path.
-	 * @param string $output_path  Absolute destination path.
+	 * @param string $input_path    Absolute source path.
+	 * @param string $output_path   Absolute destination path.
 	 * @param string $output_format Desired output extension.
 	 * @param string $input_format  Optional hint with the input extension.
 	 * @return string|WP_Error
@@ -143,14 +143,51 @@ class Documentate_Collabora_Converter {
 		self::log(
 			'Starting conversion',
 			array(
-				'input_path' => $input_path,
-				'output_path' => $output_path,
+				'input_path'    => $input_path,
+				'output_path'   => $output_path,
 				'output_format' => $output_format,
-				'input_format' => $input_format,
+				'input_format'  => $input_format,
 				'is_playground' => self::is_playground(),
 			)
 		);
 
+		$prepared = self::prepare_convert_request( $input_path, $output_path, $output_format, $input_format );
+		if ( is_wp_error( $prepared ) ) {
+			return $prepared;
+		}
+
+		self::log(
+			'Sending request to Collabora',
+			array(
+				'endpoint'   => $prepared['endpoint'],
+				'body_size'  => strlen( $prepared['args']['body'] ),
+				'file_size'  => $prepared['file_size'],
+				'timeout'    => $prepared['args']['timeout'],
+				'ssl_verify' => $prepared['args']['sslverify'],
+				'boundary'   => $prepared['boundary'],
+			)
+		);
+
+		$response = wp_remote_post( $prepared['endpoint'], $prepared['args'] );
+		return self::handle_convert_response( $response, $prepared['endpoint'], $prepared['fs'], $output_path );
+	}
+
+	/**
+	 * Validate inputs and build the Collabora multipart request.
+	 *
+	 * @param string $input_path    Absolute source path.
+	 * @param string $output_path   Absolute destination path.
+	 * @param string $output_format Desired output extension.
+	 * @param string $input_format  Optional input extension hint.
+	 * @return array|WP_Error {
+	 *     @type object $fs        WP_Filesystem instance.
+	 *     @type string $endpoint  Collabora convert endpoint.
+	 *     @type array  $args      Arguments for wp_remote_post().
+	 *     @type string $boundary  Multipart boundary.
+	 *     @type int    $file_size Source file size in bytes.
+	 * }
+	 */
+	private static function prepare_convert_request( $input_path, $output_path, $output_format, $input_format ) {
 		$fs = self::get_wp_filesystem();
 		if ( is_wp_error( $fs ) ) {
 			self::log( 'Filesystem error', array( 'error' => $fs->get_error_message() ) );
@@ -161,10 +198,7 @@ class Documentate_Collabora_Converter {
 			self::log( 'Input file missing', array( 'path' => $input_path ) );
 			return new WP_Error(
 				'documentate_collabora_input_missing',
-				__(
-					'The source file for conversion does not exist.',
-					'documentate',
-				)
+				__( 'The source file for conversion does not exist.', 'documentate' )
 			);
 		}
 
@@ -172,54 +206,84 @@ class Documentate_Collabora_Converter {
 		if ( '' === $base_url ) {
 			return new WP_Error(
 				'documentate_collabora_not_configured',
-				__(
-					'Configure the Collabora Online service URL to convert documents.',
-					'documentate',
-				)
+				__( 'Configure the Collabora Online service URL to convert documents.', 'documentate' )
 			);
 		}
 
-		$supported_formats = array( 'pdf', 'docx', 'odt' );
 		$output_format = sanitize_key( $output_format );
-		if ( ! in_array( $output_format, $supported_formats, true ) ) {
+		if ( ! in_array( $output_format, array( 'pdf', 'docx', 'odt' ), true ) ) {
 			return new WP_Error(
 				'documentate_collabora_invalid_target',
-				__(
-					'Output format not supported by Collabora.',
-					'documentate',
-				)
+				__( 'Output format not supported by Collabora.', 'documentate' )
 			);
 		}
 
-		$endpoint = untrailingslashit( $base_url ) . '/cool/convert-to/' . rawurlencode( $output_format );
+		self::ensure_output_path_ready( $fs, $output_path );
 
-		$dir = dirname( $output_path );
-		if ( ! $fs->is_dir( $dir ) ) {
-			wp_mkdir_p( $dir );
-		}
-
-		if ( $fs->exists( $output_path ) ) {
-			wp_delete_file( $output_path );
-		}
-
-		$mime = self::guess_mime_type( $input_format, $input_path );
-		$lang = self::get_language();
-		$filename = basename( $input_path );
 		$file_body = $fs->get_contents( $input_path );
 		if ( false === $file_body ) {
 			return new WP_Error(
 				'documentate_collabora_read_failed',
-				__(
-					'Could not read the input file for conversion.',
-					'documentate',
-				)
+				__( 'Could not read the input file for conversion.', 'documentate' )
 			);
 		}
 
 		$boundary = wp_generate_password( 24, false );
-		$eol = "\r\n";
-		$body = '';
-		$body .= '--' . $boundary . $eol;
+		$body     = self::build_convert_multipart_body(
+			$boundary,
+			basename( $input_path ),
+			self::guess_mime_type( $input_format, $input_path ),
+			$file_body,
+			self::get_language()
+		);
+
+		return array(
+			'fs'        => $fs,
+			'endpoint'  => untrailingslashit( $base_url ) . '/cool/convert-to/' . rawurlencode( $output_format ),
+			'boundary'  => $boundary,
+			'file_size' => strlen( $file_body ),
+			'args'      => array(
+				'timeout'   => apply_filters( 'documentate_collabora_timeout', 120 ),
+				'sslverify' => ! self::is_ssl_verification_disabled(),
+				'headers'   => array(
+					'Accept'       => 'application/octet-stream',
+					'Content-Type' => 'multipart/form-data; boundary=' . $boundary,
+				),
+				'body'      => $body,
+			),
+		);
+	}
+
+	/**
+	 * Ensure the destination directory exists and remove a prior output file.
+	 *
+	 * @param object $fs          WP_Filesystem instance.
+	 * @param string $output_path Destination path.
+	 * @return void
+	 */
+	private static function ensure_output_path_ready( $fs, $output_path ) {
+		$dir = dirname( $output_path );
+		if ( ! $fs->is_dir( $dir ) ) {
+			wp_mkdir_p( $dir );
+		}
+		if ( $fs->exists( $output_path ) ) {
+			wp_delete_file( $output_path );
+		}
+	}
+
+	/**
+	 * Build a multipart/form-data body for the Collabora convert endpoint.
+	 *
+	 * @param string $boundary Multipart boundary.
+	 * @param string $filename Uploaded file name.
+	 * @param string $mime     MIME type.
+	 * @param string $file_body Raw file contents.
+	 * @param string $lang     Language code.
+	 * @return string
+	 */
+	private static function build_convert_multipart_body( $boundary, $filename, $mime, $file_body, $lang ) {
+		$eol  = "\r\n";
+		$body = '--' . $boundary . $eol;
 		$body .= 'Content-Disposition: form-data; name="data"; filename="' . $filename . '"' . $eol;
 		$body .= 'Content-Type: ' . $mime . $eol . $eol;
 		$body .= $file_body . $eol;
@@ -227,35 +291,24 @@ class Documentate_Collabora_Converter {
 		$body .= 'Content-Disposition: form-data; name="lang"' . $eol . $eol;
 		$body .= $lang . $eol;
 		$body .= '--' . $boundary . '--' . $eol;
+		return $body;
+	}
 
-		$args = array(
-			'timeout' => apply_filters( 'documentate_collabora_timeout', 120 ),
-			'sslverify' => ! self::is_ssl_verification_disabled(),
-			'headers' => array(
-				'Accept' => 'application/octet-stream',
-				'Content-Type' => 'multipart/form-data; boundary=' . $boundary,
-			),
-			'body' => $body,
-		);
-
-		self::log(
-			'Sending request to Collabora',
-			array(
-				'endpoint' => $endpoint,
-				'body_size' => strlen( $body ),
-				'file_size' => strlen( $file_body ),
-				'timeout' => $args['timeout'],
-				'ssl_verify' => $args['sslverify'],
-				'boundary' => $boundary,
-			)
-		);
-
-		$response = wp_remote_post( $endpoint, $args );
+	/**
+	 * Process the Collabora HTTP response and write the converted file.
+	 *
+	 * @param array|WP_Error $response  Result of wp_remote_post().
+	 * @param string         $endpoint  Request endpoint (for error context).
+	 * @param object         $fs        WP_Filesystem instance.
+	 * @param string         $output_path Destination path.
+	 * @return string|WP_Error Output path on success.
+	 */
+	private static function handle_convert_response( $response, $endpoint, $fs, $output_path ) {
 		if ( is_wp_error( $response ) ) {
 			self::log(
 				'Request failed',
 				array(
-					'error_code' => $response->get_error_code(),
+					'error_code'    => $response->get_error_code(),
 					'error_message' => $response->get_error_message(),
 				)
 			);
@@ -264,25 +317,25 @@ class Documentate_Collabora_Converter {
 				sprintf(
 					/* translators: %s: error message returned by wp_remote_post(). */
 					__( 'Error connecting to Collabora Online: %s', 'documentate' ),
-					$response->get_error_message(),
+					$response->get_error_message()
 				),
 				array(
-					'code' => $response->get_error_code(),
+					'code'     => $response->get_error_code(),
 					'endpoint' => $endpoint,
-				),
+				)
 			);
 		}
 
-		$status = (int) wp_remote_retrieve_response_code( $response );
+		$status    = (int) wp_remote_retrieve_response_code( $response );
 		$resp_body = (string) wp_remote_retrieve_body( $response );
 
 		self::log(
 			'Response received',
 			array(
-				'status_code' => $status,
-				'body_size' => strlen( $resp_body ),
+				'status_code'  => $status,
+				'body_size'    => strlen( $resp_body ),
 				'body_preview' => substr( $resp_body, 0, 200 ),
-				'headers' => wp_remote_retrieve_headers( $response )->getAll(),
+				'headers'      => wp_remote_retrieve_headers( $response )->getAll(),
 			)
 		);
 
@@ -291,7 +344,7 @@ class Documentate_Collabora_Converter {
 				'HTTP error response',
 				array(
 					'status' => $status,
-					'body' => substr( $resp_body, 0, 500 ),
+					'body'   => substr( $resp_body, 0, 500 ),
 				)
 			);
 			return new WP_Error(
@@ -299,25 +352,21 @@ class Documentate_Collabora_Converter {
 				sprintf(
 					/* translators: %d: HTTP status code returned by Collabora. */
 					__( 'Collabora Online returned HTTP code %d during conversion.', 'documentate' ),
-					$status,
+					$status
 				),
 				array(
-					'status' => $status,
-					'body' => substr( $resp_body, 0, 500 ),
+					'status'   => $status,
+					'body'     => substr( $resp_body, 0, 500 ),
 					'endpoint' => $endpoint,
-				),
+				)
 			);
 		}
 
-		$written = $fs->put_contents( $output_path, $resp_body, FS_CHMOD_FILE );
-		if ( false === $written ) {
+		if ( false === $fs->put_contents( $output_path, $resp_body, FS_CHMOD_FILE ) ) {
 			self::log( 'Write failed', array( 'output_path' => $output_path ) );
 			return new WP_Error(
 				'documentate_collabora_write_failed',
-				__(
-					'Could not save the converted file to disk.',
-					'documentate',
-				)
+				__( 'Could not save the converted file to disk.', 'documentate' )
 			);
 		}
 

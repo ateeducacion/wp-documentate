@@ -149,213 +149,277 @@ class Documentate_Template_Parser {
 			return array();
 		}
 
-		$array_defs = array();
-		$array_order = array();
-		$repeat_hints = array();
-		$pending = array();
-		$order_counter = 0;
+		$state = array(
+			'array_defs'    => array(),
+			'repeat_hints'  => array(),
+			'pending'       => array(),
+			'order_counter' => 0,
+		);
 
 		foreach ( $fields as $index => $field ) {
 			if ( ! is_array( $field ) ) {
 				continue;
 			}
+			self::collect_field_definition_pass( $field, $index, $state );
+		}
 
-			$placeholder = isset( $field['placeholder'] ) ? trim( (string) $field['placeholder'] ) : '';
-			$parameters = isset( $field['parameters'] ) && is_array( $field['parameters'] ) ? $field['parameters'] : array();
-			$label = isset( $field['label'] ) ? sanitize_text_field( $field['label'] ) : '';
-			$data_type = isset( $field['data_type'] ) ? sanitize_key( $field['data_type'] ) : 'text';
-
-			$array_match = self::detect_array_placeholder_with_index( $placeholder );
-			if ( $array_match ) {
-				$base = $array_match['base'];
-				$key = $array_match['key'];
-
-				if ( '' === $base || '' === $key ) {
-					continue;
-				}
-
-				$repeat_hints[ $base ] = true;
-
-				if ( ! isset( $array_defs[ $base ] ) ) {
-					$array_defs[ $base ] = array(
-						'slug' => $base,
-						'label' => self::humanize_key( $base ),
-						'type' => 'array',
-						'placeholder' => $base,
-						'data_type' => 'array',
-						'item_schema' => array(),
-						'_order' => $order_counter++,
-					);
-					$array_order[] = $base;
-				}
-
-				if ( '' === $label ) {
-					$label = self::humanize_key( $array_match['raw_key'] );
-				}
-
-				if ( ! isset( $array_defs[ $base ]['item_schema'][ $key ] ) ) {
-					$item_data_type = self::detect_data_type( $placeholder, $parameters );
-					if ( '' === $item_data_type ) {
-						$item_data_type = 'text';
-					}
-
-					$array_defs[ $base ]['item_schema'][ $key ] = array(
-						'label' => $label,
-						'type' => self::infer_array_item_type( $key, $item_data_type ),
-						'data_type' => $item_data_type,
-						'parameters' => $parameters,
-					);
-				}
-
-				continue;
+		$scalar_fields = array();
+		foreach ( $state['pending'] as $entry ) {
+			$result = self::resolve_pending_field_entry( $entry, $state );
+			if ( null !== $result ) {
+				$scalar_fields[] = $result;
 			}
+		}
 
-			if ( isset( $parameters['repeat'] ) ) {
-				$repeat_base = sanitize_key( $parameters['repeat'] );
-				if ( '' !== $repeat_base ) {
-					$repeat_hints[ $repeat_base ] = true;
-				}
+		return self::finalize_schema_definitions( $state['array_defs'], $scalar_fields );
+	}
+
+	/**
+	 * First pass: register indexed array placeholders and collect pending scalar/array candidates.
+	 *
+	 * @param array $field Field definition.
+	 * @param int   $index Source order index.
+	 * @param array $state Mutable collector state.
+	 * @return void
+	 */
+	private static function collect_field_definition_pass( $field, $index, &$state ) {
+		$placeholder = isset( $field['placeholder'] ) ? trim( (string) $field['placeholder'] ) : '';
+		$parameters  = isset( $field['parameters'] ) && is_array( $field['parameters'] ) ? $field['parameters'] : array();
+		$label       = isset( $field['label'] ) ? sanitize_text_field( $field['label'] ) : '';
+		$data_type   = isset( $field['data_type'] ) ? sanitize_key( $field['data_type'] ) : 'text';
+
+		$array_match = self::detect_array_placeholder_with_index( $placeholder );
+		if ( $array_match ) {
+			self::register_array_item_field(
+				$state,
+				$array_match['base'],
+				$array_match['key'],
+				$array_match['raw_key'],
+				$placeholder,
+				$parameters,
+				$label
+			);
+			return;
+		}
+
+		if ( isset( $parameters['repeat'] ) ) {
+			$repeat_base = sanitize_key( $parameters['repeat'] );
+			if ( '' !== $repeat_base ) {
+				$state['repeat_hints'][ $repeat_base ] = true;
 			}
+		}
 
-			$pending[] = array(
-				'field' => $field,
-				'placeholder' => $placeholder,
-				'parameters' => $parameters,
-				'label' => $label,
-				'data_type' => $data_type,
-				'index' => $index,
+		$state['pending'][] = array(
+			'field'       => $field,
+			'placeholder' => $placeholder,
+			'parameters'  => $parameters,
+			'label'       => $label,
+			'data_type'   => $data_type,
+			'index'       => $index,
+		);
+	}
+
+	/**
+	 * Second pass: attach unindexed array members or emit a scalar field definition.
+	 *
+	 * @param array $entry Pending entry from the first pass.
+	 * @param array $state Mutable collector state.
+	 * @return array|null Scalar field definition, or null when handled as array item.
+	 */
+	private static function resolve_pending_field_entry( $entry, &$state ) {
+		$placeholder = $entry['placeholder'];
+		$parameters  = $entry['parameters'];
+		$label       = $entry['label'];
+		$data_type   = $entry['data_type'];
+
+		$dot_match = self::detect_array_placeholder_without_index( $placeholder );
+		if (
+			$dot_match
+			&& ( isset( $state['repeat_hints'][ $dot_match['base'] ] ) || isset( $state['array_defs'][ $dot_match['base'] ] ) )
+		) {
+			self::register_array_item_field(
+				$state,
+				$dot_match['base'],
+				$dot_match['key'],
+				$dot_match['raw_key'],
+				$placeholder,
+				$parameters,
+				$label
+			);
+			return null;
+		}
+
+		return self::build_scalar_field_definition( $entry );
+	}
+
+	/**
+	 * Ensure an array field definition exists and register one item-schema entry.
+	 *
+	 * @param array  $state       Mutable collector state.
+	 * @param string $base        Array base slug.
+	 * @param string $key         Item key.
+	 * @param string $raw_key     Raw key for humanized labels.
+	 * @param string $placeholder Full placeholder string.
+	 * @param array  $parameters  Placeholder parameters.
+	 * @param string $label       Optional label.
+	 * @return void
+	 */
+	private static function register_array_item_field( &$state, $base, $key, $raw_key, $placeholder, $parameters, $label ) {
+		if ( '' === $base || '' === $key ) {
+			return;
+		}
+
+		$state['repeat_hints'][ $base ] = true;
+
+		if ( ! isset( $state['array_defs'][ $base ] ) ) {
+			$state['array_defs'][ $base ] = array(
+				'slug'        => $base,
+				'label'       => self::humanize_key( $base ),
+				'type'        => 'array',
+				'placeholder' => $base,
+				'data_type'   => 'array',
+				'item_schema' => array(),
+				'_order'      => $state['order_counter']++,
 			);
 		}
+
+		if ( isset( $state['array_defs'][ $base ]['item_schema'][ $key ] ) ) {
+			return;
+		}
+
+		if ( '' === $label ) {
+			$label = self::humanize_key( $raw_key );
+		}
+
+		$item_data_type = self::detect_data_type( $placeholder, $parameters );
+		if ( '' === $item_data_type ) {
+			$item_data_type = 'text';
+		}
+
+		$state['array_defs'][ $base ]['item_schema'][ $key ] = array(
+			'label'      => $label,
+			'type'       => self::infer_array_item_type( $key, $item_data_type ),
+			'data_type'  => $item_data_type,
+			'parameters' => $parameters,
+		);
+	}
+
+	/**
+	 * Build a scalar field definition from a pending entry.
+	 *
+	 * @param array $entry Pending field entry.
+	 * @return array|null
+	 */
+	private static function build_scalar_field_definition( $entry ) {
+		$placeholder = $entry['placeholder'];
+		$parameters  = $entry['parameters'];
+		$label       = $entry['label'];
+		$data_type   = $entry['data_type'];
+
+		$slug = isset( $entry['field']['slug'] ) ? sanitize_key( $entry['field']['slug'] ) : '';
+		if ( '' === $slug ) {
+			$slug = sanitize_key( $placeholder );
+		}
+		if ( '' === $slug || in_array( $slug, array( 'onshow', 'ondata', 'block', 'var', 'sign' ), true ) ) {
+			return null;
+		}
+
+		$normalized_placeholder = '' !== $placeholder
+			? preg_replace( '/[^A-Za-z0-9._:-]/', '', $placeholder )
+			: '';
+		if ( '' === $normalized_placeholder ) {
+			$normalized_placeholder = $slug;
+		}
+		if ( '' === $label ) {
+			$label = self::humanize_key( $normalized_placeholder );
+		}
+		if ( ! in_array( $data_type, array( 'text', 'number', 'boolean', 'date' ), true ) ) {
+			$data_type = 'text';
+		}
+
+		return array(
+			'slug'        => $slug,
+			'label'       => $label,
+			'placeholder' => $normalized_placeholder,
+			'data_type'   => $data_type,
+			'parameters'  => $parameters,
+			'_order'      => $entry['index'],
+		);
+	}
+
+	/**
+	 * Sort and assemble the final schema array from array + scalar definitions.
+	 *
+	 * @param array $array_defs    Array field definitions keyed by base slug.
+	 * @param array $scalar_fields Scalar field definitions.
+	 * @return array[]
+	 */
+	private static function finalize_schema_definitions( $array_defs, $scalar_fields ) {
+		return array_merge(
+			self::ordered_array_field_definitions( $array_defs ),
+			self::ordered_scalar_field_definitions( $scalar_fields )
+		);
+	}
+
+	/**
+	 * Sort array field definitions by capture order.
+	 *
+	 * @param array $array_defs Definitions keyed by base slug.
+	 * @return array[]
+	 */
+	private static function ordered_array_field_definitions( $array_defs ) {
+		if ( empty( $array_defs ) ) {
+			return array();
+		}
+
+		uasort( $array_defs, array( self::class, 'compare_schema_order' ) );
 
 		$schema = array();
-		$scalar_fields = array();
-
-		foreach ( $pending as $entry ) {
-			$placeholder = $entry['placeholder'];
-			$parameters = $entry['parameters'];
-			$label = $entry['label'];
-			$data_type = $entry['data_type'];
-
-			$dot_match = self::detect_array_placeholder_without_index( $placeholder );
-			if ( $dot_match && ( isset( $repeat_hints[ $dot_match['base'] ] ) || isset( $array_defs[ $dot_match['base'] ] ) ) ) {
-				$base = $dot_match['base'];
-				$key = $dot_match['key'];
-
-				if ( '' === $base || '' === $key ) {
-					continue;
-				}
-
-				if ( ! isset( $array_defs[ $base ] ) ) {
-					$array_defs[ $base ] = array(
-						'slug' => $base,
-						'label' => self::humanize_key( $base ),
-						'type' => 'array',
-						'placeholder' => $base,
-						'data_type' => 'array',
-						'item_schema' => array(),
-						'_order' => $order_counter++,
-					);
-					$array_order[] = $base;
-				}
-
-				if ( ! isset( $array_defs[ $base ]['item_schema'][ $key ] ) ) {
-					$item_data_type = self::detect_data_type( $placeholder, $parameters );
-					if ( '' === $label ) {
-						$label = self::humanize_key( $dot_match['raw_key'] );
-					}
-					if ( '' === $item_data_type ) {
-						$item_data_type = 'text';
-					}
-					$array_defs[ $base ]['item_schema'][ $key ] = array(
-						'label' => '' !== $label ? $label : self::humanize_key( $dot_match['raw_key'] ),
-						'type' => self::infer_array_item_type( $key, $item_data_type ),
-						'data_type' => $item_data_type,
-						'parameters' => $parameters,
-					);
-				}
-
-				continue;
-			}
-
-			$slug = isset( $entry['field']['slug'] ) ? sanitize_key( $entry['field']['slug'] ) : '';
-			if ( '' === $slug ) {
-				$slug = sanitize_key( $placeholder );
-			}
-
-			if ( '' === $slug ) {
-				continue;
-			}
-
-			$normalized_placeholder = '';
-			if ( '' !== $placeholder ) {
-				$normalized_placeholder = preg_replace( '/[^A-Za-z0-9._:-]/', '', $placeholder );
-			}
-			if ( '' === $label ) {
-				$source = '' !== $normalized_placeholder ? $normalized_placeholder : $slug;
-				$label = self::humanize_key( $source );
-			}
-
-			if ( '' === $normalized_placeholder ) {
-				$normalized_placeholder = $slug;
-			}
-
-			if ( ! in_array( $data_type, array( 'text', 'number', 'boolean', 'date' ), true ) ) {
-				$data_type = 'text';
-			}
-
-			if ( in_array( $slug, array( 'onshow', 'ondata', 'block', 'var', 'sign' ), true ) ) {
-				continue;
-			}
-
-			$scalar_fields[] = array(
-				'slug' => $slug,
-				'label' => $label,
-				'placeholder' => $normalized_placeholder,
-				'data_type' => $data_type,
-				'parameters' => $parameters,
-				'_order' => $entry['index'],
-			);
+		foreach ( $array_defs as $def ) {
+			unset( $def['_order'] );
+			$schema[] = $def;
 		}
-
-		if ( ! empty( $array_defs ) ) {
-			uasort(
-				$array_defs,
-				static function ( $a, $b ) {
-					$order_a = isset( $a['_order'] ) ? intval( $a['_order'] ) : 0;
-					$order_b = isset( $b['_order'] ) ? intval( $b['_order'] ) : 0;
-					return $order_a <=> $order_b;
-				}
-			);
-
-			foreach ( $array_defs as $base => $def ) {
-				unset( $def['_order'] );
-				$schema[] = $def;
-			}
-		}
-
-		if ( ! empty( $scalar_fields ) ) {
-			usort(
-				$scalar_fields,
-				static function ( $a, $b ) {
-					$order_a = isset( $a['_order'] ) ? intval( $a['_order'] ) : 0;
-					$order_b = isset( $b['_order'] ) ? intval( $b['_order'] ) : 0;
-					return $order_a <=> $order_b;
-				}
-			);
-
-			foreach ( $scalar_fields as $field ) {
-				unset( $field['_order'] );
-				$field['type'] = self::infer_scalar_field_type(
-					isset( $field['slug'] ) ? $field['slug'] : '',
-					isset( $field['label'] ) ? $field['label'] : '',
-					isset( $field['data_type'] ) ? $field['data_type'] : '',
-					isset( $field['placeholder'] ) ? $field['placeholder'] : '',
-				);
-				$schema[] = $field;
-			}
-		}
-
 		return $schema;
+	}
+
+	/**
+	 * Sort scalar field definitions and assign inferred types.
+	 *
+	 * @param array $scalar_fields Scalar field definitions.
+	 * @return array[]
+	 */
+	private static function ordered_scalar_field_definitions( $scalar_fields ) {
+		if ( empty( $scalar_fields ) ) {
+			return array();
+		}
+
+		usort( $scalar_fields, array( self::class, 'compare_schema_order' ) );
+
+		$schema = array();
+		foreach ( $scalar_fields as $field ) {
+			unset( $field['_order'] );
+			$field['type'] = self::infer_scalar_field_type(
+				isset( $field['slug'] ) ? $field['slug'] : '',
+				isset( $field['label'] ) ? $field['label'] : '',
+				isset( $field['data_type'] ) ? $field['data_type'] : '',
+				isset( $field['placeholder'] ) ? $field['placeholder'] : ''
+			);
+			$schema[] = $field;
+		}
+		return $schema;
+	}
+
+	/**
+	 * Compare two schema entries by their internal _order key.
+	 *
+	 * @param array $a First entry.
+	 * @param array $b Second entry.
+	 * @return int
+	 */
+	private static function compare_schema_order( $a, $b ) {
+		$order_a = isset( $a['_order'] ) ? intval( $a['_order'] ) : 0;
+		$order_b = isset( $b['_order'] ) ? intval( $b['_order'] ) : 0;
+		return $order_a <=> $order_b;
 	}
 
 	/**

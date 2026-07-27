@@ -79,92 +79,142 @@ class Documentate_Doc_Types_Admin {
 			DOCUMENTATE_VERSION,
 		);
 
-		$term_id = isset( $_GET['tag_ID'] ) ? intval( $_GET['tag_ID'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$schema = array();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$term_id = isset( $_GET['tag_ID'] ) ? intval( $_GET['tag_ID'] ) : 0;
+		wp_localize_script(
+			'documentate-doc-types',
+			'documentateDocTypes',
+			$this->build_doc_types_script_data( $term_id )
+		);
+	}
+
+	/**
+	 * Build the localized data payload for the doc-types admin script.
+	 *
+	 * @param int $term_id Current term ID, or 0 on the add screen.
+	 * @return array
+	 */
+	private function build_doc_types_script_data( $term_id ) {
+		$schema_data = $this->load_term_schema_for_script( $term_id );
+
+		return array(
+			'ajax'          => array(
+				'url'   => admin_url( 'admin-ajax.php' ),
+				'nonce' => wp_create_nonce( 'documentate_doc_type_template' ),
+			),
+			'i18n'          => $this->get_doc_types_script_i18n(),
+			'fieldTypes'    => array(
+				'text'    => __( 'Text', 'documentate' ),
+				'number'  => __( 'Number', 'documentate' ),
+				'boolean' => __( 'Boolean', 'documentate' ),
+				'date'    => __( 'Date', 'documentate' ),
+			),
+			'schema'        => $schema_data['slugs'],
+			'schemaV2'      => $schema_data['schema_v2'],
+			'schemaSummary' => $schema_data['summary'],
+			'templateId'    => $schema_data['template_id'],
+			'templateExt'   => $schema_data['template_ext'],
+		);
+	}
+
+	/**
+	 * Load schema, summary and template meta used by the doc-types UI script.
+	 *
+	 * @param int $term_id Term ID.
+	 * @return array{slugs: array, schema_v2: array, summary: array, template_id: int, template_ext: string}
+	 */
+	private function load_term_schema_for_script( $term_id ) {
+		$schema        = array();
 		$schema_summary = array();
-		$template_id = 0;
-		$template_ext = '';
-		$schema_storage = new SchemaStorage();
+		$template_id   = 0;
+		$template_ext  = '';
+
 		if ( $term_id > 0 ) {
-			$schema = $schema_storage->get_schema( $term_id );
+			$schema_storage = new SchemaStorage();
+			$schema         = $schema_storage->get_schema( $term_id );
 			$schema_summary = $schema_storage->get_summary( $term_id );
-			$template_id = intval( get_term_meta( $term_id, 'documentate_type_template_id', true ) );
-			$template_ext = sanitize_key( (string) get_term_meta( $term_id, 'documentate_type_template_type', true ) );
+			$template_id    = intval( get_term_meta( $term_id, 'documentate_type_template_id', true ) );
+			$template_ext   = sanitize_key( (string) get_term_meta( $term_id, 'documentate_type_template_type', true ) );
 		}
 
-		$schema_slugs = array();
+		$schema_v2 = is_array( $schema ) ? $schema : array(
+			'fields'    => array(),
+			'repeaters' => array(),
+			'meta'      => array(),
+		);
+
+		return array(
+			'slugs'        => $this->collect_schema_slugs( $schema_v2 ),
+			'schema_v2'    => $schema_v2,
+			'summary'      => is_array( $schema_summary ) ? $schema_summary : array(),
+			'template_id'  => $template_id,
+			'template_ext' => $template_ext,
+		);
+	}
+
+	/**
+	 * Collect field slugs from a v2 schema (top-level fields and repeater fields).
+	 *
+	 * @param array $schema Schema array.
+	 * @return string[]
+	 */
+	private function collect_schema_slugs( $schema ) {
+		$slugs = array();
+
 		if ( isset( $schema['fields'] ) && is_array( $schema['fields'] ) ) {
-			foreach ( $schema['fields'] as $item ) {
-				if ( is_array( $item ) && ! empty( $item['slug'] ) ) {
-					$schema_slugs[] = sanitize_key( $item['slug'] );
-				}
-			}
+			$slugs = array_merge( $slugs, $this->slugs_from_field_list( $schema['fields'] ) );
 		}
+
 		if ( isset( $schema['repeaters'] ) && is_array( $schema['repeaters'] ) ) {
 			foreach ( $schema['repeaters'] as $repeater ) {
 				if ( ! is_array( $repeater ) || empty( $repeater['fields'] ) || ! is_array( $repeater['fields'] ) ) {
 					continue;
 				}
-				foreach ( $repeater['fields'] as $item ) {
-					if ( is_array( $item ) && ! empty( $item['slug'] ) ) {
-						$schema_slugs[] = sanitize_key( $item['slug'] );
-					}
-				}
+				$slugs = array_merge( $slugs, $this->slugs_from_field_list( $repeater['fields'] ) );
 			}
 		}
 
-		$schema_v2 = array(
-			'fields' => array(),
-			'repeaters' => array(),
-			'meta' => array(),
-		);
-		if ( is_array( $schema ) ) {
-			$schema_v2 = $schema;
+		return array_map( 'sanitize_key', $slugs );
+	}
+
+	/**
+	 * Extract slugs from a list of field definition arrays.
+	 *
+	 * @param array $fields Field definitions.
+	 * @return string[]
+	 */
+	private function slugs_from_field_list( $fields ) {
+		$slugs = array();
+		foreach ( $fields as $item ) {
+			if ( is_array( $item ) && ! empty( $item['slug'] ) ) {
+				$slugs[] = sanitize_key( $item['slug'] );
+			}
 		}
+		return $slugs;
+	}
 
-		foreach ( $schema_slugs as $index => $slug_value ) {
-			$schema_slugs[ $index ] = sanitize_key( $slug_value );
-		}
-
-		$schema_summary = is_array( $schema_summary ) ? $schema_summary : array();
-
-		wp_localize_script(
-			'documentate-doc-types',
-			'documentateDocTypes',
-			array(
-				'ajax' => array(
-					'url' => admin_url( 'admin-ajax.php' ),
-					'nonce' => wp_create_nonce( 'documentate_doc_type_template' ),
-				),
-				'i18n' => array(
-					'select' => __( 'Select file', 'documentate' ),
-					'remove' => __( 'Remove', 'documentate' ),
-					'fieldsDetected' => __( 'Detected fields', 'documentate' ),
-					'noFields' => __( 'No fields found in template.', 'documentate' ),
-					'typeDocx' => __( 'DOCX Template', 'documentate' ),
-					'typeOdt' => __( 'ODT Template', 'documentate' ),
-					'typeUnknown' => __( 'Unknown format', 'documentate' ),
-					'diffAdded' => __( 'New fields', 'documentate' ),
-					'diffRemoved' => __( 'Removed fields', 'documentate' ),
-					/* translators: %d is replaced with the total number of fields detected. */
-					'fieldCount' => __( 'Total fields: %d', 'documentate' ),
-					/* translators: %s is replaced with a comma separated list of repeater names. */
-					'repeaterList' => __( 'Repeaters: %s', 'documentate' ),
-					/* translators: %s is replaced with the datetime when the template was parsed. */
-					'parsedAt' => __( 'Parsed: %s', 'documentate' ),
-				),
-				'fieldTypes' => array(
-					'text' => __( 'Text', 'documentate' ),
-					'number' => __( 'Number', 'documentate' ),
-					'boolean' => __( 'Boolean', 'documentate' ),
-					'date' => __( 'Date', 'documentate' ),
-				),
-				'schema' => $schema_slugs,
-				'schemaV2' => $schema_v2,
-				'schemaSummary' => $schema_summary,
-				'templateId' => $template_id,
-				'templateExt' => $template_ext,
-			)
+	/**
+	 * Translation strings for the doc-types admin script.
+	 *
+	 * @return array<string, string>
+	 */
+	private function get_doc_types_script_i18n() {
+		return array(
+			'select'         => __( 'Select file', 'documentate' ),
+			'remove'         => __( 'Remove', 'documentate' ),
+			'fieldsDetected' => __( 'Detected fields', 'documentate' ),
+			'noFields'       => __( 'No fields found in template.', 'documentate' ),
+			'typeDocx'       => __( 'DOCX Template', 'documentate' ),
+			'typeOdt'        => __( 'ODT Template', 'documentate' ),
+			'typeUnknown'    => __( 'Unknown format', 'documentate' ),
+			'diffAdded'      => __( 'New fields', 'documentate' ),
+			'diffRemoved'    => __( 'Removed fields', 'documentate' ),
+			/* translators: %d is replaced with the total number of fields detected. */
+			'fieldCount'     => __( 'Total fields: %d', 'documentate' ),
+			/* translators: %s is replaced with a comma separated list of repeater names. */
+			'repeaterList'   => __( 'Repeaters: %s', 'documentate' ),
+			/* translators: %s is replaced with the datetime when the template was parsed. */
+			'parsedAt'       => __( 'Parsed: %s', 'documentate' ),
 		);
 	}
 
@@ -315,24 +365,11 @@ class Documentate_Doc_Types_Admin {
 	 */
 	public function save_term( $term_id ) {
 		$term_id = absint( $term_id );
-
-		// Re-check core taxonomy nonces (WordPress already verified them before this hook).
-		$has_valid_nonce = false;
-		if ( isset( $_POST['_wpnonce'] ) ) {
-			$has_valid_nonce = (bool) wp_verify_nonce(
-				sanitize_key( wp_unslash( $_POST['_wpnonce'] ) ),
-				'update-tag_' . $term_id
-			);
-		} elseif ( isset( $_POST['_wpnonce_add-tag'] ) ) {
-			$has_valid_nonce = (bool) wp_verify_nonce(
-				sanitize_key( wp_unslash( $_POST['_wpnonce_add-tag'] ) ),
-				'add-tag'
-			);
-		}
-		if ( ! $has_valid_nonce ) {
+		if ( ! $this->verify_term_save_nonce( $term_id ) ) {
 			return;
 		}
 
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Verified in verify_term_save_nonce().
 		$color = isset( $_POST['documentate_type_color'] )
 			? sanitize_hex_color( wp_unslash( $_POST['documentate_type_color'] ) )
 			: '';
@@ -344,43 +381,79 @@ class Documentate_Doc_Types_Admin {
 		$template_id = isset( $_POST['documentate_type_template_id'] )
 			? intval( wp_unslash( $_POST['documentate_type_template_id'] ) )
 			: 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		// Reject negatives and zero as "no template".
 		$template_id = max( 0, $template_id );
 		update_term_meta( $term_id, 'documentate_type_template_id', $template_id > 0 ? $template_id : '' );
 
-		$template_type = '';
-		$storage = new SchemaStorage();
+		$storage       = new SchemaStorage();
+		$template_type = $this->save_term_template_schema( $term_id, $template_id, $storage );
+		update_term_meta( $term_id, 'documentate_type_template_type', $template_type );
+	}
 
-		if ( $template_id > 0 ) {
-			$path = get_attached_file( $template_id );
-			if ( $path && file_exists( $path ) ) {
-				$extractor = new SchemaExtractor();
-				$schema = $extractor->extract( $path );
+	/**
+	 * Verify core taxonomy nonces for term meta saves.
+	 *
+	 * @param int $term_id Term ID.
+	 * @return bool
+	 */
+	private function verify_term_save_nonce( $term_id ) {
+		if ( isset( $_POST['_wpnonce'] ) ) {
+			return (bool) wp_verify_nonce(
+				sanitize_key( wp_unslash( $_POST['_wpnonce'] ) ),
+				'update-tag_' . $term_id
+			);
+		}
+		if ( isset( $_POST['_wpnonce_add-tag'] ) ) {
+			return (bool) wp_verify_nonce(
+				sanitize_key( wp_unslash( $_POST['_wpnonce_add-tag'] ) ),
+				'add-tag'
+			);
+		}
+		return false;
+	}
 
-				if ( is_wp_error( $schema ) ) {
-					add_settings_error( 'documentate_doc_type', 'documentate_schema_error', $schema->get_error_message(), 'error' );
-					$this->clear_stored_schema( $term_id, $storage );
-				} else {
-					$schema['meta']['template_id'] = $template_id;
-					$template_type = isset( $schema['meta']['template_type'] )
-						? (string) $schema['meta']['template_type']
-						: $this->detect_template_type( $path );
-					$storage->save_schema( $term_id, $schema );
-				}
-			} else {
-				add_settings_error(
-					'documentate_doc_type',
-					'documentate_schema_missing',
-					__( 'The selected template file could not be located.', 'documentate' ),
-					'error',
-				);
-				$this->clear_stored_schema( $term_id, $storage );
-			}
-		} else {
+	/**
+	 * Extract and store schema for the selected template attachment.
+	 *
+	 * @param int           $term_id     Term ID.
+	 * @param int           $template_id Attachment ID (0 clears schema).
+	 * @param SchemaStorage $storage     Schema storage helper.
+	 * @return string Detected template type, or empty string.
+	 */
+	private function save_term_template_schema( $term_id, $template_id, $storage ) {
+		if ( $template_id <= 0 ) {
 			$this->clear_stored_schema( $term_id, $storage );
+			return '';
 		}
 
-		update_term_meta( $term_id, 'documentate_type_template_type', $template_type );
+		$path = get_attached_file( $template_id );
+		if ( ! $path || ! file_exists( $path ) ) {
+			add_settings_error(
+				'documentate_doc_type',
+				'documentate_schema_missing',
+				__( 'The selected template file could not be located.', 'documentate' ),
+				'error'
+			);
+			$this->clear_stored_schema( $term_id, $storage );
+			return '';
+		}
+
+		$extractor = new SchemaExtractor();
+		$schema    = $extractor->extract( $path );
+		if ( is_wp_error( $schema ) ) {
+			add_settings_error( 'documentate_doc_type', 'documentate_schema_error', $schema->get_error_message(), 'error' );
+			$this->clear_stored_schema( $term_id, $storage );
+			return '';
+		}
+
+		$schema['meta']['template_id'] = $template_id;
+		$template_type                 = isset( $schema['meta']['template_type'] )
+			? (string) $schema['meta']['template_type']
+			: $this->detect_template_type( $path );
+		$storage->save_schema( $term_id, $schema );
+
+		return $template_type;
 	}
 
 	/**
