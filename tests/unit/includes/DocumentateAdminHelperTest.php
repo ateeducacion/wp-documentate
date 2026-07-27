@@ -1457,36 +1457,69 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test build_action_url method via reflection.
+	 * Invoke the private build_generated_document_url() helper.
+	 *
+	 * @param int    $post_id Document post ID.
+	 * @param string $format  Requested format.
+	 * @param string $output  Either preview or download.
+	 * @param string $result  Path to the generated file.
+	 * @return string
 	 */
-	public function test_build_action_url() {
-		$reflection = new ReflectionClass( $this->helper );
-		$method = $reflection->getMethod( 'build_action_url' );
+	private function invoke_generated_document_url( $post_id, $format, $output, $result ) {
+		$method = ( new ReflectionClass( $this->helper ) )->getMethod( 'build_generated_document_url' );
 		$method->setAccessible( true );
 
-		$url = $method->invoke( $this->helper, 'documentate_preview', 123, 'test_nonce' );
-
-		$this->assertStringContainsString( 'admin-post.php', $url );
-		$this->assertStringContainsString( 'action=documentate_preview', $url );
-		$this->assertStringContainsString( 'post_id=123', $url );
-		$this->assertStringContainsString( '_wpnonce=test_nonce', $url );
+		return $method->invoke( $this->helper, $post_id, $format, $output, $result );
 	}
 
 	/**
-	 * Test build_action_url with different actions.
+	 * Test build_generated_document_url returns the export URL for downloads.
 	 */
-	public function test_build_action_url_different_actions() {
-		$reflection = new ReflectionClass( $this->helper );
-		$method = $reflection->getMethod( 'build_action_url' );
-		$method->setAccessible( true );
+	public function test_build_generated_document_url_download() {
+		$url = $this->invoke_generated_document_url( 123, 'docx', 'download', '/tmp/doc.docx' );
 
-		$docx_url = $method->invoke( $this->helper, 'documentate_export_docx', 456, 'nonce1' );
-		$odt_url = $method->invoke( $this->helper, 'documentate_export_odt', 456, 'nonce2' );
-		$pdf_url = $method->invoke( $this->helper, 'documentate_export_pdf', 456, 'nonce3' );
+		$this->assertStringContainsString( 'admin-post.php', $url );
+		$this->assertStringContainsString( 'action=documentate_export_docx', $url );
+		$this->assertStringContainsString( 'post_id=123', $url );
+		$this->assertStringContainsString( '_wpnonce=', $url );
+	}
 
-		$this->assertStringContainsString( 'documentate_export_docx', $docx_url );
-		$this->assertStringContainsString( 'documentate_export_odt', $odt_url );
-		$this->assertStringContainsString( 'documentate_export_pdf', $pdf_url );
+	/**
+	 * Test build_generated_document_url uses the export action of each format.
+	 */
+	public function test_build_generated_document_url_download_formats() {
+		foreach ( array( 'docx', 'odt', 'pdf' ) as $format ) {
+			$url = $this->invoke_generated_document_url( 456, $format, 'download', '/tmp/doc.' . $format );
+
+			$this->assertStringContainsString( 'action=documentate_export_' . $format, $url, $format );
+			$this->assertStringContainsString( 'post_id=456', $url, $format );
+		}
+	}
+
+	/**
+	 * Test build_generated_document_url returns the stream URL for previews.
+	 */
+	public function test_build_generated_document_url_preview() {
+		$url = $this->invoke_generated_document_url( 789, 'pdf', 'preview', '/tmp/preview.pdf' );
+
+		$this->assertStringContainsString( 'action=documentate_preview_stream', $url );
+		$this->assertStringContainsString( 'post_id=789', $url );
+		$this->assertStringNotContainsString( 'documentate_export', $url );
+	}
+
+	/**
+	 * Test build_generated_document_url caches the preview file for the user.
+	 */
+	public function test_build_generated_document_url_preview_remembers_file() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$this->invoke_generated_document_url( 790, 'pdf', 'preview', '/tmp/preview-790.pdf' );
+
+		$key_method = ( new ReflectionClass( $this->helper ) )->getMethod( 'get_preview_stream_transient_key' );
+		$key_method->setAccessible( true );
+		$key = $key_method->invoke( $this->helper, 790, get_current_user_id() );
+
+		$this->assertSame( 'preview-790.pdf', get_transient( $key ) );
 	}
 
 	/**
