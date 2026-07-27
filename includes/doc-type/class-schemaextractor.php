@@ -31,6 +31,43 @@ class SchemaExtractor {
 	);
 
 	/**
+	 * Field attributes read from placeholder parameters, in the order the
+	 * schema entry declares them, mapped to whether the value is sanitised
+	 * as text rather than kept as a raw string.
+	 *
+	 * @var array<string, bool>
+	 */
+	private static $field_attributes = array(
+		'title' => true,
+		'placeholder' => true,
+		'description' => true,
+		'pattern' => false,
+		'patternmsg' => true,
+		'minvalue' => false,
+		'maxvalue' => false,
+		'length' => false,
+	);
+
+	/**
+	 * Schema keys carried over from a collected repeater field, in the order
+	 * the entry declares them, mapped to their default value.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $repeater_field_defaults = array(
+		'type' => 'text',
+		'title' => '',
+		'placeholder' => '',
+		'description' => '',
+		'pattern' => '',
+		'patternmsg' => '',
+		'minvalue' => '',
+		'maxvalue' => '',
+		'length' => '',
+		'case' => '',
+	);
+
+	/**
 	 * Default validation patterns by field type.
 	 *
 	 * @var array<string, array{pattern: string, message: string}>
@@ -407,133 +444,255 @@ class SchemaExtractor {
 	 * @return array|WP_Error
 	 */
 	private function build_schema( $placeholders, $template_type, $template_path ) {
-		$fields = array();
-		$repeaters = array();
-		$stack = array();
-		$visibility_stack = array();
-
-		// First pass: identify repeaters from tbs:row or tbs:cell block patterns.
-		$tbs_repeaters = $this->detect_tbs_repeaters( $placeholders );
-		$added_tbs_repeaters = array();
+		$state = array(
+			'fields' => array(),
+			'repeaters' => array(),
+			'stack' => array(),
+			'visibility_stack' => array(),
+			// First pass: identify repeaters from tbs:row or tbs:cell block patterns.
+			'tbs_repeaters' => $this->detect_tbs_repeaters( $placeholders ),
+			'added_tbs_repeaters' => array(),
+		);
 
 		foreach ( $placeholders as $token ) {
-			$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
-			$block_mode = isset( $parameters['block'] ) ? strtolower( (string) $parameters['block'] ) : '';
-
-			if ( 'begin' === $block_mode ) {
-				$token_name = isset( $token['name'] ) ? strtolower( (string) $token['name'] ) : '';
-
-				// Check if this is a visibility directive (not a data repeater).
-				if ( in_array( $token_name, self::VISIBILITY_DIRECTIVES, true ) ) {
-					// Track visibility block for proper end matching, but don't create repeater.
-					$visibility_stack[] = $token_name;
-					continue;
-				}
-
-				// Regular data repeater.
-				$repeaters[] = $this->build_repeater_entry( $token );
-				$stack[] = count( $repeaters ) - 1;
-				continue;
-			}
-
-			if ( 'end' === $block_mode ) {
-				$token_name = isset( $token['name'] ) ? strtolower( (string) $token['name'] ) : '';
-
-				// Check if ending a visibility block by name.
-				if ( in_array( $token_name, self::VISIBILITY_DIRECTIVES, true ) && ! empty( $visibility_stack ) ) {
-					array_pop( $visibility_stack );
-				} elseif ( ! empty( $stack ) ) {
-					// Ending a data repeater.
-					array_pop( $stack );
-				}
-				continue;
-			}
-
-			// Handle OpenTBS tbs:row/tbs:cell style repeaters.
-			if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) ) {
-				$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
-				$base_name = $this->extract_tbs_repeater_base( $token_name );
-				if ( '' !== $base_name && isset( $tbs_repeaters[ $base_name ] ) && ! isset( $added_tbs_repeaters[ $base_name ] ) ) {
-					$repeater_entry = $this->build_tbs_repeater_entry( $base_name, $tbs_repeaters[ $base_name ] );
-					$repeaters[] = $repeater_entry;
-					$added_tbs_repeaters[ $base_name ] = true;
-				}
-				continue;
-			}
-
-			// Check if this is a dotted field belonging to a TBS repeater (e.g., asistentes.nombre).
-			// These fields are already collected in detect_tbs_repeaters(), so skip them here.
-			$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
-			if ( false !== strpos( $token_name, '.' ) && empty( $stack ) ) {
-				$base_name = $this->extract_tbs_repeater_base( $token_name );
-				if ( '' !== $base_name && isset( $tbs_repeaters[ $base_name ] ) ) {
-					continue;
-				}
-			}
-
-			$field = $this->build_field_entry( $token );
-			if ( empty( $field ) ) {
-				continue;
-			}
-
-			if ( empty( $stack ) ) {
-				// Deduplicate: only add if slug doesn't already exist.
-				$field_slug = isset( $field['slug'] ) ? $field['slug'] : '';
-				$exists = false;
-				foreach ( $fields as $existing ) {
-					if ( isset( $existing['slug'] ) && $existing['slug'] === $field_slug ) {
-						$exists = true;
-						break;
-					}
-				}
-				if ( ! $exists ) {
-					$fields[] = $field;
-				}
-			} else {
-				// Inside a repeater: strip the repeater base from dotted field names like "anexos.title".
-				$current_index = end( $stack );
-				if ( isset( $repeaters[ $current_index ] ) ) {
-					$base_name = isset( $repeaters[ $current_index ]['name'] ) ? (string) $repeaters[ $current_index ]['name'] : '';
-					$base_slug = isset( $repeaters[ $current_index ]['slug'] ) ? (string) $repeaters[ $current_index ]['slug'] : '';
-
-					$name = isset( $field['name'] ) ? (string) $field['name'] : '';
-					if ( '' !== $name && false !== strpos( $name, '.' ) ) {
-						$segments = explode( '.', $name );
-						$first = strtolower( (string) $segments[0] );
-						if ( strtolower( $base_name ) === $first || strtolower( $base_slug ) === $first ) {
-							array_shift( $segments );
-							$item_name = implode( '.', $segments );
-							$item_slug = sanitize_key( str_replace( '.', '_', $item_name ) );
-							if ( '' !== $item_slug ) {
-								$field['name'] = $item_name;
-								$field['slug'] = $item_slug;
-
-								// Keep placeholder and labels as-is; UI will humanize from slug/name if needed.
-							}
-						}
-					}
-
-					$repeaters[ $current_index ]['fields'][] = $field;
-				}
-			}
-		}
-
-		$hash = md5_file( $template_path );
-		if ( false === $hash ) {
-			$hash = md5( wp_json_encode( $placeholders ) );
+			$this->consume_placeholder_token( $token, $state );
 		}
 
 		return array(
 			'version' => self::SCHEMA_VERSION,
-			'fields' => $fields,
-			'repeaters' => $repeaters,
+			'fields' => $state['fields'],
+			'repeaters' => $state['repeaters'],
 			'meta' => array(
 				'template_type' => $template_type,
 				'template_name' => basename( $template_path ),
-				'hash' => $hash,
+				'hash' => $this->hash_template( $template_path, $placeholders ),
 				'parsed_at' => current_time( 'mysql' ),
 			),
 		);
+	}
+
+	/**
+	 * Fold one placeholder token into the schema being built.
+	 *
+	 * @param array<string,mixed> $token Placeholder token.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return void
+	 */
+	private function consume_placeholder_token( $token, array &$state ) {
+		$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
+		$block_mode = isset( $parameters['block'] ) ? strtolower( (string) $parameters['block'] ) : '';
+
+		if ( 'begin' === $block_mode ) {
+			$this->open_block( $token, $state );
+			return;
+		}
+
+		if ( 'end' === $block_mode ) {
+			$this->close_block( $token, $state );
+			return;
+		}
+
+		// Handle OpenTBS tbs:row/tbs:cell style repeaters.
+		if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) ) {
+			$this->add_tbs_repeater( $token, $state );
+			return;
+		}
+
+		// Check if this is a dotted field belonging to a TBS repeater (e.g., asistentes.nombre).
+		// These fields are already collected in detect_tbs_repeaters(), so skip them here.
+		if ( $this->belongs_to_tbs_repeater( $token, $state ) ) {
+			return;
+		}
+
+		$field = $this->build_field_entry( $token );
+		if ( empty( $field ) ) {
+			return;
+		}
+
+		if ( empty( $state['stack'] ) ) {
+			$this->add_top_level_field( $field, $state );
+			return;
+		}
+
+		$this->add_repeater_field( $field, $state );
+	}
+
+	/**
+	 * Handle a block-begin token, opening a repeater or a visibility block.
+	 *
+	 * @param array<string,mixed> $token Placeholder token.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return void
+	 */
+	private function open_block( $token, array &$state ) {
+		$token_name = isset( $token['name'] ) ? strtolower( (string) $token['name'] ) : '';
+
+		// Check if this is a visibility directive (not a data repeater).
+		if ( in_array( $token_name, self::VISIBILITY_DIRECTIVES, true ) ) {
+			// Track visibility block for proper end matching, but don't create repeater.
+			$state['visibility_stack'][] = $token_name;
+			return;
+		}
+
+		// Regular data repeater.
+		$state['repeaters'][] = $this->build_repeater_entry( $token );
+		$state['stack'][] = count( $state['repeaters'] ) - 1;
+	}
+
+	/**
+	 * Handle a block-end token, closing a visibility block or a repeater.
+	 *
+	 * @param array<string,mixed> $token Placeholder token.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return void
+	 */
+	private function close_block( $token, array &$state ) {
+		$token_name = isset( $token['name'] ) ? strtolower( (string) $token['name'] ) : '';
+
+		// Check if ending a visibility block by name.
+		if ( in_array( $token_name, self::VISIBILITY_DIRECTIVES, true ) && ! empty( $state['visibility_stack'] ) ) {
+			array_pop( $state['visibility_stack'] );
+			return;
+		}
+
+		if ( ! empty( $state['stack'] ) ) {
+			// Ending a data repeater.
+			array_pop( $state['stack'] );
+		}
+	}
+
+	/**
+	 * Register an OpenTBS row/cell style repeater the first time it appears.
+	 *
+	 * @param array<string,mixed> $token Placeholder token.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return void
+	 */
+	private function add_tbs_repeater( $token, array &$state ) {
+		$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
+		$base_name = $this->extract_tbs_repeater_base( $token_name );
+
+		if ( '' === $base_name || ! isset( $state['tbs_repeaters'][ $base_name ] ) ) {
+			return;
+		}
+
+		if ( isset( $state['added_tbs_repeaters'][ $base_name ] ) ) {
+			return;
+		}
+
+		$state['repeaters'][] = $this->build_tbs_repeater_entry( $base_name, $state['tbs_repeaters'][ $base_name ] );
+		$state['added_tbs_repeaters'][ $base_name ] = true;
+	}
+
+	/**
+	 * Whether a dotted token was already collected as a TBS repeater field.
+	 *
+	 * @param array<string,mixed> $token Placeholder token.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return bool
+	 */
+	private function belongs_to_tbs_repeater( $token, array $state ) {
+		if ( ! empty( $state['stack'] ) ) {
+			return false;
+		}
+
+		$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
+		if ( false === strpos( $token_name, '.' ) ) {
+			return false;
+		}
+
+		$base_name = $this->extract_tbs_repeater_base( $token_name );
+
+		return '' !== $base_name && isset( $state['tbs_repeaters'][ $base_name ] );
+	}
+
+	/**
+	 * Add a field outside any repeater, skipping duplicate slugs.
+	 *
+	 * @param array<string,mixed> $field Field entry.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return void
+	 */
+	private function add_top_level_field( $field, array &$state ) {
+		// Deduplicate: only add if slug doesn't already exist.
+		$field_slug = isset( $field['slug'] ) ? $field['slug'] : '';
+
+		foreach ( $state['fields'] as $existing ) {
+			if ( isset( $existing['slug'] ) && $existing['slug'] === $field_slug ) {
+				return;
+			}
+		}
+
+		$state['fields'][] = $field;
+	}
+
+	/**
+	 * Add a field to the repeater currently open on the stack.
+	 *
+	 * @param array<string,mixed> $field Field entry.
+	 * @param array<string,mixed> $state Schema accumulator.
+	 * @return void
+	 */
+	private function add_repeater_field( $field, array &$state ) {
+		$current_index = end( $state['stack'] );
+		if ( ! isset( $state['repeaters'][ $current_index ] ) ) {
+			return;
+		}
+
+		$repeater = $state['repeaters'][ $current_index ];
+
+		$state['repeaters'][ $current_index ]['fields'][] = $this->strip_repeater_prefix(
+			$field,
+			isset( $repeater['name'] ) ? (string) $repeater['name'] : '',
+			isset( $repeater['slug'] ) ? (string) $repeater['slug'] : ''
+		);
+	}
+
+	/**
+	 * Strip the repeater base from dotted field names like "anexos.title".
+	 *
+	 * @param array<string,mixed> $field     Field entry.
+	 * @param string              $base_name Repeater name.
+	 * @param string              $base_slug Repeater slug.
+	 * @return array<string,mixed>
+	 */
+	private function strip_repeater_prefix( $field, $base_name, $base_slug ) {
+		$name = isset( $field['name'] ) ? (string) $field['name'] : '';
+		if ( '' === $name || false === strpos( $name, '.' ) ) {
+			return $field;
+		}
+
+		$segments = explode( '.', $name );
+		$first = strtolower( (string) $segments[0] );
+		if ( strtolower( $base_name ) !== $first && strtolower( $base_slug ) !== $first ) {
+			return $field;
+		}
+
+		array_shift( $segments );
+		$item_name = implode( '.', $segments );
+		$item_slug = sanitize_key( str_replace( '.', '_', $item_name ) );
+		if ( '' === $item_slug ) {
+			return $field;
+		}
+
+		$field['name'] = $item_name;
+		$field['slug'] = $item_slug;
+
+		// Keep placeholder and labels as-is; UI will humanize from slug/name if needed.
+		return $field;
+	}
+
+	/**
+	 * Hash the template file, falling back to its parsed placeholders.
+	 *
+	 * @param string           $template_path Template path.
+	 * @param array<int,mixed> $placeholders  Parsed placeholders.
+	 * @return string
+	 */
+	private function hash_template( $template_path, $placeholders ) {
+		$hash = md5_file( $template_path );
+
+		return false === $hash ? md5( wp_json_encode( $placeholders ) ) : $hash;
 	}
 
 	/**
@@ -570,7 +729,6 @@ class SchemaExtractor {
 	 */
 	private function build_field_entry( $token ) {
 		$name = isset( $token['name'] ) ? (string) $token['name'] : '';
-		$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
 
 		if ( '' === $name ) {
 			return array();
@@ -580,56 +738,92 @@ class SchemaExtractor {
 			return array();
 		}
 
+		$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
+
 		$field_type = $this->determine_field_type( $name, $parameters );
 		$field_type = $this->normalize_field_type_name( $field_type );
 
-		$title = isset( $parameters['title'] ) ? sanitize_text_field( $parameters['title'] ) : '';
-		$placeholder = isset( $parameters['placeholder'] ) ? sanitize_text_field( $parameters['placeholder'] ) : '';
-		$description = isset( $parameters['description'] ) ? sanitize_text_field( $parameters['description'] ) : '';
-		$pattern = isset( $parameters['pattern'] ) ? (string) $parameters['pattern'] : '';
-		$pattern_msg = isset( $parameters['patternmsg'] ) ? sanitize_text_field( $parameters['patternmsg'] ) : '';
-		$min_value = isset( $parameters['minvalue'] ) ? (string) $parameters['minvalue'] : '';
-		$max_value = isset( $parameters['maxvalue'] ) ? (string) $parameters['maxvalue'] : '';
-		$length = isset( $parameters['length'] ) ? (string) $parameters['length'] : '';
-
-		// Case transformation: upper, lower, title.
-		$case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
-		if ( '' !== $case && ! in_array( $case, array( 'upper', 'lower', 'title' ), true ) ) {
-			$case = '';
-		}
-
-		if ( '' === $pattern ) {
-			$default_config = self::get_default_pattern( $field_type );
-			if ( $default_config ) {
-				$pattern = $default_config['pattern'];
-				if ( '' === $pattern_msg ) {
-					$pattern_msg = $default_config['message'];
-				}
-			}
-		}
+		$attributes = $this->apply_default_pattern( $this->extract_field_attributes( $parameters ), $field_type );
 
 		$slug = $this->resolve_field_slug( $name, $parameters );
-		if ( '' === $slug ) {
-			$slug = sanitize_key( $name );
+
+		return array_merge(
+			array(
+				'name' => $name,
+				'slug' => '' === $slug ? sanitize_key( $name ) : $slug,
+				'type' => $field_type,
+			),
+			$attributes,
+			array(
+				'parameters' => $parameters,
+				'raw' => isset( $token['raw'] ) ? (string) $token['raw'] : '',
+				'source' => isset( $token['source'] ) ? (string) $token['source'] : '',
+			)
+		);
+	}
+
+	/**
+	 * Read the declared field attributes from the placeholder parameters.
+	 *
+	 * Keys are produced in the order the schema entry declares them.
+	 *
+	 * @param array<string,mixed> $parameters Placeholder parameters.
+	 * @return array<string,string>
+	 */
+	private function extract_field_attributes( $parameters ) {
+		$attributes = array();
+
+		foreach ( self::$field_attributes as $key => $sanitize ) {
+			if ( ! isset( $parameters[ $key ] ) ) {
+				$attributes[ $key ] = '';
+				continue;
+			}
+
+			$attributes[ $key ] = $sanitize
+				? sanitize_text_field( $parameters[ $key ] )
+				: (string) $parameters[ $key ];
 		}
 
-		return array(
-			'name' => $name,
-			'slug' => $slug,
-			'type' => $field_type,
-			'title' => $title,
-			'placeholder' => $placeholder,
-			'description' => $description,
-			'pattern' => $pattern,
-			'patternmsg' => $pattern_msg,
-			'minvalue' => $min_value,
-			'maxvalue' => $max_value,
-			'length' => $length,
-			'case' => $case,
-			'parameters' => $parameters,
-			'raw' => isset( $token['raw'] ) ? (string) $token['raw'] : '',
-			'source' => isset( $token['source'] ) ? (string) $token['source'] : '',
-		);
+		$attributes['case'] = $this->normalize_case( $parameters );
+
+		return $attributes;
+	}
+
+	/**
+	 * Normalise the case transformation parameter.
+	 *
+	 * @param array<string,mixed> $parameters Placeholder parameters.
+	 * @return string One of upper|lower|title, or an empty string.
+	 */
+	private function normalize_case( $parameters ) {
+		$case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
+
+		return in_array( $case, array( 'upper', 'lower', 'title' ), true ) ? $case : '';
+	}
+
+	/**
+	 * Fall back to the built-in pattern for the field type.
+	 *
+	 * @param array<string,string> $attributes Field attributes.
+	 * @param string               $field_type Normalized field type.
+	 * @return array<string,string>
+	 */
+	private function apply_default_pattern( array $attributes, $field_type ) {
+		if ( '' !== $attributes['pattern'] ) {
+			return $attributes;
+		}
+
+		$default_config = self::get_default_pattern( $field_type );
+		if ( ! $default_config ) {
+			return $attributes;
+		}
+
+		$attributes['pattern'] = $default_config['pattern'];
+		if ( '' === $attributes['patternmsg'] ) {
+			$attributes['patternmsg'] = $default_config['message'];
+		}
+
+		return $attributes;
 	}
 
 	/**
@@ -849,64 +1043,111 @@ class SchemaExtractor {
 		$repeaters = array();
 
 		foreach ( $placeholders as $token ) {
-			$name = isset( $token['name'] ) ? (string) $token['name'] : '';
-			$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
-			$block_mode = isset( $parameters['block'] ) ? strtolower( (string) $parameters['block'] ) : '';
-
-			// Look for patterns like [a.field;block=tbs:row].
-			if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) && false !== strpos( $name, '.' ) ) {
-				$base_name = $this->extract_tbs_repeater_base( $name );
-				if ( '' === $base_name ) {
-					continue;
-				}
-
-				if ( ! isset( $repeaters[ $base_name ] ) ) {
-					$repeaters[ $base_name ] = array(
-						'fields' => array(),
-					);
-				}
-			}
-
-			// Collect all fields that belong to a repeater (e.g., a.field patterns).
-			if ( false !== strpos( $name, '.' ) ) {
-				$base_name = $this->extract_tbs_repeater_base( $name );
-				if ( '' !== $base_name && isset( $repeaters[ $base_name ] ) ) {
-					$parts = explode( '.', $name );
-					$field_name = isset( $parts[1] ) ? $parts[1] : '';
-					if ( '' !== $field_name ) {
-						// Extract field type from parameters.
-						$field_type = isset( $parameters['type'] ) ? strtolower( trim( (string) $parameters['type'] ) ) : 'text';
-						$valid_types = array( 'text', 'textarea', 'html', 'number', 'date', 'email', 'url', 'select' );
-						if ( ! in_array( $field_type, $valid_types, true ) ) {
-							$field_type = 'text';
-						}
-
-						// Extract case attribute if present.
-						$field_case = isset( $parameters['case'] ) ? strtolower( trim( (string) $parameters['case'] ) ) : '';
-						if ( '' !== $field_case && ! in_array( $field_case, array( 'upper', 'lower', 'title' ), true ) ) {
-							$field_case = '';
-						}
-
-						$repeaters[ $base_name ]['fields'][ $field_name ] = array(
-							'name' => $field_name,
-							'slug' => sanitize_key( $field_name ),
-							'type' => $field_type,
-							'title' => isset( $parameters['title'] ) ? sanitize_text_field( $parameters['title'] ) : '',
-							'placeholder' => isset( $parameters['placeholder'] ) ? sanitize_text_field( $parameters['placeholder'] ) : '',
-							'description' => isset( $parameters['description'] ) ? sanitize_text_field( $parameters['description'] ) : '',
-							'pattern' => isset( $parameters['pattern'] ) ? (string) $parameters['pattern'] : '',
-							'patternmsg' => isset( $parameters['patternmsg'] ) ? sanitize_text_field( $parameters['patternmsg'] ) : '',
-							'minvalue' => isset( $parameters['minvalue'] ) ? (string) $parameters['minvalue'] : '',
-							'maxvalue' => isset( $parameters['maxvalue'] ) ? (string) $parameters['maxvalue'] : '',
-							'length' => isset( $parameters['length'] ) ? (string) $parameters['length'] : '',
-							'case' => $field_case,
-						);
-					}
-				}
-			}
+			$this->collect_tbs_repeater_token( $token, $repeaters );
 		}
 
 		return $repeaters;
+	}
+
+	/**
+	 * Register a repeater and collect its fields from one dotted token.
+	 *
+	 * @param array<string,mixed> $token     Placeholder token.
+	 * @param array<string,mixed> $repeaters Repeaters collected so far.
+	 * @return void
+	 */
+	private function collect_tbs_repeater_token( $token, array &$repeaters ) {
+		$name = isset( $token['name'] ) ? (string) $token['name'] : '';
+		if ( false === strpos( $name, '.' ) ) {
+			return;
+		}
+
+		$base_name = $this->extract_tbs_repeater_base( $name );
+		if ( '' === $base_name ) {
+			return;
+		}
+
+		$parameters = isset( $token['parameters'] ) ? $token['parameters'] : array();
+
+		$this->maybe_open_tbs_repeater( $base_name, $parameters, $repeaters );
+
+		// Collect all fields that belong to a repeater (e.g., a.field patterns).
+		if ( ! isset( $repeaters[ $base_name ] ) ) {
+			return;
+		}
+
+		$field_name = $this->extract_tbs_field_name( $name );
+		if ( '' === $field_name ) {
+			return;
+		}
+
+		$repeaters[ $base_name ]['fields'][ $field_name ] = $this->build_collected_repeater_field( $field_name, $parameters );
+	}
+
+	/**
+	 * Register a repeater the first time a block token declares it.
+	 *
+	 * @param string              $base_name  Repeater base name.
+	 * @param array<string,mixed> $parameters Placeholder parameters.
+	 * @param array<string,mixed> $repeaters  Repeaters collected so far.
+	 * @return void
+	 */
+	private function maybe_open_tbs_repeater( $base_name, $parameters, array &$repeaters ) {
+		if ( isset( $repeaters[ $base_name ] ) ) {
+			return;
+		}
+
+		$block_mode = isset( $parameters['block'] ) ? strtolower( (string) $parameters['block'] ) : '';
+
+		// Look for patterns like [a.field;block=tbs:row].
+		if ( preg_match( '/^tbs:(row|cell|p|page)/', $block_mode ) ) {
+			$repeaters[ $base_name ] = array(
+				'fields' => array(),
+			);
+		}
+	}
+
+	/**
+	 * Read the field segment of a dotted placeholder name.
+	 *
+	 * @param string $name Placeholder name (e.g., "a.firstname").
+	 * @return string
+	 */
+	private function extract_tbs_field_name( $name ) {
+		$parts = explode( '.', $name );
+
+		return isset( $parts[1] ) ? $parts[1] : '';
+	}
+
+	/**
+	 * Build the collected record for one repeater field.
+	 *
+	 * @param string              $field_name Field name within the repeater.
+	 * @param array<string,mixed> $parameters Placeholder parameters.
+	 * @return array<string,mixed>
+	 */
+	private function build_collected_repeater_field( $field_name, $parameters ) {
+		return array_merge(
+			array(
+				'name' => $field_name,
+				'slug' => sanitize_key( $field_name ),
+				'type' => $this->normalize_repeater_field_type( $parameters ),
+			),
+			$this->extract_field_attributes( $parameters )
+		);
+	}
+
+	/**
+	 * Normalise the declared type of a repeater field.
+	 *
+	 * @param array<string,mixed> $parameters Placeholder parameters.
+	 * @return string
+	 */
+	private function normalize_repeater_field_type( $parameters ) {
+		$field_type = isset( $parameters['type'] ) ? strtolower( trim( (string) $parameters['type'] ) ) : 'text';
+		$valid_types = array( 'text', 'textarea', 'html', 'number', 'date', 'email', 'url', 'select' );
+
+		return in_array( $field_type, $valid_types, true ) ? $field_type : 'text';
 	}
 
 	/**
@@ -933,26 +1174,9 @@ class SchemaExtractor {
 	private function build_tbs_repeater_entry( $base_name, $info ) {
 		$fields = array();
 
-		if ( isset( $info['fields'] ) && is_array( $info['fields'] ) ) {
-			foreach ( $info['fields'] as $field_name => $field_info ) {
-				$fields[] = array(
-					'name' => $field_name,
-					'slug' => sanitize_key( $field_name ),
-					'type' => isset( $field_info['type'] ) ? $field_info['type'] : 'text',
-					'title' => isset( $field_info['title'] ) ? $field_info['title'] : '',
-					'placeholder' => isset( $field_info['placeholder'] ) ? $field_info['placeholder'] : '',
-					'description' => isset( $field_info['description'] ) ? $field_info['description'] : '',
-					'pattern' => isset( $field_info['pattern'] ) ? $field_info['pattern'] : '',
-					'patternmsg' => isset( $field_info['patternmsg'] ) ? $field_info['patternmsg'] : '',
-					'minvalue' => isset( $field_info['minvalue'] ) ? $field_info['minvalue'] : '',
-					'maxvalue' => isset( $field_info['maxvalue'] ) ? $field_info['maxvalue'] : '',
-					'length' => isset( $field_info['length'] ) ? $field_info['length'] : '',
-					'case' => isset( $field_info['case'] ) ? $field_info['case'] : '',
-					'parameters' => array(),
-					'raw' => '',
-					'source' => '',
-				);
-			}
+		$collected = isset( $info['fields'] ) && is_array( $info['fields'] ) ? $info['fields'] : array();
+		foreach ( $collected as $field_name => $field_info ) {
+			$fields[] = $this->build_tbs_repeater_field( $field_name, $field_info );
 		}
 
 		return array(
@@ -963,5 +1187,29 @@ class SchemaExtractor {
 			'parameters' => array(),
 			'fields' => $fields,
 		);
+	}
+
+	/**
+	 * Build a schema field entry from a collected repeater field.
+	 *
+	 * @param string              $field_name Field name within the repeater.
+	 * @param array<string,mixed> $field_info Collected field info.
+	 * @return array<string,mixed>
+	 */
+	private function build_tbs_repeater_field( $field_name, $field_info ) {
+		$field = array(
+			'name' => $field_name,
+			'slug' => sanitize_key( $field_name ),
+		);
+
+		foreach ( self::$repeater_field_defaults as $key => $default ) {
+			$field[ $key ] = isset( $field_info[ $key ] ) ? $field_info[ $key ] : $default;
+		}
+
+		$field['parameters'] = array();
+		$field['raw'] = '';
+		$field['source'] = '';
+
+		return $field;
 	}
 }
