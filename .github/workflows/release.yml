@@ -24,7 +24,7 @@ jobs:
       # The LibreOffice WASM glue under admin/vendor is generated rather than
       # committed, and `make package` regenerates it from node_modules.
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
