@@ -2,6 +2,35 @@
 	'use strict';
 
 	/**
+	 * Extract the visible text of an HTML fragment.
+	 *
+	 * Parsed with DOMParser rather than assigned to innerHTML. A detached node
+	 * still belongs to the active document, so it fetches resources and
+	 * <img src=x onerror=...> stored in an editor used to run here. A document
+	 * from parseFromString has no browsing context: it neither runs scripts nor
+	 * loads resources.
+	 *
+	 * Real parsing is required, not a tag-stripping regex: callers compare the
+	 * result against '' to detect an empty field, and only a parser decodes
+	 * entities (&#160;) and understands '>' inside an attribute value.
+	 *
+	 * @param {string} html Raw field value, possibly containing markup.
+	 * @return {string} Trimmed visible text.
+	 */
+	function extractPlainText(html) {
+		var parsed = new DOMParser().parseFromString(String(html), 'text/html');
+		return (parsed.body.textContent || '').trim();
+	}
+
+	// Expose the extraction helper to the unit tests. WordPress serves this
+	// file as a plain script, where `module` is undefined, so the browser
+	// never takes this branch and the handler below is always registered.
+	if (typeof module !== 'undefined' && module.exports) {
+		module.exports = { extractPlainText: extractPlainText };
+		return;
+	}
+
+	/**
 	 * Get the text content of a TinyMCE or textarea rich editor.
 	 *
 	 * @param {HTMLElement} el The textarea or container element.
@@ -21,12 +50,7 @@
 			}
 		}
 
-		// Strip HTML tags and trim whitespace. Parse into an inert document
-		// rather than assigning to innerHTML: a detached node still loads
-		// resources, so markup such as <img src=x onerror=...> stored in the
-		// editor would run here.
-		var parsed = new DOMParser().parseFromString(textarea.value, 'text/html');
-		return (parsed.body.textContent || '').trim();
+		return extractPlainText(textarea.value);
 	}
 
 	/**
@@ -119,4 +143,7 @@
 		}
 	});
 
-})(jQuery);
+// jQuery is always present in the admin, where WordPress enqueues it as a
+// dependency. The guard is for the unit tests, which require this file
+// directly to reach extractPlainText() and never touch the jQuery handlers.
+})(typeof jQuery !== 'undefined' ? jQuery : undefined);

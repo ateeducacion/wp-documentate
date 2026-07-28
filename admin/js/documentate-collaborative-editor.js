@@ -875,12 +875,6 @@
 	}
 
 	/**
-	 * Render user avatars in the metabox.
-	 *
-	 * @param {HTMLElement} container - Container element for avatars
-	 * @param {Map}         users     - Map of unique users (keyed by userId)
-	 */
-	/**
 	 * Build a collaborator avatar image.
 	 *
 	 * Both values come from Yjs awareness state, which every peer in the room
@@ -898,6 +892,12 @@
 		return img;
 	}
 
+	/**
+	 * Render user avatars in the metabox.
+	 *
+	 * @param {HTMLElement} container - Container element for avatars
+	 * @param {Map}         users     - Map of unique users (keyed by userId)
+	 */
 	async function renderUserAvatars(container, users) {
 		container.innerHTML = '';
 

@@ -14,7 +14,7 @@ test.describe( 'Document Types Management', () => {
 		await documentTypes.expectOnListPage( expect );
 	} );
 
-	test( 'can create new document type with name', async ( { documentTypes, page } ) => {
+	test( 'can create new document type with name', async ( { documentTypes } ) => {
 		await documentTypes.navigate();
 
 		const typeName = `Test Type ${ Date.now() }`;
@@ -22,8 +22,11 @@ test.describe( 'Document Types Management', () => {
 		// Create the document type
 		await documentTypes.create( { name: typeName } );
 
-		// Reload and verify the new type appears in the list
-		await page.reload();
+		// Reload filtered by name: the list paginates at 20, so a fresh term
+		// is not guaranteed to appear on the first page once the site has a
+		// realistic number of document types. Asserting on the unfiltered
+		// first page is what made this test fail as data accumulated.
+		await documentTypes.navigate( typeName );
 
 		await documentTypes.expectTermExists( expect, typeName );
 	} );
