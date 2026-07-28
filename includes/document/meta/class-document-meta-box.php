@@ -99,61 +99,121 @@ class Document_Meta_Box {
 	public function save( $post_id, $post = null, $update = false ) {
 		unset( $update );
 
-		if ( ! isset( $_POST[ self::NONCE_NAME ] ) ) {
+		if ( ! $this->should_save( $post_id ) ) {
 			return;
+		}
+
+		$post = $this->resolve_post( $post_id, $post );
+		if ( ! $post instanceof WP_Post ) {
+			return;
+		}
+
+		$this->persist_meta( $post_id, self::META_KEY_SUBJECT, $this->read_subject( $post_id, $post ) );
+		$this->persist_meta( $post_id, self::META_KEY_AUTHOR, $this->read_author() );
+		$this->persist_meta( $post_id, self::META_KEY_KEYWORDS, $this->read_keywords() );
+	}
+
+	/**
+	 * Whether this request is an authorised metadata save.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	private function should_save( $post_id ) {
+		if ( ! isset( $_POST[ self::NONCE_NAME ] ) ) {
+			return false;
 		}
 
 		$nonce = sanitize_text_field( wp_unslash( $_POST[ self::NONCE_NAME ] ) );
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			return;
+			return false;
 		}
 
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
+			return false;
 		}
 
 		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
-			return;
+			return false;
 		}
 
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return;
+			return false;
 		}
 
 		if (
 			class_exists( 'Documentate_Workflow' )
 			&& ! \Documentate_Workflow::current_user_can_modify_document( $post_id )
 		) {
-			return;
+			return false;
 		}
 
+		return true;
+	}
+
+	/**
+	 * Resolve the post being saved.
+	 *
+	 * @param int          $post_id Post ID.
+	 * @param WP_Post|null $post    Post object when the caller supplied one.
+	 * @return WP_Post|null
+	 */
+	private function resolve_post( $post_id, $post ) {
 		if ( null === $post ) {
 			$post = get_post( $post_id );
 		}
 
-		if ( ! $post instanceof WP_Post ) {
-			return;
-		}
+		return $post instanceof WP_Post ? $post : null;
+	}
 
+	/**
+	 * Read the document subject, which mirrors the post title.
+	 *
+	 * @param int     $post_id Post ID.
+	 * @param WP_Post $post    Post being saved.
+	 * @return string
+	 */
+	private function read_subject( $post_id, WP_Post $post ) {
 		$title_source = get_post_field( 'post_title', $post_id, 'raw' );
 		if ( ! is_string( $title_source ) || '' === $title_source ) {
 			$title_source = $post->post_title;
 		}
 
-		$title_raw = sanitize_text_field( (string) $title_source );
-		$subject = $this->sanitize_limited_text( $title_raw, 255 );
+		return $this->sanitize_limited_text( sanitize_text_field( (string) $title_source ), 255 );
+	}
+
+	/**
+	 * Read the submitted document author.
+	 *
+	 * Nonce and capability are verified in should_save().
+	 *
+	 * @return string
+	 */
+	private function read_author() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in should_save().
 		$author_input = isset( $_POST['documentate_document_meta_author'] )
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in should_save().
 			? sanitize_text_field( wp_unslash( $_POST['documentate_document_meta_author'] ) )
 			: '';
-		$author = $this->sanitize_limited_text( $author_input, 255 );
+
+		return $this->sanitize_limited_text( $author_input, 255 );
+	}
+
+	/**
+	 * Read the submitted document keywords.
+	 *
+	 * Nonce and capability are verified in should_save().
+	 *
+	 * @return string
+	 */
+	private function read_keywords() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in should_save().
 		$keywords_raw = isset( $_POST['documentate_document_meta_keywords'] )
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in should_save().
 			? sanitize_text_field( wp_unslash( $_POST['documentate_document_meta_keywords'] ) )
 			: '';
-		$keywords = $this->sanitize_keywords( $keywords_raw );
 
-		$this->persist_meta( $post_id, self::META_KEY_SUBJECT, $subject );
-		$this->persist_meta( $post_id, self::META_KEY_AUTHOR, $author );
-		$this->persist_meta( $post_id, self::META_KEY_KEYWORDS, $keywords );
+		return $this->sanitize_keywords( $keywords_raw );
 	}
 
 	/**

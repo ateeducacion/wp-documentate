@@ -269,7 +269,19 @@ class Documentate_Admin_Settings {
 	 * @return array The validated fields.
 	 */
 	public function settings_validate( $input ) {
-		// Validate conversion engine.
+		$input = $this->validate_conversion_settings( $input );
+		$input = $this->validate_collabora_settings( $input );
+
+		return $this->validate_collaborative_settings( $input );
+	}
+
+	/**
+	 * Validate the conversion engine selection.
+	 *
+	 * @param array $input The input fields to validate.
+	 * @return array
+	 */
+	private function validate_conversion_settings( $input ) {
 		$valid_engines = array( 'wasm', 'collabora' );
 		$engine = isset( $input['conversion_engine'] ) ? sanitize_key( $input['conversion_engine'] ) : 'collabora';
 		if ( ! in_array( $engine, $valid_engines, true ) ) {
@@ -277,7 +289,16 @@ class Documentate_Admin_Settings {
 		}
 		$input['conversion_engine'] = $engine;
 
-		// Validate Collabora settings.
+		return $input;
+	}
+
+	/**
+	 * Validate the Collabora connection settings.
+	 *
+	 * @param array $input The input fields to validate.
+	 * @return array
+	 */
+	private function validate_collabora_settings( $input ) {
 		$base_url = isset( $input['collabora_base_url'] ) ? trim( (string) $input['collabora_base_url'] ) : '';
 		$input['collabora_base_url'] = '' === $base_url ? '' : untrailingslashit( esc_url_raw( $base_url ) );
 
@@ -287,14 +308,19 @@ class Documentate_Admin_Settings {
 		}
 		$input['collabora_lang'] = $lang;
 
-		$input['collabora_disable_ssl'] = isset( $input['collabora_disable_ssl'] ) && '1' === $input['collabora_disable_ssl']
-			? '1'
-			: '0';
+		$input['collabora_disable_ssl'] = $this->validate_checkbox( $input, 'collabora_disable_ssl' );
 
-		// Validate collaborative settings.
-		$input['collaborative_enabled'] = isset( $input['collaborative_enabled'] ) && '1' === $input['collaborative_enabled']
-			? '1'
-			: '0';
+		return $input;
+	}
+
+	/**
+	 * Validate the collaborative editing settings.
+	 *
+	 * @param array $input The input fields to validate.
+	 * @return array
+	 */
+	private function validate_collaborative_settings( $input ) {
+		$input['collaborative_enabled'] = $this->validate_checkbox( $input, 'collaborative_enabled' );
 
 		$signaling_url = isset( $input['collaborative_signaling'] ) ? trim( (string) $input['collaborative_signaling'] ) : '';
 		if ( '' === $signaling_url ) {
@@ -303,5 +329,16 @@ class Documentate_Admin_Settings {
 		$input['collaborative_signaling'] = esc_url_raw( $signaling_url, array( 'wss', 'ws' ) );
 
 		return $input;
+	}
+
+	/**
+	 * Normalise a checkbox setting to the stored '1' or '0' value.
+	 *
+	 * @param array  $input The input fields to validate.
+	 * @param string $key   Setting key.
+	 * @return string
+	 */
+	private function validate_checkbox( $input, $key ) {
+		return isset( $input[ $key ] ) && '1' === $input[ $key ] ? '1' : '0';
 	}
 }

@@ -213,94 +213,143 @@ class Documentate_Demo_Data {
 
 		self::ensure_default_media();
 
-		$definitions = self::get_doc_type_definitions();
+		foreach ( self::get_doc_type_definitions() as $definition ) {
+			self::seed_doc_type( $definition );
+		}
+	}
 
-		if ( empty( $definitions ) ) {
+	/**
+	 * Create or update a single demo document type and its schema.
+	 *
+	 * @param array $definition Document type definition.
+	 * @return void
+	 */
+	private static function seed_doc_type( $definition ) {
+		$template_id = intval( $definition['template_id'] );
+		if ( $template_id <= 0 ) {
 			return;
 		}
 
-		foreach ( $definitions as $definition ) {
-			$slug = $definition['slug'];
-			$template_id = intval( $definition['template_id'] );
-			if ( $template_id <= 0 ) {
-				continue;
-			}
-
-			$term = get_term_by( 'slug', $slug, 'documentate_doc_type' );
-			$term_id = $term instanceof WP_Term ? intval( $term->term_id ) : 0;
-
-			if ( $term_id <= 0 ) {
-				$created = wp_insert_term(
-					$definition['name'],
-					'documentate_doc_type',
-					array(
-						'slug' => $slug,
-						'description' => $definition['description'],
-					)
-				);
-
-				if ( is_wp_error( $created ) ) {
-					continue;
-				}
-
-				$term_id = intval( $created['term_id'] );
-			}
-
-			if ( $term_id <= 0 ) {
-				continue;
-			}
-
-			$fixture_key = get_term_meta( $term_id, '_documentate_fixture', true );
-			if ( ! empty( $fixture_key ) && $fixture_key !== $definition['fixture_key'] ) {
-				continue;
-			}
-
-			update_term_meta( $term_id, '_documentate_fixture', $definition['fixture_key'] );
-			update_term_meta( $term_id, 'documentate_type_color', $definition['color'] );
-			update_term_meta( $term_id, 'documentate_type_template_id', $template_id );
-
-			$path = get_attached_file( $template_id );
-			if ( ! $path ) {
-				continue;
-			}
-
-			$extractor = new Documentate\DocType\SchemaExtractor();
-			$storage = new Documentate\DocType\SchemaStorage();
-
-			$existing_schema = $storage->get_schema( $term_id );
-			$template_hash = @md5_file( $path );
-
-			if (
-				! empty( $existing_schema )
-				&& $template_hash
-				&& isset( $existing_schema['meta']['hash'] )
-				&& $template_hash === $existing_schema['meta']['hash']
-			) {
-				$template_type = isset( $existing_schema['meta']['template_type'] )
-					? (string) $existing_schema['meta']['template_type']
-					: strtolower( (string) pathinfo( $path, PATHINFO_EXTENSION ) );
-				update_term_meta( $term_id, 'documentate_type_template_type', $template_type );
-				continue;
-			}
-
-			$schema = $extractor->extract( $path );
-			if ( is_wp_error( $schema ) ) {
-				continue;
-			}
-
-			$schema['meta']['template_id'] = $template_id;
-			$schema['meta']['template_type'] = isset( $schema['meta']['template_type'] )
-				? (string) $schema['meta']['template_type']
-				: strtolower( (string) pathinfo( $path, PATHINFO_EXTENSION ) );
-			$schema['meta']['template_name'] = basename( $path );
-			if ( empty( $schema['meta']['hash'] ) && $template_hash ) {
-				$schema['meta']['hash'] = $template_hash;
-			}
-
-			update_term_meta( $term_id, 'documentate_type_template_type', $schema['meta']['template_type'] );
-
-			$storage->save_schema( $term_id, $schema );
+		$term_id = self::resolve_doc_type_term( $definition );
+		if ( $term_id <= 0 ) {
+			return;
 		}
+
+		// Leave alone any term a different fixture already claimed.
+		$fixture_key = get_term_meta( $term_id, '_documentate_fixture', true );
+		if ( ! empty( $fixture_key ) && $fixture_key !== $definition['fixture_key'] ) {
+			return;
+		}
+
+		update_term_meta( $term_id, '_documentate_fixture', $definition['fixture_key'] );
+		update_term_meta( $term_id, 'documentate_type_color', $definition['color'] );
+		update_term_meta( $term_id, 'documentate_type_template_id', $template_id );
+
+		$path = get_attached_file( $template_id );
+		if ( ! $path ) {
+			return;
+		}
+
+		self::sync_doc_type_schema( $term_id, $template_id, $path );
+	}
+
+	/**
+	 * Find the demo document type term, creating it when missing.
+	 *
+	 * @param array $definition Document type definition.
+	 * @return int Term ID, or 0 when it could not be created.
+	 */
+	private static function resolve_doc_type_term( $definition ) {
+		$term = get_term_by( 'slug', $definition['slug'], 'documentate_doc_type' );
+		if ( $term instanceof WP_Term ) {
+			return intval( $term->term_id );
+		}
+
+		$created = wp_insert_term(
+			$definition['name'],
+			'documentate_doc_type',
+			array(
+				'slug' => $definition['slug'],
+				'description' => $definition['description'],
+			)
+		);
+
+		if ( is_wp_error( $created ) ) {
+			return 0;
+		}
+
+		return intval( $created['term_id'] );
+	}
+
+	/**
+	 * Extract and store the schema for a demo document type template.
+	 *
+	 * @param int    $term_id     Document type term ID.
+	 * @param int    $template_id Template attachment ID.
+	 * @param string $path        Template file path.
+	 * @return void
+	 */
+	private static function sync_doc_type_schema( $term_id, $template_id, $path ) {
+		$storage = new Documentate\DocType\SchemaStorage();
+
+		$existing_schema = $storage->get_schema( $term_id );
+		$template_hash = @md5_file( $path );
+
+		// Nothing to re-extract while the stored schema still matches the file.
+		if ( self::schema_matches_template( $existing_schema, $template_hash ) ) {
+			update_term_meta(
+				$term_id,
+				'documentate_type_template_type',
+				self::resolve_template_type( $existing_schema, $path )
+			);
+			return;
+		}
+
+		$extractor = new Documentate\DocType\SchemaExtractor();
+		$schema = $extractor->extract( $path );
+		if ( is_wp_error( $schema ) ) {
+			return;
+		}
+
+		$schema['meta']['template_id'] = $template_id;
+		$schema['meta']['template_type'] = self::resolve_template_type( $schema, $path );
+		$schema['meta']['template_name'] = basename( $path );
+		if ( empty( $schema['meta']['hash'] ) && $template_hash ) {
+			$schema['meta']['hash'] = $template_hash;
+		}
+
+		update_term_meta( $term_id, 'documentate_type_template_type', $schema['meta']['template_type'] );
+
+		$storage->save_schema( $term_id, $schema );
+	}
+
+	/**
+	 * Whether a stored schema still matches the template file on disk.
+	 *
+	 * @param mixed        $existing_schema Stored schema, if any.
+	 * @param string|false $template_hash   Hash of the template file.
+	 * @return bool
+	 */
+	private static function schema_matches_template( $existing_schema, $template_hash ) {
+		return ! empty( $existing_schema )
+			&& $template_hash
+			&& isset( $existing_schema['meta']['hash'] )
+			&& $template_hash === $existing_schema['meta']['hash'];
+	}
+
+	/**
+	 * Read the template type from a schema, falling back to the file extension.
+	 *
+	 * @param array  $schema Schema holding the meta section.
+	 * @param string $path   Template file path.
+	 * @return string
+	 */
+	private static function resolve_template_type( $schema, $path ) {
+		if ( isset( $schema['meta']['template_type'] ) ) {
+			return (string) $schema['meta']['template_type'];
+		}
+
+		return strtolower( (string) pathinfo( $path, PATHINFO_EXTENSION ) );
 	}
 
 	/**
@@ -311,21 +360,41 @@ class Documentate_Demo_Data {
 	private static function get_doc_type_definitions() {
 		$definitions = array();
 
-		$odt_id = self::import_fixture_file( 'resolucion.odt' );
-		if ( $odt_id > 0 ) {
-			$definitions[] = array(
+		foreach ( self::get_doc_type_fixtures() as $fixture => $spec ) {
+			$template_id = self::import_fixture_file( $fixture );
+			if ( $template_id <= 0 ) {
+				continue;
+			}
+
+			$definitions[] = array_merge(
+				$spec,
+				array(
+					'template_id' => $template_id,
+					'fixture_key' => $spec['slug'],
+				)
+			);
+		}
+
+		return $definitions;
+	}
+
+	/**
+	 * Demo document types keyed by the fixture file they are built from.
+	 *
+	 * Declaration order is the seeding order. The fixture key of every entry
+	 * is its slug, so it is derived rather than repeated.
+	 *
+	 * @return array<string,array{slug:string,name:string,description:string,color:string}>
+	 */
+	private static function get_doc_type_fixtures() {
+		return array(
+			'resolucion.odt' => array(
 				'slug' => 'resolucion-administrativa',
 				'name' => 'Resolución Administrativa',
 				'description' => 'Plantilla para resoluciones administrativas con antecedentes, fundamentos de derecho, resuelvo y anexos.',
 				'color' => '#37517e',
-				'template_id' => $odt_id,
-				'fixture_key' => 'resolucion-administrativa',
-			);
-		}
-
-		$advanced_odt_id = self::import_fixture_file( 'demo-wp-documentate.odt' );
-		if ( $advanced_odt_id > 0 ) {
-			$definitions[] = array(
+			),
+			'demo-wp-documentate.odt' => array(
 				'slug' => 'documentate-demo-wp-documentate-odt',
 				'name' => __( 'Advanced test document type (ODT)', 'documentate' ),
 				'description' => __(
@@ -333,14 +402,8 @@ class Documentate_Demo_Data {
 					'documentate',
 				),
 				'color' => '#6c5ce7',
-				'template_id' => $advanced_odt_id,
-				'fixture_key' => 'documentate-demo-wp-documentate-odt',
-			);
-		}
-
-		$advanced_docx_id = self::import_fixture_file( 'demo-wp-documentate.docx' );
-		if ( $advanced_docx_id > 0 ) {
-			$definitions[] = array(
+			),
+			'demo-wp-documentate.docx' => array(
 				'slug' => 'documentate-demo-wp-documentate-docx',
 				'name' => __( 'Advanced test document type (DOCX)', 'documentate' ),
 				'description' => __(
@@ -348,108 +411,56 @@ class Documentate_Demo_Data {
 					'documentate',
 				),
 				'color' => '#0f9d58',
-				'template_id' => $advanced_docx_id,
-				'fixture_key' => 'documentate-demo-wp-documentate-docx',
-			);
-		}
-
-		$autorizacion_id = self::import_fixture_file( 'autorizacionviaje.odt' );
-		if ( $autorizacion_id > 0 ) {
-			$definitions[] = array(
+			),
+			'autorizacionviaje.odt' => array(
 				'slug' => 'autorizacion-viaje',
 				'name' => 'Autorización de viaje',
 				'description' => 'Plantilla para autorizaciones de viaje con listado de asistentes.',
 				'color' => '#e67e22',
-				'template_id' => $autorizacion_id,
-				'fixture_key' => 'autorizacion-viaje',
-			);
-		}
-
-		$gastos_id = self::import_fixture_file( 'gastossuplidos.odt' );
-		if ( $gastos_id > 0 ) {
-			$definitions[] = array(
+			),
+			'gastossuplidos.odt' => array(
 				'slug' => 'gastos-suplidos',
 				'name' => 'Solicitud de gastos suplidos',
 				'description' => 'Plantilla para solicitud de reembolso de gastos con listado de facturas.',
 				'color' => '#27ae60',
-				'template_id' => $gastos_id,
-				'fixture_key' => 'gastos-suplidos',
-			);
-		}
-
-		$propuesta_id = self::import_fixture_file( 'propuestagasto.odt' );
-		if ( $propuesta_id > 0 ) {
-			$definitions[] = array(
+			),
+			'propuestagasto.odt' => array(
 				'slug' => 'propuesta-gasto',
 				'name' => 'Propuesta de gasto',
 				'description' => 'Plantilla para propuestas de gasto con libramientos, servicios, suministros y expertos.',
 				'color' => '#9b59b6',
-				'template_id' => $propuesta_id,
-				'fixture_key' => 'propuesta-gasto',
-			);
-		}
-
-		$convocatoria_id = self::import_fixture_file( 'convocatoriareunion.odt' );
-		if ( $convocatoria_id > 0 ) {
-			$definitions[] = array(
+			),
+			'convocatoriareunion.odt' => array(
 				'slug' => 'convocatoria-reunion',
 				'name' => 'Convocatoria de reunión',
 				'description' => 'Plantilla para convocatorias de reuniones con lugar, fecha, horario y orden del día.',
 				'color' => '#3498db',
-				'template_id' => $convocatoria_id,
-				'fixture_key' => 'convocatoria-reunion',
-			);
-		}
-
-		$memoria_pago_id = self::import_fixture_file( 'memoria_pago_cep.odt' );
-		if ( $memoria_pago_id > 0 ) {
-			$definitions[] = array(
+			),
+			'memoria_pago_cep.odt' => array(
 				'slug' => 'memoria-pago',
 				'name' => 'Memoria justificativa de pago',
 				'description' => 'Plantilla para memorias justificativas de pago con listado de facturas y datos del CEP.',
 				'color' => '#d35400',
-				'template_id' => $memoria_pago_id,
-				'fixture_key' => 'memoria-pago',
-			);
-		}
-
-		$respuesta_escrito_id = self::import_fixture_file( 'respuesta_escrito.odt' );
-		if ( $respuesta_escrito_id > 0 ) {
-			$definitions[] = array(
+			),
+			'respuesta_escrito.odt' => array(
 				'slug' => 'respuesta-escrito',
 				'name' => 'Respuesta a escrito',
 				'description' => 'Plantilla para respuestas a escritos y solicitudes con destinatario, asunto y texto de respuesta.',
 				'color' => '#2c3e50',
-				'template_id' => $respuesta_escrito_id,
-				'fixture_key' => 'respuesta-escrito',
-			);
-		}
-
-		$modelo_informe_id = self::import_fixture_file( 'modelo_informe.odt' );
-		if ( $modelo_informe_id > 0 ) {
-			$definitions[] = array(
+			),
+			'modelo_informe.odt' => array(
 				'slug' => 'modelo-informe',
 				'name' => 'Modelo de informe',
 				'description' => 'Plantilla para informes con asunto, texto del informe y cargo firmante.',
 				'color' => '#16a085',
-				'template_id' => $modelo_informe_id,
-				'fixture_key' => 'modelo-informe',
-			);
-		}
-
-		$hace_constar_id = self::import_fixture_file( 'haceconstar.odt' );
-		if ( $hace_constar_id > 0 ) {
-			$definitions[] = array(
+			),
+			'haceconstar.odt' => array(
 				'slug' => 'hace-constar',
 				'name' => 'Hace constar',
 				'description' => 'Plantilla de certificado «Hace constar» que acredita la participación de una persona en determinadas actividades.',
 				'color' => '#c0392b',
-				'template_id' => $hace_constar_id,
-				'fixture_key' => 'hace-constar',
-			);
-		}
-
-		return $definitions;
+			),
+		);
 	}
 
 	/**
@@ -468,6 +479,29 @@ class Documentate_Demo_Data {
 		}
 
 		// Check if demo documents already exist - if so, skip seeding.
+		if ( self::demo_documents_already_seeded() ) {
+			delete_option( 'documentate_seed_demo_documents' );
+			return;
+		}
+
+		self::maybe_seed_default_doc_types();
+
+		$seeded_ids = self::seed_specific_demo_documents();
+
+		// Also create demo documents for other document types (advanced demos).
+		self::seed_remaining_demo_documents( $seeded_ids );
+
+		self::assign_demo_document_metadata();
+
+		delete_option( 'documentate_seed_demo_documents' );
+	}
+
+	/**
+	 * Whether any demo document already exists.
+	 *
+	 * @return bool
+	 */
+	private static function demo_documents_already_seeded() {
 		$existing_demos = get_posts(
 			array(
 				'post_type' => 'documentate_document',
@@ -488,98 +522,62 @@ class Documentate_Demo_Data {
 			)
 		);
 
-		if ( ! empty( $existing_demos ) ) {
-			delete_option( 'documentate_seed_demo_documents' );
-			return;
+		return ! empty( $existing_demos );
+	}
+
+	/**
+	 * Create the hand-written demo documents for the types that ship one.
+	 *
+	 * @return int[] Term IDs that received a specific demo document.
+	 */
+	private static function seed_specific_demo_documents() {
+		$seeded_ids = array();
+
+		// Resolución Administrativa ships three demo documents rather than one.
+		$resolucion = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
+		if ( $resolucion instanceof WP_Term ) {
+			self::create_resolucion_demo_documents( $resolucion );
+			$seeded_ids[] = $resolucion->term_id;
 		}
 
-		self::maybe_seed_default_doc_types();
+		foreach ( self::get_specific_demos() as $slug => $demo ) {
+			$term = get_term_by( 'slug', $slug, 'documentate_doc_type' );
+			if ( ! $term instanceof WP_Term ) {
+				continue;
+			}
 
-		// Get the Resolución Administrativa document type.
-		$term = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
-		if ( $term instanceof WP_Term ) {
-			// Create the 3 specific demo documents for Resolución Administrativa.
-			self::create_resolucion_demo_documents( $term );
-		}
-
-		// Create specific demo document for Autorización de viaje.
-		$autorizacion_term = get_term_by( 'slug', 'autorizacion-viaje', 'documentate_doc_type' );
-		if ( $autorizacion_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $autorizacion_term, self::get_autorizacion_viaje_demo() );
+			self::create_specific_demo_documents( $term, $demo );
+			$seeded_ids[] = $term->term_id;
 		}
 
-		// Create specific demo document for Gastos suplidos.
-		$gastos_term = get_term_by( 'slug', 'gastos-suplidos', 'documentate_doc_type' );
-		if ( $gastos_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $gastos_term, self::get_gastos_suplidos_demo() );
-		}
+		return $seeded_ids;
+	}
 
-		// Create specific demo document for Propuesta de gasto.
-		$propuesta_term = get_term_by( 'slug', 'propuesta-gasto', 'documentate_doc_type' );
-		if ( $propuesta_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $propuesta_term, self::get_propuesta_gasto_demo() );
-		}
+	/**
+	 * Document type slugs mapped to their hand-written demo document.
+	 *
+	 * @return array<string,array>
+	 */
+	private static function get_specific_demos() {
+		return array(
+			'autorizacion-viaje' => self::get_autorizacion_viaje_demo(),
+			'gastos-suplidos' => self::get_gastos_suplidos_demo(),
+			'propuesta-gasto' => self::get_propuesta_gasto_demo(),
+			'convocatoria-reunion' => self::get_convocatoria_reunion_demo(),
+			'memoria-pago' => self::get_memoria_pago_demo(),
+			'respuesta-escrito' => self::get_respuesta_escrito_demo(),
+			'modelo-informe' => self::get_modelo_informe_demo(),
+			'hace-constar' => self::get_hace_constar_demo(),
+		);
+	}
 
-		// Create specific demo document for Convocatoria de reunión.
-		$convocatoria_term = get_term_by( 'slug', 'convocatoria-reunion', 'documentate_doc_type' );
-		if ( $convocatoria_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $convocatoria_term, self::get_convocatoria_reunion_demo() );
-		}
-
-		// Create specific demo document for Memoria justificativa de pago.
-		$memoria_pago_term = get_term_by( 'slug', 'memoria-pago', 'documentate_doc_type' );
-		if ( $memoria_pago_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $memoria_pago_term, self::get_memoria_pago_demo() );
-		}
-
-		// Create specific demo document for Respuesta a escrito.
-		$respuesta_escrito_term = get_term_by( 'slug', 'respuesta-escrito', 'documentate_doc_type' );
-		if ( $respuesta_escrito_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $respuesta_escrito_term, self::get_respuesta_escrito_demo() );
-		}
-
-		// Create specific demo document for Modelo de informe.
-		$modelo_informe_term = get_term_by( 'slug', 'modelo-informe', 'documentate_doc_type' );
-		if ( $modelo_informe_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $modelo_informe_term, self::get_modelo_informe_demo() );
-		}
-
-		// Create specific demo document for Hace constar.
-		$hace_constar_term = get_term_by( 'slug', 'hace-constar', 'documentate_doc_type' );
-		if ( $hace_constar_term instanceof WP_Term ) {
-			self::create_specific_demo_documents( $hace_constar_term, self::get_hace_constar_demo() );
-		}
-
-		// Also create demo documents for other document types (advanced demos).
-		$exclude_ids = array();
-		if ( $term instanceof WP_Term ) {
-			$exclude_ids[] = $term->term_id;
-		}
-		if ( $autorizacion_term instanceof WP_Term ) {
-			$exclude_ids[] = $autorizacion_term->term_id;
-		}
-		if ( $gastos_term instanceof WP_Term ) {
-			$exclude_ids[] = $gastos_term->term_id;
-		}
-		if ( $propuesta_term instanceof WP_Term ) {
-			$exclude_ids[] = $propuesta_term->term_id;
-		}
-		if ( $convocatoria_term instanceof WP_Term ) {
-			$exclude_ids[] = $convocatoria_term->term_id;
-		}
-		if ( $memoria_pago_term instanceof WP_Term ) {
-			$exclude_ids[] = $memoria_pago_term->term_id;
-		}
-		if ( $respuesta_escrito_term instanceof WP_Term ) {
-			$exclude_ids[] = $respuesta_escrito_term->term_id;
-		}
-		if ( $modelo_informe_term instanceof WP_Term ) {
-			$exclude_ids[] = $modelo_informe_term->term_id;
-		}
-		if ( $hace_constar_term instanceof WP_Term ) {
-			$exclude_ids[] = $hace_constar_term->term_id;
-		}
-
+	/**
+	 * Create a generic demo document for every remaining document type.
+	 *
+	 * @param int[] $exclude_ids Term IDs that already received a demo document.
+	 * @return void
+	 */
+	private static function seed_remaining_demo_documents( array $exclude_ids ) {
 		$terms = get_terms(
 			array(
 				'taxonomy' => 'documentate_doc_type',
@@ -588,18 +586,17 @@ class Documentate_Demo_Data {
 			)
 		);
 
-		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
-			foreach ( $terms as $other_term ) {
-				if ( self::demo_document_exists( $other_term->term_id ) ) {
-					continue;
-				}
-				self::create_demo_document_for_type( $other_term );
-			}
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return;
 		}
 
-		self::assign_demo_document_metadata();
+		foreach ( $terms as $other_term ) {
+			if ( self::demo_document_exists( $other_term->term_id ) ) {
+				continue;
+			}
 
-		delete_option( 'documentate_seed_demo_documents' );
+			self::create_demo_document_for_type( $other_term );
+		}
 	}
 
 	/**
@@ -1327,180 +1324,215 @@ class Documentate_Demo_Data {
 				'title' => 'Ejemplo: Documento 0 - Propuesta de gasto para formación del profesorado',
 				'author' => 'Servicio de Innovación Educativa',
 				'keywords' => 'propuesta, gasto, formación, profesorado',
-				'fields' => array(
-					'curso' => array(
-						'type' => 'single',
-						'value' => '2024/2025',
+				'fields' => array_merge(
+					self::get_propuesta_gasto_general_fields(),
+					self::get_propuesta_gasto_libramiento_fields(),
+					self::get_propuesta_gasto_provider_fields()
+				),
+			),
+		);
+	}
+
+	/**
+	 * General fields of the propuesta de gasto demo document.
+	 *
+	 * @return array<string,array>
+	 */
+	private static function get_propuesta_gasto_general_fields() {
+		return array(
+			'curso' => array(
+				'type' => 'single',
+				'value' => '2024/2025',
+			),
+			'numero_decreto' => array(
+				'type' => 'single',
+				'value' => '17',
+			),
+			'letra_decreto' => array(
+				'type' => 'single',
+				'value' => 'a',
+			),
+			'para' => array(
+				'type' => 'textarea',
+				'value' => 'la formación del profesorado en metodologías activas y competencias digitales',
+			),
+			'objeto' => array(
+				'type' => 'textarea',
+				'value' => 'Desarrollo de un programa de formación continua para el profesorado de centros públicos de Canarias en el ámbito de las metodologías activas de aprendizaje y la competencia digital docente.',
+			),
+			'lineadeactuacion' => array(
+				'type' => 'textarea',
+				'value' => 'Formación del profesorado y desarrollo profesional docente',
+			),
+			'destinatarios' => array(
+				'type' => 'single',
+				'value' => 'Profesorado de centros públicos de educación primaria y secundaria',
+			),
+			'alcance_centros' => array(
+				'type' => 'single',
+				'value' => '150',
+			),
+			'alcance_profesorado' => array(
+				'type' => 'single',
+				'value' => '2500',
+			),
+			'alcance_alumnado' => array(
+				'type' => 'single',
+				'value' => '45000',
+			),
+			'alcance_familias' => array(
+				'type' => 'single',
+				'value' => '0',
+			),
+			'gasto_numero' => array(
+				'type' => 'single',
+				'value' => '25000',
+			),
+			'gasto_letra' => array(
+				'type' => 'single',
+				'value' => 'veinticinco mil euros',
+			),
+			'partida' => array(
+				'type' => 'single',
+				'value' => '18.02.322A.640.00',
+			),
+		);
+	}
+
+	/**
+	 * Libramiento repeater of the propuesta de gasto demo document.
+	 *
+	 * @return array<string,array>
+	 */
+	private static function get_propuesta_gasto_libramiento_fields() {
+		return array(
+			'g_libramientos' => array(
+				'type' => 'array',
+				'value' => array(
+					array(
+						'centro' => '35001234',
+						'finalidad' => 'Material didáctico para formación',
+						'importe' => '3500',
 					),
-					'numero_decreto' => array(
-						'type' => 'single',
-						'value' => '17',
+					array(
+						'centro' => '38002345',
+						'finalidad' => 'Equipamiento tecnológico',
+						'importe' => '4200',
 					),
-					'letra_decreto' => array(
-						'type' => 'single',
-						'value' => 'a',
+				),
+			),
+		);
+	}
+
+	/**
+	 * Provider fields and repeaters of the propuesta de gasto demo document.
+	 *
+	 * Covers servicios, suministros and expertos, which share the same shape.
+	 *
+	 * @return array<string,array>
+	 */
+	private static function get_propuesta_gasto_provider_fields() {
+		return array(
+			'servicios_proveedor' => array(
+				'type' => 'single',
+				'value' => 'Formación Docente Canarias S.L.',
+			),
+			'servicios_cif' => array(
+				'type' => 'single',
+				'value' => 'B76543210',
+			),
+			'servicios_email' => array(
+				'type' => 'single',
+				'value' => 'contacto@formaciondocente.es',
+			),
+			'servicios_telefono' => array(
+				'type' => 'single',
+				'value' => '922123456',
+			),
+			'servicios_total' => array(
+				'type' => 'single',
+				'value' => '8500',
+			),
+			'g_servicios' => array(
+				'type' => 'array',
+				'value' => array(
+					array(
+						'concepto' => 'Curso presencial metodologías activas (20h)',
+						'cantidad' => '2',
+						'unitario' => '2',
+						'sinimpuestos' => '3000',
+						'igic' => '7',
+						'irpf' => '0',
+						'total' => '3210',
 					),
-					'para' => array(
-						'type' => 'textarea',
-						'value' => 'la formación del profesorado en metodologías activas y competencias digitales',
+					array(
+						'concepto' => 'Taller competencia digital docente (10h)',
+						'cantidad' => '3',
+						'unitario' => '2',
+						'sinimpuestos' => '4500',
+						'igic' => '7',
+						'irpf' => '0',
+						'total' => '4815',
 					),
-					'objeto' => array(
-						'type' => 'textarea',
-						'value' => 'Desarrollo de un programa de formación continua para el profesorado de centros públicos de Canarias en el ámbito de las metodologías activas de aprendizaje y la competencia digital docente.',
+				),
+			),
+			'suministros_proveedor' => array(
+				'type' => 'single',
+				'value' => 'TecnoEducación S.A.',
+			),
+			'suministros_cif' => array(
+				'type' => 'single',
+				'value' => 'A12345678',
+			),
+			'suministros_email' => array(
+				'type' => 'single',
+				'value' => 'ventas@tecnoeducacion.es',
+			),
+			'suministros_telefono' => array(
+				'type' => 'single',
+				'value' => '928654321',
+			),
+			'g_suministros' => array(
+				'type' => 'array',
+				'value' => array(
+					array(
+						'concepto' => 'Tablets educativas',
+						'cantidad' => '10',
+						'unitario' => '350',
+						'sinimpuestos' => '3500',
+						'igic' => '7',
+						'irpf' => '0',
+						'total' => '3745',
 					),
-					'lineadeactuacion' => array(
-						'type' => 'textarea',
-						'value' => 'Formación del profesorado y desarrollo profesional docente',
-					),
-					'destinatarios' => array(
-						'type' => 'single',
-						'value' => 'Profesorado de centros públicos de educación primaria y secundaria',
-					),
-					'alcance_centros' => array(
-						'type' => 'single',
-						'value' => '150',
-					),
-					'alcance_profesorado' => array(
-						'type' => 'single',
-						'value' => '2500',
-					),
-					'alcance_alumnado' => array(
-						'type' => 'single',
-						'value' => '45000',
-					),
-					'alcance_familias' => array(
-						'type' => 'single',
-						'value' => '0',
-					),
-					'gasto_numero' => array(
-						'type' => 'single',
-						'value' => '25000',
-					),
-					'gasto_letra' => array(
-						'type' => 'single',
-						'value' => 'veinticinco mil euros',
-					),
-					'partida' => array(
-						'type' => 'single',
-						'value' => '18.02.322A.640.00',
-					),
-					'g_libramientos' => array(
-						'type' => 'array',
-						'value' => array(
-							array(
-								'centro' => '35001234',
-								'finalidad' => 'Material didáctico para formación',
-								'importe' => '3500',
-							),
-							array(
-								'centro' => '38002345',
-								'finalidad' => 'Equipamiento tecnológico',
-								'importe' => '4200',
-							),
-						),
-					),
-					'servicios_proveedor' => array(
-						'type' => 'single',
-						'value' => 'Formación Docente Canarias S.L.',
-					),
-					'servicios_cif' => array(
-						'type' => 'single',
-						'value' => 'B76543210',
-					),
-					'servicios_email' => array(
-						'type' => 'single',
-						'value' => 'contacto@formaciondocente.es',
-					),
-					'servicios_telefono' => array(
-						'type' => 'single',
-						'value' => '922123456',
-					),
-					'servicios_total' => array(
-						'type' => 'single',
-						'value' => '8500',
-					),
-					'g_servicios' => array(
-						'type' => 'array',
-						'value' => array(
-							array(
-								'concepto' => 'Curso presencial metodologías activas (20h)',
-								'cantidad' => '2',
-								'unitario' => '2',
-								'sinimpuestos' => '3000',
-								'igic' => '7',
-								'irpf' => '0',
-								'total' => '3210',
-							),
-							array(
-								'concepto' => 'Taller competencia digital docente (10h)',
-								'cantidad' => '3',
-								'unitario' => '2',
-								'sinimpuestos' => '4500',
-								'igic' => '7',
-								'irpf' => '0',
-								'total' => '4815',
-							),
-						),
-					),
-					'suministros_proveedor' => array(
-						'type' => 'single',
-						'value' => 'TecnoEducación S.A.',
-					),
-					'suministros_cif' => array(
-						'type' => 'single',
-						'value' => 'A12345678',
-					),
-					'suministros_email' => array(
-						'type' => 'single',
-						'value' => 'ventas@tecnoeducacion.es',
-					),
-					'suministros_telefono' => array(
-						'type' => 'single',
-						'value' => '928654321',
-					),
-					'g_suministros' => array(
-						'type' => 'array',
-						'value' => array(
-							array(
-								'concepto' => 'Tablets educativas',
-								'cantidad' => '10',
-								'unitario' => '350',
-								'sinimpuestos' => '3500',
-								'igic' => '7',
-								'irpf' => '0',
-								'total' => '3745',
-							),
-						),
-					),
-					'expertos_proveedor' => array(
-						'type' => 'single',
-						'value' => 'Dr. Juan Pérez González',
-					),
-					'expertos_cif' => array(
-						'type' => 'single',
-						'value' => '43123456B',
-					),
-					'expertos_email' => array(
-						'type' => 'single',
-						'value' => 'juan.perez@universidad.es',
-					),
-					'expertos_telefono' => array(
-						'type' => 'single',
-						'value' => '650123456',
-					),
-					'g_expertos' => array(
-						'type' => 'array',
-						'value' => array(
-							array(
-								'concepto' => 'Ponencia inaugural jornadas formativas',
-								'cantidad' => '1',
-								'unitario' => '500',
-								'sinimpuestos' => '500',
-								'igic' => '0',
-								'irpf' => '15',
-								'total' => '425',
-							),
-						),
+				),
+			),
+			'expertos_proveedor' => array(
+				'type' => 'single',
+				'value' => 'Dr. Juan Pérez González',
+			),
+			'expertos_cif' => array(
+				'type' => 'single',
+				'value' => '43123456B',
+			),
+			'expertos_email' => array(
+				'type' => 'single',
+				'value' => 'juan.perez@universidad.es',
+			),
+			'expertos_telefono' => array(
+				'type' => 'single',
+				'value' => '650123456',
+			),
+			'g_expertos' => array(
+				'type' => 'array',
+				'value' => array(
+					array(
+						'concepto' => 'Ponencia inaugural jornadas formativas',
+						'cantidad' => '1',
+						'unitario' => '500',
+						'sinimpuestos' => '500',
+						'igic' => '0',
+						'irpf' => '15',
+						'total' => '425',
 					),
 				),
 			),

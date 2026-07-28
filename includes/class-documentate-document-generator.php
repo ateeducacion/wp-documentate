@@ -308,21 +308,15 @@ class Documentate_Document_Generator {
 	 */
 	private static function build_merge_fields( $post_id ) {
 		self::reset_rich_field_values();
+
 		$opts = get_option( 'documentate_settings', array() );
-		$post = get_post( $post_id );
-		$structured = array();
-		if ( $post && class_exists( 'Documentate_Documents' ) ) {
-			$content = get_post_field( 'post_content', $post_id, 'raw' );
-			if ( ! is_string( $content ) || '' === $content ) {
-				$content = $post->post_content;
-			}
-			$structured = Documentate_Documents::parse_structured_content( (string) $content );
-		}
+		$structured = self::load_structured_content( $post_id );
 
 		// Apply case transformation to title based on schema attribute.
-		$title = get_post_field( 'post_title', $post_id, 'raw' );
-		$title_case = self::get_title_case_from_schema( $post_id );
-		$title = self::apply_case_transformation( $title, $title_case );
+		$title = self::apply_case_transformation(
+			get_post_field( 'post_title', $post_id, 'raw' ),
+			self::get_title_case_from_schema( $post_id )
+		);
 
 		$fields = array(
 			'title' => $title,
@@ -330,168 +324,341 @@ class Documentate_Document_Generator {
 			'margen' => wp_strip_all_tags( isset( $opts['doc_margin_text'] ) ? $opts['doc_margin_text'] : '' ),
 		);
 
-		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( ! is_wp_error( $types ) && ! empty( $types ) ) {
-			$type_id = intval( $types[0] );
-			$schema = array();
-			if ( class_exists( 'Documentate_Documents' ) ) {
-				$schema = Documentate_Documents::get_term_schema( $type_id );
-			} else {
-				$schema = self::get_type_schema( $type_id );
-			}
-			foreach ( $schema as $def ) {
-				if ( empty( $def['slug'] ) ) {
-					continue;
-				}
-				$slug = sanitize_key( $def['slug'] );
-
-				// Skip post_title - it's already set from get_the_title() above.
-				if ( 'post_title' === $slug ) {
-					continue;
-				}
-				// Prefer the original template name for TinyButStrong merges when available.
-				$tbs_name = '';
-				if ( isset( $def['name'] ) && is_string( $def['name'] ) ) {
-					$tbs_name = self::sanitize_placeholder_name( $def['name'] );
-				}
-				if ( '' === $tbs_name ) {
-					$tbs_name = self::sanitize_placeholder_name( $slug );
-				}
-
-				// Keep the legacy key used by UI (placeholder or slug) as alias for backward compatibility.
-				$alias_key = '';
-				if ( isset( $def['placeholder'] ) && is_string( $def['placeholder'] ) ) {
-					$alias_key = self::sanitize_placeholder_name( $def['placeholder'] );
-				}
-				if ( '' === $alias_key ) {
-					$alias_key = self::sanitize_placeholder_name( $slug );
-				}
-				$data_type = isset( $def['data_type'] ) ? sanitize_key( $def['data_type'] ) : 'text';
-				$type = isset( $def['type'] ) ? sanitize_key( $def['type'] ) : 'textarea';
-
-				if ( 'array' === $type ) {
-					$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
-
-					// Apply case transformations to repeater items.
-					$item_schema = isset( $def['item_schema'] ) ? $def['item_schema'] : array();
-					$items = self::apply_case_to_array_items( $items, $item_schema );
-
-					// Use block name for MergeBlock, with alias for legacy behavior.
-					$fields[ $tbs_name ] = $items;
-					if ( $alias_key !== $tbs_name ) {
-						$fields[ $alias_key ] = $items;
-					}
-					self::remember_rich_values_from_array_items( $items );
-					continue;
-				}
-
-				$value = self::get_structured_field_value( $structured, $slug, $post_id );
-				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
-				$original_type = $type;
-				if ( ! in_array( $type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
-					$type = 'rich';
-				}
-				$prepared = self::prepare_field_value( $value, $type, $data_type, $def );
-				$prepared_has_html = Documents_Meta_Handler::value_contains_block_html( $prepared );
-
-				// Apply case transformation if specified (skip for HTML content).
-				$field_case = isset( $def['case'] ) ? sanitize_key( $def['case'] ) : '';
-				if ( '' !== $field_case && ! in_array( $type, array( 'rich', 'html' ), true ) && ! $prepared_has_html ) {
-					$prepared = self::apply_case_transformation( $prepared, $field_case );
-				}
-
-				$fields[ $tbs_name ] = $prepared;
-				if ( $alias_key !== $tbs_name ) {
-					$fields[ $alias_key ] = $prepared;
-				}
-				// Register for rich text conversion if typed as rich/html.
-				// Also check if prepared value still contains HTML as a safety net.
-				if ( in_array( $type, array( 'rich', 'html' ), true ) || $prepared_has_html ) {
-					self::remember_rich_field_value( $prepared );
-				}
-				// Debug logging - enable with WP_DEBUG.
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log(
-						sprintf(
-							'DOCUMENTATE [%s]: schema_type=%s, effective_type=%s, raw_has_html=%s, prepared_has_html=%s, raw_len=%d, prep_len=%d',
-							$slug,
-							$original_type,
-							$type,
-							Documents_Meta_Handler::value_contains_block_html( $value ) ? 'YES' : 'NO',
-							$prepared_has_html ? 'YES' : 'NO',
-							strlen( $value ),
-							strlen( $prepared ),
-						)
-					);
-					if ( Documents_Meta_Handler::value_contains_block_html( $value ) && strlen( $value ) < 500 ) {
-						error_log( 'DOCUMENTATE [' . $slug . '] RAW: ' . substr( $value, 0, 300 ) );
-					}
-				}
-			}
-
-			$logos = get_term_meta( $type_id, 'documentate_type_logos', true );
-			if ( is_array( $logos ) && ! empty( $logos ) ) {
-				$i = 1;
-				foreach ( $logos as $att_id ) {
-					$att_id = intval( $att_id );
-					if ( $att_id <= 0 ) {
-						continue;
-					}
-					$fields[ 'logo' . $i . '_path' ] = get_attached_file( $att_id );
-					$fields[ 'logo' . $i . '_url' ] = wp_get_attachment_url( $att_id );
-					$i++;
-				}
-			}
+		$type_id = self::get_document_type_id( $post_id );
+		if ( null !== $type_id ) {
+			self::add_schema_fields( $fields, $type_id, $structured, $post_id );
+			self::add_logo_fields( $fields, $type_id );
 		}
 
 		// Replace [sign] placeholder with empty string so it doesn't appear in the output.
 		// Signature position is determined by template parameters (x, y, page), not by text detection.
 		$fields['sign'] = '';
 
-		if ( ! empty( $structured ) ) {
-			foreach ( $structured as $slug => $info ) {
-				$slug = sanitize_key( $slug );
-				if ( '' === $slug ) {
-					continue;
-				}
-				$placeholder = $slug;
-				if ( isset( $fields[ $placeholder ] ) && '' !== $fields[ $placeholder ] ) {
-					continue;
-				}
-				if ( isset( $info['type'] ) && 'array' === sanitize_key( $info['type'] ) ) {
-					$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
-					$fields[ $placeholder ] = $items;
-					self::remember_rich_values_from_array_items( $items );
-					continue;
-				}
-
-				$value = '';
-				if ( isset( $info['value'] ) ) {
-					$value = (string) $info['value'];
-				}
-				if ( '' === $value ) {
-					$value = self::get_structured_field_value( $structured, $slug, $post_id );
-				}
-				$field_type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
-				// Force rich type if value contains block HTML, BEFORE prepare strips tags.
-				if (
-					! in_array( $field_type, array( 'rich', 'html' ), true ) && Documents_Meta_Handler::value_contains_block_html( $value )
-				) {
-					$field_type = 'rich';
-				}
-				$fields[ $placeholder ] = self::prepare_field_value( $value, $field_type, 'text' );
-				// Register for rich text conversion if typed as rich/html.
-				// Also check if prepared value still contains HTML as a safety net.
-				if (
-					in_array( $field_type, array( 'rich', 'html' ), true )
-					|| Documents_Meta_Handler::value_contains_block_html( $fields[ $placeholder ] )
-				) {
-					self::remember_rich_field_value( $fields[ $placeholder ] );
-				}
-			}
-		}
+		self::add_unmapped_structured_fields( $fields, $structured, $post_id );
 
 		return $fields;
+	}
+
+	/**
+	 * Parse the structured field values stored in the document content.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return array
+	 */
+	private static function load_structured_content( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post || ! class_exists( 'Documentate_Documents' ) ) {
+			return array();
+		}
+
+		$content = get_post_field( 'post_content', $post_id, 'raw' );
+		if ( ! is_string( $content ) || '' === $content ) {
+			$content = $post->post_content;
+		}
+
+		return Documentate_Documents::parse_structured_content( (string) $content );
+	}
+
+	/**
+	 * Resolve the document type term assigned to a document.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return int|null Term ID, or null when the document has no type.
+	 */
+	private static function get_document_type_id( $post_id ) {
+		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $types ) || empty( $types ) ) {
+			return null;
+		}
+
+		return intval( $types[0] );
+	}
+
+	/**
+	 * Add one merge field per schema definition of the document type.
+	 *
+	 * @param array $fields     Merge fields to extend.
+	 * @param int   $type_id    Document type term ID.
+	 * @param array $structured Parsed structured content.
+	 * @param int   $post_id    Document post ID.
+	 * @return void
+	 */
+	private static function add_schema_fields( array &$fields, $type_id, array $structured, $post_id ) {
+		$schema = class_exists( 'Documentate_Documents' )
+			? Documentate_Documents::get_term_schema( $type_id )
+			: self::get_type_schema( $type_id );
+
+		foreach ( $schema as $def ) {
+			if ( empty( $def['slug'] ) ) {
+				continue;
+			}
+
+			$slug = sanitize_key( $def['slug'] );
+
+			// Skip post_title - it's already set from get_the_title() above.
+			if ( 'post_title' === $slug ) {
+				continue;
+			}
+
+			$names = self::resolve_field_names( $def, $slug );
+			$type = isset( $def['type'] ) ? sanitize_key( $def['type'] ) : 'textarea';
+
+			if ( 'array' === $type ) {
+				self::add_array_schema_field( $fields, $def, $slug, $names, $structured, $post_id );
+				continue;
+			}
+
+			self::add_scalar_schema_field( $fields, $def, $slug, $names, $type, $structured, $post_id );
+		}
+	}
+
+	/**
+	 * Resolve the merge name and legacy alias for a schema field.
+	 *
+	 * @param array  $def  Schema field definition.
+	 * @param string $slug Sanitized field slug.
+	 * @return array{tbs:string,alias:string}
+	 */
+	private static function resolve_field_names( $def, $slug ) {
+		// Prefer the original template name for TinyButStrong merges when available.
+		$tbs_name = '';
+		if ( isset( $def['name'] ) && is_string( $def['name'] ) ) {
+			$tbs_name = self::sanitize_placeholder_name( $def['name'] );
+		}
+		if ( '' === $tbs_name ) {
+			$tbs_name = self::sanitize_placeholder_name( $slug );
+		}
+
+		// Keep the legacy key used by UI (placeholder or slug) as alias for backward compatibility.
+		$alias_key = '';
+		if ( isset( $def['placeholder'] ) && is_string( $def['placeholder'] ) ) {
+			$alias_key = self::sanitize_placeholder_name( $def['placeholder'] );
+		}
+		if ( '' === $alias_key ) {
+			$alias_key = self::sanitize_placeholder_name( $slug );
+		}
+
+		return array(
+			'tbs' => $tbs_name,
+			'alias' => $alias_key,
+		);
+	}
+
+	/**
+	 * Store a merge value under its merge name and its legacy alias.
+	 *
+	 * @param array $fields Merge fields to extend.
+	 * @param array $names  Merge name and alias.
+	 * @param mixed $value  Value to store.
+	 * @return void
+	 */
+	private static function assign_field_value( array &$fields, array $names, $value ) {
+		$fields[ $names['tbs'] ] = $value;
+		if ( $names['alias'] !== $names['tbs'] ) {
+			$fields[ $names['alias'] ] = $value;
+		}
+	}
+
+	/**
+	 * Add a repeater schema field as a merge block.
+	 *
+	 * @param array  $fields     Merge fields to extend.
+	 * @param array  $def        Schema field definition.
+	 * @param string $slug       Sanitized field slug.
+	 * @param array  $names      Merge name and alias.
+	 * @param array  $structured Parsed structured content.
+	 * @param int    $post_id    Document post ID.
+	 * @return void
+	 */
+	private static function add_array_schema_field( array &$fields, $def, $slug, array $names, array $structured, $post_id ) {
+		$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
+
+		// Apply case transformations to repeater items.
+		$item_schema = isset( $def['item_schema'] ) ? $def['item_schema'] : array();
+		$items = self::apply_case_to_array_items( $items, $item_schema );
+
+		// Use block name for MergeBlock, with alias for legacy behavior.
+		self::assign_field_value( $fields, $names, $items );
+		self::remember_rich_values_from_array_items( $items );
+	}
+
+	/**
+	 * Add a scalar schema field, normalising its type and case.
+	 *
+	 * @param array  $fields     Merge fields to extend.
+	 * @param array  $def        Schema field definition.
+	 * @param string $slug       Sanitized field slug.
+	 * @param array  $names      Merge name and alias.
+	 * @param string $type       Declared control type.
+	 * @param array  $structured Parsed structured content.
+	 * @param int    $post_id    Document post ID.
+	 * @return void
+	 */
+	private static function add_scalar_schema_field( array &$fields, $def, $slug, array $names, $type, array $structured, $post_id ) {
+		$data_type = isset( $def['data_type'] ) ? sanitize_key( $def['data_type'] ) : 'text';
+		$value = self::get_structured_field_value( $structured, $slug, $post_id );
+
+		// Force rich type if value contains block HTML, BEFORE prepare strips tags.
+		$original_type = $type;
+		if ( ! self::is_rich_type( $type ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
+			$type = 'rich';
+		}
+
+		$prepared = self::prepare_field_value( $value, $type, $data_type, $def );
+		$prepared_has_html = Documents_Meta_Handler::value_contains_block_html( $prepared );
+
+		// Apply case transformation if specified (skip for HTML content).
+		$field_case = isset( $def['case'] ) ? sanitize_key( $def['case'] ) : '';
+		if ( '' !== $field_case && ! self::is_rich_type( $type ) && ! $prepared_has_html ) {
+			$prepared = self::apply_case_transformation( $prepared, $field_case );
+		}
+
+		self::assign_field_value( $fields, $names, $prepared );
+
+		// Register for rich text conversion if typed as rich/html.
+		// Also check if prepared value still contains HTML as a safety net.
+		if ( self::is_rich_type( $type ) || $prepared_has_html ) {
+			self::remember_rich_field_value( $prepared );
+		}
+
+		self::log_merge_field( $slug, $original_type, $type, $value, $prepared, $prepared_has_html );
+	}
+
+	/**
+	 * Whether a control type carries HTML that must survive merging.
+	 *
+	 * @param string $type Control type.
+	 * @return bool
+	 */
+	private static function is_rich_type( $type ) {
+		return in_array( $type, array( 'rich', 'html' ), true );
+	}
+
+	/**
+	 * Log how a schema field was resolved, when debugging is enabled.
+	 *
+	 * @param string $slug              Sanitized field slug.
+	 * @param string $original_type     Type declared by the schema.
+	 * @param string $type              Type actually used.
+	 * @param string $value             Raw field value.
+	 * @param string $prepared          Prepared field value.
+	 * @param bool   $prepared_has_html Whether the prepared value still holds HTML.
+	 * @return void
+	 */
+	private static function log_merge_field( $slug, $original_type, $type, $value, $prepared, $prepared_has_html ) {
+		// Debug logging - enable with WP_DEBUG.
+		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+			return;
+		}
+
+		$raw_has_html = Documents_Meta_Handler::value_contains_block_html( $value );
+
+		error_log(
+			sprintf(
+				'DOCUMENTATE [%s]: schema_type=%s, effective_type=%s, raw_has_html=%s, prepared_has_html=%s, raw_len=%d, prep_len=%d',
+				$slug,
+				$original_type,
+				$type,
+				$raw_has_html ? 'YES' : 'NO',
+				$prepared_has_html ? 'YES' : 'NO',
+				strlen( $value ),
+				strlen( $prepared ),
+			)
+		);
+
+		if ( $raw_has_html && strlen( $value ) < 500 ) {
+			error_log( 'DOCUMENTATE [' . $slug . '] RAW: ' . substr( $value, 0, 300 ) );
+		}
+	}
+
+	/**
+	 * Add the logo path and URL fields declared on the document type.
+	 *
+	 * @param array $fields  Merge fields to extend.
+	 * @param int   $type_id Document type term ID.
+	 * @return void
+	 */
+	private static function add_logo_fields( array &$fields, $type_id ) {
+		$logos = get_term_meta( $type_id, 'documentate_type_logos', true );
+		if ( ! is_array( $logos ) || empty( $logos ) ) {
+			return;
+		}
+
+		$i = 1;
+		foreach ( $logos as $att_id ) {
+			$att_id = intval( $att_id );
+			if ( $att_id <= 0 ) {
+				continue;
+			}
+			$fields[ 'logo' . $i . '_path' ] = get_attached_file( $att_id );
+			$fields[ 'logo' . $i . '_url' ] = wp_get_attachment_url( $att_id );
+			$i++;
+		}
+	}
+
+	/**
+	 * Add stored values that the document type schema does not declare.
+	 *
+	 * Keeps templates working when a placeholder exists in the content but the
+	 * schema has since dropped it.
+	 *
+	 * @param array $fields     Merge fields to extend.
+	 * @param array $structured Parsed structured content.
+	 * @param int   $post_id    Document post ID.
+	 * @return void
+	 */
+	private static function add_unmapped_structured_fields( array &$fields, array $structured, $post_id ) {
+		foreach ( $structured as $slug => $info ) {
+			$slug = sanitize_key( $slug );
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			if ( isset( $fields[ $slug ] ) && '' !== $fields[ $slug ] ) {
+				continue;
+			}
+
+			if ( isset( $info['type'] ) && 'array' === sanitize_key( $info['type'] ) ) {
+				$items = self::get_array_field_items_for_merge( $structured, $slug, $post_id );
+				$fields[ $slug ] = $items;
+				self::remember_rich_values_from_array_items( $items );
+				continue;
+			}
+
+			self::add_unmapped_scalar_field( $fields, $info, $slug, $structured, $post_id );
+		}
+	}
+
+	/**
+	 * Add a single scalar value that the schema does not declare.
+	 *
+	 * @param array  $fields     Merge fields to extend.
+	 * @param array  $info       Stored field record.
+	 * @param string $slug       Sanitized field slug.
+	 * @param array  $structured Parsed structured content.
+	 * @param int    $post_id    Document post ID.
+	 * @return void
+	 */
+	private static function add_unmapped_scalar_field( array &$fields, $info, $slug, array $structured, $post_id ) {
+		$value = isset( $info['value'] ) ? (string) $info['value'] : '';
+		if ( '' === $value ) {
+			$value = self::get_structured_field_value( $structured, $slug, $post_id );
+		}
+
+		$field_type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
+
+		// Force rich type if value contains block HTML, BEFORE prepare strips tags.
+		if ( ! self::is_rich_type( $field_type ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
+			$field_type = 'rich';
+		}
+
+		$fields[ $slug ] = self::prepare_field_value( $value, $field_type, 'text' );
+
+		// Register for rich text conversion if typed as rich/html.
+		// Also check if prepared value still contains HTML as a safety net.
+		if ( self::is_rich_type( $field_type ) || Documents_Meta_Handler::value_contains_block_html( $fields[ $slug ] ) ) {
+			self::remember_rich_field_value( $fields[ $slug ] );
+		}
 	}
 
 	/**

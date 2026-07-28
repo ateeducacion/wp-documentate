@@ -161,102 +161,207 @@ class Documentate_Workflow {
 	 * @return array Modified post data.
 	 */
 	public function control_post_status( $data, $postarr ) {
+		if ( ! $this->should_control_status( $data ) ) {
+			return $data;
+		}
+
+		$context = array(
+			'post_id' => isset( $postarr['ID'] ) ? absint( $postarr['ID'] ) : 0,
+			'postarr' => $postarr,
+			'is_admin' => current_user_can( 'manage_options' ),
+			'requested_status' => $data['post_status'],
+		);
+
+		// Store original status for notices.
+		$this->original_status = $context['requested_status'];
+
+		// Rule 1: Force draft if no doc_type assigned (for any non-draft status).
+		$decided = $this->apply_classification_rule( $data, $context );
+		if ( null !== $decided ) {
+			return $decided;
+		}
+
+		// Rule 2: Role-based restrictions for non-admins.
+		$data = $this->apply_role_rule( $data, $context );
+
+		// Rule 3: If post is currently published, only admin can change it.
+		$data = $this->apply_published_lock_rule( $data, $context );
+
+		// Rule 4: Archive transitions (admin only, from publish only).
+		$decided = $this->apply_archive_transition_rule( $data, $context );
+		if ( null !== $decided ) {
+			return $decided;
+		}
+
+		// Rule 5: Archived documents are locked (similar to published).
+		return $this->apply_archived_lock_rule( $data, $context );
+	}
+
+	/**
+	 * Whether the workflow status rules apply to this save at all.
+	 *
+	 * @param array $data An array of slashed, sanitized post data.
+	 * @return bool
+	 */
+	private function should_control_status( $data ) {
 		// Only apply to our post type.
 		if ( $data['post_type'] !== $this->post_type ) {
-			return $data;
+			return false;
 		}
 
 		// Skip auto-drafts and revisions.
 		if ( 'auto-draft' === $data['post_status'] || 'revision' === $data['post_type'] ) {
-			return $data;
+			return false;
 		}
 
 		// Skip if doing autosave.
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return $data;
+			return false;
 		}
 
-		$post_id = isset( $postarr['ID'] ) ? absint( $postarr['ID'] ) : 0;
-		$current_user = wp_get_current_user();
-		$is_admin = current_user_can( 'manage_options' );
-		$requested_status = $data['post_status'];
+		return true;
+	}
 
-		// Store original status for notices.
-		$this->original_status = $requested_status;
-
-		// Define publish-like statuses that require doc_type or admin rights.
-		$publish_statuses = array( 'publish', 'private', 'future' );
-
-		// Rule 1: Force draft if no doc_type assigned (for any non-draft status).
-		if ( $this->should_force_draft_no_classification( $post_id, $postarr ) ) {
-			// Any attempt to publish/private/pending without doc_type should fail.
-			if ( in_array( $requested_status, $publish_statuses, true ) || 'pending' === $requested_status ) {
-				$data['post_status'] = 'draft';
-				$this->status_change_reason = 'no_classification';
-			}
-			return $data;
+	/**
+	 * Rule 1: a document without a doc type cannot leave draft.
+	 *
+	 * @param array $data    Post data being saved.
+	 * @param array $context Status evaluation context.
+	 * @return array|null Final post data, or null to continue with the next rule.
+	 */
+	private function apply_classification_rule( $data, array $context ) {
+		if ( ! $this->should_force_draft_no_classification( $context['post_id'], $context['postarr'] ) ) {
+			return null;
 		}
 
-		// Rule 2: Role-based restrictions for non-admins.
-		if ( ! $is_admin ) {
-			// Editors cannot publish (public or private) - force to pending or draft.
-			if ( in_array( $requested_status, $publish_statuses, true ) ) {
-				$data['post_status'] = 'pending';
-				$this->status_change_reason = 'editor_no_publish';
-			}
-		}
-
-		// Rule 3: If post is currently published, only admin can change it.
-		if ( $post_id > 0 ) {
-			$current_post = get_post( $post_id );
-			if ( $current_post && 'publish' === $current_post->post_status ) {
-				if ( ! $is_admin ) {
-					// Non-admins cannot modify published posts.
-					$data['post_status'] = 'publish';
-					$this->status_change_reason = 'published_locked';
-				}
-			}
-		}
-
-		// Rule 4: Archive transitions (admin only, from publish only).
-		if ( 'archived' === $requested_status ) {
-			if ( ! $is_admin ) {
-				// Non-admins cannot archive.
-				$data['post_status'] = $post_id > 0 ? get_post_field( 'post_status', $post_id ) : 'draft';
-				$this->status_change_reason = 'archive_admin_only';
-				return $data;
-			}
-
-			if ( $post_id > 0 ) {
-				$current_post = get_post( $post_id );
-				if ( $current_post && 'publish' !== $current_post->post_status ) {
-					// Can only archive from publish.
-					$data['post_status'] = $current_post->post_status;
-					$this->status_change_reason = 'archive_requires_publish';
-					return $data;
-				}
-			}
-		}
-
-		// Rule 5: Archived documents are locked (similar to published).
-		if ( $post_id > 0 ) {
-			$current_post = get_post( $post_id );
-			if ( $current_post && 'archived' === $current_post->post_status ) {
-				if ( ! $is_admin ) {
-					// Non-admins cannot modify archived posts.
-					$data['post_status'] = 'archived';
-					$this->status_change_reason = 'archived_locked';
-					return $data;
-				}
-
-				// Admins can only unarchive to publish.
-				if ( 'archived' !== $requested_status && 'publish' !== $requested_status ) {
-					$data['post_status'] = 'publish';
-				}
-			}
+		// Any attempt to publish/private/pending without doc_type should fail.
+		if ( $this->is_publish_status( $context['requested_status'] ) || 'pending' === $context['requested_status'] ) {
+			$data['post_status'] = 'draft';
+			$this->status_change_reason = 'no_classification';
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Rule 2: only administrators may publish.
+	 *
+	 * @param array $data    Post data being saved.
+	 * @param array $context Status evaluation context.
+	 * @return array
+	 */
+	private function apply_role_rule( $data, array $context ) {
+		// Editors cannot publish (public or private) - force to pending or draft.
+		if ( ! $context['is_admin'] && $this->is_publish_status( $context['requested_status'] ) ) {
+			$data['post_status'] = 'pending';
+			$this->status_change_reason = 'editor_no_publish';
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Rule 3: published documents are locked for non-administrators.
+	 *
+	 * @param array $data    Post data being saved.
+	 * @param array $context Status evaluation context.
+	 * @return array
+	 */
+	private function apply_published_lock_rule( $data, array $context ) {
+		if ( $context['is_admin'] || 'publish' !== $this->get_stored_status( $context['post_id'] ) ) {
+			return $data;
+		}
+
+		// Non-admins cannot modify published posts.
+		$data['post_status'] = 'publish';
+		$this->status_change_reason = 'published_locked';
+
+		return $data;
+	}
+
+	/**
+	 * Rule 4: archiving is admin-only and allowed from publish only.
+	 *
+	 * @param array $data    Post data being saved.
+	 * @param array $context Status evaluation context.
+	 * @return array|null Final post data, or null to continue with the next rule.
+	 */
+	private function apply_archive_transition_rule( $data, array $context ) {
+		if ( 'archived' !== $context['requested_status'] ) {
+			return null;
+		}
+
+		if ( ! $context['is_admin'] ) {
+			// Non-admins cannot archive.
+			$data['post_status'] = $context['post_id'] > 0
+				? get_post_field( 'post_status', $context['post_id'] )
+				: 'draft';
+			$this->status_change_reason = 'archive_admin_only';
+			return $data;
+		}
+
+		$stored_status = $this->get_stored_status( $context['post_id'] );
+		if ( '' !== $stored_status && 'publish' !== $stored_status ) {
+			// Can only archive from publish.
+			$data['post_status'] = $stored_status;
+			$this->status_change_reason = 'archive_requires_publish';
+			return $data;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Rule 5: archived documents are locked, and only unarchive to publish.
+	 *
+	 * @param array $data    Post data being saved.
+	 * @param array $context Status evaluation context.
+	 * @return array
+	 */
+	private function apply_archived_lock_rule( $data, array $context ) {
+		if ( 'archived' !== $this->get_stored_status( $context['post_id'] ) ) {
+			return $data;
+		}
+
+		if ( ! $context['is_admin'] ) {
+			// Non-admins cannot modify archived posts.
+			$data['post_status'] = 'archived';
+			$this->status_change_reason = 'archived_locked';
+			return $data;
+		}
+
+		// Admins can only unarchive to publish.
+		if ( 'archived' !== $context['requested_status'] && 'publish' !== $context['requested_status'] ) {
+			$data['post_status'] = 'publish';
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Read the status currently stored for a post.
+	 *
+	 * @param int $post_id Post ID, or 0 for a post that does not exist yet.
+	 * @return string Stored status, or an empty string when unavailable.
+	 */
+	private function get_stored_status( $post_id ) {
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+
+		$current_post = get_post( $post_id );
+
+		return $current_post ? $current_post->post_status : '';
+	}
+
+	/**
+	 * Whether a status is publish-like, and so requires a doc type or admin rights.
+	 *
+	 * @param string $status Requested post status.
+	 * @return bool
+	 */
+	private function is_publish_status( $status ) {
+		return in_array( $status, array( 'publish', 'private', 'future' ), true );
 	}
 
 	/**
@@ -503,25 +608,8 @@ class Documentate_Workflow {
 	 * @return array
 	 */
 	public function freeze_locked_document_data( $data, $postarr ) {
-		if ( empty( $data['post_type'] ) || $data['post_type'] !== $this->post_type ) {
-			return $data;
-		}
-
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return $data;
-		}
-
-		if ( current_user_can( 'manage_options' ) ) {
-			return $data;
-		}
-
-		$post_id = isset( $postarr['ID'] ) ? absint( $postarr['ID'] ) : 0;
-		if ( $post_id <= 0 ) {
-			return $data;
-		}
-
-		$current_post = get_post( $post_id );
-		if ( ! $current_post || ! self::status_locks_content_for_non_admins( $current_post->post_status ) ) {
+		$current_post = $this->find_locked_source_post( $data, $postarr );
+		if ( ! $current_post ) {
 			return $data;
 		}
 
@@ -533,15 +621,57 @@ class Documentate_Workflow {
 		$data['post_name']    = wp_slash( $current_post->post_name );
 		$data['post_author']  = (string) (int) $current_post->post_author;
 
-		if ( 'publish' === $current_post->post_status ) {
-			$this->status_change_reason = 'published_locked';
-		} elseif ( 'archived' === $current_post->post_status ) {
-			$this->status_change_reason = 'archived_locked';
-		} else {
-			$this->status_change_reason = 'pending_locked';
-		}
+		$this->status_change_reason = self::lock_reason_for_status( $current_post->post_status );
 
 		return $data;
+	}
+
+	/**
+	 * Locate the stored post whose fields must be preserved on this save.
+	 *
+	 * @param array $data    Sanitized post data to be inserted.
+	 * @param array $postarr Raw post data.
+	 * @return WP_Post|null The stored post, or null when nothing is locked.
+	 */
+	private function find_locked_source_post( $data, $postarr ) {
+		if ( empty( $data['post_type'] ) || $data['post_type'] !== $this->post_type ) {
+			return null;
+		}
+
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return null;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return null;
+		}
+
+		$post_id = isset( $postarr['ID'] ) ? absint( $postarr['ID'] ) : 0;
+		if ( $post_id <= 0 ) {
+			return null;
+		}
+
+		$current_post = get_post( $post_id );
+		if ( ! $current_post || ! self::status_locks_content_for_non_admins( $current_post->post_status ) ) {
+			return null;
+		}
+
+		return $current_post;
+	}
+
+	/**
+	 * Map the locked status to the notice reason it raises.
+	 *
+	 * @param string $status Stored post status.
+	 * @return string
+	 */
+	private static function lock_reason_for_status( $status ) {
+		$reasons = array(
+			'publish' => 'published_locked',
+			'archived' => 'archived_locked',
+		);
+
+		return isset( $reasons[ $status ] ) ? $reasons[ $status ] : 'pending_locked';
 	}
 
 	/**

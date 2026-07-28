@@ -89,25 +89,6 @@ class Documentate_Admin_Helper {
 	}
 
 	/**
-	 * Build an export/preview URL for a document.
-	 *
-	 * @param string $action  Action name (e.g., 'documentate_preview', 'documentate_export_docx').
-	 * @param int    $post_id Post ID.
-	 * @param string $nonce   Security nonce.
-	 * @return string Full URL with query args.
-	 */
-	private function build_action_url( $action, $post_id, $nonce ) {
-		return add_query_arg(
-			array(
-				'action' => $action,
-				'post_id' => $post_id,
-				'_wpnonce' => $nonce,
-			),
-			admin_url( 'admin-post.php' )
-		);
-	}
-
-	/**
 	 * Boot hooks.
 	 */
 	public function __construct() {
@@ -448,6 +429,36 @@ class Documentate_Admin_Helper {
 	 * @return void
 	 */
 	public function handle_preview_stream() {
+		$post_id = $this->authorize_preview_stream();
+		$filename = $this->resolve_preview_filename( $post_id, get_current_user_id() );
+
+		$upload_dir = wp_upload_dir();
+		$path = trailingslashit( $upload_dir['basedir'] ) . 'documentate/' . $filename;
+
+		$fs = $this->get_wp_filesystem();
+		if ( is_wp_error( $fs ) ) {
+			wp_die( esc_html( $fs->get_error_message() ) );
+		}
+
+		if ( ! $fs->exists( $path ) || ! $fs->is_readable( $path ) ) {
+			wp_die( esc_html__( 'Could not access the generated PDF file.', 'documentate' ) );
+		}
+
+		$this->send_preview_headers( $filename, (int) $fs->size( $path ) );
+
+		if ( ! self::stream_file( $path ) ) {
+			wp_die( esc_html__( 'Could not read the PDF file.', 'documentate' ) );
+		}
+
+		exit();
+	}
+
+	/**
+	 * Authorise a preview stream request, terminating when it is not allowed.
+	 *
+	 * @return int Document post ID.
+	 */
+	private function authorize_preview_stream() {
 		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
@@ -461,13 +472,22 @@ class Documentate_Admin_Helper {
 			wp_die( esc_html__( 'Invalid nonce.', 'documentate' ) );
 		}
 
-		$user_id = get_current_user_id();
-		if ( $user_id <= 0 ) {
+		if ( get_current_user_id() <= 0 ) {
 			wp_die( esc_html__( 'User not authenticated.', 'documentate' ) );
 		}
 
-		$key = $this->get_preview_stream_transient_key( $post_id, $user_id );
-		$filename = get_transient( $key );
+		return $post_id;
+	}
+
+	/**
+	 * Reuse the cached preview file, generating it when missing.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @param int $user_id Requesting user ID.
+	 * @return string Sanitized file name.
+	 */
+	private function resolve_preview_filename( $post_id, $user_id ) {
+		$filename = get_transient( $this->get_preview_stream_transient_key( $post_id, $user_id ) );
 
 		if ( false === $filename || '' === $filename ) {
 			$this->ensure_document_generator();
@@ -485,19 +505,17 @@ class Documentate_Admin_Helper {
 			wp_die( esc_html__( 'Preview file not available.', 'documentate' ) );
 		}
 
-		$upload_dir = wp_upload_dir();
-		$path = trailingslashit( $upload_dir['basedir'] ) . 'documentate/' . $filename;
+		return $filename;
+	}
 
-		$fs = $this->get_wp_filesystem();
-		if ( is_wp_error( $fs ) ) {
-			wp_die( esc_html( $fs->get_error_message() ) );
-		}
-
-		if ( ! $fs->exists( $path ) || ! $fs->is_readable( $path ) ) {
-			wp_die( esc_html__( 'Could not access the generated PDF file.', 'documentate' ) );
-		}
-
-		$filesize = (int) $fs->size( $path );
+	/**
+	 * Send the headers that make browsers render the PDF inline.
+	 *
+	 * @param string $filename Sanitized file name.
+	 * @param int    $filesize File size in bytes.
+	 * @return void
+	 */
+	private function send_preview_headers( $filename, $filesize ) {
 		$download_name = wp_basename( $filename );
 		$encoded_name = rawurlencode( $download_name );
 		$disposition = 'inline; filename="' . $download_name . '"; filename*=UTF-8\'\'' . $encoded_name;
@@ -509,12 +527,6 @@ class Documentate_Admin_Helper {
 		if ( $filesize > 0 ) {
 			header( 'Content-Length: ' . $filesize );
 		}
-
-		if ( ! self::stream_file( $path ) ) {
-			wp_die( esc_html__( 'Could not read the PDF file.', 'documentate' ) );
-		}
-
-		exit();
 	}
 
 	/**
@@ -683,230 +695,343 @@ class Documentate_Admin_Helper {
 			return;
 		}
 
-		$nonce_export = wp_create_nonce( 'documentate_export_' . $post->ID );
-		$nonce_prev = wp_create_nonce( 'documentate_preview_' . $post->ID );
+		$state = $this->build_actions_state( $post->ID );
 
-		$preview = $this->build_action_url( 'documentate_preview', $post->ID, $nonce_prev );
-		$docx = $this->build_action_url( 'documentate_export_docx', $post->ID, $nonce_export );
-		$pdf = $this->build_action_url( 'documentate_export_pdf', $post->ID, $nonce_export );
-		$odt = $this->build_action_url( 'documentate_export_odt', $post->ID, $nonce_export );
+		$this->render_primary_actions( $state );
+		$this->render_secondary_actions( $state );
+	}
 
+	/**
+	 * Resolve which export actions are available, and why when they are not.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return array<string,mixed>
+	 */
+	private function build_actions_state( $post_id ) {
 		$this->ensure_document_generator();
 
-		$docx_template = Documentate_Document_Generator::get_template_path( $post->ID, 'docx' );
-		$odt_template = Documentate_Document_Generator::get_template_path( $post->ID, 'odt' );
+		$docx_template = Documentate_Document_Generator::get_template_path( $post_id, 'docx' );
+		$odt_template = Documentate_Document_Generator::get_template_path( $post_id, 'odt' );
 
-		// Detect [sign] placeholder in the active template.
-		$template_for_sign_check = '' !== $docx_template ? $docx_template : $odt_template;
-		$has_sign_placeholder = false;
-		if ( '' !== $template_for_sign_check ) {
-			$has_sign_placeholder = Documentate_Template_Parser::template_has_sign_placeholder( $template_for_sign_check );
-		}
+		$conversion = $this->resolve_conversion_capabilities();
 
+		// In CDN mode or Playground with Collabora, browser can do conversions too.
+		$can_convert = $conversion['ready'] || $conversion['use_popup'];
+		$has_template = '' !== $docx_template || '' !== $odt_template;
+		$pdf_available = $can_convert && $has_template;
+		$pdf_message = $this->build_pdf_message( $docx_template, $odt_template, $can_convert );
+
+		return array(
+			'has_sign_placeholder' => $this->detect_sign_placeholder( $docx_template, $odt_template ),
+			// Determine source format for CDN conversions.
+			'source_format' => $this->resolve_source_format( $docx_template, $odt_template ),
+			'needs_popup_base' => $conversion['needs_popup_base'],
+			'pdf_available' => $pdf_available,
+			'pdf_message' => $pdf_message,
+			// Preview is available if server conversion is ready OR if popup conversion is available.
+			'preview_available' => $pdf_available || ( $conversion['use_popup'] && $has_template ),
+			'preview_message' => $pdf_message,
+			'formats' => array(
+				'odt' => $this->build_format_state( $odt_template, $docx_template, $can_convert, 'odt' ),
+				'docx' => $this->build_format_state( $docx_template, $odt_template, $can_convert, 'docx' ),
+			),
+		);
+	}
+
+	/**
+	 * Determine how, if at all, this site can convert between formats.
+	 *
+	 * @return array{ready:bool,use_popup:bool,needs_popup_base:bool}
+	 */
+	private function resolve_conversion_capabilities() {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-
-		$conversion_ready = Documentate_Conversion_Manager::is_available();
-		$engine_label = Documentate_Conversion_Manager::get_engine_label();
-		$docx_requires_conversion = '' === $docx_template && '' !== $odt_template;
-		$odt_requires_conversion = '' === $odt_template && '' !== $docx_template;
-
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-collabora-converter.php';
+
+		$ready = Documentate_Conversion_Manager::is_available();
 		$in_playground = Documentate_Collabora_Converter::is_playground();
 
 		// In-browser LibreOffice WASM conversion is not available in WordPress
 		// Playground: the site runs in a sandboxed, non-cross-origin-isolated iframe,
 		// so SharedArrayBuffer is unavailable and the isolated converter page is blocked.
-		$wasm_browser_available = false;
-		if ( ! $conversion_ready && ! $in_playground ) {
+		$wasm_browser = false;
+		if ( ! $ready && ! $in_playground ) {
 			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
-			$wasm_browser_available = Documentate_Libreoffice_Wasm_Converter::is_browser_mode()
+			$wasm_browser = Documentate_Libreoffice_Wasm_Converter::is_browser_mode()
 				&& Documentate_Libreoffice_Wasm_Converter::assets_available();
 		}
 
 		// Collabora in Playground converts via a JavaScript fetch (bypassing PHP
 		// wp_remote_post multipart issues).
 		$collabora_in_playground = $in_playground && Documentate_Collabora_Converter::is_available();
-		$use_popup_for_conversion = $wasm_browser_available || $collabora_in_playground;
 
-		// In CDN mode or Playground with Collabora, browser can do conversions too.
-		$can_convert    = $conversion_ready || $use_popup_for_conversion;
-		$docx_available = '' !== $docx_template || ( $docx_requires_conversion && $can_convert );
-		$odt_available  = '' !== $odt_template || ( $odt_requires_conversion && $can_convert );
-		$pdf_available  = $can_convert && ( '' !== $docx_template || '' !== $odt_template );
+		return array(
+			'ready' => $ready,
+			'use_popup' => $wasm_browser || $collabora_in_playground,
+			'needs_popup_base' => ( $wasm_browser && ! $ready ) || $collabora_in_playground,
+		);
+	}
 
-		// Determine source format for CDN conversions.
-		$source_format = '' !== $odt_template ? 'odt' : ( '' !== $docx_template ? 'docx' : '' );
-
-		$docx_message = __( 'Configure a DOCX template in the document type.', 'documentate' );
-		if ( $docx_requires_conversion && ! $can_convert ) {
-			$docx_message = Documentate_Conversion_Manager::get_unavailable_message( 'odt', 'docx' );
+	/**
+	 * Detect the [sign] placeholder in the active template.
+	 *
+	 * @param string $docx_template DOCX template path, or an empty string.
+	 * @param string $odt_template  ODT template path, or an empty string.
+	 * @return bool
+	 */
+	private function detect_sign_placeholder( $docx_template, $odt_template ) {
+		$template = '' !== $docx_template ? $docx_template : $odt_template;
+		if ( '' === $template ) {
+			return false;
 		}
 
-		$odt_message = __( 'Configure an ODT template in the document type.', 'documentate' );
-		if ( $odt_requires_conversion && ! $can_convert ) {
-			$odt_message = Documentate_Conversion_Manager::get_unavailable_message( 'docx', 'odt' );
+		return Documentate_Template_Parser::template_has_sign_placeholder( $template );
+	}
+
+	/**
+	 * Resolve the format conversions should start from.
+	 *
+	 * @param string $docx_template DOCX template path, or an empty string.
+	 * @param string $odt_template  ODT template path, or an empty string.
+	 * @return string
+	 */
+	private function resolve_source_format( $docx_template, $odt_template ) {
+		if ( '' !== $odt_template ) {
+			return 'odt';
 		}
 
+		return '' !== $docx_template ? 'docx' : '';
+	}
+
+	/**
+	 * Build the tooltip explaining why PDF generation is unavailable.
+	 *
+	 * @param string $docx_template DOCX template path, or an empty string.
+	 * @param string $odt_template  ODT template path, or an empty string.
+	 * @param bool   $can_convert   Whether any conversion route is available.
+	 * @return string Empty string when PDF generation is available.
+	 */
+	private function build_pdf_message( $docx_template, $odt_template, $can_convert ) {
 		if ( '' === $docx_template && '' === $odt_template ) {
-			$pdf_message = __( 'Configure a DOCX or ODT template in the document type before generating PDF.', 'documentate' );
-		} elseif ( ! $can_convert ) {
-			$source_for_pdf = '' !== $docx_template ? 'docx' : 'odt';
-			$pdf_message = Documentate_Conversion_Manager::get_unavailable_message( $source_for_pdf, 'pdf' );
-		} else {
-			$pdf_message = '';
+			return __( 'Configure a DOCX or ODT template in the document type before generating PDF.', 'documentate' );
 		}
 
-		// Preview is available if server conversion is ready OR if popup conversion is available.
-		$preview_available = $pdf_available || ( $use_popup_for_conversion && ( '' !== $docx_template || '' !== $odt_template ) );
-		$preview_message   = $pdf_message;
-
-		$preferred_format = '';
-		$types = wp_get_post_terms( $post->ID, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( ! is_wp_error( $types ) && ! empty( $types ) ) {
-			$type_id = intval( $types[0] );
-			$template_format = sanitize_key( (string) get_term_meta( $type_id, 'documentate_type_template_type', true ) );
-			if ( in_array( $template_format, array( 'docx', 'odt' ), true ) ) {
-				$preferred_format = $template_format;
-			}
-		}
-		if ( '' === $preferred_format ) {
-			if ( '' !== $docx_template ) {
-				$preferred_format = 'docx';
-			} elseif ( '' !== $odt_template ) {
-				$preferred_format = 'odt';
-			}
+		if ( $can_convert ) {
+			return '';
 		}
 
-		// ── Primary row: Preview + Download PDF ──────────────────────────
-		$needs_popup_base = ( $wasm_browser_available && ! $conversion_ready ) || $collabora_in_playground;
+		return Documentate_Conversion_Manager::get_unavailable_message(
+			'' !== $docx_template ? 'docx' : 'odt',
+			'pdf'
+		);
+	}
 
-		echo '<div class="documentate-actions-primary">';
-
-		// Preview button.
-		if ( $preview_available ) {
-			$preview_attrs = array(
-				'class' => 'button documentate-action-btn documentate-action-btn--preview',
-				'href' => '#',
-				'data-documentate-action' => 'preview',
-				'data-documentate-format' => 'pdf',
-			);
-			$needs_popup = $needs_popup_base;
-			if ( $needs_popup ) {
-				$preview_attrs['data-documentate-cdn-mode'] = '1';
-				$preview_attrs['data-documentate-source-format'] = $source_format;
-			}
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-			echo '<a '
-					. $this->build_action_attributes( $preview_attrs ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					. '><span class="dashicons dashicons-visibility"></span> '
-					. esc_html__( 'Preview', 'documentate' )
-					. '</a>';
-		} else {
-			echo '<button type="button" class="button documentate-action-btn--preview" disabled title="'
-					. esc_attr( $preview_message )
-					. '"><span class="dashicons dashicons-visibility"></span> '
-					. esc_html__( 'Preview', 'documentate' )
-					. '</button>';
-		}
-
-		// Download PDF button (always shown, primary/blue).
-		if ( $pdf_available ) {
-			$pdf_attrs = array(
-				'class' => 'button button-primary documentate-action-btn documentate-action-btn--pdf',
-				'href' => '#',
-				'data-documentate-action' => 'download',
-				'data-documentate-format' => 'pdf',
-			);
-			if ( $needs_popup_base && 'pdf' !== $source_format ) {
-				$pdf_attrs['data-documentate-cdn-mode'] = '1';
-				$pdf_attrs['data-documentate-source-format'] = $source_format;
-			}
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-			echo '<a '
-					. $this->build_action_attributes( $pdf_attrs ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					. '><span class="dashicons dashicons-pdf"></span> '
-					. esc_html__( 'Download PDF', 'documentate' )
-					. '</a>';
-		} else {
-			echo '<button type="button" class="button button-primary documentate-action-btn--pdf" disabled title="'
-					. esc_attr( $pdf_message )
-					. '"><span class="dashicons dashicons-pdf"></span> '
-					. esc_html__( 'Download PDF', 'documentate' )
-					. '</button>';
-		}
-
-		// Sign and Download button (only when template has [sign] placeholder).
-		if ( $has_sign_placeholder && $pdf_available ) {
-			$sign_attrs = array(
-				'class' => 'button button-primary documentate-action-btn documentate-action-btn--sign',
-				'href' => '#',
-				'data-documentate-action' => 'sign',
-				'data-documentate-format' => 'pdf',
-			);
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-			echo '<a '
-					. $this->build_action_attributes( $sign_attrs ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					. '><span class="dashicons dashicons-lock"></span> '
-					. esc_html__( 'Sign and Download', 'documentate' )
-					. '</a>';
-		}
-
-		echo '</div>';
-
-		// ── Secondary row: Other download formats ────────────────────────
-		$secondary_buttons = array(
+	/**
+	 * Build the availability and tooltip for one download format.
+	 *
+	 * @param string $own_template   Template path for this format.
+	 * @param string $other_template Template path for the other format.
+	 * @param bool   $can_convert    Whether any conversion route is available.
+	 * @param string $format         Either docx or odt.
+	 * @return array{available:bool,message:string,label:string}
+	 */
+	private function build_format_state( $own_template, $other_template, $can_convert, $format ) {
+		$config = array(
 			'odt' => array(
-				'available' => $odt_available,
-				'message' => $odt_message,
 				'label' => __( 'ODT (Source)', 'documentate' ),
+				'missing' => __( 'Configure an ODT template in the document type.', 'documentate' ),
+				'from' => 'docx',
 			),
 			'docx' => array(
-				'available' => $docx_available,
-				'message' => $docx_message,
 				'label' => 'DOCX',
+				'missing' => __( 'Configure a DOCX template in the document type.', 'documentate' ),
+				'from' => 'odt',
 			),
 		);
 
+		$requires_conversion = '' === $own_template && '' !== $other_template;
+
+		$message = $config[ $format ]['missing'];
+		if ( $requires_conversion && ! $can_convert ) {
+			$message = Documentate_Conversion_Manager::get_unavailable_message( $config[ $format ]['from'], $format );
+		}
+
+		return array(
+			'available' => '' !== $own_template || ( $requires_conversion && $can_convert ),
+			'message' => $message,
+			'label' => $config[ $format ]['label'],
+		);
+	}
+
+	/**
+	 * Render the primary row: Preview, Download PDF and Sign.
+	 *
+	 * @param array<string,mixed> $state Resolved action state.
+	 * @return void
+	 */
+	private function render_primary_actions( array $state ) {
+		echo '<div class="documentate-actions-primary">';
+
+		$this->render_preview_button( $state );
+		$this->render_pdf_button( $state );
+		$this->render_sign_button( $state );
+
+		echo '</div>';
+	}
+
+	/**
+	 * Render the Preview button.
+	 *
+	 * @param array<string,mixed> $state Resolved action state.
+	 * @return void
+	 */
+	private function render_preview_button( array $state ) {
+		if ( ! $state['preview_available'] ) {
+			echo '<button type="button" class="button documentate-action-btn--preview" disabled title="'
+					. esc_attr( $state['preview_message'] )
+					. '"><span class="dashicons dashicons-visibility"></span> '
+					. esc_html__( 'Preview', 'documentate' )
+					. '</button>';
+			return;
+		}
+
+		$attrs = array(
+			'class' => 'button documentate-action-btn documentate-action-btn--preview',
+			'href' => '#',
+			'data-documentate-action' => 'preview',
+			'data-documentate-format' => 'pdf',
+		);
+		if ( $state['needs_popup_base'] ) {
+			$attrs['data-documentate-cdn-mode'] = '1';
+			$attrs['data-documentate-source-format'] = $state['source_format'];
+		}
+
+		echo '<a '
+				. $this->build_action_attributes( $attrs ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				. '><span class="dashicons dashicons-visibility"></span> '
+				. esc_html__( 'Preview', 'documentate' )
+				. '</a>';
+	}
+
+	/**
+	 * Render the Download PDF button, which is always shown.
+	 *
+	 * @param array<string,mixed> $state Resolved action state.
+	 * @return void
+	 */
+	private function render_pdf_button( array $state ) {
+		if ( ! $state['pdf_available'] ) {
+			echo '<button type="button" class="button button-primary documentate-action-btn--pdf" disabled title="'
+					. esc_attr( $state['pdf_message'] )
+					. '"><span class="dashicons dashicons-pdf"></span> '
+					. esc_html__( 'Download PDF', 'documentate' )
+					. '</button>';
+			return;
+		}
+
+		$attrs = array(
+			'class' => 'button button-primary documentate-action-btn documentate-action-btn--pdf',
+			'href' => '#',
+			'data-documentate-action' => 'download',
+			'data-documentate-format' => 'pdf',
+		);
+		if ( $state['needs_popup_base'] && 'pdf' !== $state['source_format'] ) {
+			$attrs['data-documentate-cdn-mode'] = '1';
+			$attrs['data-documentate-source-format'] = $state['source_format'];
+		}
+
+		echo '<a '
+				. $this->build_action_attributes( $attrs ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				. '><span class="dashicons dashicons-pdf"></span> '
+				. esc_html__( 'Download PDF', 'documentate' )
+				. '</a>';
+	}
+
+	/**
+	 * Render the Sign and Download button, when the template supports it.
+	 *
+	 * @param array<string,mixed> $state Resolved action state.
+	 * @return void
+	 */
+	private function render_sign_button( array $state ) {
+		if ( ! $state['has_sign_placeholder'] || ! $state['pdf_available'] ) {
+			return;
+		}
+
+		$attrs = array(
+			'class' => 'button button-primary documentate-action-btn documentate-action-btn--sign',
+			'href' => '#',
+			'data-documentate-action' => 'sign',
+			'data-documentate-format' => 'pdf',
+		);
+
+		echo '<a '
+				. $this->build_action_attributes( $attrs ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				. '><span class="dashicons dashicons-lock"></span> '
+				. esc_html__( 'Sign and Download', 'documentate' )
+				. '</a>';
+	}
+
+	/**
+	 * Render the secondary row of other download formats.
+	 *
+	 * @param array<string,mixed> $state Resolved action state.
+	 * @return void
+	 */
+	private function render_secondary_actions( array $state ) {
 		echo '<div class="documentate-actions-secondary">';
 		echo '<span class="documentate-actions-secondary__label">'
 				. esc_html__( 'Other download formats:', 'documentate' )
 				. '</span>';
 		echo '<span class="documentate-actions-secondary__buttons">';
-		foreach ( $secondary_buttons as $format => $data ) {
-			if ( $data['available'] ) {
-				$attrs = array(
-					'class' => 'button button-small documentate-action-btn',
-					'href' => '#',
-					'data-documentate-action' => 'download',
-					'data-documentate-format' => $format,
-				);
-				$needs_popup_conversion = $needs_popup_base && $format !== $source_format;
-				if ( $needs_popup_conversion ) {
-					$attrs['data-documentate-cdn-mode'] = '1';
-					$attrs['data-documentate-source-format'] = $source_format;
-				}
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-				echo '<a ' . $this->build_action_attributes( $attrs ) . '>' . esc_html( $data['label'] ) . '</a> ';
-			} else {
-				$title_attr = '';
-				$title_message = isset( $data['message'] ) ? $data['message'] : '';
-				if ( '' !== $title_message ) {
-					$title_attr = sanitize_text_field( $title_message );
-				}
-				$button_attrs = array(
-					'type' => 'button',
-					'class' => 'button button-small',
-					'disabled' => 'disabled',
-				);
-				if ( '' !== $title_attr ) {
-					$button_attrs['title'] = $title_attr;
-				}
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
-				echo '<button ' . $this->build_action_attributes( $button_attrs ) . '>' . esc_html( $data['label'] ) . '</button> ';
-			}
+
+		foreach ( $state['formats'] as $format => $data ) {
+			$this->render_secondary_button( $format, $data, $state );
 		}
+
 		echo '</span>';
 		echo '</div>';
+	}
+
+	/**
+	 * Render one secondary download button.
+	 *
+	 * @param string              $format Format key.
+	 * @param array<string,mixed> $data   Availability, tooltip and label.
+	 * @param array<string,mixed> $state  Resolved action state.
+	 * @return void
+	 */
+	private function render_secondary_button( $format, array $data, array $state ) {
+		if ( $data['available'] ) {
+			$attrs = array(
+				'class' => 'button button-small documentate-action-btn',
+				'href' => '#',
+				'data-documentate-action' => 'download',
+				'data-documentate-format' => $format,
+			);
+			if ( $state['needs_popup_base'] && $format !== $state['source_format'] ) {
+				$attrs['data-documentate-cdn-mode'] = '1';
+				$attrs['data-documentate-source-format'] = $state['source_format'];
+			}
+
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
+			echo '<a ' . $this->build_action_attributes( $attrs ) . '>' . esc_html( $data['label'] ) . '</a> ';
+			return;
+		}
+
+		$button_attrs = array(
+			'type' => 'button',
+			'class' => 'button button-small',
+			'disabled' => 'disabled',
+		);
+
+		$title_message = isset( $data['message'] ) ? $data['message'] : '';
+		if ( '' !== $title_message ) {
+			// build_action_attributes() drops the attribute again when sanitising empties it.
+			$button_attrs['title'] = sanitize_text_field( $title_message );
+		}
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes sanitized in build_action_attributes().
+		echo '<button ' . $this->build_action_attributes( $button_attrs ) . '>' . esc_html( $data['label'] ) . '</button> ';
 	}
 
 	/**
@@ -1200,35 +1325,57 @@ class Documentate_Admin_Helper {
 		$result = call_user_func( array( 'Documentate_Document_Generator', $method ), $post_id );
 
 		if ( is_wp_error( $result ) ) {
-			// Never return Collabora endpoint/body details to the browser — they
-			// can disclose internal conversion URLs. Log only when debugging.
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional when WP_DEBUG is enabled.
-				error_log(
-					sprintf(
-						'[Documentate] generate_document failed: %s | code=%s | data=%s',
-						$result->get_error_message(),
-						$result->get_error_code(),
-						wp_json_encode( $result->get_error_data() )
-					)
-				);
-			}
+			$this->send_generation_error( $result );
+		}
 
-			wp_send_json_error(
-				array(
-					'message' => $result->get_error_message(),
+		wp_send_json_success(
+			array( 'url' => $this->build_generated_document_url( $post_id, $format, $output, $result ) )
+		);
+	}
+
+	/**
+	 * Report a generation failure without leaking conversion details.
+	 *
+	 * @param WP_Error $result Generation error.
+	 * @return void
+	 */
+	private function send_generation_error( WP_Error $result ) {
+		// Never return Collabora endpoint/body details to the browser — they
+		// can disclose internal conversion URLs. Log only when debugging.
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional when WP_DEBUG is enabled.
+			error_log(
+				sprintf(
+					'[Documentate] generate_document failed: %s | code=%s | data=%s',
+					$result->get_error_message(),
+					$result->get_error_code(),
+					wp_json_encode( $result->get_error_data() )
 				)
 			);
 		}
 
-		// Build the URL for download/preview.
-		$nonce_action = 'preview' === $output ? 'documentate_preview_' . $post_id : 'documentate_export_' . $post_id;
-		$nonce = wp_create_nonce( $nonce_action );
+		wp_send_json_error(
+			array(
+				'message' => $result->get_error_message(),
+			)
+		);
+	}
 
+	/**
+	 * Build the admin-post URL that serves the generated document.
+	 *
+	 * @param int    $post_id Document post ID.
+	 * @param string $format  Requested format.
+	 * @param string $output  Either preview or download.
+	 * @param string $result  Path to the generated file.
+	 * @return string
+	 */
+	private function build_generated_document_url( $post_id, $format, $output, $result ) {
 		if ( 'preview' === $output ) {
 			// For preview, use the preview stream URL.
 			$this->remember_preview_stream_file( $post_id, basename( $result ) );
-			$url = add_query_arg(
+
+			return add_query_arg(
 				array(
 					'action' => 'documentate_preview_stream',
 					'post_id' => $post_id,
@@ -1236,20 +1383,17 @@ class Documentate_Admin_Helper {
 				),
 				admin_url( 'admin-post.php' )
 			);
-		} else {
-			// For download, use the export URL.
-			$action_name = 'documentate_export_' . $format;
-			$url = add_query_arg(
-				array(
-					'action' => $action_name,
-					'post_id' => $post_id,
-					'_wpnonce' => $nonce,
-				),
-				admin_url( 'admin-post.php' )
-			);
 		}
 
-		wp_send_json_success( array( 'url' => $url ) );
+		// For download, use the export URL.
+		return add_query_arg(
+			array(
+				'action' => 'documentate_export_' . $format,
+				'post_id' => $post_id,
+				'_wpnonce' => wp_create_nonce( 'documentate_export_' . $post_id ),
+			),
+			admin_url( 'admin-post.php' )
+		);
 	}
 }
 

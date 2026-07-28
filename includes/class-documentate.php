@@ -97,6 +97,7 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-cpt-registration.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-comments-handler.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-revision-handler.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-input-attributes.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-field-validator.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/documents/class-documents-field-renderer.php';
 

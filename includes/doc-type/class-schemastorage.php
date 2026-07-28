@@ -105,34 +105,75 @@ class SchemaStorage {
 	 * @return array<string,mixed>
 	 */
 	private function build_summary( $schema ) {
-		$fields = isset( $schema['fields'] ) && is_array( $schema['fields'] ) ? $schema['fields'] : array();
-		$repeaters = isset( $schema['repeaters'] ) && is_array( $schema['repeaters'] ) ? $schema['repeaters'] : array();
-		$version = isset( $schema['version'] ) ? intval( $schema['version'] ) : 0;
-		$template = isset( $schema['meta']['template_name'] ) ? (string) $schema['meta']['template_name'] : '';
-		$parsed_at = isset( $schema['meta']['parsed_at'] ) ? (string) $schema['meta']['parsed_at'] : '';
-		$template_id = isset( $schema['meta']['template_id'] ) ? intval( $schema['meta']['template_id'] ) : 0;
-		$type = isset( $schema['meta']['template_type'] ) ? (string) $schema['meta']['template_type'] : '';
+		$fields = $this->array_member( $schema, 'fields' );
+		$repeaters = $this->array_member( $schema, 'repeaters' );
+		$meta = $this->array_member( $schema, 'meta' );
 
-		$repeater_names = array();
+		return array(
+			'version' => $this->int_member( $schema, 'version' ),
+			'field_count' => count( $fields ),
+			'repeater_count' => count( $repeaters ),
+			'repeaters' => $this->collect_repeater_names( $repeaters ),
+			'template_name' => $this->string_member( $meta, 'template_name' ),
+			'template_type' => $this->string_member( $meta, 'template_type' ),
+			'template_id' => $this->int_member( $meta, 'template_id' ),
+			'parsed_at' => $this->string_member( $meta, 'parsed_at' ),
+		);
+	}
+
+	/**
+	 * Read an array member, defaulting to an empty array.
+	 *
+	 * @param mixed  $source Source array.
+	 * @param string $key    Member key.
+	 * @return array
+	 */
+	private function array_member( $source, $key ) {
+		return isset( $source[ $key ] ) && is_array( $source[ $key ] ) ? $source[ $key ] : array();
+	}
+
+	/**
+	 * Read a string member, defaulting to an empty string.
+	 *
+	 * @param mixed  $source Source array.
+	 * @param string $key    Member key.
+	 * @return string
+	 */
+	private function string_member( $source, $key ) {
+		return isset( $source[ $key ] ) ? (string) $source[ $key ] : '';
+	}
+
+	/**
+	 * Read an integer member, defaulting to zero.
+	 *
+	 * @param mixed  $source Source array.
+	 * @param string $key    Member key.
+	 * @return int
+	 */
+	private function int_member( $source, $key ) {
+		return isset( $source[ $key ] ) ? intval( $source[ $key ] ) : 0;
+	}
+
+	/**
+	 * Collect the names declared by repeater definitions.
+	 *
+	 * @param array $repeaters Repeater definitions.
+	 * @return string[]
+	 */
+	private function collect_repeater_names( array $repeaters ) {
+		$names = array();
+
 		foreach ( $repeaters as $definition ) {
 			if ( ! is_array( $definition ) ) {
 				continue;
 			}
+
 			$name = isset( $definition['name'] ) ? (string) $definition['name'] : '';
 			if ( '' !== $name ) {
-				$repeater_names[] = $name;
+				$names[] = $name;
 			}
 		}
 
-		return array(
-			'version' => $version,
-			'field_count' => count( $fields ),
-			'repeater_count' => count( $repeaters ),
-			'repeaters' => $repeater_names,
-			'template_name' => $template,
-			'template_type' => $type,
-			'template_id' => $template_id,
-			'parsed_at' => $parsed_at,
-		);
+		return $names;
 	}
 }
