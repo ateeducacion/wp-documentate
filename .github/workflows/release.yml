@@ -21,6 +21,14 @@ jobs:
           VERSION_TAG="${RAW_TAG#v}"  # Delete the initial 'v' if exists
           echo "RELEASE_TAG=${VERSION_TAG}" >> $GITHUB_ENV
 
+      # The LibreOffice WASM glue under admin/vendor is generated rather than
+      # committed, and `make package` regenerates it from node_modules.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
       - name: Create package using the Makefile
         run: make package VERSION=${RELEASE_TAG}
 

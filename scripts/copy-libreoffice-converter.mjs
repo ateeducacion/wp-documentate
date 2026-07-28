@@ -3,10 +3,10 @@
  * plugin vendor directory.
  *
  * Only the small, same-origin "glue" scripts are copied (~0.6 MB total); they are
- * committed to the repository and shipped in the plugin. The large WebAssembly
- * binaries (soffice.wasm ~140 MB, soffice.data ~95 MB) are NOT copied — they are
- * loaded at runtime from a CORS-enabled CDN (see
- * DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL and
+ * generated during installation and packaging and included in the distributable
+ * plugin ZIP. The large WebAssembly binaries (soffice.wasm ~140 MB,
+ * soffice.data ~95 MB) are NOT copied — they are loaded at runtime from a
+ * CORS-enabled CDN (see DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL and
  * admin/vendor/libreoffice-converter/README.md).
  *
  * Usage: node scripts/copy-libreoffice-converter.mjs

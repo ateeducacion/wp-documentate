@@ -43,11 +43,15 @@ admin/vendor/tinybutstrong/tinybutstrong/testunit/
 admin/vendor/tinybutstrong/tinybutstrong/.gitattributes
 admin/vendor/tinybutstrong/tinybutstrong/.gitignore
 
-# LibreOffice WASM: the small glue scripts are committed; the large binaries
-# (soffice.wasm/soffice.data, ~235 MB) are served from a CDN and never committed.
-admin/vendor/libreoffice-converter/wasm/soffice.wasm
-admin/vendor/libreoffice-converter/wasm/soffice.data
-admin/vendor/libreoffice-converter/wasm/soffice.data.js.metadata
+# LibreOffice WASM: dist/ and wasm/ are generated from
+# @matbee/libreoffice-converter by `npm run copy:libreoffice-converter`, which
+# runs on postinstall and again from `make package`. They are not committed, so
+# the tree cannot drift from the pinned package version. `composer archive`
+# packages the working tree and ignores .gitignore, so they still ship.
+# The large binaries (soffice.wasm/soffice.data, ~235 MB) are CDN-served and
+# never written here at all. README.md is hand-written and stays tracked.
+admin/vendor/libreoffice-converter/dist/
+admin/vendor/libreoffice-converter/wasm/
 
 .env
 
