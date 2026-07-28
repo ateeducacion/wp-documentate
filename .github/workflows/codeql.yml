@@ -1,0 +1,70 @@
+---
+# CodeQL advanced setup.
+#
+# This repository previously relied on GitHub's CodeQL *default setup*, which
+# stopped running in March 2026 and left the Code Scanning results permanently
+# stale ("CodeQL last scanned this code Mar 4, 2026"). Declaring the analysis
+# here keeps the configuration versioned with the code and guarantees fresh
+# results on every push and pull request.
+#
+# PHP is not supported by CodeQL; static analysis for PHP is covered by the
+# separate PHPMD workflow (.github/workflows/phpmd.yml).
+
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  schedule:
+    # Weekly, offset from the PHPMD schedule to spread runner usage.
+    - cron: '15 5 * * 5'
+
+# Cancel superseded runs on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      # Required to upload the CodeQL results to the Code Scanning dashboard.
+      security-events: write
+      # Required by github/codeql-action to read the Action run status.
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:${{ matrix.language }}'

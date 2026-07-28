@@ -1,0 +1,87 @@
+---
+# Semgrep security scanning for PHP.
+#
+# CodeQL has no PHP extractor, so the plugin's largest language (~2 MB of PHP
+# against ~650 KB of JavaScript) gets no security analysis from
+# .github/workflows/codeql.yml. PHPMD covers PHP too, but only reports code
+# size and complexity metrics.
+#
+# Code Scanning is a generic SARIF sink rather than a CodeQL-only dashboard, so
+# uploading Semgrep's SARIF puts PHP security findings alongside the rest.
+#
+# The scan is deliberately limited to PHP: JavaScript and TypeScript are
+# already analysed by CodeQL, and running both over the same files would raise
+# each finding twice under two different categories.
+#
+# The echoed-request rule is excluded because Semgrep's generic PHP rules have
+# no model of WordPress escaping: it flags `echo wp_json_encode( $x )` and
+# `echo (int) $x` as cross-site scripting. Output escaping is already enforced
+# on these exact files by WordPress.Security.EscapeOutput, which does know
+# those functions and runs as a blocking check via `make lint`.
+
+name: Semgrep
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  schedule:
+    # Weekly, offset from the CodeQL and PHPMD schedules.
+    - cron: '55 6 * * 5'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Scan PHP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      # Required to upload the SARIF results to the Code Scanning dashboard.
+      security-events: write
+      # Required by github/codeql-action/upload-sarif to read the run status.
+      actions: read
+      contents: read
+
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run Semgrep
+        # Findings must not fail the job: like PHPMD, this workflow reports to
+        # the Code Scanning dashboard rather than gating pull requests.
+        continue-on-error: true
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+        run: |
+          semgrep scan \
+            --config=p/php \
+            --config=p/security-audit \
+            --include='*.php' \
+            --exclude='admin/vendor' \
+            --exclude='vendor' \
+            --exclude='tests' \
+            --exclude-rule='php.lang.security.injection.echoed-request.echoed-request' \
+            --sarif \
+            --output=semgrep-results.sarif
+
+      - name: Upload analysis results to GitHub
+        # Runs even when the scan step reports findings.
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep-php
+          wait-for-processing: true
