@@ -21,10 +21,12 @@
 			}
 		}
 
-		// Strip HTML tags and trim whitespace.
-		var tmp = document.createElement('div');
-		tmp.innerHTML = textarea.value;
-		return (tmp.textContent || tmp.innerText || '').trim();
+		// Strip HTML tags and trim whitespace. Parse into an inert document
+		// rather than assigning to innerHTML: a detached node still loads
+		// resources, so markup such as <img src=x onerror=...> stored in the
+		// editor would run here.
+		var parsed = new DOMParser().parseFromString(textarea.value, 'text/html');
+		return (parsed.body.textContent || '').trim();
 	}
 
 	/**

@@ -880,6 +880,24 @@
 	 * @param {HTMLElement} container - Container element for avatars
 	 * @param {Map}         users     - Map of unique users (keyed by userId)
 	 */
+	/**
+	 * Build a collaborator avatar image.
+	 *
+	 * Both values come from Yjs awareness state, which every peer in the room
+	 * sets for itself, so they are attacker controlled. Assign them as
+	 * properties rather than interpolating into markup.
+	 *
+	 * @param {string} src - Avatar URL.
+	 * @param {string} alt - Collaborator name.
+	 * @return {HTMLImageElement} The avatar image element.
+	 */
+	function buildAvatarImage(src, alt) {
+		const img = document.createElement('img');
+		img.src = src;
+		img.alt = alt || '';
+		return img;
+	}
+
 	async function renderUserAvatars(container, users) {
 		container.innerHTML = '';
 
@@ -908,9 +926,9 @@
 
 			const cached = metaboxState.avatarCache.get(user.userId);
 			if (cached && cached.avatar) {
-				avatarEl.innerHTML = `<img src="${cached.avatar}" alt="${cached.name || user.name}" />`;
+				avatarEl.appendChild(buildAvatarImage(cached.avatar, cached.name || user.name));
 			} else if (user.avatar) {
-				avatarEl.innerHTML = `<img src="${user.avatar}" alt="${user.name}" />`;
+				avatarEl.appendChild(buildAvatarImage(user.avatar, user.name));
 			} else {
 				// Fallback: initial letter with cursor color
 				const initial = (user.name || 'U').charAt(0).toUpperCase();
