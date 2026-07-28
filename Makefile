@@ -278,15 +278,30 @@ mo:
 check-untranslated:
 	composer check-untranslated
 
+# Generate the LibreOffice WASM glue that the plugin ships but does not track.
+# `composer archive` packages the working tree and ignores .gitignore, so these
+# files only need to exist on disk at packaging time.
+package-assets:
+	@if [ -d node_modules/@matbee/libreoffice-converter ]; then \
+		npm run --silent copy:libreoffice-converter; \
+	else \
+		echo "node_modules missing, installing to generate the WASM glue..."; \
+		npm ci --no-audit --no-fund --silent; \
+	fi
+	@test -f admin/vendor/libreoffice-converter/dist/browser.js \
+		|| { echo "Error: LibreOffice WASM glue was not generated."; exit 1; }
+
 # Generate the documentate-X.X.X.zip package
 package:
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Error: No se ha especificado una versión. Usa 'make package VERSION=1.2.3'"; \
 		exit 1; \
 	fi
+	$(MAKE) package-assets
+
 	# Update the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           $(VERSION)/" documentate.php
-	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
 	# Create the ZIP package
@@ -294,7 +309,7 @@ package:
 
 	# Restore the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
-	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define('DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
+	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '0.0.0'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: 0.0.0/" readme.txt
 
 # ─── Help ─────────────────────────────────────────────────────────────────────
