@@ -4,11 +4,13 @@
 	/**
 	 * Extract the visible text of an HTML fragment.
 	 *
-	 * Parsed with DOMParser rather than assigned to innerHTML. A detached node
-	 * still belongs to the active document, so it fetches resources and
-	 * <img src=x onerror=...> stored in an editor used to run here. A document
-	 * from parseFromString has no browsing context: it neither runs scripts nor
-	 * loads resources.
+	 * Parsed with DOMParser rather than assigned to innerHTML. The parsed
+	 * document has no browsing context, so scripting is disabled: neither
+	 * scripts nor inline event handlers run. Assigning to innerHTML on a
+	 * detached node gives no such guarantee — the node still belongs to the
+	 * active document, so <img src=x onerror=...> stored in an editor executed
+	 * its handler here. The parsed tree is never inserted anywhere; only
+	 * body.textContent is read.
 	 *
 	 * Real parsing is required, not a tag-stripping regex: callers compare the
 	 * result against '' to detect an empty field, and only a parser decodes
