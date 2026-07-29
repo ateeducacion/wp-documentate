@@ -155,20 +155,12 @@ class Documentate_Documents {
 
 		// If not yet locked, lock to the current assigned term (if any) on first set.
 		if ( $locked <= 0 ) {
-			$assigned = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-			if ( ! is_wp_error( $assigned ) && ! empty( $assigned ) ) {
-				update_post_meta( $object_id, 'documentate_locked_doc_type', intval( $assigned[0] ) );
-			}
+			$this->lock_doc_type_to_current( $object_id );
 			return;
 		}
 
 		// Already locked: ensure the post keeps the locked term.
-		$current = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		if ( is_wp_error( $current ) ) {
-			return;
-		}
-		$current_one = ! empty( $current ) ? intval( $current[0] ) : 0;
-		if ( $current_one === $locked && count( $current ) === 1 ) {
+		if ( ! $this->doc_type_drifted_from_lock( $object_id, $locked ) ) {
 			return;
 		}
 
@@ -176,6 +168,39 @@ class Documentate_Documents {
 		$lock_guard = true;
 		wp_set_post_terms( $object_id, array( $locked ), 'documentate_doc_type', false );
 		$lock_guard = false;
+	}
+
+	/**
+	 * Record the currently assigned document type as the locked one.
+	 *
+	 * @param int $object_id Post ID.
+	 * @return void
+	 */
+	private function lock_doc_type_to_current( $object_id ) {
+		$assigned = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $assigned ) || empty( $assigned ) ) {
+			return;
+		}
+
+		update_post_meta( $object_id, 'documentate_locked_doc_type', intval( $assigned[0] ) );
+	}
+
+	/**
+	 * Whether the assigned terms differ from the locked document type.
+	 *
+	 * @param int $object_id Post ID.
+	 * @param int $locked    Locked term ID.
+	 * @return bool False when the post already carries exactly the locked term.
+	 */
+	private function doc_type_drifted_from_lock( $object_id, $locked ) {
+		$current = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $current ) ) {
+			return false;
+		}
+
+		$current_one = ! empty( $current ) ? intval( $current[0] ) : 0;
+
+		return ! ( $current_one === $locked && 1 === count( $current ) );
 	}
 
 	/**
@@ -2030,40 +2055,60 @@ class Documentate_Documents {
 				continue;
 			}
 
-			$filtered = array();
-			foreach ( $schema as $key => $settings ) {
-				$raw = isset( $item[ $key ] ) ? $item[ $key ] : '';
-				$raw = is_scalar( $raw ) ? (string) $raw : '';
-				$type = isset( $settings['type'] ) ? $settings['type'] : 'textarea';
+			$filtered = $this->sanitize_array_item( $item, $schema );
 
-				$filtered[ $key ] = $this->sanitize_field_by_type( $raw, $type );
-			}
-
-			$has_content = false;
-			foreach ( $filtered as $key => $value ) {
-				$type = isset( $schema[ $key ]['type'] ) ? $schema[ $key ]['type'] : 'textarea';
-				if ( 'rich' === $type ) {
-					if ( '' !== trim( wp_strip_all_tags( (string) $value ) ) ) {
-						$has_content = true;
-						break;
-					}
-				} elseif ( '' !== trim( (string) $value ) ) {
-					$has_content = true;
-					break;
-				}
-			}
-
-			if ( $has_content ) {
+			if ( $this->array_item_has_content( $filtered, $schema ) ) {
 				$clean[] = $filtered;
 			}
 		}
 
-		if ( empty( $clean ) ) {
-			return array();
+		return array_values( array_slice( $clean, 0, self::ARRAY_FIELD_MAX_ITEMS ) );
+	}
+
+	/**
+	 * Sanitize one repeater row against its item schema.
+	 *
+	 * @param array $item   Raw submitted row.
+	 * @param array $schema Normalized item schema.
+	 * @return array<string,string>
+	 */
+	private function sanitize_array_item( array $item, array $schema ) {
+		$filtered = array();
+
+		foreach ( $schema as $key => $settings ) {
+			$raw = isset( $item[ $key ] ) ? $item[ $key ] : '';
+			$raw = is_scalar( $raw ) ? (string) $raw : '';
+			$type = isset( $settings['type'] ) ? $settings['type'] : 'textarea';
+
+			$filtered[ $key ] = $this->sanitize_field_by_type( $raw, $type );
 		}
 
-		$clean = array_slice( $clean, 0, self::ARRAY_FIELD_MAX_ITEMS );
-		return array_values( $clean );
+		return $filtered;
+	}
+
+	/**
+	 * Whether a sanitized repeater row carries any visible value.
+	 *
+	 * Rich values are stripped of markup first, so a row holding only empty
+	 * tags counts as blank and is dropped.
+	 *
+	 * @param array $filtered Sanitized row.
+	 * @param array $schema   Normalized item schema.
+	 * @return bool
+	 */
+	private function array_item_has_content( array $filtered, array $schema ) {
+		foreach ( $filtered as $key => $value ) {
+			$type = isset( $schema[ $key ]['type'] ) ? $schema[ $key ]['type'] : 'textarea';
+			$text = 'rich' === $type
+				? wp_strip_all_tags( (string) $value )
+				: (string) $value;
+
+			if ( '' !== trim( $text ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -2131,6 +2176,25 @@ class Documentate_Documents {
 	 * @param int $post_id Post ID.
 	 */
 	public function save_meta_boxes( $post_id ) {
+		if ( ! $this->can_save_meta_boxes( $post_id ) ) {
+			return;
+		}
+
+		// Handle type selection (lock after set).
+		$this->save_doc_type_selection( $post_id );
+
+		$this->save_dynamic_fields_meta( $post_id );
+
+		// post_content is composed in wp_insert_post_data filter; avoid recursion here.
+	}
+
+	/**
+	 * Whether this request is allowed to persist the sections metabox.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	private function can_save_meta_boxes( $post_id ) {
 		if (
 			! isset( $_POST['documentate_sections_nonce'] )
 			|| ! wp_verify_nonce(
@@ -2138,15 +2202,15 @@ class Documentate_Documents {
 				'documentate_sections_nonce',
 			)
 		) {
-			return;
+			return false;
 		}
 
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
+			return false;
 		}
 
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return;
+			return false;
 		}
 
 		// Server-side lock: non-admins must not persist field meta on locked docs.
@@ -2154,29 +2218,41 @@ class Documentate_Documents {
 			class_exists( 'Documentate_Workflow' )
 			&& ! Documentate_Workflow::current_user_can_modify_document( $post_id )
 		) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Apply the posted document type, keeping an existing assignment locked.
+	 *
+	 * Once a document has a type, it wins over anything posted: the type is
+	 * reapplied rather than replaced.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	private function save_doc_type_selection( $post_id ) {
+		if (
+			! isset( $_POST['documentate_type_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['documentate_type_nonce'] ) ), 'documentate_type_nonce' )
+		) {
 			return;
 		}
 
-		// Handle type selection (lock after set).
-		if (
-			isset( $_POST['documentate_type_nonce'] )
-			&& wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['documentate_type_nonce'] ) ), 'documentate_type_nonce' )
-		) {
-			$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-			$current = ! is_wp_error( $assigned ) && ! empty( $assigned ) ? intval( $assigned[0] ) : 0;
-			if ( $current > 0 ) {
-				wp_set_post_terms( $post_id, array( $current ), 'documentate_doc_type', false );
-			} elseif ( isset( $_POST['documentate_doc_type'] ) ) {
-				$posted = intval( wp_unslash( $_POST['documentate_doc_type'] ) );
-				if ( $posted > 0 ) {
-					wp_set_post_terms( $post_id, array( $posted ), 'documentate_doc_type', false );
-				}
-			}
+		$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+		$current = ! is_wp_error( $assigned ) && ! empty( $assigned ) ? intval( $assigned[0] ) : 0;
+
+		if ( $current > 0 ) {
+			wp_set_post_terms( $post_id, array( $current ), 'documentate_doc_type', false );
+			return;
 		}
 
-		$this->save_dynamic_fields_meta( $post_id );
-
-		// post_content is composed in wp_insert_post_data filter; avoid recursion here.
+		$posted = isset( $_POST['documentate_doc_type'] ) ? intval( wp_unslash( $_POST['documentate_doc_type'] ) ) : 0;
+		if ( $posted > 0 ) {
+			wp_set_post_terms( $post_id, array( $posted ), 'documentate_doc_type', false );
+		}
 	}
 
 	/**
@@ -2866,8 +2942,38 @@ class Documentate_Documents {
 			return;
 		}
 
-		// Author filter. The has_published_posts query joins on the posts table,
-		// so cache it briefly; a slightly stale author dropdown is acceptable.
+		$this->render_author_filter();
+
+		$this->render_term_filter(
+			array(
+				'taxonomy' => 'documentate_doc_type',
+				'name' => 'documentate_doc_type',
+				'id' => 'filter-by-doc-type',
+				'all_label' => __( 'All document types', 'documentate' ),
+			)
+		);
+
+		// Cap the number of category options so the dropdown never
+		// materialises an unbounded list of site categories.
+		$this->render_term_filter(
+			array(
+				'taxonomy' => 'category',
+				'name' => 'category_name',
+				'id' => 'filter-by-category',
+				'all_label' => __( 'All categories', 'documentate' ),
+				'number' => 200,
+			)
+		);
+	}
+
+	/**
+	 * Render the author dropdown for the documents list table.
+	 *
+	 * @return void
+	 */
+	private function render_author_filter() {
+		// The has_published_posts query joins on the posts table, so cache it
+		// briefly; a slightly stale author dropdown is acceptable.
 		$authors = get_transient( 'documentate_admin_author_filter' );
 		if ( false === $authors ) {
 			$authors = get_users(
@@ -2880,70 +2986,91 @@ class Documentate_Documents {
 			set_transient( 'documentate_admin_author_filter', $authors, 5 * MINUTE_IN_SECONDS );
 		}
 
-		if ( ! empty( $authors ) ) {
-			$current_author = isset( $_GET['author'] ) ? absint( $_GET['author'] ) : 0;
-			echo '<select name="author" id="filter-by-author">';
-			echo '<option value="">' . esc_html__( 'All authors', 'documentate' ) . '</option>';
-			foreach ( $authors as $author ) {
-				printf(
-					'<option value="%d"%s>%s</option>',
-					absint( $author->ID ),
-					selected( $current_author, $author->ID, false ),
-					esc_html( $author->display_name ),
-				);
-			}
-			echo '</select>';
+		$options = array();
+		foreach ( (array) $authors as $author ) {
+			$options[ absint( $author->ID ) ] = $author->display_name;
 		}
 
-		// Document type filter (taxonomy dropdown).
-		$doc_types = get_terms(
+		$this->render_admin_filter_select(
 			array(
-				'taxonomy' => 'documentate_doc_type',
-				'hide_empty' => false,
+				'name' => 'author',
+				'id' => 'filter-by-author',
+				'all_label' => __( 'All authors', 'documentate' ),
+				'current' => isset( $_GET['author'] ) ? absint( $_GET['author'] ) : 0,
+				'options' => $options,
 			)
 		);
+	}
 
-		if ( ! is_wp_error( $doc_types ) && ! empty( $doc_types ) ) {
-			$current_type = isset( $_GET['documentate_doc_type'] )
-				? sanitize_text_field( wp_unslash( $_GET['documentate_doc_type'] ) )
-				: '';
-			echo '<select name="documentate_doc_type" id="filter-by-doc-type">';
-			echo '<option value="">' . esc_html__( 'All document types', 'documentate' ) . '</option>';
-			foreach ( $doc_types as $doc_type ) {
-				printf(
-					'<option value="%s"%s>%s</option>',
-					esc_attr( $doc_type->slug ),
-					selected( $current_type, $doc_type->slug, false ),
-					esc_html( $doc_type->name ),
-				);
-			}
-			echo '</select>';
+	/**
+	 * Render a taxonomy dropdown for the documents list table.
+	 *
+	 * @param array $args taxonomy, name, id, all_label and an optional number cap.
+	 * @return void
+	 */
+	private function render_term_filter( array $args ) {
+		$query = array(
+			'taxonomy' => $args['taxonomy'],
+			'hide_empty' => false,
+		);
+		if ( isset( $args['number'] ) ) {
+			$query['number'] = $args['number'];
 		}
 
-		// Category filter (if taxonomy exists). Cap the number of options so the
-		// dropdown never materialises an unbounded list of site categories.
-		$categories = get_terms(
+		$terms = get_terms( $query );
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return;
+		}
+
+		$options = array();
+		foreach ( $terms as $term ) {
+			$options[ $term->slug ] = $term->name;
+		}
+
+		$this->render_admin_filter_select(
 			array(
-				'taxonomy' => 'category',
-				'hide_empty' => false,
-				'number' => 200,
+				'name' => $args['name'],
+				'id' => $args['id'],
+				'all_label' => $args['all_label'],
+				'current' => isset( $_GET[ $args['name'] ] )
+					? sanitize_text_field( wp_unslash( $_GET[ $args['name'] ] ) )
+					: '',
+				'options' => $options,
 			)
 		);
+	}
 
-		if ( ! is_wp_error( $categories ) && ! empty( $categories ) ) {
-			$current_cat = isset( $_GET['category_name'] ) ? sanitize_text_field( wp_unslash( $_GET['category_name'] ) ) : '';
-			echo '<select name="category_name" id="filter-by-category">';
-			echo '<option value="">' . esc_html__( 'All categories', 'documentate' ) . '</option>';
-			foreach ( $categories as $category ) {
-				printf(
-					'<option value="%s"%s>%s</option>',
-					esc_attr( $category->slug ),
-					selected( $current_cat, $category->slug, false ),
-					esc_html( $category->name ),
-				);
-			}
-			echo '</select>';
+	/**
+	 * Render one list table filter dropdown.
+	 *
+	 * Emits nothing when there is nothing to choose from, so an empty taxonomy
+	 * does not leave a stray control in the toolbar.
+	 *
+	 * @param array $args name, id, all_label, current and options (value => label).
+	 * @return void
+	 */
+	private function render_admin_filter_select( array $args ) {
+		if ( empty( $args['options'] ) ) {
+			return;
 		}
+
+		printf(
+			'<select name="%s" id="%s">',
+			esc_attr( $args['name'] ),
+			esc_attr( $args['id'] )
+		);
+		printf( '<option value="">%s</option>', esc_html( $args['all_label'] ) );
+
+		foreach ( $args['options'] as $value => $label ) {
+			printf(
+				'<option value="%s"%s>%s</option>',
+				esc_attr( $value ),
+				selected( (string) $args['current'], (string) $value, false ),
+				esc_html( $label )
+			);
+		}
+
+		echo '</select>';
 	}
 
 	/**
