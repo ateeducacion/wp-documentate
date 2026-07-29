@@ -1739,206 +1739,249 @@ class Documentate_Documents {
 			echo '>' . esc_html( $label ) . '</label>';
 
 			if ( 'single' === $type ) {
-				$raw_field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
-				$raw_data_type = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : '';
-				$input_type = $this->map_single_input_type( $raw_field_type, $raw_data_type );
-				$normalized_value = $this->normalize_scalar_value( $value, $input_type );
-				$attributes = $this->build_scalar_input_attributes( $raw_field, $input_type );
-				$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
-				$description = $this->get_field_description( $raw_field );
-				$validation = $this->get_field_validation_message( $raw_field );
-				$description_id = '' !== $description ? $field_id . '-description' : '';
-				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
-				}
-				if ( '' !== $validation ) {
-					$attributes['data-validation-message'] = $validation;
-				}
-				$attributes['class'] = $this->build_input_class( $input_type );
-				$attribute_string = $this->format_field_attributes( $attributes );
-				$this->render_before_description( $before_description );
-
-				if ( 'select' === $input_type ) {
-					$options = $this->parse_select_options( $raw_field );
-					$placeholder = $this->get_select_placeholder( $raw_field );
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<select id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					if ( '' !== $placeholder ) {
-						echo '<option value="">' . esc_html( $placeholder ) . '</option>';
-					} elseif ( empty( $attributes['required'] ) ) {
-						echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
-					}
-					foreach ( $options as $option_value => $option_label ) {
-						echo '<option value="'
-								. esc_attr( $option_value )
-								. '" '
-								. selected( $option_value, $normalized_value, false )
-								. '>'
-								. esc_html( $option_label )
-								. '</option>';
-					}
-					echo '</select>';
-				} elseif ( 'checkbox' === $input_type ) {
-					echo '<input type="hidden" name="' . esc_attr( $field_name ) . '" value="0" />';
-					echo '<label class="documentate-checkbox-wrapper">';
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<input type="checkbox" id="'
-							. esc_attr( $field_id )
-							. '" name="'
-							. esc_attr( $field_name )
-							. '" value="1" '
-							. checked( '1', $normalized_value, false )
-							. ' '
-							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-							. ' />';
-					echo '<span class="screen-reader-text">' . esc_html( $label ) . '</span>';
-					echo '</label>';
-				} else {
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<input type="'
-							. esc_attr( $input_type )
-							. '" id="'
-							. esc_attr( $field_id )
-							. '" name="'
-							. esc_attr( $field_name )
-							. '" value="'
-							. esc_attr( $normalized_value )
-							. '" '
-							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-							. ' />';
-				}
-				if ( '' !== $description ) {
-					echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-				}
-				if ( '' !== $validation ) {
-					echo '<p id="'
-							. esc_attr( $validation_id )
-							. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-							. esc_html( $validation )
-							. '</p>';
-				}
+				$this->render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value );
 			} elseif ( 'rich' === $type ) {
-				$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
-				$description = $this->get_field_description( $raw_field );
-				$validation = $this->get_field_validation_message( $raw_field );
-				$description_id = '' !== $description ? $field_id . '-description' : '';
-				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-				$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
-				}
-				if ( '' !== $validation ) {
-					$attributes['data-validation-message'] = $validation;
-				}
-				if ( ! isset( $attributes['rows'] ) ) {
-					$attributes['rows'] = 8;
-				}
-
-				// Check if collaborative editing is enabled.
-				$is_collaborative = $this->is_collaborative_editing_enabled();
-				$this->render_before_description( $before_description );
-
-				if ( $is_collaborative ) {
-					// Render TipTap collaborative editor container for array fields.
-					$classes = trim(
-						$this->build_input_class( 'textarea' )
-						. ' documentate-array-rich documentate-collab-textarea'
-						. ( $is_template ? ' documentate-array-rich-template' : '' ),
-					);
-					$attributes['class'] = $classes;
-					$attribute_string = $this->format_field_attributes( $attributes );
-					echo '<div class="documentate-collab-container">';
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<textarea '
-							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-							. ' id="'
-							. esc_attr( $field_id )
-							. '" name="'
-							. esc_attr( $field_name )
-							. '">'
-							. esc_textarea( $value )
-							. '</textarea>';
-					echo '</div>';
-				} else {
-					$classes = trim(
-						$this->build_input_class( 'textarea' )
-						. ' documentate-array-rich'
-						. ( $is_template ? ' documentate-array-rich-template' : '' ),
-					);
-					$attributes['class'] = $classes;
-					$attributes['data-editor-initialized'] = 'false';
-					$attribute_string = $this->format_field_attributes( $attributes );
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-					echo '<textarea '
-							. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-							. ' id="'
-							. esc_attr( $field_id )
-							. '" name="'
-							. esc_attr( $field_name )
-							. '">'
-							. esc_textarea( $value )
-							. '</textarea>';
-				}
-
-				if ( '' !== $description ) {
-					echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-				}
-				if ( '' !== $validation ) {
-					echo '<p id="'
-							. esc_attr( $validation_id )
-							. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-							. esc_html( $validation )
-							. '</p>';
-				}
+				$this->render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value );
 			} else {
-				$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-				$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
-				$description = $this->get_field_description( $raw_field );
-				$validation = $this->get_field_validation_message( $raw_field );
-				$description_id = '' !== $description ? $field_id . '-description' : '';
-				$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-				$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-				if ( ! empty( $describedby ) ) {
-					$attributes['aria-describedby'] = implode( ' ', $describedby );
-				}
-				if ( '' !== $validation ) {
-					$attributes['data-validation-message'] = $validation;
-				}
-				if ( ! isset( $attributes['rows'] ) ) {
-					$attributes['rows'] = 6;
-				}
-				$attributes['class'] = $this->build_input_class( 'textarea' );
-				$attribute_string = $this->format_field_attributes( $attributes );
-				$this->render_before_description( $before_description );
-				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
-				echo '<textarea '
-						. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-						. ' id="'
-						. esc_attr( $field_id )
-						. '" name="'
-						. esc_attr( $field_name )
-						. '">'
-						. esc_textarea( $value )
-						. '</textarea>';
-				if ( '' !== $description ) {
-					echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-				}
-				if ( '' !== $validation ) {
-					echo '<p id="'
-							. esc_attr( $validation_id )
-							. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-							. esc_html( $validation )
-							. '</p>';
-				}
+				$this->render_array_item_textarea( $item_key, $field_name, $field_id, $raw_field, $value );
 			}
 
 			echo '</div>';
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * Render a single-line control for one repeater field.
+	 *
+	 * @param string $item_key     Key of the field inside the repeater row.
+	 * @param string $field_name   Submitted input name.
+	 * @param string $field_id     DOM id shared by the control and its descriptions.
+	 * @param string $label        Visible label, reused by the screen-reader text.
+	 * @param array  $raw_field    Raw schema definition for the field.
+	 * @param string $value        Current value.
+	 * @return void
+	 */
+	private function render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value ) {
+		$raw_field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
+		$raw_data_type = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : '';
+		$input_type = $this->map_single_input_type( $raw_field_type, $raw_data_type );
+		$normalized_value = $this->normalize_scalar_value( $value, $input_type );
+		$attributes = $this->build_scalar_input_attributes( $raw_field, $input_type );
+		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
+		$description = $this->get_field_description( $raw_field );
+		$validation = $this->get_field_validation_message( $raw_field );
+		$description_id = '' !== $description ? $field_id . '-description' : '';
+		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+		$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
+		if ( ! empty( $describedby ) ) {
+			$attributes['aria-describedby'] = implode( ' ', $describedby );
+		}
+		if ( '' !== $validation ) {
+			$attributes['data-validation-message'] = $validation;
+		}
+		$attributes['class'] = $this->build_input_class( $input_type );
+		$attribute_string = $this->format_field_attributes( $attributes );
+		$this->render_before_description( $before_description );
+
+		if ( 'select' === $input_type ) {
+			$options = $this->parse_select_options( $raw_field );
+			$placeholder = $this->get_select_placeholder( $raw_field );
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+			echo '<select id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			if ( '' !== $placeholder ) {
+				echo '<option value="">' . esc_html( $placeholder ) . '</option>';
+			} elseif ( empty( $attributes['required'] ) ) {
+				echo '<option value="">' . esc_html__( 'Select an option…', 'documentate' ) . '</option>';
+			}
+			foreach ( $options as $option_value => $option_label ) {
+				echo '<option value="'
+						. esc_attr( $option_value )
+						. '" '
+						. selected( $option_value, $normalized_value, false )
+						. '>'
+						. esc_html( $option_label )
+						. '</option>';
+			}
+			echo '</select>';
+		} elseif ( 'checkbox' === $input_type ) {
+			echo '<input type="hidden" name="' . esc_attr( $field_name ) . '" value="0" />';
+			echo '<label class="documentate-checkbox-wrapper">';
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+			echo '<input type="checkbox" id="'
+					. esc_attr( $field_id )
+					. '" name="'
+					. esc_attr( $field_name )
+					. '" value="1" '
+					. checked( '1', $normalized_value, false )
+					. ' '
+					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					. ' />';
+			echo '<span class="screen-reader-text">' . esc_html( $label ) . '</span>';
+			echo '</label>';
+		} else {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+			echo '<input type="'
+					. esc_attr( $input_type )
+					. '" id="'
+					. esc_attr( $field_id )
+					. '" name="'
+					. esc_attr( $field_name )
+					. '" value="'
+					. esc_attr( $normalized_value )
+					. '" '
+					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					. ' />';
+		}
+		if ( '' !== $description ) {
+			echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+		}
+		if ( '' !== $validation ) {
+			echo '<p id="'
+					. esc_attr( $validation_id )
+					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+					. esc_html( $validation )
+					. '</p>';
+		}
+	}
+
+	/**
+	 * Render a rich text control for one repeater field.
+	 *
+	 * @param string $item_key     Key of the field inside the repeater row.
+	 * @param string $field_name   Submitted input name.
+	 * @param string $field_id     DOM id shared by the control and its descriptions.
+	 * @param array  $raw_field    Raw schema definition for the field.
+	 * @param string $value        Current value.
+	 * @return void
+	 */
+	private function render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value ) {
+		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
+		$description = $this->get_field_description( $raw_field );
+		$validation = $this->get_field_validation_message( $raw_field );
+		$description_id = '' !== $description ? $field_id . '-description' : '';
+		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+		$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
+		$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
+		if ( ! empty( $describedby ) ) {
+			$attributes['aria-describedby'] = implode( ' ', $describedby );
+		}
+		if ( '' !== $validation ) {
+			$attributes['data-validation-message'] = $validation;
+		}
+		if ( ! isset( $attributes['rows'] ) ) {
+			$attributes['rows'] = 8;
+		}
+
+		// Check if collaborative editing is enabled.
+		$is_collaborative = $this->is_collaborative_editing_enabled();
+		$this->render_before_description( $before_description );
+
+		if ( $is_collaborative ) {
+			// Render TipTap collaborative editor container for array fields.
+			$classes = trim(
+				$this->build_input_class( 'textarea' )
+				. ' documentate-array-rich documentate-collab-textarea'
+				. ( $is_template ? ' documentate-array-rich-template' : '' ),
+			);
+			$attributes['class'] = $classes;
+			$attribute_string = $this->format_field_attributes( $attributes );
+			echo '<div class="documentate-collab-container">';
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+			echo '<textarea '
+					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					. ' id="'
+					. esc_attr( $field_id )
+					. '" name="'
+					. esc_attr( $field_name )
+					. '">'
+					. esc_textarea( $value )
+					. '</textarea>';
+			echo '</div>';
+		} else {
+			$classes = trim(
+				$this->build_input_class( 'textarea' )
+				. ' documentate-array-rich'
+				. ( $is_template ? ' documentate-array-rich-template' : '' ),
+			);
+			$attributes['class'] = $classes;
+			$attributes['data-editor-initialized'] = 'false';
+			$attribute_string = $this->format_field_attributes( $attributes );
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+			echo '<textarea '
+					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					. ' id="'
+					. esc_attr( $field_id )
+					. '" name="'
+					. esc_attr( $field_name )
+					. '">'
+					. esc_textarea( $value )
+					. '</textarea>';
+		}
+
+		if ( '' !== $description ) {
+			echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+		}
+		if ( '' !== $validation ) {
+			echo '<p id="'
+					. esc_attr( $validation_id )
+					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+					. esc_html( $validation )
+					. '</p>';
+		}
+	}
+
+	/**
+	 * Render a textarea control for one repeater field.
+	 *
+	 * @param string $item_key     Key of the field inside the repeater row.
+	 * @param string $field_name   Submitted input name.
+	 * @param string $field_id     DOM id shared by the control and its descriptions.
+	 * @param array  $raw_field    Raw schema definition for the field.
+	 * @param string $value        Current value.
+	 * @return void
+	 */
+	private function render_array_item_textarea( $item_key, $field_name, $field_id, $raw_field, $value ) {
+		$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
+		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
+		$description = $this->get_field_description( $raw_field );
+		$validation = $this->get_field_validation_message( $raw_field );
+		$description_id = '' !== $description ? $field_id . '-description' : '';
+		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+		$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
+		if ( ! empty( $describedby ) ) {
+			$attributes['aria-describedby'] = implode( ' ', $describedby );
+		}
+		if ( '' !== $validation ) {
+			$attributes['data-validation-message'] = $validation;
+		}
+		if ( ! isset( $attributes['rows'] ) ) {
+			$attributes['rows'] = 6;
+		}
+		$attributes['class'] = $this->build_input_class( 'textarea' );
+		$attribute_string = $this->format_field_attributes( $attributes );
+		$this->render_before_description( $before_description );
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
+		echo '<textarea '
+				. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				. ' id="'
+				. esc_attr( $field_id )
+				. '" name="'
+				. esc_attr( $field_name )
+				. '">'
+				. esc_textarea( $value )
+				. '</textarea>';
+		if ( '' !== $description ) {
+			echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
+		}
+		if ( '' !== $validation ) {
+			echo '<p id="'
+					. esc_attr( $validation_id )
+					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+					. esc_html( $validation )
+					. '</p>';
+		}
 	}
 
 	/**
