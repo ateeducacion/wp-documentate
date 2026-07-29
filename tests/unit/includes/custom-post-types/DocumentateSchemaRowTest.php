@@ -210,6 +210,94 @@ class DocumentateSchemaRowTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Prepare one repeater column.
+	 *
+	 * @param string $key        Column key.
+	 * @param array  $definition Item schema entry.
+	 * @param array  $raw_fields Raw definitions keyed by column.
+	 * @param array  $values     Row values.
+	 * @return array|null
+	 */
+	private function prepare_item( $key, array $definition, array $raw_fields = array(), array $values = array() ) {
+		return $this->invoke(
+			'prepare_array_item_field',
+			array( $key, $definition, $raw_fields, $values, 'anexos', '0' )
+		);
+	}
+
+	/**
+	 * A column key that sanitizes away is skipped.
+	 */
+	public function test_repeater_column_without_usable_key_is_skipped() {
+		$this->assertNull( $this->prepare_item( '///', array( 'label' => 'Roto' ) ) );
+	}
+
+	/**
+	 * The submitted name and DOM id carry the repeater slug and row index.
+	 */
+	public function test_repeater_column_names_carry_slug_and_index() {
+		$field = $this->prepare_item( 'titulo', array( 'label' => 'Título' ) );
+
+		$this->assertSame( 'tpl_fields[anexos][0][titulo]', $field['field_name'] );
+		$this->assertSame( 'documentate-anexos-titulo-0', $field['field_id'] );
+	}
+
+	/**
+	 * A column with no declared label falls back to a readable form of its key.
+	 */
+	public function test_repeater_column_label_falls_back_to_the_key() {
+		$field = $this->prepare_item( 'fecha_firma', array() );
+
+		$this->assertNotSame( '', $field['label'] );
+		$this->assertStringContainsStringIgnoringCase( 'firma', $field['label'] );
+	}
+
+	/**
+	 * The stored value for the column is picked up.
+	 */
+	public function test_repeater_column_reads_its_value() {
+		$field = $this->prepare_item(
+			'titulo',
+			array( 'label' => 'Título' ),
+			array(),
+			array( 'titulo' => 'Anexo I' )
+		);
+
+		$this->assertSame( 'Anexo I', $field['value'] );
+	}
+
+	/**
+	 * The item schema entry travels with the column.
+	 *
+	 * The single control reads its data_type hint from here, and losing this
+	 * on the way through was one of the two bugs #239 introduced.
+	 */
+	public function test_repeater_column_carries_its_definition() {
+		$definition = array(
+			'label' => 'Fecha',
+			'type' => 'single',
+			'data_type' => 'date',
+		);
+
+		$field = $this->prepare_item( 'fecha', $definition );
+
+		$this->assertSame( $definition, $field['definition'] );
+	}
+
+	/**
+	 * A raw title on the column replaces its label, as it does for schema rows.
+	 */
+	public function test_repeater_column_title_replaces_the_label() {
+		$field = $this->prepare_item(
+			'titulo',
+			array( 'label' => 'Título' ),
+			array( 'titulo' => array( 'title' => 'Título del anexo' ) )
+		);
+
+		$this->assertSame( 'Título del anexo', $field['label'] );
+	}
+
+	/**
 	 * A value stored under a non-array type is not treated as repeater rows.
 	 */
 	public function test_non_array_stored_value_yields_a_blank_row() {
