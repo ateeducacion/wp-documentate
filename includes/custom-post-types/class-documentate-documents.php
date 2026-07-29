@@ -2622,57 +2622,84 @@ class Documentate_Documents {
 			return $fields;
 		}
 
-		$fallback = array();
-		$schema = $this->get_dynamic_fields_schema_for_post( $post_id );
-		if ( ! empty( $schema ) ) {
-			foreach ( $schema as $row ) {
-				if ( empty( $row['slug'] ) ) {
-					continue;
-				}
-				$slug = sanitize_key( $row['slug'] );
-				if ( '' === $slug ) {
-					continue;
-				}
-				$meta_key = 'documentate_field_' . $slug;
-				$value = get_post_meta( $post_id, $meta_key, true );
-				if ( '' === $value ) {
-					continue;
-				}
-				$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
-				if ( 'array' === $type ) {
-					$encoded = '';
-					$stored = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
-					if ( is_string( $stored ) && '' !== $stored ) {
-						$encoded = (string) $stored;
-					} else {
-						$legacy = get_post_meta( $post_id, 'documentate_' . $slug, true );
-						if ( empty( $legacy ) && 'annexes' === $slug ) {
-							$legacy = get_post_meta( $post_id, 'documentate_annexes', true );
-						}
-						if ( is_array( $legacy ) && ! empty( $legacy ) ) {
-							$encoded = wp_json_encode( $legacy, JSON_UNESCAPED_UNICODE );
-						}
-					}
+		return $this->build_field_values_from_meta( $post_id );
+	}
 
-					if ( '' !== $encoded ) {
-						$fallback[ $slug ] = array(
-							'value' => $encoded,
-							'type' => 'array',
-						);
-					}
-					continue;
-				}
-				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-					$type = 'textarea';
-				}
-				$fallback[ $slug ] = array(
-					'value' => (string) $value,
-					'type' => $type,
-				);
+	/**
+	 * Rebuild field values from post meta.
+	 *
+	 * Used for documents saved before the values moved into post_content, so
+	 * the editor still shows what was stored back then.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array<string, array{value:string,type:string}>
+	 */
+	private function build_field_values_from_meta( $post_id ) {
+		$fallback = array();
+
+		foreach ( $this->get_dynamic_fields_schema_for_post( $post_id ) as $row ) {
+			$slug = ! empty( $row['slug'] ) ? sanitize_key( $row['slug'] ) : '';
+			if ( '' === $slug ) {
+				continue;
 			}
+
+			$value = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
+			if ( '' === $value ) {
+				continue;
+			}
+
+			$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
+
+			if ( 'array' === $type ) {
+				$encoded = $this->read_array_field_from_meta( $post_id, $slug );
+				if ( '' !== $encoded ) {
+					$fallback[ $slug ] = array(
+						'value' => $encoded,
+						'type' => 'array',
+					);
+				}
+				continue;
+			}
+
+			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+				$type = 'textarea';
+			}
+
+			$fallback[ $slug ] = array(
+				'value' => (string) $value,
+				'type' => $type,
+			);
 		}
 
 		return $fallback;
+	}
+
+	/**
+	 * Read a repeater field from meta as a JSON string.
+	 *
+	 * Falls back to the pre-JSON meta keys, including the historical
+	 * documentate_annexes one, so older documents keep their rows.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $slug    Sanitized field slug.
+	 * @return string JSON payload, or an empty string when nothing is stored.
+	 */
+	private function read_array_field_from_meta( $post_id, $slug ) {
+		$stored = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
+		if ( is_string( $stored ) && '' !== $stored ) {
+			return (string) $stored;
+		}
+
+		$legacy = get_post_meta( $post_id, 'documentate_' . $slug, true );
+		if ( empty( $legacy ) && 'annexes' === $slug ) {
+			$legacy = get_post_meta( $post_id, 'documentate_annexes', true );
+		}
+
+		if ( is_array( $legacy ) && ! empty( $legacy ) ) {
+			return (string) wp_json_encode( $legacy, JSON_UNESCAPED_UNICODE );
+		}
+
+		return '';
 	}
 
 	/**
@@ -3080,24 +3107,11 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	public function apply_admin_filters( $query ) {
-		if ( ! is_admin() || ! $query->is_main_query() ) {
+		if ( ! $this->is_documents_list_query( $query ) ) {
 			return;
 		}
 
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || 'edit-documentate_document' !== $screen->id ) {
-			return;
-		}
-
-		// Hide archived posts unless specifically requesting them.
-		$post_status = $query->get( 'post_status' );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$show_archived = isset( $_GET['post_status'] ) && 'archived' === sanitize_key( $_GET['post_status'] );
-
-		if ( empty( $post_status ) && ! $show_archived ) {
-			// Default view: exclude archived.
-			$query->set( 'post_status', array( 'publish', 'pending', 'draft', 'private', 'future' ) );
-		}
+		$this->hide_archived_by_default( $query );
 
 		$orderby = $query->get( 'orderby' );
 
@@ -3106,55 +3120,95 @@ class Documentate_Documents {
 			$query->set( 'orderby', 'author' );
 		}
 
-		// Handle sorting by document type.
-		if ( 'doc_type' === $orderby ) {
-			add_filter(
-				'posts_clauses',
-				function ( $clauses, $wp_query ) {
-					global $wpdb;
+		// Sorting by a term name needs joins the default query cannot express.
+		$sortable_taxonomies = array(
+			'doc_type' => array( 'documentate_doc_type', 'dt' ),
+			'category_name' => array( 'category', 'ct' ),
+		);
 
-					if ( $wp_query->get( 'orderby' ) !== 'doc_type' ) {
-						return $clauses;
-					}
+		if ( isset( $sortable_taxonomies[ $orderby ] ) ) {
+			list( $taxonomy, $alias ) = $sortable_taxonomies[ $orderby ];
+			$this->sort_by_term_name( $orderby, $taxonomy, $alias );
+		}
+	}
 
-					$order = strtoupper( $wp_query->get( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
-
-					$clauses['join'] .= " LEFT JOIN {$wpdb->term_relationships} AS dtr ON ({$wpdb->posts}.ID = dtr.object_id)";
-					$clauses['join'] .= " LEFT JOIN {$wpdb->term_taxonomy} AS dtt ON (dtr.term_taxonomy_id = dtt.term_taxonomy_id AND dtt.taxonomy = 'documentate_doc_type')";
-					$clauses['join'] .= " LEFT JOIN {$wpdb->terms} AS dt ON (dtt.term_id = dt.term_id)";
-					$clauses['orderby'] = "dt.name {$order}, " . $clauses['orderby'];
-
-					return $clauses;
-				},
-				10,
-				2,
-			);
+	/**
+	 * Whether this query is the documents list table's main query.
+	 *
+	 * @param WP_Query $query Query object.
+	 * @return bool
+	 */
+	private function is_documents_list_query( $query ) {
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return false;
 		}
 
-		// Handle sorting by category.
-		if ( 'category_name' === $orderby ) {
-			add_filter(
-				'posts_clauses',
-				function ( $clauses, $wp_query ) {
-					global $wpdb;
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 
-					if ( $wp_query->get( 'orderby' ) !== 'category_name' ) {
-						return $clauses;
-					}
+		return $screen && 'edit-documentate_document' === $screen->id;
+	}
 
-					$order = strtoupper( $wp_query->get( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
-
-					$clauses['join'] .= " LEFT JOIN {$wpdb->term_relationships} AS ctr ON ({$wpdb->posts}.ID = ctr.object_id)";
-					$clauses['join'] .= " LEFT JOIN {$wpdb->term_taxonomy} AS ctt ON (ctr.term_taxonomy_id = ctt.term_taxonomy_id AND ctt.taxonomy = 'category')";
-					$clauses['join'] .= " LEFT JOIN {$wpdb->terms} AS ct ON (ctt.term_id = ct.term_id)";
-					$clauses['orderby'] = "ct.name {$order}, " . $clauses['orderby'];
-
-					return $clauses;
-				},
-				10,
-				2,
-			);
+	/**
+	 * Exclude archived documents unless the view asks for them.
+	 *
+	 * @param WP_Query $query Query object.
+	 * @return void
+	 */
+	private function hide_archived_by_default( $query ) {
+		if ( ! empty( $query->get( 'post_status' ) ) ) {
+			return;
 		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['post_status'] ) && 'archived' === sanitize_key( $_GET['post_status'] ) ) {
+			return;
+		}
+
+		// Default view: exclude archived.
+		$query->set( 'post_status', array( 'publish', 'pending', 'draft', 'private', 'future' ) );
+	}
+
+	/**
+	 * Order the list table by the name of a term in the given taxonomy.
+	 *
+	 * @param string $orderby  Value of the orderby query var this applies to.
+	 * @param string $taxonomy Taxonomy whose term name to sort on.
+	 * @param string $alias    Short prefix for the SQL table aliases.
+	 * @return void
+	 */
+	private function sort_by_term_name( $orderby, $taxonomy, $alias ) {
+		add_filter(
+			'posts_clauses',
+			static function ( $clauses, $wp_query ) use ( $orderby, $taxonomy, $alias ) {
+				global $wpdb;
+
+				if ( $wp_query->get( 'orderby' ) !== $orderby ) {
+					return $clauses;
+				}
+
+				$order = 'ASC' === strtoupper( $wp_query->get( 'order' ) ) ? 'ASC' : 'DESC';
+
+				$clauses['join'] .= " LEFT JOIN {$wpdb->term_relationships} AS {$alias}r"
+					. " ON ({$wpdb->posts}.ID = {$alias}r.object_id)";
+				// $alias is an internal table alias taken from the hardcoded map
+				// in apply_admin_filters(), never from a request; the taxonomy is
+				// the only value that varies and it goes through a placeholder.
+				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$clauses['join'] .= $wpdb->prepare(
+					" LEFT JOIN {$wpdb->term_taxonomy} AS {$alias}t"
+					. " ON ({$alias}r.term_taxonomy_id = {$alias}t.term_taxonomy_id AND {$alias}t.taxonomy = %s)",
+					$taxonomy
+				);
+				// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$clauses['join'] .= " LEFT JOIN {$wpdb->terms} AS {$alias}n"
+					. " ON ({$alias}t.term_id = {$alias}n.term_id)";
+				$clauses['orderby'] = "{$alias}n.name {$order}, " . $clauses['orderby'];
+
+				return $clauses;
+			},
+			10,
+			2,
+		);
 	}
 
 	/**
