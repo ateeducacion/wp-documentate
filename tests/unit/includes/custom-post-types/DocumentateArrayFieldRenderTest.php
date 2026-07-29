@@ -55,11 +55,12 @@ class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 	 * an unrecognised raw type, which is the only route that reaches the
 	 * data_type hint in map_single_input_type().
 	 *
-	 * @param string $key Field key.
+	 * @param string $key   Field key.
+	 * @param array  $extra Further raw keys to merge in.
 	 * @return array
 	 */
-	private function unmapped_raw_field( $key ) {
-		return array( $key => array( 'type' => 'moneda' ) );
+	private function unmapped_raw_field( $key, array $extra = array() ) {
+		return array( $key => array_merge( array( 'type' => 'moneda' ), $extra ) );
 	}
 
 	/**
@@ -215,5 +216,134 @@ class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 		);
 
 		$this->assertStringContainsString( 'tpl_fields[anexos][0][titulo]', $markup );
+	}
+
+	/**
+	 * A textarea field renders a textarea carrying the row value.
+	 *
+	 * This is the third branch of the control split, and until now no test
+	 * reached it at all.
+	 */
+	public function test_textarea_field_renders_its_value() {
+		$markup = $this->render_row(
+			array(
+				'notas' => array(
+					'label' => 'Notas',
+					'type' => 'textarea',
+				),
+			),
+			array( 'notas' => 'Observaciones' )
+		);
+
+		$this->assertStringContainsString( '<textarea', $markup );
+		$this->assertStringContainsString( 'Observaciones', $markup );
+	}
+
+	/**
+	 * A textarea gets a default row count when the schema does not set one.
+	 */
+	public function test_textarea_field_gets_default_rows() {
+		$markup = $this->render_row(
+			array(
+				'notas' => array(
+					'label' => 'Notas',
+					'type' => 'textarea',
+				),
+			)
+		);
+
+		$this->assertStringContainsString( 'rows="6"', $markup );
+	}
+
+	/**
+	 * Every control type wires its help text to the control via aria-describedby.
+	 *
+	 * The description markup and the id that points at it are produced in two
+	 * different places, so a control that renders one without the other is
+	 * silently inaccessible rather than visibly broken.
+	 *
+	 * @dataProvider control_type_provider
+	 * @param string $type Control type under test.
+	 */
+	public function test_description_is_wired_to_the_control( $type ) {
+		$markup = $this->render_row(
+			array(
+				'campo' => array(
+					'label' => 'Campo',
+					'type' => $type,
+				),
+			),
+			array(),
+			false,
+			$this->unmapped_raw_field( 'campo', array( 'description' => 'Texto de ayuda' ) )
+		);
+
+		$this->assertStringContainsString( 'Texto de ayuda', $markup );
+		$this->assertStringContainsString( 'aria-describedby="documentate-anexos-campo-0-description"', $markup );
+	}
+
+	/**
+	 * Every control type exposes its validation message to both the browser and
+	 * the JS validator.
+	 *
+	 * @dataProvider control_type_provider
+	 * @param string $type Control type under test.
+	 */
+	public function test_validation_message_is_exposed( $type ) {
+		$markup = $this->render_row(
+			array(
+				'campo' => array(
+					'label' => 'Campo',
+					'type' => $type,
+				),
+			),
+			array(),
+			false,
+			$this->unmapped_raw_field( 'campo', array( 'patternmsg' => 'Formato no válido' ) )
+		);
+
+		$this->assertStringContainsString( 'data-validation-message="Formato no válido"', $markup );
+		$this->assertStringContainsString( 'data-documentate-validation-message="true"', $markup );
+	}
+
+	/**
+	 * Every control type renders leading help text before the control itself.
+	 *
+	 * @dataProvider control_type_provider
+	 * @param string $type Control type under test.
+	 */
+	public function test_before_description_precedes_the_control( $type ) {
+		$markup = $this->render_row(
+			array(
+				'campo' => array(
+					'label' => 'Campo',
+					'type' => $type,
+				),
+			),
+			array(),
+			false,
+			$this->unmapped_raw_field( 'campo', array( 'before_description' => 'Lee esto antes' ) )
+		);
+
+		$this->assertStringContainsString( 'Lee esto antes', $markup );
+		$this->assertStringContainsString( 'documentate-field-before-description-campo', $markup );
+		$this->assertLessThan(
+			strpos( $markup, 'id="documentate-anexos-campo-0"' ),
+			strpos( $markup, 'Lee esto antes' ),
+			'The leading help text must be emitted before the control it introduces.'
+		);
+	}
+
+	/**
+	 * The three control types the row renderer dispatches to.
+	 *
+	 * @return array<string,array{0:string}>
+	 */
+	public static function control_type_provider() {
+		return array(
+			'single' => array( 'single' ),
+			'rich' => array( 'rich' ),
+			'textarea' => array( 'textarea' ),
+		);
 	}
 }
