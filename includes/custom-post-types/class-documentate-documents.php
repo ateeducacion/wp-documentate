@@ -688,15 +688,38 @@ class Documentate_Documents {
 		}
 
 		$raw_field = isset( $raw_fields[ $slug ] ) ? $raw_fields[ $slug ] : array();
-		$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
+
+		return array_merge(
+			$this->prepare_field_control( $row, $raw_field, $label ),
+			array(
+				'slug' => $slug,
+				'field_type' => \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field ),
+				'data_type' => isset( $row['data_type'] ) ? sanitize_key( $row['data_type'] ) : '',
+			)
+		);
+	}
+
+	/**
+	 * Resolve the label, control type and hover text shared by every field.
+	 *
+	 * Schema rows and repeater columns declare the same things in the same way,
+	 * so both arrive here rather than spelling the rules out twice.
+	 *
+	 * @param array  $definition    Field definition, from a schema row or an item schema.
+	 * @param array  $raw_field     Raw schema definition for the field.
+	 * @param string $default_label Label to use when the definition declares none.
+	 * @return array{label:string,type:string,raw_field:array,title_attribute:string}
+	 */
+	private function prepare_field_control( $definition, $raw_field, $default_label ) {
+		$label = isset( $definition['label'] )
+			? sanitize_text_field( $definition['label'] )
+			: $default_label;
+		$type = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
 		$field_title = $this->get_field_title( $raw_field );
 
 		return array(
-			'slug' => $slug,
 			'label' => '' !== $field_title ? $field_title : $label,
 			'type' => $this->resolve_field_control_type( $type, $raw_field ),
-			'field_type' => \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field ),
-			'data_type' => isset( $row['data_type'] ) ? sanitize_key( $row['data_type'] ) : '',
 			'raw_field' => $raw_field,
 			'title_attribute' => $this->resolve_title_attribute( $raw_field, $field_title ),
 		);
@@ -785,7 +808,14 @@ class Documentate_Documents {
 		echo '>' . esc_html( $label ) . '</label></th>';
 		echo '<td>';
 		$this->render_before_description( $help['before'] );
-		$this->render_array_field( $slug, $label, $this->normalize_array_item_schema( $row ), $items, $raw_repeater );
+		$this->render_array_field(
+			$slug,
+			$label,
+			$title_attribute,
+			$this->normalize_array_item_schema( $row ),
+			$items,
+			$raw_repeater
+		);
 		$this->render_help_descriptions( $help );
 		echo '</td></tr>';
 	}
@@ -1765,38 +1795,32 @@ class Documentate_Documents {
 	/**
 	 * Render an array field with repeatable items.
 	 *
-	 * @param string $slug         Field slug.
-	 * @param string $label        Field label.
-	 * @param array  $item_schema  Item schema definition.
-	 * @param array  $items        Current values.
-	 * @param array  $raw_repeater Raw schema definition for this repeater.
+	 * The label and hover text are resolved by the caller, which already has to
+	 * know them to draw the surrounding table row.
+	 *
+	 * @param string $slug            Field slug.
+	 * @param string $label           Field label.
+	 * @param string $title_attribute Hover text for the repeater heading.
+	 * @param array  $item_schema     Item schema definition.
+	 * @param array  $items           Current values.
+	 * @param array  $raw_repeater    Raw schema definition for this repeater.
 	 * @return void
 	 */
-	private function render_array_field( $slug, $label, $item_schema, $items, $raw_repeater = array() ) {
+	private function render_array_field( $slug, $label, $title_attribute, $item_schema, $items, $raw_repeater = array() ) {
 		$slug = sanitize_key( $slug );
 		$label = sanitize_text_field( $label );
-		$repeater_source = isset( $raw_repeater['definition'] ) ? $raw_repeater['definition'] : array();
-		$repeater_title = $this->get_field_title( $repeater_source );
-		if ( '' !== $repeater_title ) {
-			$label = $repeater_title;
-		}
-		$repeater_title_attribute = $this->get_field_pattern_message( $repeater_source );
-		if ( '' === $repeater_title_attribute ) {
-			$repeater_title_attribute = $repeater_title;
-		}
 		$field_id = 'documentate-array-' . $slug;
 		$items = is_array( $items ) ? $items : array();
 		$item_schema = is_array( $item_schema ) ? $item_schema : array();
-		$raw_fields = array();
-		if ( isset( $raw_repeater['fields'] ) && is_array( $raw_repeater['fields'] ) ) {
-			$raw_fields = $raw_repeater['fields'];
-		}
+		$raw_fields = isset( $raw_repeater['fields'] ) && is_array( $raw_repeater['fields'] )
+			? $raw_repeater['fields']
+			: array();
 
 		echo '<div class="documentate-array-field" data-array-field="' . esc_attr( $slug ) . '" style="margin-bottom:24px;">';
 		echo '<div class="documentate-array-heading" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;">';
 		echo '<span class="documentate-array-title" style="font-weight:600;font-size:15px;"';
-		if ( '' !== $repeater_title_attribute ) {
-			echo ' title="' . esc_attr( $repeater_title_attribute ) . '"';
+		if ( '' !== $title_attribute ) {
+			echo ' title="' . esc_attr( $title_attribute ) . '"';
 		}
 		echo '>' . esc_html( $label ) . '</span>';
 		echo '<button type="button" class="button button-secondary documentate-array-add" data-array-target="'
@@ -1857,48 +1881,99 @@ class Documentate_Documents {
 		echo '</div>';
 
 		foreach ( $item_schema as $key => $definition ) {
-			$item_key = sanitize_key( $key );
-			if ( '' === $item_key ) {
+			$field = $this->prepare_array_item_field( $key, $definition, $raw_fields, $values, $slug, $index_attr );
+			if ( null === $field ) {
 				continue;
 			}
 
-			$field_name = 'tpl_fields[' . $slug . '][' . $index_attr . '][' . $item_key . ']';
-			$field_id = 'documentate-' . $slug . '-' . $item_key . '-' . $index_attr;
-			$label = isset( $definition['label'] )
-				? sanitize_text_field( $definition['label'] )
-				: $this->humanize_unknown_field_label( $item_key );
-			$type = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
-			$raw_field = isset( $raw_fields[ $item_key ] ) ? $raw_fields[ $item_key ] : array();
-			$type = $this->resolve_field_control_type( $type, $raw_field );
-			$value = isset( $values[ $item_key ] ) ? (string) $values[ $item_key ] : '';
-			$field_title = $this->get_field_title( $raw_field );
-			if ( '' !== $field_title ) {
-				$label = $field_title;
-			}
-			$field_title_attribute = $this->get_field_pattern_message( $raw_field );
-			if ( '' === $field_title_attribute ) {
-				$field_title_attribute = $field_title;
-			}
-
 			echo '<div class="documentate-array-field-control" style="margin-bottom:12px;">';
-			echo '<label for="' . esc_attr( $field_id ) . '" style="font-weight:600;display:block;margin-bottom:4px;"';
-			if ( '' !== $field_title_attribute ) {
-				echo ' title="' . esc_attr( $field_title_attribute ) . '"';
+			echo '<label for="' . esc_attr( $field['field_id'] ) . '" style="font-weight:600;display:block;margin-bottom:4px;"';
+			if ( '' !== $field['title_attribute'] ) {
+				echo ' title="' . esc_attr( $field['title_attribute'] ) . '"';
 			}
-			echo '>' . esc_html( $label ) . '</label>';
+			echo '>' . esc_html( $field['label'] ) . '</label>';
 
-			if ( 'single' === $type ) {
-				$this->render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value, $definition );
-			} elseif ( 'rich' === $type ) {
-				$this->render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value, $is_template );
-			} else {
-				$this->render_array_item_textarea( $item_key, $field_name, $field_id, $raw_field, $value );
-			}
+			$this->render_array_item_control( $field, $is_template );
 
 			echo '</div>';
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * Resolve everything one column of a repeater row needs to draw itself.
+	 *
+	 * @param string $slug_key   Raw key of the column inside the item schema.
+	 * @param array  $definition Item schema entry for the column.
+	 * @param array  $raw_fields Raw schema definitions, keyed by column.
+	 * @param array  $values     Values stored for this row.
+	 * @param string $slug       Repeater slug.
+	 * @param string $index_attr Row index, already a string.
+	 * @return array|null Null when the column has no usable key.
+	 */
+	private function prepare_array_item_field( $slug_key, $definition, $raw_fields, $values, $slug, $index_attr ) {
+		$item_key = sanitize_key( $slug_key );
+		if ( '' === $item_key ) {
+			return null;
+		}
+
+		$raw_field = isset( $raw_fields[ $item_key ] ) ? $raw_fields[ $item_key ] : array();
+
+		return array_merge(
+			$this->prepare_field_control( $definition, $raw_field, $this->humanize_unknown_field_label( $item_key ) ),
+			array(
+				'item_key' => $item_key,
+				'field_name' => 'tpl_fields[' . $slug . '][' . $index_attr . '][' . $item_key . ']',
+				'field_id' => 'documentate-' . $slug . '-' . $item_key . '-' . $index_attr,
+				'value' => isset( $values[ $item_key ] ) ? (string) $values[ $item_key ] : '',
+				'definition' => $definition,
+			)
+		);
+	}
+
+	/**
+	 * Dispatch to the control matching a repeater column's type.
+	 *
+	 * @param array $field       Prepared column from prepare_array_item_field().
+	 * @param bool  $is_template Whether this row is the hidden clone template.
+	 * @return void
+	 */
+	private function render_array_item_control( $field, $is_template ) {
+		if ( 'single' === $field['type'] ) {
+			$this->render_array_item_single(
+				$field['item_key'],
+				$field['field_name'],
+				$field['field_id'],
+				$field['label'],
+				$field['raw_field'],
+				$field['value'],
+				$field['definition']
+			);
+
+			return;
+		}
+
+		if ( 'rich' === $field['type'] ) {
+			$this->render_array_item_rich(
+				$field['item_key'],
+				$field['field_name'],
+				$field['field_id'],
+				$field['raw_field'],
+				$field['value'],
+				$is_template
+			);
+
+			return;
+		}
+
+		$this->render_array_item_textarea(
+			$field['item_key'],
+			$field['field_name'],
+			$field['field_id'],
+			$field['raw_field'],
+			$field['value']
+		);
 	}
 
 	/**
