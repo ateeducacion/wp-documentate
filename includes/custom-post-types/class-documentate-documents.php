@@ -1437,6 +1437,77 @@ class Documentate_Documents {
 	}
 
 	/**
+	 * Collect every piece of help text attached to a field.
+	 *
+	 * The three repeater controls each need the same set: leading text, a
+	 * description, a validation message, and the ids that tie them to the
+	 * control for screen readers.
+	 *
+	 * @param string $field_id   DOM id of the control being described.
+	 * @param string $field_slug Field key, used to build the before-description class.
+	 * @param array  $raw_field  Raw schema definition for the field.
+	 * @return array{before:array,description:string,validation:string,description_id:string,validation_id:string,describedby:array}
+	 */
+	private function build_field_help_context( $field_id, $field_slug, $raw_field ) {
+		$before = $this->get_before_description_context( $field_id, $field_slug, $raw_field );
+		$description = $this->get_field_description( $raw_field );
+		$validation = $this->get_field_validation_message( $raw_field );
+		$description_id = '' !== $description ? $field_id . '-description' : '';
+		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
+
+		return array(
+			'before' => $before,
+			'description' => $description,
+			'validation' => $validation,
+			'description_id' => $description_id,
+			'validation_id' => $validation_id,
+			'describedby' => $this->build_describedby_ids( $before['id'], $description_id, $validation_id ),
+		);
+	}
+
+	/**
+	 * Point a control at its help text and hand the message to the JS validator.
+	 *
+	 * @param array $attributes Attributes collected so far.
+	 * @param array $help       Context from build_field_help_context().
+	 * @return array Attributes with the accessibility wiring applied.
+	 */
+	private function apply_help_attributes( array $attributes, array $help ) {
+		if ( ! empty( $help['describedby'] ) ) {
+			$attributes['aria-describedby'] = implode( ' ', $help['describedby'] );
+		}
+		if ( '' !== $help['validation'] ) {
+			$attributes['data-validation-message'] = $help['validation'];
+		}
+
+		return $attributes;
+	}
+
+	/**
+	 * Render the help paragraphs that follow a control.
+	 *
+	 * Their ids are the ones apply_help_attributes() referenced, so the two must
+	 * stay in step.
+	 *
+	 * @param array $help Context from build_field_help_context().
+	 * @return void
+	 */
+	private function render_help_descriptions( array $help ) {
+		if ( '' !== $help['description'] ) {
+			echo '<p id="' . esc_attr( $help['description_id'] ) . '" class="description">'
+					. esc_html( $help['description'] )
+					. '</p>';
+		}
+		if ( '' !== $help['validation'] ) {
+			echo '<p id="'
+					. esc_attr( $help['validation_id'] )
+					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
+					. esc_html( $help['validation'] )
+					. '</p>';
+		}
+	}
+
+	/**
 	 * Build the sanitized inline style for the before description block.
 	 *
 	 * @param array $raw_field Raw field definition.
@@ -1770,22 +1841,14 @@ class Documentate_Documents {
 		$raw_data_type = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : '';
 		$input_type = $this->map_single_input_type( $raw_field_type, $raw_data_type );
 		$normalized_value = $this->normalize_scalar_value( $value, $input_type );
-		$attributes = $this->build_scalar_input_attributes( $raw_field, $input_type );
-		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
-		$description = $this->get_field_description( $raw_field );
-		$validation = $this->get_field_validation_message( $raw_field );
-		$description_id = '' !== $description ? $field_id . '-description' : '';
-		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-		$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-		if ( ! empty( $describedby ) ) {
-			$attributes['aria-describedby'] = implode( ' ', $describedby );
-		}
-		if ( '' !== $validation ) {
-			$attributes['data-validation-message'] = $validation;
-		}
+		$help = $this->build_field_help_context( $field_id, $item_key, $raw_field );
+		$attributes = $this->apply_help_attributes(
+			$this->build_scalar_input_attributes( $raw_field, $input_type ),
+			$help
+		);
 		$attributes['class'] = $this->build_input_class( $input_type );
 		$attribute_string = $this->format_field_attributes( $attributes );
-		$this->render_before_description( $before_description );
+		$this->render_before_description( $help['before'] );
 
 		if ( 'select' === $input_type ) {
 			$options = $this->parse_select_options( $raw_field );
@@ -1836,16 +1899,7 @@ class Documentate_Documents {
 					. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 					. ' />';
 		}
-		if ( '' !== $description ) {
-			echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-		}
-		if ( '' !== $validation ) {
-			echo '<p id="'
-					. esc_attr( $validation_id )
-					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-					. esc_html( $validation )
-					. '</p>';
-		}
+		$this->render_help_descriptions( $help );
 	}
 
 	/**
@@ -1861,26 +1915,18 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	private function render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value, $is_template ) {
-		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
-		$description = $this->get_field_description( $raw_field );
-		$validation = $this->get_field_validation_message( $raw_field );
-		$description_id = '' !== $description ? $field_id . '-description' : '';
-		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-		$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-		$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-		if ( ! empty( $describedby ) ) {
-			$attributes['aria-describedby'] = implode( ' ', $describedby );
-		}
-		if ( '' !== $validation ) {
-			$attributes['data-validation-message'] = $validation;
-		}
+		$help = $this->build_field_help_context( $field_id, $item_key, $raw_field );
+		$attributes = $this->apply_help_attributes(
+			$this->build_scalar_input_attributes( $raw_field, 'textarea' ),
+			$help
+		);
 		if ( ! isset( $attributes['rows'] ) ) {
 			$attributes['rows'] = 8;
 		}
 
 		// Check if collaborative editing is enabled.
 		$is_collaborative = $this->is_collaborative_editing_enabled();
-		$this->render_before_description( $before_description );
+		$this->render_before_description( $help['before'] );
 
 		if ( $is_collaborative ) {
 			// Render TipTap collaborative editor container for array fields.
@@ -1924,16 +1970,7 @@ class Documentate_Documents {
 					. '</textarea>';
 		}
 
-		if ( '' !== $description ) {
-			echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-		}
-		if ( '' !== $validation ) {
-			echo '<p id="'
-					. esc_attr( $validation_id )
-					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-					. esc_html( $validation )
-					. '</p>';
-		}
+		$this->render_help_descriptions( $help );
 	}
 
 	/**
@@ -1947,25 +1984,17 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	private function render_array_item_textarea( $item_key, $field_name, $field_id, $raw_field, $value ) {
-		$attributes = $this->build_scalar_input_attributes( $raw_field, 'textarea' );
-		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
-		$description = $this->get_field_description( $raw_field );
-		$validation = $this->get_field_validation_message( $raw_field );
-		$description_id = '' !== $description ? $field_id . '-description' : '';
-		$validation_id = '' !== $validation ? $field_id . '-validation' : '';
-		$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-		if ( ! empty( $describedby ) ) {
-			$attributes['aria-describedby'] = implode( ' ', $describedby );
-		}
-		if ( '' !== $validation ) {
-			$attributes['data-validation-message'] = $validation;
-		}
+		$help = $this->build_field_help_context( $field_id, $item_key, $raw_field );
+		$attributes = $this->apply_help_attributes(
+			$this->build_scalar_input_attributes( $raw_field, 'textarea' ),
+			$help
+		);
 		if ( ! isset( $attributes['rows'] ) ) {
 			$attributes['rows'] = 6;
 		}
 		$attributes['class'] = $this->build_input_class( 'textarea' );
 		$attribute_string = $this->format_field_attributes( $attributes );
-		$this->render_before_description( $before_description );
+		$this->render_before_description( $help['before'] );
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 		echo '<textarea '
 				. $attribute_string // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -1976,16 +2005,7 @@ class Documentate_Documents {
 				. '">'
 				. esc_textarea( $value )
 				. '</textarea>';
-		if ( '' !== $description ) {
-			echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-		}
-		if ( '' !== $validation ) {
-			echo '<p id="'
-					. esc_attr( $validation_id )
-					. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-					. esc_html( $validation )
-					. '</p>';
-		}
+		$this->render_help_descriptions( $help );
 	}
 
 	/**
