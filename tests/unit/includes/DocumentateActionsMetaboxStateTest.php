@@ -37,6 +37,28 @@ class DocumentateActionsMetaboxStateTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Skip when the browser converter assets are not on disk.
+	 *
+	 * They are generated from node_modules by the postinstall hook rather than
+	 * committed, so a checkout that has not run `npm install` cannot exercise
+	 * the popup path: assets_available() is false and the metabox renders the
+	 * disabled buttons instead. CI installs the npm dependencies before
+	 * PHPUnit, so this case is still covered there.
+	 *
+	 * @return void
+	 */
+	private function requireWasmAssets() {
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE )
+			. 'includes/class-documentate-libreoffice-wasm-converter.php';
+
+		if ( ! Documentate_Libreoffice_Wasm_Converter::assets_available() ) {
+			$this->markTestSkipped(
+				'LibreOffice WASM glue not generated. Run "npm install" to exercise the popup path.'
+			);
+		}
+	}
+
+	/**
 	 * Configure the conversion engine used by the metabox.
 	 *
 	 * @param string $engine   Either collabora or wasm.
@@ -280,6 +302,7 @@ class DocumentateActionsMetaboxStateTest extends WP_UnitTestCase {
 	 * so the front-end opens the isolated converter popup.
 	 */
 	public function test_browser_wasm_engine_enables_popup_conversion() {
+		$this->requireWasmAssets();
 		$this->set_conversion( 'wasm' );
 
 		$markup = $this->render_for_template( 'odt' );
