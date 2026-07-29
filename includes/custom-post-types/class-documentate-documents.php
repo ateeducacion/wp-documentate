@@ -190,7 +190,8 @@ class Documentate_Documents {
 	 *
 	 * @param int $object_id Post ID.
 	 * @param int $locked    Locked term ID.
-	 * @return bool False when the post already carries exactly the locked term.
+	 * @return bool False when the post already carries exactly the locked term, and
+	 *              also when the terms cannot be read, so the caller leaves them be.
 	 */
 	private function doc_type_drifted_from_lock( $object_id, $locked ) {
 		$current = wp_get_post_terms( $object_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
