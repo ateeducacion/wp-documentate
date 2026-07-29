@@ -56,6 +56,34 @@ class DocumentsCPTRegistrationTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Managing document types stays restricted to administrators.
+	 *
+	 * A document type defines the template and fields every document of that
+	 * type renders from, so editing one rewrites existing documents. Without an
+	 * explicit capability map WordPress would fall back to manage_categories,
+	 * which editors hold.
+	 */
+	public function test_doc_type_terms_are_administrator_only() {
+		$this->registration->register_taxonomies();
+
+		$taxonomy = get_taxonomy( 'documentate_doc_type' );
+
+		$this->assertSame( 'manage_options', $taxonomy->cap->manage_terms );
+		$this->assertSame( 'manage_options', $taxonomy->cap->edit_terms );
+		$this->assertSame( 'manage_options', $taxonomy->cap->delete_terms );
+	}
+
+	/**
+	 * Assigning an existing type is not restricted the same way, because that is
+	 * what writing a document does.
+	 */
+	public function test_doc_type_can_be_assigned_by_authors() {
+		$this->registration->register_taxonomies();
+
+		$this->assertSame( 'edit_posts', get_taxonomy( 'documentate_doc_type' )->cap->assign_terms );
+	}
+
+	/**
 	 * Test register_post_type registers CPT.
 	 */
 	public function test_register_post_type_creates_cpt() {

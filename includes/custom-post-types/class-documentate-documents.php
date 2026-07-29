@@ -211,41 +211,7 @@ class Documentate_Documents {
 	 * @return string[]
 	 */
 	private function get_meta_fields_for_post( $post_id ) {
-		$fields = array();
-		$known = array();
-
-		$dynamic = $this->get_dynamic_fields_schema_for_post( $post_id );
-		if ( ! empty( $dynamic ) ) {
-			foreach ( $dynamic as $def ) {
-				if ( empty( $def['slug'] ) ) {
-					continue;
-				}
-				$key = 'documentate_field_' . sanitize_key( $def['slug'] );
-				if ( '' === $key ) {
-					continue;
-				}
-				$fields[] = $key;
-				$known[ $key ] = true;
-			}
-		}
-
-		if ( $post_id > 0 ) {
-			$all_meta = get_post_meta( $post_id );
-			if ( ! empty( $all_meta ) ) {
-				foreach ( $all_meta as $meta_key => $values ) {
-					unset( $values );
-					if ( ! str_starts_with( $meta_key, 'documentate_field_' ) ) {
-						continue;
-					}
-					if ( isset( $known[ $meta_key ] ) ) {
-						continue;
-					}
-					$fields[] = $meta_key;
-				}
-			}
-		}
-
-		return array_values( array_unique( $fields ) );
+		return Documents_Meta_Handler::get_meta_fields_for_post( $post_id );
 	}
 
 	/**
@@ -256,43 +222,7 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	public function copy_meta_to_revision( $post_id, $revision_id ) {
-		$parent = get_post( $post_id );
-		if ( ! $parent || 'documentate_document' !== $parent->post_type ) {
-			return;
-		}
-
-		// Collect dynamic meta keys from schema and from existing post meta as fallback.
-		$keys = $this->get_meta_fields_for_post( $post_id );
-		if ( $post_id > 0 ) {
-			$all_meta = get_post_meta( $post_id );
-			if ( is_array( $all_meta ) ) {
-				foreach ( $all_meta as $meta_key => $unused ) { // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
-					unset( $unused );
-					if ( is_string( $meta_key ) && str_starts_with( $meta_key, 'documentate_field_' ) ) {
-						$keys[] = $meta_key;
-					}
-				}
-			}
-		}
-		$keys = array_values( array_unique( $keys ) );
-
-		foreach ( $keys as $key ) {
-			$value = get_post_meta( $post_id, $key, true );
-			// Store only if it has something meaningful (empty array/string skipped).
-			if ( is_array( $value ) ) {
-				if ( empty( $value ) ) {
-					continue;
-				}
-			} elseif ( '' === trim( (string) $value ) ) {
-				continue;
-			}
-			// Ensure a clean single value on the revision row.
-			delete_metadata( 'post', $revision_id, $key );
-			add_metadata( 'post', $revision_id, $key, $value, true );
-		}
-
-		// Bust the meta cache for the revision to ensure immediate reads reflect the copy.
-		wp_cache_delete( $revision_id, 'post_meta' );
+		$this->revision_handler->copy_meta_to_revision( $post_id, $revision_id );
 	}
 
 	/**
@@ -303,19 +233,7 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	public function restore_meta_from_revision( $post_id, $revision_id ) {
-		$parent = get_post( $post_id );
-		if ( ! $parent || 'documentate_document' !== $parent->post_type ) {
-			return;
-		}
-
-		foreach ( $this->get_meta_fields_for_post( $post_id ) as $key ) {
-			$value = get_metadata( 'post', $revision_id, $key, true );
-			if ( null !== $value && '' !== $value ) {
-				update_post_meta( $post_id, $key, $value );
-			} else {
-				delete_post_meta( $post_id, $key );
-			}
-		}
+		$this->revision_handler->restore_meta_from_revision( $post_id, $revision_id );
 	}
 
 	/**
@@ -326,10 +244,7 @@ class Documentate_Documents {
 	 * @return int
 	 */
 	public function limit_revisions_for_cpt( $num, $post ) {
-		if ( $post && 'documentate_document' === $post->post_type ) {
-			return 15; // Adjust to your needs.
-		}
-		return $num;
+		return $this->revision_handler->limit_revisions_for_cpt( $num, $post );
 	}
 
 	/**
@@ -341,10 +256,7 @@ class Documentate_Documents {
 	 * @return bool
 	 */
 	public function force_revision_on_meta( $post_has_changed, $last_revision, $post ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
-		if ( $post && 'documentate_document' === $post->post_type ) {
-			return true;
-		}
-		return $post_has_changed;
+		return $this->revision_handler->force_revision_on_meta( $post_has_changed, $last_revision, $post );
 	}
 
 	/**
@@ -364,7 +276,7 @@ class Documentate_Documents {
 	 * @return array
 	 */
 	public function add_revision_fields( $fields, $post ) {
-		return $fields;
+		return $this->revision_handler->add_revision_fields( $fields, $post );
 	}
 
 	/**
@@ -375,36 +287,7 @@ class Documentate_Documents {
 	 * @return string
 	 */
 	public function revision_field_value( $value, $revision = null ) {
-		$field = str_replace( '_wp_post_revision_field_', '', current_filter() );
-		// Resolve revision ID from variable callback signatures.
-		$rev_id = 0;
-		$args = func_get_args();
-		foreach ( $args as $arg ) {
-			if ( is_object( $arg ) && isset( $arg->ID ) ) {
-				$rev_id = intval( $arg->ID );
-				break;
-			}
-			if ( is_array( $arg ) && isset( $arg['ID'] ) && is_numeric( $arg['ID'] ) ) {
-				$maybe = get_post( intval( $arg['ID'] ) );
-				if ( $maybe && 'revision' === $maybe->post_type ) {
-					$rev_id = intval( $maybe->ID );
-					break;
-				}
-			}
-			if ( is_numeric( $arg ) ) {
-				$maybe = get_post( intval( $arg ) );
-				if ( $maybe && 'revision' === $maybe->post_type ) {
-					$rev_id = intval( $maybe->ID );
-					break;
-				}
-			}
-		}
-		if ( $rev_id <= 0 ) {
-			return '';
-		}
-		// Get the meta stored on the REVISION row.
-		$raw = get_metadata( 'post', $rev_id, $field, true );
-		return $this->normalize_html_for_diff( $raw );
+		return $this->revision_handler->revision_field_value( $value, $revision );
 	}
 
 	/**
@@ -431,81 +314,14 @@ class Documentate_Documents {
 	 * Register the Documents custom post type and attach core categories.
 	 */
 	public function register_post_type() {
-		$labels = array(
-			'name' => __( 'Documents', 'documentate' ),
-			'singular_name' => __( 'Document', 'documentate' ),
-			'menu_name' => __( 'Documents', 'documentate' ),
-			'name_admin_bar' => __( 'Document', 'documentate' ),
-			'add_new' => __( 'Add New', 'documentate' ),
-			'add_new_item' => __( 'Add New Document', 'documentate' ),
-			'new_item' => __( 'New Document', 'documentate' ),
-			'edit_item' => __( 'Edit Document', 'documentate' ),
-			'view_item' => __( 'View Document', 'documentate' ),
-			'all_items' => __( 'All Documents', 'documentate' ),
-			'search_items' => __( 'Search Documents', 'documentate' ),
-			'not_found' => __( 'No documents found.', 'documentate' ),
-			'not_found_in_trash' => __( 'No documents found in trash.', 'documentate' ),
-		);
-
-		$args = array(
-			'labels' => $labels,
-			'public' => false,
-			'show_ui' => true,
-			'show_in_menu' => true,
-			'menu_position' => 25,
-			'menu_icon' => 'dashicons-media-document',
-			'capability_type' => 'post',
-			'map_meta_cap' => true,
-			'hierarchical' => false,
-			'supports' => array( 'title', 'author', 'revisions', 'comments' ),
-			'taxonomies' => array( 'category' ),
-			'has_archive' => false,
-			'rewrite' => false,
-			'show_in_rest' => false,
-		);
-
-		register_post_type( 'documentate_document', $args );
-		register_taxonomy_for_object_type( 'category', 'documentate_document' );
+		$this->cpt_registration->register_post_type();
 	}
 
 	/**
 	 * Register taxonomies used by the documents CPT.
 	 */
 	public function register_taxonomies() {
-		// Document types (define templates and custom fields for the document).
-		$types_labels = array(
-			'name' => __( 'Document Types', 'documentate' ),
-			'singular_name' => __( 'Document Type', 'documentate' ),
-			'search_items' => __( 'Search Types', 'documentate' ),
-			'all_items' => __( 'All Types', 'documentate' ),
-			'edit_item' => __( 'Edit Type', 'documentate' ),
-			'update_item' => __( 'Update Type', 'documentate' ),
-			'add_new_item' => __( 'Add New Type', 'documentate' ),
-			'new_item_name' => __( 'New Type', 'documentate' ),
-			'menu_name' => __( 'Document Types', 'documentate' ),
-		);
-		register_taxonomy(
-			'documentate_doc_type',
-			array( 'documentate_document' ),
-			array(
-				'hierarchical' => false,
-				'labels' => $types_labels,
-				'show_ui' => true,
-				'show_admin_column' => true,
-				'query_var' => true,
-				'rewrite' => false,
-				'show_in_rest' => false,
-				// Only administrators can manage document types.
-				'capabilities' => array(
-					'manage_terms' => 'manage_options',
-					'edit_terms' => 'manage_options',
-					'delete_terms' => 'manage_options',
-					'assign_terms' => 'edit_posts',
-				),
-				// We'll use a custom metabox to prevent editing after first save.
-				'meta_box_cb' => false,
-			),
-		);
+		$this->cpt_registration->register_taxonomies();
 	}
 
 	/**
@@ -516,10 +332,7 @@ class Documentate_Documents {
 	 * @return bool
 	 */
 	public function disable_gutenberg( $use_block_editor, $post_type ) {
-		if ( 'documentate_document' === $post_type ) {
-			return false;
-		}
-		return $use_block_editor;
+		return $this->cpt_registration->disable_gutenberg( $use_block_editor, $post_type );
 	}
 
 	/**
