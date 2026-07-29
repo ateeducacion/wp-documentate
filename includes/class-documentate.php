@@ -118,6 +118,7 @@ class Documentate {
 		 * The classes responsible for defining the custom-post-types.
 		 */
 		// Documentate: Documents CPT and taxonomies.
+		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-meta-boxes.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-documents.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/document/meta/class-document-meta-box.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/document/meta/class-document-meta.php';

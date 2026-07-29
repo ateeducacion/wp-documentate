@@ -12,6 +12,13 @@
 class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
 
 	/**
+	 * Metabox renderer, which now owns the rendering internals.
+	 *
+	 * @var Documentate_Document_Meta_Boxes
+	 */
+	private $meta_boxes;
+
+	/**
 	 * Instance under test.
 	 *
 	 * @var Documentate_Documents
@@ -25,6 +32,7 @@ class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
 		parent::set_up();
 
 		$this->documents = new Documentate_Documents();
+		$this->meta_boxes = new Documentate_Document_Meta_Boxes();
 	}
 
 	/**
@@ -35,10 +43,11 @@ class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
 	 * @return mixed
 	 */
 	private function invoke( $name, array $args = array() ) {
-		$method = ( new ReflectionClass( $this->documents ) )->getMethod( $name );
+		$target = method_exists( $this->documents, $name ) ? $this->documents : $this->meta_boxes;
+		$method = ( new ReflectionClass( $target ) )->getMethod( $name );
 		$method->setAccessible( true );
 
-		return $method->invokeArgs( $this->documents, $args );
+		return $method->invokeArgs( $target, $args );
 	}
 
 	/**

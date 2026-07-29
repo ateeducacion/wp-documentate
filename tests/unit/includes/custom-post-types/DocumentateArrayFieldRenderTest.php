@@ -16,7 +16,7 @@ class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 	/**
 	 * Instance under test.
 	 *
-	 * @var Documentate_Documents
+	 * @var Documentate_Document_Meta_Boxes
 	 */
 	private $documents;
 
@@ -26,7 +26,7 @@ class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 	public function set_up() {
 		parent::set_up();
 
-		$this->documents = new Documentate_Documents();
+		$this->documents = new Documentate_Document_Meta_Boxes();
 	}
 
 	/**
