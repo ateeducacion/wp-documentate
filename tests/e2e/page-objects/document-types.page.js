@@ -144,12 +144,19 @@ class DocumentTypesPage {
 
 	/**
 	 * Navigate to the document types list page.
+	 *
+	 * @param {string} [search] - Restrict the list to terms matching this text.
+	 *                            The list paginates at 20, so assertions that
+	 *                            look for one term must narrow it rather than
+	 *                            rely on the term landing on the first page.
 	 */
-	async navigate() {
-		await this.admin.visitAdminPage(
-			'edit-tags.php',
-			'taxonomy=documentate_doc_type&post_type=documentate_document'
-		);
+	async navigate( search ) {
+		let query = 'taxonomy=documentate_doc_type&post_type=documentate_document';
+		if ( search ) {
+			query += `&s=${ encodeURIComponent( search ) }`;
+		}
+
+		await this.admin.visitAdminPage( 'edit-tags.php', query );
 		await this.page.waitForLoadState( 'domcontentloaded' );
 	}
 
@@ -189,14 +196,24 @@ class DocumentTypesPage {
 			await this.descriptionField.fill( description );
 		}
 
-		await this.submitButton.click();
-
-		// Wait for AJAX response
-		await this.page.waitForResponse(
-			( response ) =>
-				response.url().includes( 'admin-ajax.php' ) ||
-				response.url().includes( 'edit-tags.php' )
+		// Start listening before the click. waitForResponse() only sees
+		// responses that arrive after it is called, so registering it
+		// afterwards loses the race whenever the server answers quickly.
+		const response = this.page.waitForResponse(
+			( res ) =>
+				res.url().includes( 'admin-ajax.php' ) ||
+				res.url().includes( 'edit-tags.php' )
 		);
+
+		await this.submitButton.click();
+		await response;
+
+		// The row is appended by the AJAX handler after the response lands.
+		await this.page
+			.locator( '#the-list' )
+			.getByRole( 'link', { name, exact: true } )
+			.first()
+			.waitFor( { state: 'attached' } );
 	}
 
 	/**

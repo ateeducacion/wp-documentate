@@ -2,6 +2,37 @@
 	'use strict';
 
 	/**
+	 * Extract the visible text of an HTML fragment.
+	 *
+	 * Parsed with DOMParser rather than assigned to innerHTML. The parsed
+	 * document has no browsing context, so scripting is disabled: neither
+	 * scripts nor inline event handlers run. Assigning to innerHTML on a
+	 * detached node gives no such guarantee — the node still belongs to the
+	 * active document, so <img src=x onerror=...> stored in an editor executed
+	 * its handler here. The parsed tree is never inserted anywhere; only
+	 * body.textContent is read.
+	 *
+	 * Real parsing is required, not a tag-stripping regex: callers compare the
+	 * result against '' to detect an empty field, and only a parser decodes
+	 * entities (&#160;) and understands '>' inside an attribute value.
+	 *
+	 * @param {string} html Raw field value, possibly containing markup.
+	 * @return {string} Trimmed visible text.
+	 */
+	function extractPlainText(html) {
+		var parsed = new DOMParser().parseFromString(String(html), 'text/html');
+		return (parsed.body.textContent || '').trim();
+	}
+
+	// Expose the extraction helper to the unit tests. WordPress serves this
+	// file as a plain script, where `module` is undefined, so the browser
+	// never takes this branch and the handler below is always registered.
+	if (typeof module !== 'undefined' && module.exports) {
+		module.exports = { extractPlainText: extractPlainText };
+		return;
+	}
+
+	/**
 	 * Get the text content of a TinyMCE or textarea rich editor.
 	 *
 	 * @param {HTMLElement} el The textarea or container element.
@@ -21,10 +52,7 @@
 			}
 		}
 
-		// Strip HTML tags and trim whitespace.
-		var tmp = document.createElement('div');
-		tmp.innerHTML = textarea.value;
-		return (tmp.textContent || tmp.innerText || '').trim();
+		return extractPlainText(textarea.value);
 	}
 
 	/**
@@ -117,4 +145,7 @@
 		}
 	});
 
-})(jQuery);
+// jQuery is always present in the admin, where WordPress enqueues it as a
+// dependency. The guard is for the unit tests, which require this file
+// directly to reach extractPlainText() and never touch the jQuery handlers.
+})(typeof jQuery !== 'undefined' ? jQuery : undefined);

@@ -131,10 +131,16 @@ jobs:
       - name: Run WordPress Coding Standards
         run: make lint
 
+      - name: Install npm dependencies
+        run: npm ci
+
+      # Runs before wp-env so a JS regression fails in seconds rather than
+      # after the container boot and the PHP suite.
+      - name: Run JavaScript unit tests
+        run: npm run test:unit-js
+
       - name: Start wp-env with coverage
-        run: |
-          npm ci
-          npx wp-env start --config=.wp-env.docker.json --xdebug=coverage
+        run: npx wp-env start --config=.wp-env.docker.json --xdebug=coverage
 
       - name: Run plugin check
         run: make check-plugin
