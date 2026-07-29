@@ -11,18 +11,11 @@
 class DocumentateSchemaRowTest extends WP_UnitTestCase {
 
 	/**
-	 * Metabox renderer.
+	 * Metabox renderer, which still owns the schema-row preparation.
 	 *
 	 * @var Documentate_Document_Meta_Boxes
 	 */
 	private $meta_boxes;
-
-	/**
-	 * Instance under test.
-	 *
-	 * @var Documentate_Document_Meta_Boxes
-	 */
-	private $documents;
 
 	/**
 	 * Set up test fixtures.
@@ -30,26 +23,26 @@ class DocumentateSchemaRowTest extends WP_UnitTestCase {
 	public function set_up() {
 		parent::set_up();
 
-		$this->documents = new Documentate_Document_Meta_Boxes();
+		$this->meta_boxes = new Documentate_Document_Meta_Boxes();
 	}
 
 	/**
 	 * Find whichever collaborator declares a method.
 	 *
-	 * The CPT was split into a renderer, a saver and an admin-list class, so a
-	 * helper under test may live on any of them.
+	 * The rendering code was split across a renderer plus several static helpers,
+	 * so a method under test may live on any of them.
 	 *
 	 * @param string $name Method name.
-	 * @return object
+	 * @return object|string Instance, or class name for a static helper.
 	 */
 	private function owner_of( $name ) {
-		foreach ( array( $this->documents, $this->meta_boxes ) as $candidate ) {
+		foreach ( array( $this->meta_boxes, 'Documentate_Document_Content_Writer', 'Documentate_Document_Field_Help', 'Documentate_Document_Repeater_Field', 'Documentate_Document_Scalar_Field' ) as $candidate ) {
 			if ( method_exists( $candidate, $name ) ) {
 				return $candidate;
 			}
 		}
 
-		$this->fail( 'No collaborator declares ' . $name );
+		$this->fail( 'Nothing declares ' . $name );
 	}
 
 	/**
@@ -61,10 +54,10 @@ class DocumentateSchemaRowTest extends WP_UnitTestCase {
 	 */
 	private function invoke( $name, array $args = array() ) {
 		$target = $this->owner_of( $name );
-		$method = ( new ReflectionClass( $target ) )->getMethod( $name );
+		$method = new ReflectionMethod( $target, $name );
 		$method->setAccessible( true );
 
-		return $method->invokeArgs( $target, $args );
+		return $method->invokeArgs( $method->isStatic() ? null : $target, $args );
 	}
 
 	/**

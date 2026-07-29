@@ -65,7 +65,7 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 	 * @return object
 	 */
 	private function owner_of( $name ) {
-		foreach ( array( $this->documents, $this->admin_list, $this->meta_saver ) as $candidate ) {
+		foreach ( array( $this->documents, $this->admin_list, $this->meta_saver, 'Documentate_Document_Content_Writer', 'Documentate_Document_Field_Help', 'Documentate_Document_Repeater_Field', 'Documentate_Document_Scalar_Field' ) as $candidate ) {
 			if ( method_exists( $candidate, $name ) ) {
 				return $candidate;
 			}
@@ -83,10 +83,10 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 	 */
 	private function invoke( $name, array $args = array() ) {
 		$target = $this->owner_of( $name );
-		$method = ( new ReflectionClass( $target ) )->getMethod( $name );
+		$method = new ReflectionMethod( $target, $name );
 		$method->setAccessible( true );
 
-		return $method->invokeArgs( $target, $args );
+		return $method->invokeArgs( $method->isStatic() ? null : $target, $args );
 	}
 
 	/**

@@ -14,22 +14,6 @@
 class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 
 	/**
-	 * Instance under test.
-	 *
-	 * @var Documentate_Document_Meta_Boxes
-	 */
-	private $documents;
-
-	/**
-	 * Set up test fixtures.
-	 */
-	public function set_up() {
-		parent::set_up();
-
-		$this->documents = new Documentate_Document_Meta_Boxes();
-	}
-
-	/**
 	 * Render one repeater row and capture its markup.
 	 *
 	 * @param array $item_schema  Normalized item schema.
@@ -39,11 +23,11 @@ class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 	 * @return string
 	 */
 	private function render_row( array $item_schema, array $values = array(), $is_template = false, array $raw_fields = array() ) {
-		$method = ( new ReflectionClass( $this->documents ) )->getMethod( 'render_array_field_item' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'render_array_field_item' );
 		$method->setAccessible( true );
 
 		ob_start();
-		$method->invoke( $this->documents, 'anexos', '0', $item_schema, $values, $is_template, $raw_fields );
+		$method->invoke( null, 'anexos', '0', $item_schema, $values, $is_template, $raw_fields );
 
 		return ob_get_clean();
 	}

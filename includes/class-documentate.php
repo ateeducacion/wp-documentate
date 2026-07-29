@@ -118,6 +118,10 @@ class Documentate {
 		 * The classes responsible for defining the custom-post-types.
 		 */
 		// Documentate: Documents CPT and taxonomies.
+		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-field-help.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-scalar-field.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-repeater-field.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-content-writer.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-meta-boxes.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-meta-saver.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/custom-post-types/class-documentate-document-admin-list.php';

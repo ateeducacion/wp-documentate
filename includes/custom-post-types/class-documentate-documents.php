@@ -502,7 +502,7 @@ class Documentate_Documents {
 	 * @return array
 	 */
 	public function filter_post_data_compose_content( $data, $postarr ) {
-		return $this->meta_saver->filter_post_data_compose_content( $data, $postarr );
+		return Documentate_Document_Content_Writer::filter_post_data_compose_content( $data, $postarr );
 	}
 
 	/**

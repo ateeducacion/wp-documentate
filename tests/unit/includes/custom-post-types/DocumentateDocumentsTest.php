@@ -570,11 +570,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	public function test_is_collaborative_editing_enabled_false() {
 		delete_option( 'documentate_settings' );
 
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'is_collaborative_editing_enabled' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'is_collaborative_editing_enabled' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes );
+		$result = $method->invoke( null );
 
 		$this->assertFalse( $result );
 	}
@@ -585,11 +584,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	public function test_is_collaborative_editing_enabled_true() {
 		update_option( 'documentate_settings', array( 'collaborative_enabled' => '1' ) );
 
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'is_collaborative_editing_enabled' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'is_collaborative_editing_enabled' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes );
+		$result = $method->invoke( null );
 
 		$this->assertTrue( $result );
 	}
@@ -629,11 +627,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test resolve_field_control_type on the meta handler.
 	 */
 	public function test_resolve_field_control_type_array() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'resolve_field_control_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'resolve_field_control_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'array', null );
+		$result = $method->invoke( null, 'array', null );
 		$this->assertSame( 'array', $result );
 	}
 
@@ -641,11 +638,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test resolve_field_control_type with HTML type.
 	 */
 	public function test_resolve_field_control_type_html() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'resolve_field_control_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'resolve_field_control_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'textarea', array( 'type' => 'html' ) );
+		$result = $method->invoke( null, 'textarea', array( 'type' => 'html' ) );
 		$this->assertSame( 'rich', $result );
 	}
 
@@ -653,11 +649,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test resolve_field_control_type with text type.
 	 */
 	public function test_resolve_field_control_type_text() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'resolve_field_control_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'resolve_field_control_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'single', array( 'type' => 'text' ) );
+		$result = $method->invoke( null, 'single', array( 'type' => 'text' ) );
 		$this->assertSame( 'single', $result );
 	}
 
@@ -665,11 +660,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_field_description on the meta handler.
 	 */
 	public function test_get_field_description() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_description' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'get_field_description' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array( 'description' => 'Test description' ) );
+		$result = $method->invoke( null, array( 'description' => 'Test description' ) );
 		$this->assertSame( 'Test description', $result );
 	}
 
@@ -677,11 +671,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_field_description with parameters.
 	 */
 	public function test_get_field_description_from_parameters() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_description' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'get_field_description' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array( 'parameters' => array( 'help' => 'Help text' ) ) );
+		$result = $method->invoke( null, array( 'parameters' => array( 'help' => 'Help text' ) ) );
 		$this->assertSame( 'Help text', $result );
 	}
 
@@ -689,11 +682,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_field_before_description on the meta handler.
 	 */
 	public function test_get_field_before_description() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_before_description' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'get_field_before_description' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array( 'before_description' => 'Read this first' ) );
+		$result = $method->invoke( null, array( 'before_description' => 'Read this first' ) );
 		$this->assertSame( 'Read this first', $result );
 	}
 
@@ -701,11 +693,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_field_validation_message on the meta handler.
 	 */
 	public function test_get_field_validation_message() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_validation_message' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'get_field_validation_message' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array( 'patternmsg' => 'Invalid format' ) );
+		$result = $method->invoke( null, array( 'patternmsg' => 'Invalid format' ) );
 		$this->assertSame( 'Invalid format', $result );
 	}
 
@@ -713,11 +704,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_field_validation_message with parameters.
 	 */
 	public function test_get_field_validation_message_from_parameters() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_validation_message' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'get_field_validation_message' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array( 'parameters' => array( 'validation_message' => 'Please enter valid data' ) ) );
+		$result = $method->invoke( null, array( 'parameters' => array( 'validation_message' => 'Please enter valid data' ) ) );
 		$this->assertSame( 'Please enter valid data', $result );
 	}
 
@@ -725,11 +715,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_field_title on the meta handler.
 	 */
 	public function test_get_field_title() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_title' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'get_field_title' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array( 'title' => 'Field Title' ) );
+		$result = $method->invoke( null, array( 'title' => 'Field Title' ) );
 		$this->assertSame( 'Field Title', $result );
 	}
 
@@ -737,11 +726,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test map_single_input_type on the meta handler.
 	 */
 	public function test_map_single_input_type_text() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'text', '' );
+		$result = $method->invoke( null, 'text', '' );
 		$this->assertSame( 'text', $result );
 	}
 
@@ -749,11 +737,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test map_single_input_type for number.
 	 */
 	public function test_map_single_input_type_number() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'number', '' );
+		$result = $method->invoke( null, 'number', '' );
 		$this->assertSame( 'number', $result );
 	}
 
@@ -761,11 +748,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test map_single_input_type for email.
 	 */
 	public function test_map_single_input_type_email() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'email', '' );
+		$result = $method->invoke( null, 'email', '' );
 		$this->assertSame( 'email', $result );
 	}
 
@@ -773,11 +759,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test map_single_input_type for date.
 	 */
 	public function test_map_single_input_type_date() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'date', '' );
+		$result = $method->invoke( null, 'date', '' );
 		$this->assertSame( 'date', $result );
 	}
 
@@ -785,11 +770,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test map_single_input_type for boolean/checkbox.
 	 */
 	public function test_map_single_input_type_checkbox() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'boolean', '' );
+		$result = $method->invoke( null, 'boolean', '' );
 		$this->assertSame( 'checkbox', $result );
 	}
 
@@ -797,11 +781,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test map_single_input_type for select.
 	 */
 	public function test_map_single_input_type_select() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'select', '' );
+		$result = $method->invoke( null, 'select', '' );
 		$this->assertSame( 'select', $result );
 	}
 
@@ -809,14 +792,13 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test normalize_scalar_value for checkbox.
 	 */
 	public function test_normalize_scalar_value_checkbox() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'normalize_scalar_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'normalize_scalar_value' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'true', 'checkbox' );
+		$result = $method->invoke( null, 'true', 'checkbox' );
 		$this->assertSame( '1', $result );
 
-		$result = $method->invoke( $this->meta_boxes, 'false', 'checkbox' );
+		$result = $method->invoke( null, 'false', 'checkbox' );
 		$this->assertSame( '0', $result );
 	}
 
@@ -824,11 +806,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test normalize_scalar_value for datetime-local.
 	 */
 	public function test_normalize_scalar_value_datetime_local() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'normalize_scalar_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'normalize_scalar_value' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, '2024-01-15 10:30:00', 'datetime-local' );
+		$result = $method->invoke( null, '2024-01-15 10:30:00', 'datetime-local' );
 		$this->assertSame( '2024-01-15T10:30', $result );
 	}
 
@@ -836,11 +817,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test normalize_scalar_value for date.
 	 */
 	public function test_normalize_scalar_value_date() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'normalize_scalar_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'normalize_scalar_value' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, '2024-01-15 10:30:00', 'date' );
+		$result = $method->invoke( null, '2024-01-15 10:30:00', 'date' );
 		$this->assertSame( '2024-01-15', $result );
 	}
 
@@ -848,8 +828,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test build_scalar_input_attributes on the meta handler.
 	 */
 	public function test_build_scalar_input_attributes() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_scalar_input_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_scalar_input_attributes' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -860,7 +839,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 			'maxvalue'    => 100,
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field, 'number' );
+		$result = $method->invoke( null, $raw_field, 'number' );
 
 		$this->assertArrayHasKey( 'placeholder', $result );
 		$this->assertArrayHasKey( 'pattern', $result );
@@ -873,11 +852,10 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test build_input_class on the meta handler.
 	 */
 	public function test_build_input_class() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_input_class' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_input_class' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'textarea' );
+		$result = $method->invoke( null, 'textarea' );
 		$this->assertStringContainsString( 'documentate-field-input', $result );
 		$this->assertStringContainsString( 'large-text', $result );
 	}
@@ -886,8 +864,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test format_field_attributes on the meta handler.
 	 */
 	public function test_format_field_attributes() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'format_field_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'format_field_attributes' );
 		$method->setAccessible( true );
 
 		$attrs = array(
@@ -895,7 +872,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 			'id'    => 'test-id',
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $attrs );
+		$result = $method->invoke( null, $attrs );
 
 		$this->assertStringContainsString( 'class="test-class"', $result );
 		$this->assertStringContainsString( 'id="test-id"', $result );
@@ -905,8 +882,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test parse_select_options on the meta handler.
 	 */
 	public function test_parse_select_options() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'parse_select_options' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'parse_select_options' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -915,7 +891,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 			),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 
 		$this->assertArrayHasKey( 'a', $result );
 		$this->assertSame( 'Option A', $result['a'] );
@@ -925,8 +901,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test parse_select_options with array.
 	 */
 	public function test_parse_select_options_array() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'parse_select_options' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'parse_select_options' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -938,7 +913,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 			),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 
 		$this->assertArrayHasKey( 'val1', $result );
 		$this->assertSame( 'Label 1', $result['val1'] );
@@ -948,12 +923,11 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test get_select_placeholder on the meta handler.
 	 */
 	public function test_get_select_placeholder() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_select_placeholder' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'get_select_placeholder' );
 		$method->setAccessible( true );
 
 		$raw_field = array( 'placeholder' => 'Select an option...' );
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 
 		$this->assertSame( 'Select an option...', $result );
 	}
@@ -1516,11 +1490,10 @@ HTML;
 	 * Test sanitize_rich_text_value on the meta handler.
 	 */
 	public function test_sanitize_rich_text_value_empty() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_saver, '' );
+		$result = $method->invoke( null, '' );
 		$this->assertSame( '', $result );
 	}
 
@@ -1528,12 +1501,11 @@ HTML;
 	 * Test sanitize_rich_text_value strips scripts.
 	 */
 	public function test_sanitize_rich_text_value_strips_scripts() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
 		$input = '<p>Hello</p><script>alert("xss")</script>';
-		$result = $method->invoke( $this->meta_saver, $input );
+		$result = $method->invoke( null, $input );
 
 		$this->assertStringNotContainsString( '<script', $result );
 		$this->assertStringContainsString( 'Hello', $result );
@@ -1543,12 +1515,11 @@ HTML;
 	 * Test sanitize_rich_text_value strips iframes.
 	 */
 	public function test_sanitize_rich_text_value_strips_iframes() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
 		$input = '<p>Content</p><iframe src="http://evil.com"></iframe>';
-		$result = $method->invoke( $this->meta_saver, $input );
+		$result = $method->invoke( null, $input );
 
 		$this->assertStringNotContainsString( '<iframe', $result );
 	}
@@ -1559,15 +1530,14 @@ HTML;
 	 * HTML content should be stored as-is (cleanup happens at generation time).
 	 */
 	public function test_sanitize_rich_text_value_preserves_html_structure() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
 		$input = '<p>Paragraph with <strong>bold</strong> and <em>italic</em> text.</p>'
 			. '<ul><li>Item one</li><li>Item two</li></ul>'
 			. '<table><tbody><tr><td>Cell</td></tr></tbody></table>';
 
-		$result = $method->invoke( $this->meta_saver, $input );
+		$result = $method->invoke( null, $input );
 
 		// All HTML structure should be preserved.
 		$this->assertStringContainsString( '<p>', $result );
@@ -1583,15 +1553,14 @@ HTML;
 	 * Test sanitize_rich_text_value preserves inline formatting.
 	 */
 	public function test_sanitize_rich_text_value_preserves_inline_formatting() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
 		$input = '<p>Text with <u>underline</u>, <s>strikethrough</s>, '
 			. '<sub>subscript</sub>, <sup>superscript</sup>, '
 			. 'and <a href="https://example.com">links</a>.</p>';
 
-		$result = $method->invoke( $this->meta_saver, $input );
+		$result = $method->invoke( null, $input );
 
 		$this->assertStringContainsString( '<u>underline</u>', $result );
 		$this->assertStringContainsString( '<s>strikethrough</s>', $result );
@@ -1633,11 +1602,10 @@ HTML;
 	 * Test sanitize_array_field_items on the meta handler.
 	 */
 	public function test_sanitize_array_field_items_empty() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_array_field_items' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_array_field_items' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_saver, array(), array() );
+		$result = $method->invoke( null, array(), array() );
 		$this->assertIsArray( $result );
 		$this->assertEmpty( $result );
 	}
@@ -1646,8 +1614,7 @@ HTML;
 	 * Test sanitize_array_field_items with valid items.
 	 */
 	public function test_sanitize_array_field_items_valid() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_array_field_items' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_array_field_items' );
 		$method->setAccessible( true );
 
 		$items = array(
@@ -1659,7 +1626,7 @@ HTML;
 			),
 		);
 
-		$result = $method->invoke( $this->meta_saver, $items, $definition );
+		$result = $method->invoke( null, $items, $definition );
 		$this->assertCount( 1, $result );
 		$this->assertSame( 'Test content', $result[0]['content'] );
 	}
@@ -1668,8 +1635,7 @@ HTML;
 	 * Test sanitize_array_field_items skips empty items.
 	 */
 	public function test_sanitize_array_field_items_skips_empty() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'sanitize_array_field_items' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'sanitize_array_field_items' );
 		$method->setAccessible( true );
 
 		$items = array(
@@ -1678,7 +1644,7 @@ HTML;
 		);
 		$definition = array();
 
-		$result = $method->invoke( $this->meta_saver, $items, $definition );
+		$result = $method->invoke( null, $items, $definition );
 		$this->assertCount( 1, $result );
 	}
 
@@ -1731,11 +1697,10 @@ HTML;
 	 * Test build_structured_field_fragment on the meta handler.
 	 */
 	public function test_build_structured_field_fragment() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'build_structured_field_fragment' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'build_structured_field_fragment' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_saver, 'test_slug', 'text', 'Test Value' );
+		$result = $method->invoke( null, 'test_slug', 'text', 'Test Value' );
 
 		$this->assertStringContainsString( '<!-- documentate-field', $result );
 		$this->assertStringContainsString( 'slug="test_slug"', $result );
@@ -1746,11 +1711,10 @@ HTML;
 	 * Test build_structured_field_fragment with empty slug.
 	 */
 	public function test_build_structured_field_fragment_empty_slug() {
-		$reflection = new ReflectionClass( $this->meta_saver );
-		$method = $reflection->getMethod( 'build_structured_field_fragment' );
+		$method = new ReflectionMethod( 'Documentate_Document_Content_Writer', 'build_structured_field_fragment' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_saver, '', 'text', 'Value' );
+		$result = $method->invoke( null, '', 'text', 'Value' );
 		$this->assertSame( '', $result );
 	}
 
@@ -1758,12 +1722,11 @@ HTML;
 	 * Test get_field_pattern_message on the meta handler.
 	 */
 	public function test_get_field_pattern_message() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_pattern_message' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'get_field_pattern_message' );
 		$method->setAccessible( true );
 
 		$raw_field = array( 'patternmsg' => 'Pattern message' );
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 
 		$this->assertSame( 'Pattern message', $result );
 	}
@@ -1772,12 +1735,11 @@ HTML;
 	 * Test get_field_pattern_message from parameters.
 	 */
 	public function test_get_field_pattern_message_from_parameters() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_pattern_message' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'get_field_pattern_message' );
 		$method->setAccessible( true );
 
 		$raw_field = array( 'parameters' => array( 'pattern_message' => 'Custom pattern message' ) );
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 
 		$this->assertSame( 'Custom pattern message', $result );
 	}
@@ -1786,11 +1748,10 @@ HTML;
 	 * Test get_field_pattern_message empty.
 	 */
 	public function test_get_field_pattern_message_empty() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_field_pattern_message' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'get_field_pattern_message' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, array() );
+		$result = $method->invoke( null, array() );
 		$this->assertSame( '', $result );
 	}
 
@@ -1832,11 +1793,10 @@ HTML;
 	 * Test map_single_input_type for URL.
 	 */
 	public function test_map_single_input_type_url() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'url', '' );
+		$result = $method->invoke( null, 'url', '' );
 		$this->assertSame( 'url', $result );
 	}
 
@@ -1844,11 +1804,10 @@ HTML;
 	 * Test map_single_input_type for tel.
 	 */
 	public function test_map_single_input_type_tel() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'tel', '' );
+		$result = $method->invoke( null, 'tel', '' );
 		$this->assertSame( 'tel', $result );
 	}
 
@@ -1856,11 +1815,10 @@ HTML;
 	 * Test map_single_input_type for time.
 	 */
 	public function test_map_single_input_type_time() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'time', '' );
+		$result = $method->invoke( null, 'time', '' );
 		$this->assertSame( 'time', $result );
 	}
 
@@ -1868,11 +1826,10 @@ HTML;
 	 * Test map_single_input_type for datetime-local.
 	 */
 	public function test_map_single_input_type_datetime_local() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'datetime-local', '' );
+		$result = $method->invoke( null, 'datetime-local', '' );
 		$this->assertSame( 'datetime-local', $result );
 	}
 
@@ -1880,11 +1837,10 @@ HTML;
 	 * Test map_single_input_type fallback.
 	 */
 	public function test_map_single_input_type_fallback() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'map_single_input_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'map_single_input_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'unknown', '' );
+		$result = $method->invoke( null, 'unknown', '' );
 		$this->assertSame( 'text', $result );
 	}
 
@@ -1892,11 +1848,10 @@ HTML;
 	 * Test build_input_class for checkbox.
 	 */
 	public function test_build_input_class_checkbox() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_input_class' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_input_class' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'checkbox' );
+		$result = $method->invoke( null, 'checkbox' );
 		$this->assertStringContainsString( 'documentate-field-checkbox', $result );
 	}
 
@@ -1904,11 +1859,10 @@ HTML;
 	 * Test build_input_class for select.
 	 */
 	public function test_build_input_class_select() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_input_class' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_input_class' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'select' );
+		$result = $method->invoke( null, 'select' );
 		$this->assertStringContainsString( 'regular-text', $result );
 	}
 
@@ -1916,8 +1870,7 @@ HTML;
 	 * Test format_field_attributes with boolean values.
 	 */
 	public function test_format_field_attributes_boolean() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'format_field_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'format_field_attributes' );
 		$method->setAccessible( true );
 
 		$attrs = array(
@@ -1925,7 +1878,7 @@ HTML;
 			'disabled' => false,
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $attrs );
+		$result = $method->invoke( null, $attrs );
 		$this->assertStringContainsString( 'required', $result );
 		$this->assertStringNotContainsString( 'disabled', $result );
 	}
@@ -1934,8 +1887,7 @@ HTML;
 	 * Test format_field_attributes with null values.
 	 */
 	public function test_format_field_attributes_null() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'format_field_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Field_Help', 'format_field_attributes' );
 		$method->setAccessible( true );
 
 		$attrs = array(
@@ -1943,7 +1895,7 @@ HTML;
 			'id'    => null,
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $attrs );
+		$result = $method->invoke( null, $attrs );
 		$this->assertStringContainsString( 'class="test"', $result );
 		$this->assertStringNotContainsString( 'id=', $result );
 	}
@@ -1952,8 +1904,7 @@ HTML;
 	 * Test parse_select_options with comma delimiter.
 	 */
 	public function test_parse_select_options_comma() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'parse_select_options' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'parse_select_options' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -1962,7 +1913,7 @@ HTML;
 			),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 		$this->assertArrayHasKey( 'a', $result );
 		$this->assertArrayHasKey( 'b', $result );
 		$this->assertArrayHasKey( 'c', $result );
@@ -1972,15 +1923,14 @@ HTML;
 	 * Test get_select_placeholder from parameters.
 	 */
 	public function test_get_select_placeholder_from_parameters() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'get_select_placeholder' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'get_select_placeholder' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
 			'parameters' => array( 'prompt' => 'Choose one...' ),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field );
+		$result = $method->invoke( null, $raw_field );
 		$this->assertSame( 'Choose one...', $result );
 	}
 
@@ -1988,11 +1938,10 @@ HTML;
 	 * Test normalize_scalar_value for time.
 	 */
 	public function test_normalize_scalar_value_time() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'normalize_scalar_value' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'normalize_scalar_value' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, '10:30', 'time' );
+		$result = $method->invoke( null, '10:30', 'time' );
 		$this->assertSame( '10:30', $result );
 	}
 
@@ -2000,8 +1949,7 @@ HTML;
 	 * Test build_scalar_input_attributes with required parameter.
 	 */
 	public function test_build_scalar_input_attributes_required() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_scalar_input_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_scalar_input_attributes' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -2010,7 +1958,7 @@ HTML;
 			),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field, 'text' );
+		$result = $method->invoke( null, $raw_field, 'text' );
 		$this->assertArrayHasKey( 'required', $result );
 	}
 
@@ -2018,8 +1966,7 @@ HTML;
 	 * Test build_scalar_input_attributes with step.
 	 */
 	public function test_build_scalar_input_attributes_step() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_scalar_input_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_scalar_input_attributes' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -2028,7 +1975,7 @@ HTML;
 			),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field, 'number' );
+		$result = $method->invoke( null, $raw_field, 'number' );
 		$this->assertArrayHasKey( 'step', $result );
 		$this->assertSame( '0.5', $result['step'] );
 	}
@@ -2037,8 +1984,7 @@ HTML;
 	 * Test build_scalar_input_attributes with rows for textarea.
 	 */
 	public function test_build_scalar_input_attributes_rows() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'build_scalar_input_attributes' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'build_scalar_input_attributes' );
 		$method->setAccessible( true );
 
 		$raw_field = array(
@@ -2047,7 +1993,7 @@ HTML;
 			),
 		);
 
-		$result = $method->invoke( $this->meta_boxes, $raw_field, 'textarea' );
+		$result = $method->invoke( null, $raw_field, 'textarea' );
 		$this->assertArrayHasKey( 'rows', $result );
 		$this->assertSame( '10', $result['rows'] );
 	}
@@ -2056,11 +2002,10 @@ HTML;
 	 * Test resolve_field_control_type for empty.
 	 */
 	public function test_resolve_field_control_type_empty() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'resolve_field_control_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'resolve_field_control_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, '', null );
+		$result = $method->invoke( null, '', null );
 		$this->assertSame( 'textarea', $result );
 	}
 
@@ -2068,11 +2013,10 @@ HTML;
 	 * Test resolve_field_control_type for textarea type.
 	 */
 	public function test_resolve_field_control_type_textarea() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'resolve_field_control_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'resolve_field_control_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'single', array( 'type' => 'textarea' ) );
+		$result = $method->invoke( null, 'single', array( 'type' => 'textarea' ) );
 		$this->assertSame( 'textarea', $result );
 	}
 
@@ -2080,11 +2024,10 @@ HTML;
 	 * Test resolve_field_control_type for rich editor.
 	 */
 	public function test_resolve_field_control_type_tinymce() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'resolve_field_control_type' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'resolve_field_control_type' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes, 'single', array( 'type' => 'tinymce' ) );
+		$result = $method->invoke( null, 'single', array( 'type' => 'tinymce' ) );
 		$this->assertSame( 'rich', $result );
 	}
 
@@ -2581,10 +2524,9 @@ HTML;
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
 
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method     = $reflection->getMethod( 'get_rich_editor_tinymce_config' );
+		$method     = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'get_rich_editor_tinymce_config' );
 		$method->setAccessible( true );
-		$config = $method->invoke( $this->meta_boxes );
+		$config = $method->invoke( null );
 
 		$this->assertIsArray( $config );
 		$this->assertArrayHasKey( 'toolbar1', $config );
@@ -2623,10 +2565,9 @@ HTML;
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
 
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method     = $reflection->getMethod( 'get_rich_editor_tinymce_config' );
+		$method     = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'get_rich_editor_tinymce_config' );
 		$method->setAccessible( true );
-		$config         = $method->invoke( $this->meta_boxes );
+		$config         = $method->invoke( null );
 		$valid_elements = $config['valid_elements'];
 
 		$this->assertStringContainsString( 'p[style|class|align]', $valid_elements );
@@ -2905,11 +2846,10 @@ HTML;
 	 * Test is_collaborative_editing_enabled on the meta handler.
 	 */
 	public function test_is_collaborative_editing_enabled() {
-		$reflection = new ReflectionClass( $this->meta_boxes );
-		$method = $reflection->getMethod( 'is_collaborative_editing_enabled' );
+		$method = new ReflectionMethod( 'Documentate_Document_Scalar_Field', 'is_collaborative_editing_enabled' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->meta_boxes );
+		$result = $method->invoke( null );
 
 		$this->assertIsBool( $result );
 	}
