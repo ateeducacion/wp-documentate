@@ -2461,99 +2461,175 @@ class Documentate_Documents {
 		$data = $this->preserve_document_dates( $data, $post_id );
 
 		$term_id = $this->get_term_id_from_request_or_post( $post_id );
-
-		$schema = array();
-		$dynamic_schema = array();
-		if ( $term_id > 0 ) {
-			$dynamic_schema = self::get_term_schema( $term_id );
-			$schema = $dynamic_schema;
-		}
+		$schema = $term_id > 0 ? self::get_term_schema( $term_id ) : array();
 
 		$existing_structured = $this->collect_existing_structured_content( $postarr, $post_id );
 
-		$structured_fields = array();
 		$known_slugs = array();
-		$posted_array_fields = array();
-		if ( isset( $_POST['tpl_fields'] ) && is_array( $_POST['tpl_fields'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$posted_array_fields = wp_unslash( $_POST['tpl_fields'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		}
+		$structured_fields = $this->compose_schema_fields( $schema, $existing_structured, $known_slugs );
 
-		foreach ( $schema as $row ) {
-			if ( empty( $row['slug'] ) ) {
-				continue;
-			}
-			$slug = sanitize_key( $row['slug'] );
+		// Values the schema no longer declares, then anything else posted.
+		$unknown_fields = $this->compose_carried_over_fields( $existing_structured, $known_slugs );
+		$unknown_fields = $this->compose_posted_fields( $structured_fields, $unknown_fields );
+
+		$data['post_content'] = $this->build_structured_content( $structured_fields, $unknown_fields );
+
+		return $data;
+	}
+
+	/**
+	 * Build the field entries declared by the document type schema.
+	 *
+	 * @param array $schema              Schema rows.
+	 * @param array $existing_structured Values already stored in post_content.
+	 * @param array $known_slugs         Filled with the slugs the schema owns.
+	 * @return array<string,array{type:string,value:string}>
+	 */
+	private function compose_schema_fields( $schema, array $existing_structured, array &$known_slugs ) {
+		$posted_array_fields = $this->read_posted_array_fields();
+		$fields = array();
+
+		foreach ( (array) $schema as $row ) {
+			$slug = ! empty( $row['slug'] ) ? sanitize_key( $row['slug'] ) : '';
 			if ( '' === $slug ) {
 				continue;
 			}
+
 			$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
 			$known_slugs[ $slug ] = true;
 
 			if ( 'array' === $type ) {
-				$items = array();
-				if ( isset( $posted_array_fields[ $slug ] ) && is_array( $posted_array_fields[ $slug ] ) ) {
-					$items = $this->sanitize_array_field_items( $posted_array_fields[ $slug ], $row );
-				} elseif (
-					isset( $existing_structured[ $slug ] )
-					&& isset( $existing_structured[ $slug ]['type'] )
-					&& 'array' === $existing_structured[ $slug ]['type']
-				) {
-					$items = $this->get_array_field_items_from_structured( $existing_structured[ $slug ] );
-				}
-
-				// Use the same JSON_HEX flags as in save_dynamic_fields_meta for consistency.
-				// wp_slash() preserves backslashes (like \n and \uXXXX) through WordPress's wp_unslash() in wp_insert_post().
-				$json_value = ! empty( $items )
-					? wp_json_encode( $items, JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS )
-					: '[]';
-				$structured_fields[ $slug ] = array(
-					'type' => 'array',
-					'value' => wp_slash( $json_value ),
-				);
+				$fields[ $slug ] = $this->compose_array_field( $slug, $row, $existing_structured, $posted_array_fields );
 				continue;
 			}
 
 			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
 				$type = 'textarea';
 			}
+
+			$fields[ $slug ] = $this->process_posted_field_value(
+				$slug,
+				$type,
+				'documentate_field_' . $slug,
+				$existing_structured
+			);
+		}
+
+		return $fields;
+	}
+
+	/**
+	 * Submitted repeater rows, keyed by field slug.
+	 *
+	 * @return array
+	 */
+	private function read_posted_array_fields() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( ! isset( $_POST['tpl_fields'] ) || ! is_array( $_POST['tpl_fields'] ) ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Rows are sanitized against the schema by sanitize_array_field_items().
+		return wp_unslash( $_POST['tpl_fields'] );
+	}
+
+	/**
+	 * Build the entry for a repeater field.
+	 *
+	 * Submitted rows win; otherwise the rows already stored are carried over, so
+	 * a save that does not include the repeater cannot silently empty it.
+	 *
+	 * @param string $slug                Field slug.
+	 * @param array  $row                 Schema row.
+	 * @param array  $existing_structured Values already stored in post_content.
+	 * @param array  $posted_array_fields Submitted repeater rows.
+	 * @return array{type:string,value:string}
+	 */
+	private function compose_array_field( $slug, $row, array $existing_structured, array $posted_array_fields ) {
+		$items = array();
+
+		if ( isset( $posted_array_fields[ $slug ] ) && is_array( $posted_array_fields[ $slug ] ) ) {
+			$items = $this->sanitize_array_field_items( $posted_array_fields[ $slug ], $row );
+		} elseif (
+			isset( $existing_structured[ $slug ]['type'] )
+			&& 'array' === $existing_structured[ $slug ]['type']
+		) {
+			$items = $this->get_array_field_items_from_structured( $existing_structured[ $slug ] );
+		}
+
+		// Encoded with the same flags as the meta copy, so both representations
+		// round-trip identically. wp_slash() preserves backslashes (like \n and
+		// \uXXXX) through the wp_unslash() inside wp_insert_post().
+		$json_value = $this->encode_array_field_items( $items );
+
+		return array(
+			'type' => 'array',
+			'value' => wp_slash( '' === $json_value ? '[]' : $json_value ),
+		);
+	}
+
+	/**
+	 * Carry over stored values the schema no longer declares.
+	 *
+	 * A posted value still wins, so editing a field that survived a document
+	 * type change is not discarded.
+	 *
+	 * @param array $existing_structured Values already stored in post_content.
+	 * @param array $known_slugs         Slugs the schema already handled.
+	 * @return array<string,array{type:string,value:string}>
+	 */
+	private function compose_carried_over_fields( array $existing_structured, array $known_slugs ) {
+		$fields = array();
+
+		foreach ( $existing_structured as $slug => $info ) {
+			$slug = sanitize_key( $slug );
+			if ( '' === $slug || isset( $known_slugs[ $slug ] ) || isset( $fields[ $slug ] ) ) {
+				continue;
+			}
+
 			$meta_key = 'documentate_field_' . $slug;
 
-			$structured_fields[ $slug ] = $this->process_posted_field_value( $slug, $type, $meta_key, $existing_structured );
-		}
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if ( isset( $_POST[ $meta_key ] ) ) {
+				// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized below.
+				$val = wp_unslash( $_POST[ $meta_key ] );
+				$val = is_scalar( $val ) ? (string) $val : '';
 
-		$unknown_fields = array();
-
-		if ( ! empty( $existing_structured ) ) {
-			foreach ( $existing_structured as $slug => $info ) {
-				$slug = sanitize_key( $slug );
-				if ( '' === $slug || isset( $known_slugs[ $slug ] ) || isset( $unknown_fields[ $slug ] ) ) {
-					continue;
-				}
-				$meta_key = 'documentate_field_' . $slug;
-				if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-					$val = wp_unslash( $_POST[ $meta_key ] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-					$val = is_scalar( $val ) ? (string) $val : '';
-					$unknown_fields[ $slug ] = array(
-						'type' => 'rich',
-						'value' => $this->sanitize_rich_text_value( $val ),
-					);
-				} else {
-					$type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
-					if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-						$type = 'rich';
-					}
-					$unknown_fields[ $slug ] = array(
-						'type' => $type,
-						'value' => (string) $info['value'],
-					);
-				}
+				$fields[ $slug ] = array(
+					'type' => 'rich',
+					'value' => $this->sanitize_rich_text_value( $val ),
+				);
+				continue;
 			}
+
+			$type = isset( $info['type'] ) ? sanitize_key( $info['type'] ) : 'rich';
+			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+				$type = 'rich';
+			}
+
+			$fields[ $slug ] = array(
+				'type' => $type,
+				'value' => (string) $info['value'],
+			);
 		}
 
-		foreach ( $_POST as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		return $fields;
+	}
+
+	/**
+	 * Add posted field values that neither the schema nor the stored content knew.
+	 *
+	 * @param array $structured_fields Entries the schema produced.
+	 * @param array $unknown_fields    Entries carried over so far.
+	 * @return array<string,array{type:string,value:string}>
+	 */
+	private function compose_posted_fields( array $structured_fields, array $unknown_fields ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		foreach ( $_POST as $key => $value ) {
 			if ( ! is_string( $key ) || ! str_starts_with( $key, 'documentate_field_' ) ) {
 				continue;
 			}
+
 			$slug = sanitize_key( substr( $key, strlen( 'documentate_field_' ) ) );
 			if ( '' === $slug || isset( $structured_fields[ $slug ] ) || isset( $unknown_fields[ $slug ] ) ) {
 				continue;
@@ -2561,31 +2637,38 @@ class Documentate_Documents {
 			if ( is_array( $value ) ) {
 				continue;
 			}
-			$raw_value = wp_unslash( $value ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+			$raw_value = wp_unslash( $value );
 			$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
+
 			$unknown_fields[ $slug ] = array(
 				'type' => 'rich',
 				'value' => $this->sanitize_rich_text_value( $raw_value ),
 			);
 		}
 
-		if ( empty( $structured_fields ) && empty( $unknown_fields ) ) {
-			$data['post_content'] = '';
-			return $data;
-		}
+		return $unknown_fields;
+	}
 
+	/**
+	 * Serialise the composed fields into the stored post_content.
+	 *
+	 * @param array $structured_fields Entries the schema produced.
+	 * @param array $unknown_fields    Entries not declared by the schema.
+	 * @return string Empty string when there is nothing to store.
+	 */
+	private function build_structured_content( array $structured_fields, array $unknown_fields ) {
 		$fragments = array();
+
 		foreach ( $structured_fields as $slug => $info ) {
 			$fragments[] = $this->build_structured_field_fragment( $slug, $info['type'], $info['value'] );
 		}
-		if ( ! empty( $unknown_fields ) ) {
-			foreach ( $unknown_fields as $slug => $info ) {
-				$fragments[] = $this->build_structured_field_fragment( $slug, $info['type'], $info['value'] );
-			}
+
+		foreach ( $unknown_fields as $slug => $info ) {
+			$fragments[] = $this->build_structured_field_fragment( $slug, $info['type'], $info['value'] );
 		}
 
-		$data['post_content'] = implode( "\n\n", $fragments );
-		return $data;
+		return implode( "\n\n", $fragments );
 	}
 
 	/**
