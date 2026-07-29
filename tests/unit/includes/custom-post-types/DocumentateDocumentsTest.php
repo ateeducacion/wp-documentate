@@ -10,6 +10,8 @@ use Documentate\DocType\SchemaStorage;
 /**
  * @covers Documentate_Documents
  */
+use Documentate\Documents\Documents_Meta_Handler;
+
 class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 	/**
@@ -459,7 +461,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_dynamic_fields_schema_for_post via reflection.
+	 * Test get_dynamic_fields_schema_for_post on the meta handler.
 	 */
 	public function test_get_dynamic_fields_schema_for_post_no_type() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
@@ -510,7 +512,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test normalize_html_for_diff via reflection.
+	 * Test normalize_html_for_diff on the meta handler.
 	 */
 	public function test_normalize_html_for_diff() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -539,7 +541,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test is_collaborative_editing_enabled via reflection.
+	 * Test is_collaborative_editing_enabled on the meta handler.
 	 */
 	public function test_is_collaborative_editing_enabled_false() {
 		delete_option( 'documentate_settings' );
@@ -569,7 +571,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_meta_fields_for_post via reflection.
+	 * Test get_meta_fields_for_post on the meta handler.
 	 */
 	public function test_get_meta_fields_for_post_empty() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
@@ -600,7 +602,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test resolve_field_control_type via reflection.
+	 * Test resolve_field_control_type on the meta handler.
 	 */
 	public function test_resolve_field_control_type_array() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -636,7 +638,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_field_description via reflection.
+	 * Test get_field_description on the meta handler.
 	 */
 	public function test_get_field_description() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -660,7 +662,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_field_before_description via reflection.
+	 * Test get_field_before_description on the meta handler.
 	 */
 	public function test_get_field_before_description() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -672,7 +674,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_field_validation_message via reflection.
+	 * Test get_field_validation_message on the meta handler.
 	 */
 	public function test_get_field_validation_message() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -696,7 +698,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_field_title via reflection.
+	 * Test get_field_title on the meta handler.
 	 */
 	public function test_get_field_title() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -708,7 +710,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test map_single_input_type via reflection.
+	 * Test map_single_input_type on the meta handler.
 	 */
 	public function test_map_single_input_type_text() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -819,7 +821,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test build_scalar_input_attributes via reflection.
+	 * Test build_scalar_input_attributes on the meta handler.
 	 */
 	public function test_build_scalar_input_attributes() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -844,7 +846,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test build_input_class via reflection.
+	 * Test build_input_class on the meta handler.
 	 */
 	public function test_build_input_class() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -857,7 +859,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test format_field_attributes via reflection.
+	 * Test format_field_attributes on the meta handler.
 	 */
 	public function test_format_field_attributes() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -876,7 +878,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test parse_select_options via reflection.
+	 * Test parse_select_options on the meta handler.
 	 */
 	public function test_parse_select_options() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -919,7 +921,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_select_placeholder via reflection.
+	 * Test get_select_placeholder on the meta handler.
 	 */
 	public function test_get_select_placeholder() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -933,7 +935,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test is_truthy via reflection.
+	 * Test is_truthy on the meta handler.
 	 */
 	public function test_is_truthy() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -950,12 +952,9 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test normalize_array_item_schema via reflection.
+	 * Test normalize_array_item_schema on the meta handler.
 	 */
 	public function test_normalize_array_item_schema() {
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'normalize_array_item_schema' );
-		$method->setAccessible( true );
 
 		$definition = array(
 			'item_schema' => array(
@@ -964,7 +963,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 			),
 		);
 
-		$result = $method->invoke( $this->documents, $definition );
+		$result = Documents_Meta_Handler::normalize_array_item_schema( $definition );
 
 		$this->assertArrayHasKey( 'title', $result );
 		$this->assertArrayHasKey( 'content', $result );
@@ -976,18 +975,15 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	 * Test normalize_array_item_schema with empty definition.
 	 */
 	public function test_normalize_array_item_schema_empty() {
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'normalize_array_item_schema' );
-		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, array() );
+		$result = Documents_Meta_Handler::normalize_array_item_schema( array() );
 
 		$this->assertArrayHasKey( 'content', $result );
 		$this->assertSame( 'textarea', $result['content']['type'] );
 	}
 
 	/**
-	 * Test get_raw_schema_for_post via reflection.
+	 * Test get_raw_schema_for_post on the meta handler.
 	 */
 	public function test_get_raw_schema_for_post() {
 		// Use unique term name to avoid conflicts.
@@ -1208,7 +1204,7 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test get_structured_field_values via static method.
+	 * Test get_structured_field_values on the meta handler.
 	 */
 	public function test_get_structured_field_values() {
 		$post = $this->factory->post->create_and_get(
@@ -1218,11 +1214,8 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 			)
 		);
 
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'get_structured_field_values' );
-		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, $post->ID );
+		$result = Documents_Meta_Handler::get_structured_field_values( $post->ID );
 
 		$this->assertIsArray( $result );
 	}
@@ -1496,7 +1489,7 @@ HTML;
 	}
 
 	/**
-	 * Test sanitize_rich_text_value via reflection.
+	 * Test sanitize_rich_text_value on the meta handler.
 	 */
 	public function test_sanitize_rich_text_value_empty() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -1584,7 +1577,7 @@ HTML;
 	}
 
 	/**
-	 * Test normalize_literal_line_endings via reflection.
+	 * Test normalize_literal_line_endings on the meta handler.
 	 */
 	public function test_normalize_literal_line_endings() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -1599,7 +1592,7 @@ HTML;
 	}
 
 	/**
-	 * Test remove_linebreak_artifacts via reflection.
+	 * Test remove_linebreak_artifacts on the meta handler.
 	 */
 	public function test_remove_linebreak_artifacts() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -1613,7 +1606,7 @@ HTML;
 	}
 
 	/**
-	 * Test sanitize_array_field_items via reflection.
+	 * Test sanitize_array_field_items on the meta handler.
 	 */
 	public function test_sanitize_array_field_items_empty() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -1666,14 +1659,11 @@ HTML;
 	}
 
 	/**
-	 * Test get_array_field_items_from_structured via reflection.
+	 * Test get_array_field_items_from_structured on the meta handler.
 	 */
 	public function test_get_array_field_items_from_structured_empty() {
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'get_array_field_items_from_structured' );
-		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, array() );
+		$result = Documents_Meta_Handler::get_array_field_items_from_structured( array() );
 		$this->assertIsArray( $result );
 		$this->assertEmpty( $result );
 	}
@@ -1682,29 +1672,23 @@ HTML;
 	 * Test get_array_field_items_from_structured with value.
 	 */
 	public function test_get_array_field_items_from_structured_with_value() {
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'get_array_field_items_from_structured' );
-		$method->setAccessible( true );
 
 		$entry = array(
 			'type' => 'array',
 			'value' => json_encode( array( array( 'title' => 'Item 1' ) ) ),
 		);
 
-		$result = $method->invoke( $this->documents, $entry );
+		$result = Documents_Meta_Handler::get_array_field_items_from_structured( $entry );
 		$this->assertCount( 1, $result );
 		$this->assertSame( 'Item 1', $result[0]['title'] );
 	}
 
 	/**
-	 * Test humanize_unknown_field_label via reflection.
+	 * Test humanize_unknown_field_label on the meta handler.
 	 */
 	public function test_humanize_unknown_field_label() {
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'humanize_unknown_field_label' );
-		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, 'documentate_field_my_test_field' );
+		$result = Documents_Meta_Handler::humanize_unknown_field_label( 'documentate_field_my_test_field' );
 		$this->assertStringContainsString( 'My', $result );
 		$this->assertStringContainsString( 'Test', $result );
 		$this->assertStringContainsString( 'Field', $result );
@@ -1714,16 +1698,13 @@ HTML;
 	 * Test humanize_unknown_field_label with empty.
 	 */
 	public function test_humanize_unknown_field_label_empty() {
-		$reflection = new ReflectionClass( $this->documents );
-		$method = $reflection->getMethod( 'humanize_unknown_field_label' );
-		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, 'documentate_field_' );
+		$result = Documents_Meta_Handler::humanize_unknown_field_label( 'documentate_field_' );
 		$this->assertSame( 'documentate_field_', $result );
 	}
 
 	/**
-	 * Test build_structured_field_fragment via reflection.
+	 * Test build_structured_field_fragment on the meta handler.
 	 */
 	public function test_build_structured_field_fragment() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -1750,7 +1731,7 @@ HTML;
 	}
 
 	/**
-	 * Test get_field_pattern_message via reflection.
+	 * Test get_field_pattern_message on the meta handler.
 	 */
 	public function test_get_field_pattern_message() {
 		$reflection = new ReflectionClass( $this->documents );
@@ -1790,7 +1771,7 @@ HTML;
 	}
 
 	/**
-	 * Test collect_unknown_dynamic_fields via reflection.
+	 * Test collect_unknown_dynamic_fields on the meta handler.
 	 */
 	public function test_collect_unknown_dynamic_fields_empty() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
@@ -2897,7 +2878,7 @@ HTML;
 	}
 
 	/**
-	 * Test is_collaborative_editing_enabled via reflection.
+	 * Test is_collaborative_editing_enabled on the meta handler.
 	 */
 	public function test_is_collaborative_editing_enabled() {
 		$reflection = new ReflectionClass( $this->documents );

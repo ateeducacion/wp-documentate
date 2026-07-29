@@ -19,6 +19,13 @@ use Documentate\DocType\SchemaStorage;
  */
 class Documents_Meta_Handler {
 	/**
+	 * Hard cap on how many rows a repeater stores.
+	 *
+	 * @var int
+	 */
+	const ARRAY_FIELD_MAX_ITEMS = 20;
+
+	/**
 	 * Parse the structured post_content string into slug/value pairs.
 	 *
 	 * @param string $content Raw post content.
@@ -274,5 +281,223 @@ class Documents_Meta_Handler {
 			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
 		}
 		return ucwords( $slug );
+	}
+	/**
+	 * Decode a structured JSON value into array items.
+	 *
+	 * @param string $value JSON encoded string.
+	 * @return array<int, array<string, string>>
+	 */
+	public static function decode_array_field_value( $value ) {
+		$value = (string) $value;
+		if ( '' === trim( $value ) ) {
+			return array();
+		}
+
+		// WordPress may double-encode HTML entities when saving to meta.
+		// Decode them before attempting to parse as JSON.
+		if ( false !== strpos( $value, '&' ) ) {
+			$value = wp_specialchars_decode( $value, ENT_QUOTES );
+		}
+
+		// The value should be valid JSON encoded with JSON_HEX flags.
+		// JSON_HEX_QUOT/TAG/AMP/APOS encode special characters as \uXXXX sequences.
+		// These are standard JSON and will be decoded correctly by json_decode.
+		$decoded = json_decode( $value, true );
+
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+
+		$items = array();
+		foreach ( $decoded as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$normalized = array();
+			foreach ( $item as $key => $val ) {
+				$normalized[ sanitize_key( $key ) ] = is_scalar( $val )
+					? (string) self::fix_unescaped_unicode_sequences( (string) $val )
+					: '';
+			}
+			$items[] = $normalized;
+		}
+
+		return array_slice( $items, 0, self::ARRAY_FIELD_MAX_ITEMS );
+	}
+	/**
+	 * Create a human readable label for an unknown dynamic field meta key.
+	 *
+	 * @param string $meta_key Meta key.
+	 * @return string
+	 */
+	public static function humanize_unknown_field_label( $meta_key ) {
+		$slug = str_replace( 'documentate_field_', '', (string) $meta_key );
+		$slug = str_replace( array( '-', '_' ), ' ', $slug );
+		$slug = trim( preg_replace( '/\s+/', ' ', $slug ) );
+		if ( '' === $slug ) {
+			return (string) $meta_key;
+		}
+		if ( function_exists( 'mb_convert_case' ) ) {
+			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
+		}
+		return ucwords( $slug );
+	}
+	/**
+	 * Read a repeater field from meta as a JSON string.
+	 *
+	 * Falls back to the pre-JSON meta keys, including the historical
+	 * documentate_annexes one, so older documents keep their rows.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $slug    Sanitized field slug.
+	 * @return string JSON payload, or an empty string when nothing is stored.
+	 */
+	public static function read_array_field_from_meta( $post_id, $slug ) {
+		$stored = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
+		if ( is_string( $stored ) && '' !== $stored ) {
+			return (string) $stored;
+		}
+
+		$legacy = get_post_meta( $post_id, 'documentate_' . $slug, true );
+		if ( empty( $legacy ) && 'annexes' === $slug ) {
+			$legacy = get_post_meta( $post_id, 'documentate_annexes', true );
+		}
+
+		if ( is_array( $legacy ) && ! empty( $legacy ) ) {
+			return (string) wp_json_encode( $legacy, JSON_UNESCAPED_UNICODE );
+		}
+
+		return '';
+	}
+	/**
+	 * Normalize the item schema for an array field definition.
+	 *
+	 * @param array $definition Field definition from the schema.
+	 * @return array<string, array{label:string,type:string,data_type:string}>
+	 */
+	public static function normalize_array_item_schema( $definition ) {
+		$schema = array();
+
+		if ( isset( $definition['item_schema'] ) && is_array( $definition['item_schema'] ) ) {
+			foreach ( $definition['item_schema'] as $key => $item ) {
+				$item_key = sanitize_key( $key );
+				if ( '' === $item_key ) {
+					continue;
+				}
+
+				$label = isset( $item['label'] )
+					? sanitize_text_field( $item['label'] )
+					: self::humanize_unknown_field_label( $item_key );
+				$type = isset( $item['type'] ) ? sanitize_key( $item['type'] ) : 'textarea';
+				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+					$type = 'textarea';
+				}
+
+				$data_type = isset( $item['data_type'] ) ? sanitize_key( $item['data_type'] ) : 'text';
+				if ( ! in_array( $data_type, array( 'text', 'number', 'boolean', 'date' ), true ) ) {
+					$data_type = 'text';
+				}
+
+				$schema[ $item_key ] = array(
+					'label' => $label,
+					'type' => $type,
+					'data_type' => $data_type,
+				);
+			}
+		}
+
+		if ( empty( $schema ) ) {
+			$schema['content'] = array(
+				'label' => __( 'Content', 'documentate' ),
+				'type' => 'textarea',
+				'data_type' => 'text',
+			);
+		}
+
+		return $schema;
+	}
+	/**
+	 * Rebuild field values from post meta.
+	 *
+	 * Used for documents saved before the values moved into post_content, so
+	 * the editor still shows what was stored back then.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array<string, array{value:string,type:string}>
+	 */
+	public static function build_field_values_from_meta( $post_id ) {
+		$fallback = array();
+
+		foreach ( self::get_dynamic_fields_schema_for_post( $post_id ) as $row ) {
+			$slug = ! empty( $row['slug'] ) ? sanitize_key( $row['slug'] ) : '';
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			$value = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
+			if ( '' === $value ) {
+				continue;
+			}
+
+			$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
+
+			if ( 'array' === $type ) {
+				$encoded = self::read_array_field_from_meta( $post_id, $slug );
+				if ( '' !== $encoded ) {
+					$fallback[ $slug ] = array(
+						'value' => $encoded,
+						'type' => 'array',
+					);
+				}
+				continue;
+			}
+
+			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+				$type = 'textarea';
+			}
+
+			$fallback[ $slug ] = array(
+				'value' => (string) $value,
+				'type' => $type,
+			);
+		}
+
+		return $fallback;
+	}
+	/**
+	 * Retrieve structured field values stored in post_content.
+	 *
+	 * Falls back to dynamic meta keys when the content has not been migrated yet.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array<string, array{value:string,type:string}>
+	 */
+	public static function get_structured_field_values( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post ) {
+			return array();
+		}
+
+		$fields = self::parse_structured_content( $post->post_content );
+		if ( ! empty( $fields ) ) {
+			return $fields;
+		}
+
+		return self::build_field_values_from_meta( $post_id );
+	}
+	/**
+	 * Decode stored structured field data into array items.
+	 *
+	 * @param array $entry Structured entry with type/value keys.
+	 * @return array<int, array<string, string>>
+	 */
+	public static function get_array_field_items_from_structured( $entry ) {
+		if ( ! is_array( $entry ) ) {
+			return array();
+		}
+
+		$value = isset( $entry['value'] ) ? (string) $entry['value'] : '';
+		return self::decode_array_field_value( $value );
 	}
 }

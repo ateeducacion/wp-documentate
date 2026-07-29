@@ -52,7 +52,20 @@ class Documentate_Documents {
 	/**
 	 * Maximum number of items allowed per array field.
 	 */
-	const ARRAY_FIELD_MAX_ITEMS = 20;
+	/**
+	 * Decode a stored repeater value into its rows.
+	 *
+	 * Kept here as the published entry point; the implementation lives with the
+	 * rest of the field-value reading in Documents_Meta_Handler.
+	 *
+	 * @param string $value Stored JSON value.
+	 * @return array
+	 */
+	public static function decode_array_field_value( $value ) {
+		return Documents_Meta_Handler::decode_array_field_value( $value );
+	}
+
+	const ARRAY_FIELD_MAX_ITEMS = Documents_Meta_Handler::ARRAY_FIELD_MAX_ITEMS;
 
 	/**
 	 * Check if collaborative editing is enabled in settings.
@@ -459,7 +472,7 @@ class Documentate_Documents {
 			return;
 		}
 
-		$stored_fields = $this->get_structured_field_values( $post->ID );
+		$stored_fields = Documents_Meta_Handler::get_structured_field_values( $post->ID );
 		$known_meta_keys = array();
 
 		echo '<div class="documentate-sections">';
@@ -625,7 +638,7 @@ class Documentate_Documents {
 			$slug,
 			$label,
 			$title_attribute,
-			$this->normalize_array_item_schema( $row ),
+			Documents_Meta_Handler::normalize_array_item_schema( $row ),
 			$items,
 			$raw_repeater
 		);
@@ -650,7 +663,7 @@ class Documentate_Documents {
 			&& isset( $stored_fields[ $slug ]['type'] )
 			&& 'array' === $stored_fields[ $slug ]['type']
 		) {
-			$items = $this->get_array_field_items_from_structured( $stored_fields[ $slug ] );
+			$items = Documents_Meta_Handler::get_array_field_items_from_structured( $stored_fields[ $slug ] );
 		}
 
 		return empty( $items ) ? array( array() ) : $items;
@@ -1556,55 +1569,6 @@ class Documentate_Documents {
 	private function is_truthy( $value ) {
 		return Documents_Field_Validator::is_truthy( $value );
 	}
-
-	/**
-	 * Normalize the item schema for an array field definition.
-	 *
-	 * @param array $definition Field definition from the schema.
-	 * @return array<string, array{label:string,type:string,data_type:string}>
-	 */
-	private function normalize_array_item_schema( $definition ) {
-		$schema = array();
-
-		if ( isset( $definition['item_schema'] ) && is_array( $definition['item_schema'] ) ) {
-			foreach ( $definition['item_schema'] as $key => $item ) {
-				$item_key = sanitize_key( $key );
-				if ( '' === $item_key ) {
-					continue;
-				}
-
-				$label = isset( $item['label'] )
-					? sanitize_text_field( $item['label'] )
-					: $this->humanize_unknown_field_label( $item_key );
-				$type = isset( $item['type'] ) ? sanitize_key( $item['type'] ) : 'textarea';
-				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-					$type = 'textarea';
-				}
-
-				$data_type = isset( $item['data_type'] ) ? sanitize_key( $item['data_type'] ) : 'text';
-				if ( ! in_array( $data_type, array( 'text', 'number', 'boolean', 'date' ), true ) ) {
-					$data_type = 'text';
-				}
-
-				$schema[ $item_key ] = array(
-					'label' => $label,
-					'type' => $type,
-					'data_type' => $data_type,
-				);
-			}
-		}
-
-		if ( empty( $schema ) ) {
-			$schema['content'] = array(
-				'label' => __( 'Content', 'documentate' ),
-				'type' => 'textarea',
-				'data_type' => 'text',
-			);
-		}
-
-		return $schema;
-	}
-
 	/**
 	 * Render an array field with repeatable items.
 	 *
@@ -1734,7 +1698,7 @@ class Documentate_Documents {
 		$raw_field = isset( $raw_fields[ $item_key ] ) ? $raw_fields[ $item_key ] : array();
 
 		return array_merge(
-			$this->prepare_field_control( $definition, $raw_field, $this->humanize_unknown_field_label( $item_key ) ),
+			$this->prepare_field_control( $definition, $raw_field, Documents_Meta_Handler::humanize_unknown_field_label( $item_key ) ),
 			array(
 				'item_key' => $item_key,
 				'field_name' => 'tpl_fields[' . $slug . '][' . $index_attr . '][' . $item_key . ']',
@@ -2112,7 +2076,7 @@ class Documentate_Documents {
 			return array();
 		}
 
-		$schema = $this->normalize_array_item_schema( $definition );
+		$schema = Documents_Meta_Handler::normalize_array_item_schema( $definition );
 		$clean = array();
 
 		foreach ( $items as $item ) {
@@ -2175,66 +2139,6 @@ class Documentate_Documents {
 
 		return false;
 	}
-
-	/**
-	 * Decode stored structured field data into array items.
-	 *
-	 * @param array $entry Structured entry with type/value keys.
-	 * @return array<int, array<string, string>>
-	 */
-	private function get_array_field_items_from_structured( $entry ) {
-		if ( ! is_array( $entry ) ) {
-			return array();
-		}
-
-		$value = isset( $entry['value'] ) ? (string) $entry['value'] : '';
-		return self::decode_array_field_value( $value );
-	}
-
-	/**
-	 * Decode a structured JSON value into array items.
-	 *
-	 * @param string $value JSON encoded string.
-	 * @return array<int, array<string, string>>
-	 */
-	public static function decode_array_field_value( $value ) {
-		$value = (string) $value;
-		if ( '' === trim( $value ) ) {
-			return array();
-		}
-
-		// WordPress may double-encode HTML entities when saving to meta.
-		// Decode them before attempting to parse as JSON.
-		if ( false !== strpos( $value, '&' ) ) {
-			$value = wp_specialchars_decode( $value, ENT_QUOTES );
-		}
-
-		// The value should be valid JSON encoded with JSON_HEX flags.
-		// JSON_HEX_QUOT/TAG/AMP/APOS encode special characters as \uXXXX sequences.
-		// These are standard JSON and will be decoded correctly by json_decode.
-		$decoded = json_decode( $value, true );
-
-		if ( ! is_array( $decoded ) ) {
-			return array();
-		}
-
-		$items = array();
-		foreach ( $decoded as $item ) {
-			if ( ! is_array( $item ) ) {
-				continue;
-			}
-			$normalized = array();
-			foreach ( $item as $key => $val ) {
-				$normalized[ sanitize_key( $key ) ] = is_scalar( $val )
-					? (string) self::fix_unescaped_unicode_sequences( (string) $val )
-					: '';
-			}
-			$items[] = $normalized;
-		}
-
-		return array_slice( $items, 0, self::ARRAY_FIELD_MAX_ITEMS );
-	}
-
 	/**
 	 * Save meta box values.
 	 *
@@ -2586,7 +2490,7 @@ class Documentate_Documents {
 			isset( $existing_structured[ $slug ]['type'] )
 			&& 'array' === $existing_structured[ $slug ]['type']
 		) {
-			$items = $this->get_array_field_items_from_structured( $existing_structured[ $slug ] );
+			$items = Documents_Meta_Handler::get_array_field_items_from_structured( $existing_structured[ $slug ] );
 		}
 
 		// Encoded with the same flags as the meta copy, so both representations
@@ -2764,7 +2668,7 @@ class Documentate_Documents {
 				$existing_structured = self::parse_structured_content( $current_content );
 			}
 			if ( empty( $existing_structured ) ) {
-				$existing_structured = $this->get_structured_field_values( $post_id );
+				$existing_structured = Documents_Meta_Handler::get_structured_field_values( $post_id );
 			}
 		}
 		return $existing_structured;
@@ -2806,106 +2710,6 @@ class Documentate_Documents {
 			'value' => (string) $value,
 		);
 	}
-
-	/**
-	 * Retrieve structured field values stored in post_content.
-	 *
-	 * Falls back to dynamic meta keys when the content has not been migrated yet.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return array<string, array{value:string,type:string}>
-	 */
-	private function get_structured_field_values( $post_id ) {
-		$post = get_post( $post_id );
-		if ( ! $post ) {
-			return array();
-		}
-
-		$fields = self::parse_structured_content( $post->post_content );
-		if ( ! empty( $fields ) ) {
-			return $fields;
-		}
-
-		return $this->build_field_values_from_meta( $post_id );
-	}
-
-	/**
-	 * Rebuild field values from post meta.
-	 *
-	 * Used for documents saved before the values moved into post_content, so
-	 * the editor still shows what was stored back then.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return array<string, array{value:string,type:string}>
-	 */
-	private function build_field_values_from_meta( $post_id ) {
-		$fallback = array();
-
-		foreach ( $this->get_dynamic_fields_schema_for_post( $post_id ) as $row ) {
-			$slug = ! empty( $row['slug'] ) ? sanitize_key( $row['slug'] ) : '';
-			if ( '' === $slug ) {
-				continue;
-			}
-
-			$value = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
-			if ( '' === $value ) {
-				continue;
-			}
-
-			$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
-
-			if ( 'array' === $type ) {
-				$encoded = $this->read_array_field_from_meta( $post_id, $slug );
-				if ( '' !== $encoded ) {
-					$fallback[ $slug ] = array(
-						'value' => $encoded,
-						'type' => 'array',
-					);
-				}
-				continue;
-			}
-
-			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-				$type = 'textarea';
-			}
-
-			$fallback[ $slug ] = array(
-				'value' => (string) $value,
-				'type' => $type,
-			);
-		}
-
-		return $fallback;
-	}
-
-	/**
-	 * Read a repeater field from meta as a JSON string.
-	 *
-	 * Falls back to the pre-JSON meta keys, including the historical
-	 * documentate_annexes one, so older documents keep their rows.
-	 *
-	 * @param int    $post_id Post ID.
-	 * @param string $slug    Sanitized field slug.
-	 * @return string JSON payload, or an empty string when nothing is stored.
-	 */
-	private function read_array_field_from_meta( $post_id, $slug ) {
-		$stored = get_post_meta( $post_id, 'documentate_field_' . $slug, true );
-		if ( is_string( $stored ) && '' !== $stored ) {
-			return (string) $stored;
-		}
-
-		$legacy = get_post_meta( $post_id, 'documentate_' . $slug, true );
-		if ( empty( $legacy ) && 'annexes' === $slug ) {
-			$legacy = get_post_meta( $post_id, 'documentate_annexes', true );
-		}
-
-		if ( is_array( $legacy ) && ! empty( $legacy ) ) {
-			return (string) wp_json_encode( $legacy, JSON_UNESCAPED_UNICODE );
-		}
-
-		return '';
-	}
-
 	/**
 	 * Parse the structured post_content string into slug/value pairs.
 	 *
@@ -3009,7 +2813,7 @@ class Documentate_Documents {
 		}
 
 		if ( $post_id > 0 ) {
-			$stored = $this->get_structured_field_values( $post_id );
+			$stored = Documents_Meta_Handler::get_structured_field_values( $post_id );
 			if ( ! empty( $stored ) ) {
 				foreach ( $stored as $slug => $info ) {
 					$meta_key = $prefix . sanitize_key( $slug );
@@ -3048,7 +2852,7 @@ class Documentate_Documents {
 				. '</div>';
 
 		foreach ( $unknown_fields as $meta_key => $data ) {
-			$label = $this->humanize_unknown_field_label( $meta_key );
+			$label = Documents_Meta_Handler::humanize_unknown_field_label( $meta_key );
 			$value = '';
 			if ( isset( $data['value'] ) && is_string( $data['value'] ) ) {
 				$value = wp_kses_post( $data['value'] );
@@ -3085,60 +2889,6 @@ class Documentate_Documents {
 
 		echo '</div>';
 	}
-
-	/**
-	 * Create a human readable label for an unknown dynamic field meta key.
-	 *
-	 * @param string $meta_key Meta key.
-	 * @return string
-	 */
-	private function humanize_unknown_field_label( $meta_key ) {
-		$slug = str_replace( 'documentate_field_', '', (string) $meta_key );
-		$slug = str_replace( array( '-', '_' ), ' ', $slug );
-		$slug = trim( preg_replace( '/\s+/', ' ', $slug ) );
-		if ( '' === $slug ) {
-			return (string) $meta_key;
-		}
-		if ( function_exists( 'mb_convert_case' ) ) {
-			return mb_convert_case( $slug, MB_CASE_TITLE, 'UTF-8' );
-		}
-		return ucwords( $slug );
-	}
-
-	/**
-	 * Recover accidentally unescaped Unicode sequences (e.g., u00e1) in strings.
-	 *
-	 * This is a defensive fix for cases where JSON sequences like \\u00e1 lost their
-	 * leading backslash due to slashing/unslashing during persistence. If a string
-	 * contains patterns matching u00XXXX, convert them back to their UTF-8 chars.
-	 *
-	 * @param string $text Input text.
-	 * @return string
-	 */
-	private static function fix_unescaped_unicode_sequences( $text ) {
-		if ( ! is_string( $text ) || false === strpos( $text, 'u00' ) ) {
-			return $text;
-		}
-
-		$callback = static function ( $m ) {
-			$hex = $m[1];
-			if ( 4 !== strlen( $hex ) ) {
-				return $m[0];
-			}
-			$code = hexdec( $hex );
-			$utf16 = pack( 'n', $code );
-			if ( function_exists( 'mb_convert_encoding' ) ) {
-				return mb_convert_encoding( $utf16, 'UTF-8', 'UTF-16BE' );
-			}
-			if ( function_exists( 'iconv' ) ) {
-				return (string) iconv( 'UTF-16BE', 'UTF-8', $utf16 );
-			}
-			return $m[0];
-		};
-
-		return (string) preg_replace_callback( '/u([0-9a-fA-F]{4})/i', $callback, $text );
-	}
-
 	/**
 	 * Disable WordPress' native category dropdown for the documents list table.
 	 *

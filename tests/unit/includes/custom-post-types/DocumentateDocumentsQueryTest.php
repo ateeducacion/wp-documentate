@@ -8,6 +8,8 @@
  * @covers Documentate_Documents
  */
 
+use Documentate\Documents\Documents_Meta_Handler;
+
 class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 
 	/**
@@ -178,7 +180,7 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 
 		$this->assertSame(
 			'[{"n":"I"}]',
-			$this->invoke( 'read_array_field_from_meta', array( $post_id, 'anexos' ) )
+			Documents_Meta_Handler::read_array_field_from_meta( $post_id, 'anexos' )
 		);
 	}
 
@@ -189,7 +191,7 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create();
 		update_post_meta( $post_id, 'documentate_temas', array( array( 'n' => 'I' ) ) );
 
-		$json = $this->invoke( 'read_array_field_from_meta', array( $post_id, 'temas' ) );
+		$json = Documents_Meta_Handler::read_array_field_from_meta( $post_id, 'temas' );
 
 		$this->assertSame( array( array( 'n' => 'I' ) ), json_decode( $json, true ) );
 	}
@@ -201,7 +203,7 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create();
 		update_post_meta( $post_id, 'documentate_annexes', array( array( 'n' => 'II' ) ) );
 
-		$json = $this->invoke( 'read_array_field_from_meta', array( $post_id, 'annexes' ) );
+		$json = Documents_Meta_Handler::read_array_field_from_meta( $post_id, 'annexes' );
 
 		$this->assertSame( array( array( 'n' => 'II' ) ), json_decode( $json, true ) );
 	}
@@ -212,7 +214,7 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 	public function test_array_field_read_returns_empty_when_absent() {
 		$post_id = self::factory()->post->create();
 
-		$this->assertSame( '', $this->invoke( 'read_array_field_from_meta', array( $post_id, 'nada' ) ) );
+		$this->assertSame( '', Documents_Meta_Handler::read_array_field_from_meta( $post_id, 'nada' ) );
 	}
 
 	/**
