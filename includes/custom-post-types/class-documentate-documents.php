@@ -653,156 +653,10 @@ class Documentate_Documents {
 		echo '<table class="form-table"><tbody>';
 
 		foreach ( $schema as $row ) {
-			if ( empty( $row['slug'] ) || empty( $row['label'] ) ) {
-				continue;
-			}
-
-			$slug = sanitize_key( $row['slug'] );
-			$label = sanitize_text_field( $row['label'] );
-
-			if ( '' === $slug || '' === $label ) {
-				continue;
-			}
-
-			if ( 'post_title' === $slug ) {
-				$known_meta_keys[] = 'documentate_field_' . $slug;
-				// Let WordPress handle the native title field.
-				continue;
-			}
-
-			$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
-			$raw_field = isset( $raw_fields[ $slug ] ) ? $raw_fields[ $slug ] : array();
-			$field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
-			$data_type = isset( $row['data_type'] ) ? sanitize_key( $row['data_type'] ) : '';
-			$type = $this->resolve_field_control_type( $type, $raw_field );
-			$field_title = $this->get_field_title( $raw_field );
-			if ( '' !== $field_title ) {
-				$label = $field_title;
-			}
-			$field_title_attribute = $this->get_field_pattern_message( $raw_field );
-			if ( '' === $field_title_attribute ) {
-				$field_title_attribute = $field_title;
-			}
-
-			if ( 'array' === $type ) {
-				$item_schema = $this->normalize_array_item_schema( $row );
-				$items = array();
-				$raw_repeater = isset( $raw_schema['repeaters'][ $slug ] ) && is_array( $raw_schema['repeaters'][ $slug ] )
-					? $raw_schema['repeaters'][ $slug ]
-					: array();
-				$repeater_source = isset( $raw_repeater['definition'] ) ? $raw_repeater['definition'] : array();
-				$repeater_title = $this->get_field_title( $repeater_source );
-				if ( '' !== $repeater_title ) {
-					$label = $repeater_title;
-				}
-				$repeater_title_attribute = $this->get_field_pattern_message( $repeater_source );
-				if ( '' === $repeater_title_attribute ) {
-					$repeater_title_attribute = $repeater_title;
-				}
-
-				// Mark repeater meta key as known so it does not appear under unknown fields.
-				$meta_key = 'documentate_field_' . $slug;
+			$meta_key = $this->render_schema_row( $post, $row, $raw_schema, $raw_fields, $stored_fields );
+			if ( '' !== $meta_key ) {
 				$known_meta_keys[] = $meta_key;
-
-				if (
-					isset( $stored_fields[ $slug ] )
-					&& isset( $stored_fields[ $slug ]['type'] )
-					&& 'array' === $stored_fields[ $slug ]['type']
-				) {
-					$items = $this->get_array_field_items_from_structured( $stored_fields[ $slug ] );
-				}
-
-				if ( empty( $items ) ) {
-					$items = array( array() );
-				}
-
-				$before_description = $this->get_before_description_context( $meta_key, $slug, $raw_field );
-				$description = $this->get_field_description( $raw_field );
-				$validation = $this->get_field_validation_message( $raw_field );
-
-				echo '<tr class="documentate-field documentate-field-array documentate-field-' . esc_attr( $slug ) . '">';
-				echo '<th scope="row"><label';
-				if ( '' !== $repeater_title_attribute ) {
-					echo ' title="' . esc_attr( $repeater_title_attribute ) . '"';
-				}
-				echo '>' . esc_html( $label ) . '</label></th>';
-				echo '<td>';
-				$this->render_before_description( $before_description );
-				$this->render_array_field( $slug, $label, $item_schema, $items, $raw_repeater );
-				if ( '' !== $description ) {
-					echo '<p class="description">' . esc_html( $description ) . '</p>';
-				}
-				if ( '' !== $validation ) {
-					echo '<p class="description documentate-field-validation" data-documentate-validation-message="true">'
-							. esc_html( $validation )
-							. '</p>';
-				}
-				echo '</td></tr>';
-				continue;
 			}
-
-			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-				$type = 'textarea';
-			}
-
-			$meta_key = 'documentate_field_' . $slug;
-			$known_meta_keys[] = $meta_key;
-			$value = '';
-
-			if ( isset( $stored_fields[ $slug ] ) ) {
-				$value = (string) $stored_fields[ $slug ]['value'];
-			}
-
-			$before_description = $this->get_before_description_context( $meta_key, $slug, $raw_field );
-			$description = $this->get_field_description( $raw_field );
-			$validation = $this->get_field_validation_message( $raw_field );
-			$description_id = '' !== $description ? $meta_key . '-description' : '';
-			$validation_id = '' !== $validation ? $meta_key . '-validation' : '';
-			$describedby = $this->build_describedby_ids( $before_description['id'], $description_id, $validation_id );
-
-			echo '<tr class="documentate-field documentate-field-'
-					. esc_attr( $slug )
-					. ' documentate-field-control-'
-					. esc_attr( $type )
-					. '">';
-			echo '<th scope="row"><label for="' . esc_attr( $meta_key ) . '"';
-			if ( '' !== $field_title_attribute ) {
-				echo ' title="' . esc_attr( $field_title_attribute ) . '"';
-			}
-			echo '>' . esc_html( $label ) . '</label></th>';
-			echo '<td>';
-			$this->render_before_description( $before_description );
-
-			if ( 'single' === $type ) {
-				$this->render_single_input_control(
-					$meta_key,
-					$label,
-					$value,
-					$field_type,
-					$data_type,
-					$raw_field,
-					$describedby,
-					$validation,
-				);
-			} elseif ( 'rich' === $type ) {
-				$is_locked = in_array( $post->post_status, array( 'publish', 'archived' ), true );
-				$this->render_rich_editor_control( $meta_key, $value, $is_locked, $raw_field, $describedby, $validation );
-			} else {
-				$this->render_textarea_control( $meta_key, $value, $raw_field, $describedby, $validation );
-			}
-
-			if ( '' !== $description ) {
-				echo '<p id="' . esc_attr( $description_id ) . '" class="description">' . esc_html( $description ) . '</p>';
-			}
-			if ( '' !== $validation ) {
-				echo '<p id="'
-						. esc_attr( $validation_id )
-						. '" class="description documentate-field-validation" data-documentate-validation-message="true">'
-						. esc_html( $validation )
-						. '</p>';
-			}
-
-			echo '</td></tr>';
 		}
 
 		echo '</tbody></table>';
@@ -810,6 +664,229 @@ class Documentate_Documents {
 		$unknown = $this->collect_unknown_dynamic_fields( $post->ID, $known_meta_keys );
 		$this->render_unknown_dynamic_fields_ui( $unknown );
 		echo '</div>';
+	}
+
+	/**
+	 * Normalize one schema row into the values its control needs.
+	 *
+	 * Rows without a usable slug and label are dropped here rather than in the
+	 * render loop, so the caller deals with fields it can actually draw.
+	 *
+	 * @param array $row        Raw schema row.
+	 * @param array $raw_fields Raw field definitions, keyed by slug.
+	 * @return array|null Null when the row cannot be rendered.
+	 */
+	private function prepare_schema_row( $row, $raw_fields ) {
+		if ( empty( $row['slug'] ) || empty( $row['label'] ) ) {
+			return null;
+		}
+
+		$slug = sanitize_key( $row['slug'] );
+		$label = sanitize_text_field( $row['label'] );
+		if ( '' === $slug || '' === $label ) {
+			return null;
+		}
+
+		$raw_field = isset( $raw_fields[ $slug ] ) ? $raw_fields[ $slug ] : array();
+		$type = isset( $row['type'] ) ? sanitize_key( $row['type'] ) : 'textarea';
+		$field_title = $this->get_field_title( $raw_field );
+
+		return array(
+			'slug' => $slug,
+			'label' => '' !== $field_title ? $field_title : $label,
+			'type' => $this->resolve_field_control_type( $type, $raw_field ),
+			'field_type' => \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field ),
+			'data_type' => isset( $row['data_type'] ) ? sanitize_key( $row['data_type'] ) : '',
+			'raw_field' => $raw_field,
+			'title_attribute' => $this->resolve_title_attribute( $raw_field, $field_title ),
+		);
+	}
+
+	/**
+	 * Pick the text shown when hovering a field label.
+	 *
+	 * @param array  $raw_field   Raw schema definition for the field.
+	 * @param string $field_title Title already resolved for the field.
+	 * @return string
+	 */
+	private function resolve_title_attribute( $raw_field, $field_title ) {
+		$pattern_message = $this->get_field_pattern_message( $raw_field );
+
+		return '' !== $pattern_message ? $pattern_message : $field_title;
+	}
+
+	/**
+	 * Render one schema row and report the meta key it occupies.
+	 *
+	 * The key is returned even for rows that draw nothing, because the caller
+	 * uses it to decide which stored values still count as unknown fields.
+	 *
+	 * @param WP_Post $post          Post being edited.
+	 * @param array   $row           Raw schema row.
+	 * @param array   $raw_schema    Full raw schema, for repeater definitions.
+	 * @param array   $raw_fields    Raw field definitions, keyed by slug.
+	 * @param array   $stored_fields Structured values stored on the post.
+	 * @return string Meta key claimed by the row, or '' when the row was skipped.
+	 */
+	private function render_schema_row( $post, $row, $raw_schema, $raw_fields, $stored_fields ) {
+		$field = $this->prepare_schema_row( $row, $raw_fields );
+		if ( null === $field ) {
+			return '';
+		}
+
+		$meta_key = 'documentate_field_' . $field['slug'];
+
+		// WordPress draws the native title field itself.
+		if ( 'post_title' === $field['slug'] ) {
+			return $meta_key;
+		}
+
+		if ( 'array' === $field['type'] ) {
+			$this->render_repeater_field_row( $field, $meta_key, $row, $raw_schema, $stored_fields );
+
+			return $meta_key;
+		}
+
+		$this->render_scalar_field_row( $post, $field, $meta_key, $stored_fields );
+
+		return $meta_key;
+	}
+
+	/**
+	 * Render the table row holding a repeater.
+	 *
+	 * @param array  $field         Prepared field from prepare_schema_row().
+	 * @param string $meta_key      Meta key the repeater is stored under.
+	 * @param array  $row           Raw schema row, for the item schema.
+	 * @param array  $raw_schema    Full raw schema, for the repeater definition.
+	 * @param array  $stored_fields Structured values stored on the post.
+	 * @return void
+	 */
+	private function render_repeater_field_row( $field, $meta_key, $row, $raw_schema, $stored_fields ) {
+		$slug = $field['slug'];
+		$raw_repeater = isset( $raw_schema['repeaters'][ $slug ] ) && is_array( $raw_schema['repeaters'][ $slug ] )
+			? $raw_schema['repeaters'][ $slug ]
+			: array();
+		$repeater_source = isset( $raw_repeater['definition'] ) ? $raw_repeater['definition'] : array();
+
+		// A repeater carries its own title, which wins over the field's.
+		$repeater_title = $this->get_field_title( $repeater_source );
+		$label = '' !== $repeater_title ? $repeater_title : $field['label'];
+		$title_attribute = $this->resolve_title_attribute( $repeater_source, $repeater_title );
+
+		$items = $this->get_repeater_rows( $slug, $stored_fields );
+		$help = $this->build_field_help_context( $meta_key, $slug, $field['raw_field'] );
+
+		echo '<tr class="documentate-field documentate-field-array documentate-field-' . esc_attr( $slug ) . '">';
+		echo '<th scope="row"><label';
+		if ( '' !== $title_attribute ) {
+			echo ' title="' . esc_attr( $title_attribute ) . '"';
+		}
+		echo '>' . esc_html( $label ) . '</label></th>';
+		echo '<td>';
+		$this->render_before_description( $help['before'] );
+		$this->render_array_field( $slug, $label, $this->normalize_array_item_schema( $row ), $items, $raw_repeater );
+		$this->render_help_descriptions( $help );
+		echo '</td></tr>';
+	}
+
+	/**
+	 * Read the stored rows of a repeater, falling back to one blank row.
+	 *
+	 * The editor always shows at least one row, so an empty repeater still has
+	 * something to type into.
+	 *
+	 * @param string $slug          Repeater slug.
+	 * @param array  $stored_fields Structured values stored on the post.
+	 * @return array
+	 */
+	private function get_repeater_rows( $slug, $stored_fields ) {
+		$items = array();
+		if (
+			isset( $stored_fields[ $slug ] )
+			&& isset( $stored_fields[ $slug ]['type'] )
+			&& 'array' === $stored_fields[ $slug ]['type']
+		) {
+			$items = $this->get_array_field_items_from_structured( $stored_fields[ $slug ] );
+		}
+
+		return empty( $items ) ? array( array() ) : $items;
+	}
+
+	/**
+	 * Render the table row holding a scalar control.
+	 *
+	 * @param WP_Post $post          Post being edited.
+	 * @param array   $field         Prepared field from prepare_schema_row().
+	 * @param string  $meta_key      Meta key the value is stored under.
+	 * @param array   $stored_fields Structured values stored on the post.
+	 * @return void
+	 */
+	private function render_scalar_field_row( $post, $field, $meta_key, $stored_fields ) {
+		$slug = $field['slug'];
+		$type = in_array( $field['type'], array( 'single', 'textarea', 'rich' ), true ) ? $field['type'] : 'textarea';
+		$value = isset( $stored_fields[ $slug ] ) ? (string) $stored_fields[ $slug ]['value'] : '';
+		$help = $this->build_field_help_context( $meta_key, $slug, $field['raw_field'] );
+
+		echo '<tr class="documentate-field documentate-field-'
+				. esc_attr( $slug )
+				. ' documentate-field-control-'
+				. esc_attr( $type )
+				. '">';
+		echo '<th scope="row"><label for="' . esc_attr( $meta_key ) . '"';
+		if ( '' !== $field['title_attribute'] ) {
+			echo ' title="' . esc_attr( $field['title_attribute'] ) . '"';
+		}
+		echo '>' . esc_html( $field['label'] ) . '</label></th>';
+		echo '<td>';
+		$this->render_before_description( $help['before'] );
+		$this->render_scalar_control( $post, $field, $meta_key, $type, $value, $help );
+		$this->render_help_descriptions( $help );
+		echo '</td></tr>';
+	}
+
+	/**
+	 * Dispatch to the control matching a scalar field's type.
+	 *
+	 * @param WP_Post $post     Post being edited.
+	 * @param array   $field    Prepared field from prepare_schema_row().
+	 * @param string  $meta_key Meta key the value is stored under.
+	 * @param string  $type     Resolved control type.
+	 * @param string  $value    Current value.
+	 * @param array   $help     Context from build_field_help_context().
+	 * @return void
+	 */
+	private function render_scalar_control( $post, $field, $meta_key, $type, $value, $help ) {
+		if ( 'single' === $type ) {
+			$this->render_single_input_control(
+				$meta_key,
+				$field['label'],
+				$value,
+				$field['field_type'],
+				$field['data_type'],
+				$field['raw_field'],
+				$help['describedby'],
+				$help['validation'],
+			);
+
+			return;
+		}
+
+		if ( 'rich' === $type ) {
+			$is_locked = in_array( $post->post_status, array( 'publish', 'archived' ), true );
+			$this->render_rich_editor_control(
+				$meta_key,
+				$value,
+				$is_locked,
+				$field['raw_field'],
+				$help['describedby'],
+				$help['validation']
+			);
+
+			return;
+		}
+
+		$this->render_textarea_control( $meta_key, $value, $field['raw_field'], $help['describedby'], $help['validation'] );
 	}
 
 	/**
