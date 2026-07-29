@@ -11,6 +11,13 @@
 class DocumentateSchemaRowTest extends WP_UnitTestCase {
 
 	/**
+	 * Metabox renderer.
+	 *
+	 * @var Documentate_Document_Meta_Boxes
+	 */
+	private $meta_boxes;
+
+	/**
 	 * Instance under test.
 	 *
 	 * @var Documentate_Document_Meta_Boxes
@@ -27,6 +34,25 @@ class DocumentateSchemaRowTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Find whichever collaborator declares a method.
+	 *
+	 * The CPT was split into a renderer, a saver and an admin-list class, so a
+	 * helper under test may live on any of them.
+	 *
+	 * @param string $name Method name.
+	 * @return object
+	 */
+	private function owner_of( $name ) {
+		foreach ( array( $this->documents, $this->meta_boxes ) as $candidate ) {
+			if ( method_exists( $candidate, $name ) ) {
+				return $candidate;
+			}
+		}
+
+		$this->fail( 'No collaborator declares ' . $name );
+	}
+
+	/**
 	 * Invoke a private method on the instance under test.
 	 *
 	 * @param string $name Method name.
@@ -34,10 +60,11 @@ class DocumentateSchemaRowTest extends WP_UnitTestCase {
 	 * @return mixed
 	 */
 	private function invoke( $name, array $args = array() ) {
-		$method = ( new ReflectionClass( $this->documents ) )->getMethod( $name );
+		$target = $this->owner_of( $name );
+		$method = ( new ReflectionClass( $target ) )->getMethod( $name );
 		$method->setAccessible( true );
 
-		return $method->invokeArgs( $this->documents, $args );
+		return $method->invokeArgs( $target, $args );
 	}
 
 	/**

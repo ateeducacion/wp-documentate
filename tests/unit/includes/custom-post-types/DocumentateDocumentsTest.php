@@ -15,6 +15,20 @@ use Documentate\Documents\Documents_Meta_Handler;
 class DocumentateDocumentsTest extends Documentate_Test_Base {
 
 	/**
+	 * Admin list table behaviour.
+	 *
+	 * @var Documentate_Document_Admin_List
+	 */
+	private $admin_list;
+
+	/**
+	 * Field persistence.
+	 *
+	 * @var Documentate_Document_Meta_Saver
+	 */
+	private $meta_saver;
+
+	/**
 	 * Metabox renderer, which now owns the rendering internals.
 	 *
 	 * @var Documentate_Document_Meta_Boxes
@@ -47,6 +61,8 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		set_current_screen( 'edit-documentate_document' );
 
 		$this->documents = new Documentate_Documents();
+		$this->admin_list = new Documentate_Document_Admin_List();
+		$this->meta_saver = new Documentate_Document_Meta_Saver();
 		$this->meta_boxes = new Documentate_Document_Meta_Boxes();
 	}
 
@@ -474,11 +490,11 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 	public function test_get_dynamic_fields_schema_for_post_no_type() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'get_dynamic_fields_schema_for_post' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, $post->ID );
+		$result = $method->invoke( $this->meta_saver, $post->ID );
 
 		$this->assertEmpty( $result );
 	}
@@ -509,11 +525,11 @@ class DocumentateDocumentsTest extends Documentate_Test_Base {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
 
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'get_dynamic_fields_schema_for_post' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, $post->ID );
+		$result = $method->invoke( $this->meta_saver, $post->ID );
 
 		$this->assertNotEmpty( $result );
 		$this->assertSame( 'dynamic_field', $result[0]['slug'] );
@@ -1500,11 +1516,11 @@ HTML;
 	 * Test sanitize_rich_text_value on the meta handler.
 	 */
 	public function test_sanitize_rich_text_value_empty() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, '' );
+		$result = $method->invoke( $this->meta_saver, '' );
 		$this->assertSame( '', $result );
 	}
 
@@ -1512,12 +1528,12 @@ HTML;
 	 * Test sanitize_rich_text_value strips scripts.
 	 */
 	public function test_sanitize_rich_text_value_strips_scripts() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
 		$input = '<p>Hello</p><script>alert("xss")</script>';
-		$result = $method->invoke( $this->documents, $input );
+		$result = $method->invoke( $this->meta_saver, $input );
 
 		$this->assertStringNotContainsString( '<script', $result );
 		$this->assertStringContainsString( 'Hello', $result );
@@ -1527,12 +1543,12 @@ HTML;
 	 * Test sanitize_rich_text_value strips iframes.
 	 */
 	public function test_sanitize_rich_text_value_strips_iframes() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
 		$input = '<p>Content</p><iframe src="http://evil.com"></iframe>';
-		$result = $method->invoke( $this->documents, $input );
+		$result = $method->invoke( $this->meta_saver, $input );
 
 		$this->assertStringNotContainsString( '<iframe', $result );
 	}
@@ -1543,7 +1559,7 @@ HTML;
 	 * HTML content should be stored as-is (cleanup happens at generation time).
 	 */
 	public function test_sanitize_rich_text_value_preserves_html_structure() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
@@ -1551,7 +1567,7 @@ HTML;
 			. '<ul><li>Item one</li><li>Item two</li></ul>'
 			. '<table><tbody><tr><td>Cell</td></tr></tbody></table>';
 
-		$result = $method->invoke( $this->documents, $input );
+		$result = $method->invoke( $this->meta_saver, $input );
 
 		// All HTML structure should be preserved.
 		$this->assertStringContainsString( '<p>', $result );
@@ -1567,7 +1583,7 @@ HTML;
 	 * Test sanitize_rich_text_value preserves inline formatting.
 	 */
 	public function test_sanitize_rich_text_value_preserves_inline_formatting() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_rich_text_value' );
 		$method->setAccessible( true );
 
@@ -1575,7 +1591,7 @@ HTML;
 			. '<sub>subscript</sub>, <sup>superscript</sup>, '
 			. 'and <a href="https://example.com">links</a>.</p>';
 
-		$result = $method->invoke( $this->documents, $input );
+		$result = $method->invoke( $this->meta_saver, $input );
 
 		$this->assertStringContainsString( '<u>underline</u>', $result );
 		$this->assertStringContainsString( '<s>strikethrough</s>', $result );
@@ -1617,11 +1633,11 @@ HTML;
 	 * Test sanitize_array_field_items on the meta handler.
 	 */
 	public function test_sanitize_array_field_items_empty() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_array_field_items' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, array(), array() );
+		$result = $method->invoke( $this->meta_saver, array(), array() );
 		$this->assertIsArray( $result );
 		$this->assertEmpty( $result );
 	}
@@ -1630,7 +1646,7 @@ HTML;
 	 * Test sanitize_array_field_items with valid items.
 	 */
 	public function test_sanitize_array_field_items_valid() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_array_field_items' );
 		$method->setAccessible( true );
 
@@ -1643,7 +1659,7 @@ HTML;
 			),
 		);
 
-		$result = $method->invoke( $this->documents, $items, $definition );
+		$result = $method->invoke( $this->meta_saver, $items, $definition );
 		$this->assertCount( 1, $result );
 		$this->assertSame( 'Test content', $result[0]['content'] );
 	}
@@ -1652,7 +1668,7 @@ HTML;
 	 * Test sanitize_array_field_items skips empty items.
 	 */
 	public function test_sanitize_array_field_items_skips_empty() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'sanitize_array_field_items' );
 		$method->setAccessible( true );
 
@@ -1662,7 +1678,7 @@ HTML;
 		);
 		$definition = array();
 
-		$result = $method->invoke( $this->documents, $items, $definition );
+		$result = $method->invoke( $this->meta_saver, $items, $definition );
 		$this->assertCount( 1, $result );
 	}
 
@@ -1715,11 +1731,11 @@ HTML;
 	 * Test build_structured_field_fragment on the meta handler.
 	 */
 	public function test_build_structured_field_fragment() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'build_structured_field_fragment' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, 'test_slug', 'text', 'Test Value' );
+		$result = $method->invoke( $this->meta_saver, 'test_slug', 'text', 'Test Value' );
 
 		$this->assertStringContainsString( '<!-- documentate-field', $result );
 		$this->assertStringContainsString( 'slug="test_slug"', $result );
@@ -1730,11 +1746,11 @@ HTML;
 	 * Test build_structured_field_fragment with empty slug.
 	 */
 	public function test_build_structured_field_fragment_empty_slug() {
-		$reflection = new ReflectionClass( $this->documents );
+		$reflection = new ReflectionClass( $this->meta_saver );
 		$method = $reflection->getMethod( 'build_structured_field_fragment' );
 		$method->setAccessible( true );
 
-		$result = $method->invoke( $this->documents, '', 'text', 'Value' );
+		$result = $method->invoke( $this->meta_saver, '', 'text', 'Value' );
 		$this->assertSame( '', $result );
 	}
 
@@ -2975,7 +2991,7 @@ HTML;
 		wp_cache_delete( _count_posts_cache_key( 'documentate_document', 'readable' ), 'counts' );
 
 		$views = array( 'all' => '<a href="#">All</a>' );
-		$result = $this->documents->add_archived_view( $views );
+		$result = $this->admin_list->add_archived_view( $views );
 
 		$this->assertArrayHasKey( 'archived', $result );
 		$this->assertStringContainsString( 'Archived', $result['archived'] );
@@ -2991,7 +3007,7 @@ HTML;
 		wp_cache_delete( _count_posts_cache_key( 'documentate_document', 'readable' ), 'counts' );
 
 		$views = array( 'all' => '<a href="#">All</a>' );
-		$result = $this->documents->add_archived_view( $views );
+		$result = $this->admin_list->add_archived_view( $views );
 
 		$this->assertArrayNotHasKey( 'archived', $result );
 	}
@@ -3016,7 +3032,7 @@ HTML;
 		$_GET['post_status'] = 'archived';
 
 		$views = array( 'all' => '<a href="#">All</a>' );
-		$result = $this->documents->add_archived_view( $views );
+		$result = $this->admin_list->add_archived_view( $views );
 
 		$this->assertArrayHasKey( 'archived', $result );
 		$this->assertStringContainsString( 'class="current"', $result['archived'] );
@@ -3028,7 +3044,10 @@ HTML;
 	 * Test apply_admin_filters hook is registered.
 	 */
 	public function test_apply_admin_filters_hook_registered() {
-		$this->assertNotFalse( has_action( 'pre_get_posts', array( $this->documents, 'apply_admin_filters' ) ) );
+		$admin_list = new Documentate_Document_Admin_List();
+		$admin_list->register_hooks();
+
+		$this->assertNotFalse( has_action( 'pre_get_posts', array( $admin_list, 'apply_admin_filters' ) ) );
 	}
 
 	/**
@@ -3036,8 +3055,11 @@ HTML;
 	 * does not duplicate the plugin's own category (category_name) filter.
 	 */
 	public function test_disable_native_categories_dropdown_hook_registered() {
+		$admin_list = new Documentate_Document_Admin_List();
+		$admin_list->register_hooks();
+
 		$this->assertNotFalse(
-			has_filter( 'disable_categories_dropdown', array( $this->documents, 'disable_native_categories_dropdown' ) )
+			has_filter( 'disable_categories_dropdown', array( $admin_list, 'disable_native_categories_dropdown' ) )
 		);
 	}
 
@@ -3046,7 +3068,7 @@ HTML;
 	 */
 	public function test_disable_native_categories_dropdown_for_documents() {
 		$this->assertTrue(
-			$this->documents->disable_native_categories_dropdown( false, 'documentate_document' )
+			$this->admin_list->disable_native_categories_dropdown( false, 'documentate_document' )
 		);
 	}
 
@@ -3055,7 +3077,7 @@ HTML;
 	 */
 	public function test_disable_native_categories_dropdown_ignores_other_post_types() {
 		$this->assertFalse(
-			$this->documents->disable_native_categories_dropdown( false, 'post' )
+			$this->admin_list->disable_native_categories_dropdown( false, 'post' )
 		);
 	}
 
@@ -3069,7 +3091,7 @@ HTML;
 
 		// apply_admin_filters checks is_admin() which is false in unit tests.
 		// The method should return early without modifying the query.
-		$this->documents->apply_admin_filters( $query );
+		$this->admin_list->apply_admin_filters( $query );
 
 		// post_status should remain unchanged (empty).
 		$post_status = $query->get( 'post_status' );
@@ -3129,7 +3151,7 @@ HTML;
 			'date'  => 'Date',
 		);
 
-		$result = $this->documents->add_admin_columns( $columns );
+		$result = $this->admin_list->add_admin_columns( $columns );
 
 		$this->assertArrayHasKey( 'doc_type', $result );
 		$this->assertArrayHasKey( 'doc_category', $result );
@@ -3148,7 +3170,7 @@ HTML;
 		wp_set_post_terms( $post->ID, array( $term_id ), 'documentate_doc_type' );
 
 		ob_start();
-		$this->documents->render_admin_column( 'doc_type', $post->ID );
+		$this->admin_list->render_admin_column( 'doc_type', $post->ID );
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Test Type Column', $output );
@@ -3162,7 +3184,7 @@ HTML;
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
 		ob_start();
-		$this->documents->render_admin_column( 'doc_type', $post->ID );
+		$this->admin_list->render_admin_column( 'doc_type', $post->ID );
 		$output = ob_get_clean();
 
 		$this->assertSame( '—', $output );
@@ -3180,7 +3202,7 @@ HTML;
 		wp_set_post_terms( $post->ID, array( $term_id ), 'category' );
 
 		ob_start();
-		$this->documents->render_admin_column( 'doc_category', $post->ID );
+		$this->admin_list->render_admin_column( 'doc_category', $post->ID );
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Test Category', $output );
@@ -3191,7 +3213,7 @@ HTML;
 	 */
 	public function test_add_sortable_columns() {
 		$columns = array();
-		$result = $this->documents->add_sortable_columns( $columns );
+		$result = $this->admin_list->add_sortable_columns( $columns );
 
 		$this->assertArrayHasKey( 'author', $result );
 		$this->assertArrayHasKey( 'doc_type', $result );
@@ -3206,7 +3228,7 @@ HTML;
 		$this->assertNotWPError( $term_result );
 
 		ob_start();
-		$this->documents->add_admin_filters( 'documentate_document', 'top' );
+		$this->admin_list->add_admin_filters( 'documentate_document', 'top' );
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'documentate_doc_type', $output );
@@ -3218,7 +3240,7 @@ HTML;
 	 */
 	public function test_add_admin_filters_other_type() {
 		ob_start();
-		$this->documents->add_admin_filters( 'post', 'top' );
+		$this->admin_list->add_admin_filters( 'post', 'top' );
 		$output = ob_get_clean();
 
 		$this->assertEmpty( $output );
@@ -3229,7 +3251,7 @@ HTML;
 	 */
 	public function test_add_admin_filters_bottom() {
 		ob_start();
-		$this->documents->add_admin_filters( 'documentate_document', 'bottom' );
+		$this->admin_list->add_admin_filters( 'documentate_document', 'bottom' );
 		$output = ob_get_clean();
 
 		$this->assertEmpty( $output );
@@ -3244,7 +3266,7 @@ HTML;
 		$GLOBALS['current_screen'] = $screen;
 
 		ob_start();
-		$this->documents->add_admin_list_styles();
+		$this->admin_list->add_admin_list_styles();
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( '<style', $output );

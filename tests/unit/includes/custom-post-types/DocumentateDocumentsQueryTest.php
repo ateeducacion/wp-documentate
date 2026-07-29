@@ -13,6 +13,20 @@ use Documentate\Documents\Documents_Meta_Handler;
 class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 
 	/**
+	 * Field persistence.
+	 *
+	 * @var Documentate_Document_Meta_Saver
+	 */
+	private $meta_saver;
+
+	/**
+	 * Admin list table behaviour.
+	 *
+	 * @var Documentate_Document_Admin_List
+	 */
+	private $admin_list;
+
+	/**
 	 * Instance under test.
 	 *
 	 * @var Documentate_Documents
@@ -26,6 +40,8 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 		parent::set_up();
 
 		$this->documents = new Documentate_Documents();
+		$this->meta_saver = new Documentate_Document_Meta_Saver();
+		$this->admin_list = new Documentate_Document_Admin_List();
 		$_GET = array();
 		$_POST = array();
 	}
@@ -40,6 +56,25 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Find whichever collaborator declares a method.
+	 *
+	 * The CPT was split into a renderer, a saver and an admin-list class, so a
+	 * helper under test may live on any of them.
+	 *
+	 * @param string $name Method name.
+	 * @return object
+	 */
+	private function owner_of( $name ) {
+		foreach ( array( $this->documents, $this->admin_list, $this->meta_saver ) as $candidate ) {
+			if ( method_exists( $candidate, $name ) ) {
+				return $candidate;
+			}
+		}
+
+		$this->fail( 'No collaborator declares ' . $name );
+	}
+
+	/**
 	 * Invoke a private method on the instance under test.
 	 *
 	 * @param string $name Method name.
@@ -47,10 +82,11 @@ class DocumentateDocumentsQueryTest extends WP_UnitTestCase {
 	 * @return mixed
 	 */
 	private function invoke( $name, array $args = array() ) {
-		$method = ( new ReflectionClass( $this->documents ) )->getMethod( $name );
+		$target = $this->owner_of( $name );
+		$method = ( new ReflectionClass( $target ) )->getMethod( $name );
 		$method->setAccessible( true );
 
-		return $method->invokeArgs( $this->documents, $args );
+		return $method->invokeArgs( $target, $args );
 	}
 
 	/**
