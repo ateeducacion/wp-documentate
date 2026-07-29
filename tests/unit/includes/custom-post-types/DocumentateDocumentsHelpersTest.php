@@ -7,9 +7,37 @@
  * and encoded, and what the list table filters render.
  *
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Meta_Boxes
+ * @covers Documentate_Document_Scalar_Field
+ * @covers Documentate_Document_Repeater_Field
+ * @covers Documentate_Document_Field_Help
+ * @covers Documentate_Document_Meta_Saver
+ * @covers Documentate_Document_Content_Writer
+ * @covers Documentate_Document_Admin_List
  */
 
 class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
+
+	/**
+	 * Field persistence.
+	 *
+	 * @var Documentate_Document_Meta_Saver
+	 */
+	private $meta_saver;
+
+	/**
+	 * Admin list table behaviour.
+	 *
+	 * @var Documentate_Document_Admin_List
+	 */
+	private $admin_list;
+
+	/**
+	 * Metabox renderer, which now owns the rendering internals.
+	 *
+	 * @var Documentate_Document_Meta_Boxes
+	 */
+	private $meta_boxes;
 
 	/**
 	 * Instance under test.
@@ -25,6 +53,28 @@ class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
 		parent::set_up();
 
 		$this->documents = new Documentate_Documents();
+		$this->meta_boxes = new Documentate_Document_Meta_Boxes();
+		$this->meta_saver = new Documentate_Document_Meta_Saver();
+		$this->admin_list = new Documentate_Document_Admin_List();
+	}
+
+	/**
+	 * Find whichever collaborator declares a method.
+	 *
+	 * The CPT was split into a renderer, a saver and an admin-list class, so a
+	 * helper under test now lives on one of four objects.
+	 *
+	 * @param string $name Method name.
+	 * @return object
+	 */
+	private function owner_of( $name ) {
+		foreach ( array( $this->documents, $this->meta_boxes, $this->meta_saver, $this->admin_list, 'Documentate_Document_Content_Writer', 'Documentate_Document_Field_Help', 'Documentate_Document_Repeater_Field', 'Documentate_Document_Scalar_Field' ) as $candidate ) {
+			if ( method_exists( $candidate, $name ) ) {
+				return $candidate;
+			}
+		}
+
+		$this->fail( 'No collaborator declares ' . $name );
 	}
 
 	/**
@@ -35,10 +85,11 @@ class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
 	 * @return mixed
 	 */
 	private function invoke( $name, array $args = array() ) {
-		$method = ( new ReflectionClass( $this->documents ) )->getMethod( $name );
+		$target = $this->owner_of( $name );
+		$method = new ReflectionMethod( $target, $name );
 		$method->setAccessible( true );
 
-		return $method->invokeArgs( $this->documents, $args );
+		return $method->invokeArgs( $method->isStatic() ? null : $target, $args );
 	}
 
 	/**

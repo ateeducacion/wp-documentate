@@ -74,6 +74,7 @@ class Documents_CPT_Registration {
 	 * Register taxonomies used by the documents CPT.
 	 */
 	public function register_taxonomies() {
+		// Document types (define templates and custom fields for the document).
 		$types_labels = array(
 			'name' => __( 'Document Types', 'documentate' ),
 			'singular_name' => __( 'Document Type', 'documentate' ),
@@ -97,6 +98,14 @@ class Documents_CPT_Registration {
 				'query_var' => true,
 				'rewrite' => false,
 				'show_in_rest' => false,
+				// Only administrators can manage document types.
+				'capabilities' => array(
+					'manage_terms' => 'manage_options',
+					'edit_terms' => 'manage_options',
+					'delete_terms' => 'manage_options',
+					'assign_terms' => 'edit_posts',
+				),
+				// We'll use a custom metabox to prevent editing after first save.
 				'meta_box_cb' => false,
 			),
 		);

@@ -9,25 +9,12 @@
  * silently - one was wrapped in isset(), the other only degraded a CSS class.
  *
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Repeater_Field
+ * @covers Documentate_Document_Field_Help
+ * @covers Documentate_Document_Scalar_Field
  */
 
 class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
-
-	/**
-	 * Instance under test.
-	 *
-	 * @var Documentate_Documents
-	 */
-	private $documents;
-
-	/**
-	 * Set up test fixtures.
-	 */
-	public function set_up() {
-		parent::set_up();
-
-		$this->documents = new Documentate_Documents();
-	}
 
 	/**
 	 * Render one repeater row and capture its markup.
@@ -39,11 +26,11 @@ class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {
 	 * @return string
 	 */
 	private function render_row( array $item_schema, array $values = array(), $is_template = false, array $raw_fields = array() ) {
-		$method = ( new ReflectionClass( $this->documents ) )->getMethod( 'render_array_field_item' );
+		$method = new ReflectionMethod( 'Documentate_Document_Repeater_Field', 'render_array_field_item' );
 		$method->setAccessible( true );
 
 		ob_start();
-		$method->invoke( $this->documents, 'anexos', '0', $item_schema, $values, $is_template, $raw_fields );
+		$method->invoke( null, 'anexos', '0', $item_schema, $values, $is_template, $raw_fields );
 
 		return ob_get_clean();
 	}
