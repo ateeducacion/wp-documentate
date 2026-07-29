@@ -6,6 +6,10 @@
  * one 184-line loop, where nothing could reach them on their own.
  *
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Meta_Boxes
+ * @covers Documentate_Document_Repeater_Field
+ * @covers Documentate_Document_Field_Help
+ * @covers Documentate_Document_Scalar_Field
  */
 
 class DocumentateSchemaRowTest extends WP_UnitTestCase {

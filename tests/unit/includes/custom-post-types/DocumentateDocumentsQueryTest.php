@@ -6,6 +6,10 @@
  * applying that filter rather than by running a real admin request.
  *
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Admin_List
+ * @covers Documentate_Document_Meta_Saver
+ * @covers Documentate_Document_Content_Writer
+ * @covers Documentate_Document_Meta_Boxes
  */
 
 use Documentate\Documents\Documents_Meta_Handler;

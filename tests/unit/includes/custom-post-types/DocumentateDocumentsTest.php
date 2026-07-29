@@ -9,6 +9,13 @@ use Documentate\DocType\SchemaStorage;
 
 /**
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Meta_Boxes
+ * @covers Documentate_Document_Scalar_Field
+ * @covers Documentate_Document_Repeater_Field
+ * @covers Documentate_Document_Field_Help
+ * @covers Documentate_Document_Meta_Saver
+ * @covers Documentate_Document_Content_Writer
+ * @covers Documentate_Document_Admin_List
  */
 use Documentate\Documents\Documents_Meta_Handler;
 

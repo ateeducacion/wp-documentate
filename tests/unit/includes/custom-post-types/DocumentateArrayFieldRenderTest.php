@@ -9,6 +9,9 @@
  * silently - one was wrapped in isset(), the other only degraded a CSS class.
  *
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Repeater_Field
+ * @covers Documentate_Document_Field_Help
+ * @covers Documentate_Document_Scalar_Field
  */
 
 class DocumentateArrayFieldRenderTest extends WP_UnitTestCase {

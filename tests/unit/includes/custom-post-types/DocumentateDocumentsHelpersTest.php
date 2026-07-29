@@ -7,6 +7,13 @@
  * and encoded, and what the list table filters render.
  *
  * @covers Documentate_Documents
+ * @covers Documentate_Document_Meta_Boxes
+ * @covers Documentate_Document_Scalar_Field
+ * @covers Documentate_Document_Repeater_Field
+ * @covers Documentate_Document_Field_Help
+ * @covers Documentate_Document_Meta_Saver
+ * @covers Documentate_Document_Content_Writer
+ * @covers Documentate_Document_Admin_List
  */
 
 class DocumentateDocumentsHelpersTest extends WP_UnitTestCase {
