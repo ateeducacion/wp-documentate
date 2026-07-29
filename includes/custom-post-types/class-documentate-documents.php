@@ -1154,8 +1154,7 @@ class Documentate_Documents {
 			return array();
 		}
 
-		$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
-		$term_id = ! is_wp_error( $assigned ) && ! empty( $assigned ) ? intval( $assigned[0] ) : 0;
+		$term_id = $this->get_assigned_doc_type_id( $post_id );
 		if ( $term_id <= 0 ) {
 			return array();
 		}
@@ -1166,73 +1165,107 @@ class Documentate_Documents {
 			return array();
 		}
 
-		$fields_index = array();
-		$repeaters_index = array();
-		if ( isset( $schema_v2['fields'] ) && is_array( $schema_v2['fields'] ) ) {
-			foreach ( $schema_v2['fields'] as $field ) {
-				if ( ! is_array( $field ) ) {
-					continue;
-				}
-				$slug = '';
-				if ( isset( $field['slug'] ) ) {
-					$slug = sanitize_key( $field['slug'] );
-				} elseif ( isset( $field['name'] ) ) {
-					$slug = sanitize_key( $field['name'] );
-				}
-				if ( '' === $slug ) {
-					continue;
-				}
-				$fields_index[ $slug ] = $field;
-			}
-		}
-
-		if ( isset( $schema_v2['repeaters'] ) && is_array( $schema_v2['repeaters'] ) ) {
-			foreach ( $schema_v2['repeaters'] as $repeater ) {
-				if ( ! is_array( $repeater ) ) {
-					continue;
-				}
-
-				$slug = '';
-				if ( isset( $repeater['slug'] ) ) {
-					$slug = sanitize_key( $repeater['slug'] );
-				} elseif ( isset( $repeater['name'] ) ) {
-					$slug = sanitize_key( $repeater['name'] );
-				}
-
-				if ( '' === $slug ) {
-					continue;
-				}
-
-				$fields = array();
-				if ( isset( $repeater['fields'] ) && is_array( $repeater['fields'] ) ) {
-					foreach ( $repeater['fields'] as $field ) {
-						if ( ! is_array( $field ) ) {
-							continue;
-						}
-						$field_slug = '';
-						if ( isset( $field['slug'] ) ) {
-							$field_slug = sanitize_key( $field['slug'] );
-						} elseif ( isset( $field['name'] ) ) {
-							$field_slug = sanitize_key( $field['name'] );
-						}
-						if ( '' === $field_slug ) {
-							continue;
-						}
-						$fields[ $field_slug ] = $field;
-					}
-				}
-
-				$repeaters_index[ $slug ] = array(
-					'definition' => $repeater,
-					'fields' => $fields,
-				);
-			}
-		}
-
 		return array(
-			'fields' => $fields_index,
-			'repeaters' => $repeaters_index,
+			'fields' => $this->index_schema_entries(
+				isset( $schema_v2['fields'] ) ? $schema_v2['fields'] : array()
+			),
+			'repeaters' => $this->index_schema_repeaters(
+				isset( $schema_v2['repeaters'] ) ? $schema_v2['repeaters'] : array()
+			),
 		);
+	}
+
+	/**
+	 * Document type term assigned to a post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int Term ID, or 0 when the post has no type.
+	 */
+	private function get_assigned_doc_type_id( $post_id ) {
+		$assigned = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
+
+		return ! is_wp_error( $assigned ) && ! empty( $assigned ) ? intval( $assigned[0] ) : 0;
+	}
+
+	/**
+	 * Slug of a schema entry, taken from its slug or falling back to its name.
+	 *
+	 * @param array $entry Schema field or repeater definition.
+	 * @return string Sanitized slug, or an empty string when it has neither.
+	 */
+	private function schema_entry_slug( array $entry ) {
+		if ( isset( $entry['slug'] ) ) {
+			return sanitize_key( $entry['slug'] );
+		}
+
+		if ( isset( $entry['name'] ) ) {
+			return sanitize_key( $entry['name'] );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Index schema entries by slug, dropping any that cannot be identified.
+	 *
+	 * @param mixed $entries Raw entry list from the stored schema.
+	 * @return array<string,array>
+	 */
+	private function index_schema_entries( $entries ) {
+		$index = array();
+
+		if ( ! is_array( $entries ) ) {
+			return $index;
+		}
+
+		foreach ( $entries as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+
+			$slug = $this->schema_entry_slug( $entry );
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			$index[ $slug ] = $entry;
+		}
+
+		return $index;
+	}
+
+	/**
+	 * Index repeaters by slug, indexing each one's own fields as well.
+	 *
+	 * @param mixed $repeaters Raw repeater list from the stored schema.
+	 * @return array<string,array{definition:array,fields:array}>
+	 */
+	private function index_schema_repeaters( $repeaters ) {
+		$index = array();
+
+		if ( ! is_array( $repeaters ) ) {
+			return $index;
+		}
+
+		foreach ( $repeaters as $repeater ) {
+			if ( ! is_array( $repeater ) ) {
+				continue;
+			}
+
+			$slug = $this->schema_entry_slug( $repeater );
+			if ( '' === $slug ) {
+				continue;
+			}
+
+			$index[ $slug ] = array(
+				'definition' => $repeater,
+				'fields' => $this->index_schema_entries(
+					isset( $repeater['fields'] ) ? $repeater['fields'] : array()
+				),
+			);
+		}
+
+		return $index;
 	}
 
 	/**
@@ -2262,92 +2295,148 @@ class Documentate_Documents {
 	 * @return void
 	 */
 	private function save_dynamic_fields_meta( $post_id ) {
-		$schema = $this->get_dynamic_fields_schema_for_post( $post_id );
+		$post_values = $this->read_posted_values();
 
-		$post_values = array();
-		if ( isset( $_POST ) && is_array( $_POST ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$post_values = wp_unslash( $_POST ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		}
+		$posted_array_fields = isset( $post_values['tpl_fields'] ) && is_array( $post_values['tpl_fields'] )
+			? $post_values['tpl_fields']
+			: array();
 
 		$known_meta_keys = array();
-		$posted_array_fields = array();
-		if ( isset( $post_values['tpl_fields'] ) && is_array( $post_values['tpl_fields'] ) ) {
-			$posted_array_fields = $post_values['tpl_fields'];
-		}
 
 		// Persist fields defined by the current schema (when available).
-		foreach ( (array) $schema as $definition ) {
-			if ( empty( $definition['slug'] ) ) {
-				continue;
-			}
-
-			$slug = sanitize_key( $definition['slug'] );
+		foreach ( (array) $this->get_dynamic_fields_schema_for_post( $post_id ) as $definition ) {
+			$slug = ! empty( $definition['slug'] ) ? sanitize_key( $definition['slug'] ) : '';
 			if ( '' === $slug ) {
 				continue;
 			}
 
-			$type = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
 			$meta_key = 'documentate_field_' . $slug;
 			$known_meta_keys[ $meta_key ] = true;
 
-			if ( 'array' === $type ) {
-				if ( isset( $posted_array_fields[ $slug ] ) ) {
-					$items = $this->sanitize_array_field_items( $posted_array_fields[ $slug ], $definition );
-					if ( empty( $items ) ) {
-						delete_post_meta( $post_id, $meta_key );
-					} else {
-						// Use JSON_HEX flags to encode quotes and other special chars as \uXXXX sequences.
-						// This avoids issues with WordPress's automatic slashing/unslashing of quotes.
-						// Do NOT use JSON_UNESCAPED_UNICODE so that accented characters are also encoded
-						// as \uXXXX, which allows fix_unescaped_unicode_sequences to handle them consistently.
-						$json_flags = JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS;
-						$json_value = wp_json_encode( $items, $json_flags );
-						update_post_meta( $post_id, $meta_key, $json_value );
-					}
-				}
-				continue;
-			}
-
-			if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
-				$type = 'textarea';
-			}
-
-			if ( ! array_key_exists( $meta_key, $post_values ) ) {
-				continue;
-			}
-
-			$raw_value = $post_values[ $meta_key ];
-			$value = $this->sanitize_field_by_type( $raw_value, $type );
-
-			if ( '' === $value ) {
-				delete_post_meta( $post_id, $meta_key );
-			} else {
-				update_post_meta( $post_id, $meta_key, $value );
-			}
+			$this->save_schema_field( $post_id, $definition, $slug, $meta_key, $post_values, $posted_array_fields );
 		}
 
 		// Persist unknown dynamic fields posted that are not part of the schema
 		// (or when no schema is currently available for the post's type).
+		$this->save_unknown_field_meta( $post_id, $post_values, $known_meta_keys );
+	}
+
+	/**
+	 * Unslashed copy of the submitted request body.
+	 *
+	 * @return array
+	 */
+	private function read_posted_values() {
+		if ( ! isset( $_POST ) || ! is_array( $_POST ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			return array();
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified in can_save_meta_boxes(); every value is sanitized by type before it is stored.
+		return wp_unslash( $_POST );
+	}
+
+	/**
+	 * Persist one field declared by the document type schema.
+	 *
+	 * @param int    $post_id             Post ID.
+	 * @param array  $definition          Schema field definition.
+	 * @param string $slug                Sanitized field slug.
+	 * @param string $meta_key            Meta key the value is stored under.
+	 * @param array  $post_values         Unslashed request body.
+	 * @param array  $posted_array_fields Submitted repeater rows, keyed by slug.
+	 * @return void
+	 */
+	private function save_schema_field( $post_id, $definition, $slug, $meta_key, array $post_values, array $posted_array_fields ) {
+		$type = isset( $definition['type'] ) ? sanitize_key( $definition['type'] ) : 'textarea';
+
+		if ( 'array' === $type ) {
+			// Absent from the request means "not submitted", which must not
+			// clear rows the document already has.
+			if ( isset( $posted_array_fields[ $slug ] ) ) {
+				$items = $this->sanitize_array_field_items( $posted_array_fields[ $slug ], $definition );
+				$this->write_or_delete_meta( $post_id, $meta_key, $this->encode_array_field_items( $items ) );
+			}
+			return;
+		}
+
+		if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
+			$type = 'textarea';
+		}
+
+		if ( ! array_key_exists( $meta_key, $post_values ) ) {
+			return;
+		}
+
+		$this->write_or_delete_meta(
+			$post_id,
+			$meta_key,
+			$this->sanitize_field_by_type( $post_values[ $meta_key ], $type )
+		);
+	}
+
+	/**
+	 * Encode repeater rows for storage.
+	 *
+	 * Uses the JSON_HEX flags so quotes and other special characters become
+	 * \uXXXX sequences, avoiding WordPress's automatic slashing and unslashing
+	 * of quotes. JSON_UNESCAPED_UNICODE is deliberately NOT used, so accented
+	 * characters are encoded the same way and fix_unescaped_unicode_sequences
+	 * can handle them consistently.
+	 *
+	 * @param array $items Sanitized repeater rows.
+	 * @return string JSON payload, or an empty string when there are no rows.
+	 */
+	private function encode_array_field_items( array $items ) {
+		if ( empty( $items ) ) {
+			return '';
+		}
+
+		$json_flags = JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS;
+
+		return (string) wp_json_encode( $items, $json_flags );
+	}
+
+	/**
+	 * Store a meta value, removing the key when the value is empty.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $meta_key Meta key.
+	 * @param string $value    Sanitized value.
+	 * @return void
+	 */
+	private function write_or_delete_meta( $post_id, $meta_key, $value ) {
+		if ( '' === $value ) {
+			delete_post_meta( $post_id, $meta_key );
+			return;
+		}
+
+		update_post_meta( $post_id, $meta_key, $value );
+	}
+
+	/**
+	 * Persist posted field values the current schema does not declare.
+	 *
+	 * Keeps values written by a previous document type, or by any type when the
+	 * schema cannot be resolved.
+	 *
+	 * @param int   $post_id         Post ID.
+	 * @param array $post_values     Unslashed request body.
+	 * @param array $known_meta_keys Meta keys already handled by the schema pass.
+	 * @return void
+	 */
+	private function save_unknown_field_meta( $post_id, array $post_values, array $known_meta_keys ) {
 		foreach ( $post_values as $key => $value ) {
 			if ( ! is_string( $key ) || ! str_starts_with( $key, 'documentate_field_' ) ) {
 				continue;
 			}
-			if ( isset( $known_meta_keys[ $key ] ) ) {
-				continue;
-			}
-			if ( is_array( $value ) ) {
+			if ( isset( $known_meta_keys[ $key ] ) || is_array( $value ) ) {
 				continue;
 			}
 
 			$raw_value = wp_unslash( $value );
 			$raw_value = is_scalar( $raw_value ) ? (string) $raw_value : '';
-			$sanitized = $this->sanitize_rich_text_value( $raw_value );
 
-			if ( '' === $sanitized ) {
-				delete_post_meta( $post_id, $key );
-			} else {
-				update_post_meta( $post_id, $key, $sanitized );
-			}
+			$this->write_or_delete_meta( $post_id, $key, $this->sanitize_rich_text_value( $raw_value ) );
 		}
 	}
 
