@@ -1739,9 +1739,9 @@ class Documentate_Documents {
 			echo '>' . esc_html( $label ) . '</label>';
 
 			if ( 'single' === $type ) {
-				$this->render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value );
+				$this->render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value, $definition );
 			} elseif ( 'rich' === $type ) {
-				$this->render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value );
+				$this->render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value, $is_template );
 			} else {
 				$this->render_array_item_textarea( $item_key, $field_name, $field_id, $raw_field, $value );
 			}
@@ -1761,9 +1761,10 @@ class Documentate_Documents {
 	 * @param string $label        Visible label, reused by the screen-reader text.
 	 * @param array  $raw_field    Raw schema definition for the field.
 	 * @param string $value        Current value.
+	 * @param array  $definition   Item schema entry, read for its data_type hint.
 	 * @return void
 	 */
-	private function render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value ) {
+	private function render_array_item_single( $item_key, $field_name, $field_id, $label, $raw_field, $value, $definition ) {
 		$raw_field_type = \Documentate\Documents\Documents_Field_Validator::extract_raw_type( $raw_field );
 		$raw_data_type = isset( $definition['data_type'] ) ? sanitize_key( $definition['data_type'] ) : '';
 		$input_type = $this->map_single_input_type( $raw_field_type, $raw_data_type );
@@ -1854,9 +1855,11 @@ class Documentate_Documents {
 	 * @param string $field_id     DOM id shared by the control and its descriptions.
 	 * @param array  $raw_field    Raw schema definition for the field.
 	 * @param string $value        Current value.
+	 * @param bool   $is_template  Whether this is the hidden row the JS clones,
+	 *                             which must carry the template marker class.
 	 * @return void
 	 */
-	private function render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value ) {
+	private function render_array_item_rich( $item_key, $field_name, $field_id, $raw_field, $value, $is_template ) {
 		$before_description = $this->get_before_description_context( $field_id, $item_key, $raw_field );
 		$description = $this->get_field_description( $raw_field );
 		$validation = $this->get_field_validation_message( $raw_field );
