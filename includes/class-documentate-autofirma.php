@@ -35,12 +35,25 @@ final class Documentate_AutoFirma {
 	private const DEFAULT_Y = 72;
 
 	/**
+	 * Option used to avoid repeatedly cleaning stored schemas.
+	 */
+	private const SCHEMA_CLEANUP_OPTION = 'documentate_autofirma_schema_cleanup';
+
+	/**
+	 * Demo document type slug.
+	 */
+	private const DEMO_TYPE_SLUG = 'autofirma-signature-example';
+
+	/**
 	 * Register WordPress hooks.
 	 *
 	 * @return void
 	 */
 	public static function init() {
 		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_assets' ), 20 );
+		add_action( 'admin_init', array( self::class, 'cleanup_existing_schemas' ) );
+		add_action( 'init', array( self::class, 'maybe_seed_demo_type' ), 41 );
+		add_filter( 'sanitize_term_meta__documentate_schema_v2', array( self::class, 'filter_schema' ), 10, 3 );
 	}
 
 	/**
@@ -113,14 +126,14 @@ final class Documentate_AutoFirma {
 	}
 
 	/**
-	 * Read all parameters from the first [sign] placeholder in a template.
+	 * Read all parameters declared by the [sign] placeholder.
 	 *
-	 * @param string $template_path Absolute DOCX or ODT template path.
-	 * @return array<string,string>|false Placeholder parameters or false when absent.
+	 * @param string $template_path Absolute template path.
+	 * @return array<string,mixed>|false Parameters or false when no marker exists.
 	 */
 	public static function get_placeholder_parameters( $template_path ) {
 		$fields = Documentate_Template_Parser::extract_fields( $template_path );
-		if ( is_wp_error( $fields ) ) {
+		if ( is_wp_error( $fields ) || empty( $fields ) ) {
 			return false;
 		}
 
@@ -171,6 +184,153 @@ final class Documentate_AutoFirma {
 			'upperRightY' => $y + $height,
 			'text' => $text,
 		);
+	}
+
+	/**
+	 * Remove the reserved sign command from a stored schema.
+	 *
+	 * @param mixed  $schema      Schema value.
+	 * @param string $meta_key    Metadata key.
+	 * @param string $object_type Metadata object type.
+	 * @return mixed Filtered schema value.
+	 */
+	public static function filter_schema( $schema, $meta_key = '', $object_type = '' ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
+		if ( ! is_array( $schema ) ) {
+			return $schema;
+		}
+
+		if ( isset( $schema['fields'] ) && is_array( $schema['fields'] ) ) {
+			$schema['fields'] = self::filter_field_list( $schema['fields'] );
+		}
+
+		if ( isset( $schema['repeaters'] ) && is_array( $schema['repeaters'] ) ) {
+			foreach ( $schema['repeaters'] as &$repeater ) {
+				if ( isset( $repeater['fields'] ) && is_array( $repeater['fields'] ) ) {
+					$repeater['fields'] = self::filter_field_list( $repeater['fields'] );
+				}
+			}
+			unset( $repeater );
+		}
+
+		return $schema;
+	}
+
+	/**
+	 * Remove reserved commands from one schema field list.
+	 *
+	 * @param array $fields Schema fields.
+	 * @return array Filtered fields.
+	 */
+	private static function filter_field_list( array $fields ) {
+		return array_values(
+			array_filter(
+				$fields,
+				static function ( $field ) {
+					if ( ! is_array( $field ) ) {
+						return true;
+					}
+
+					$name = isset( $field['name'] ) ? strtolower( trim( (string) $field['name'] ) ) : '';
+					$slug = isset( $field['slug'] ) ? strtolower( trim( (string) $field['slug'] ) ) : '';
+
+					return 'sign' !== $name && 'sign' !== $slug;
+				}
+			)
+		);
+	}
+
+	/**
+	 * Remove sign fields from schemas created before this integration.
+	 *
+	 * @return void
+	 */
+	public static function cleanup_existing_schemas() {
+		if ( '1' === get_option( self::SCHEMA_CLEANUP_OPTION, '' ) ) {
+			return;
+		}
+
+		$term_ids = get_terms(
+			array(
+				'taxonomy' => 'documentate_doc_type',
+				'hide_empty' => false,
+				'fields' => 'ids',
+			)
+		);
+		if ( is_wp_error( $term_ids ) ) {
+			return;
+		}
+
+		$storage = new Documentate\DocType\SchemaStorage();
+		foreach ( $term_ids as $term_id ) {
+			$schema = $storage->get_schema( $term_id );
+			$filtered = self::filter_schema( $schema );
+			if ( $filtered !== $schema ) {
+				$storage->save_schema( $term_id, $filtered );
+			}
+		}
+
+		update_option( self::SCHEMA_CLEANUP_OPTION, '1', false );
+	}
+
+	/**
+	 * Seed an AutoFirma template and demo type in demo environments.
+	 *
+	 * The regular demo document seeder creates the corresponding example
+	 * document after this type has been registered.
+	 *
+	 * @return void
+	 */
+	public static function maybe_seed_demo_type() {
+		if ( ! get_option( 'documentate_seed_demo_documents', false ) ) {
+			return;
+		}
+		if ( ! class_exists( 'Documentate_Demo_Data' ) || ! Documentate_Demo_Data::should_allow_demo_seeding() ) {
+			return;
+		}
+
+		$template_id = Documentate_Demo_Data::import_fixture_file( 'demo-autofirma.docx' );
+		if ( $template_id <= 0 ) {
+			return;
+		}
+
+		$term = get_term_by( 'slug', self::DEMO_TYPE_SLUG, 'documentate_doc_type' );
+		if ( ! $term instanceof WP_Term ) {
+			$created = wp_insert_term(
+				'AutoFirma',
+				'documentate_doc_type',
+				array( 'slug' => self::DEMO_TYPE_SLUG )
+			);
+			if ( is_wp_error( $created ) ) {
+				return;
+			}
+			$term_id = intval( $created['term_id'] );
+		} else {
+			$term_id = intval( $term->term_id );
+		}
+
+		update_term_meta( $term_id, '_documentate_fixture', self::DEMO_TYPE_SLUG );
+		update_term_meta( $term_id, 'documentate_type_color', '#34495e' );
+		update_term_meta( $term_id, 'documentate_type_template_id', $template_id );
+		update_term_meta( $term_id, 'documentate_type_template_type', 'docx' );
+
+		$template_path = get_attached_file( $template_id );
+		if ( ! $template_path ) {
+			return;
+		}
+
+		$extractor = new Documentate\DocType\SchemaExtractor();
+		$schema = $extractor->extract( $template_path );
+		if ( is_wp_error( $schema ) ) {
+			return;
+		}
+
+		$schema = self::filter_schema( $schema );
+		$schema['meta']['template_id'] = $template_id;
+		$schema['meta']['template_type'] = 'docx';
+		$schema['meta']['template_name'] = wp_basename( $template_path );
+
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema( $term_id, $schema );
 	}
 
 	/**
