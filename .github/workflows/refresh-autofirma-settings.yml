@@ -1,0 +1,49 @@
+name: Refresh AutoFirma generated files
+
+on:
+  push:
+    branches:
+      - feature/autofirma-signature-position
+    paths:
+      - assets/js/documentate-autofirma.js
+      - admin/class-documentate-admin-settings.php
+      - includes/class-documentate-autofirma.php
+      - languages/documentate-es_ES.po
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/autofirma-signature-position
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - run: composer install --prefer-dist
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y gettext
+      - run: composer check-untranslated
+
+      - name: Commit generated files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            admin/js/documentate-autofirma.js \
+            admin/js/documentate-autofirma.js.map \
+            admin/js/vendor/autoscript.js \
+            includes/vendor/autofirma-intermediate-server \
+            languages/documentate.pot \
+            languages/documentate-es_ES.po \
+            languages/documentate-es_ES.mo
+          if ! git diff --cached --quiet; then
+            git commit -m "build: refresh AutoFirma generated files"
+            git push origin HEAD:feature/autofirma-signature-position
+          fi
