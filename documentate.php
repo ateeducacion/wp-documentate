@@ -41,11 +41,22 @@ if ( ! defined( 'DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL' ) ) {
 	define( 'DOCUMENTATE_LIBREOFFICE_WASM_CDN_URL', 'https://erseco.github.io/libreoffice-document-converter/wasm/' );
 }
 
+$documentate_vendor_autoload = plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
+if ( is_readable( $documentate_vendor_autoload ) ) {
+	require_once $documentate_vendor_autoload;
+}
+
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaextractor.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemastorage.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaconverter.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-template-parser.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-autofirma.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/autofirma/class-documentate-autofirma-intermediate-controller.php';
+
+if ( interface_exists( 'Erseco\AutoFirma\IntermediateServer\Storage\StoreInterface' ) ) {
+	require_once plugin_dir_path( __FILE__ ) . 'includes/autofirma/class-documentate-autofirma-transient-store.php';
+}
+
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-demo-data.php';
 
 /**
@@ -124,8 +135,10 @@ add_action( 'init', 'documentate_maybe_flush_rewrite_rules', 999 );
 // Initialize demo data system.
 Documentate_Demo_Data::init( __FILE__ );
 
-// Initialize AutoFirma signature positioning.
+// Initialize AutoFirma signature positioning and intermediate-server routes.
 Documentate_AutoFirma::init();
+$documentate_autofirma_intermediate = new Documentate_AutoFirma_Intermediate_Controller();
+$documentate_autofirma_intermediate->register();
 
 /**
  * The core plugin class that is used to define internationalization,
