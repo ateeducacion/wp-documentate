@@ -45,6 +45,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaextrac
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemastorage.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaconverter.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-template-parser.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-autofirma.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-demo-data.php';
 
 /**
@@ -122,6 +123,9 @@ add_action( 'init', 'documentate_maybe_flush_rewrite_rules', 999 );
 
 // Initialize demo data system.
 Documentate_Demo_Data::init( __FILE__ );
+
+// Initialize AutoFirma signature positioning.
+Documentate_AutoFirma::init();
 
 /**
  * The core plugin class that is used to define internationalization,
