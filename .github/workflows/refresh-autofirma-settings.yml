@@ -35,25 +35,26 @@ jobs:
       - run: composer pot-remove-ctime
       - run: composer pot-remove-refs
       - run: composer update-po
+      - run: python3 -m pip install polib
 
       - name: Translate new AutoFirma settings strings
         run: |
           python3 <<'PY'
-          from pathlib import Path
+          import polib
 
-          path = Path('languages/documentate-es_ES.po')
-          content = path.read_text()
+          path = 'languages/documentate-es_ES.po'
           translations = {
               'AutoFirma visible signature text': 'Texto visible de la firma de AutoFirma',
               'Text shown in the visible PDF signature. The default matches AutoFirma. Supported variables include $$SUBJECTCN$$, $$ISSUERCN$$, $$CERTSERIAL$$ and $$SIGNDATE=dd/MM/yyyy$$. A text parameter in [sign;text=...] overrides this setting for that template.': 'Texto mostrado en la firma visible del PDF. El valor predeterminado coincide con AutoFirma. Las variables compatibles incluyen $$SUBJECTCN$$, $$ISSUERCN$$, $$CERTSERIAL$$ y $$SIGNDATE=dd/MM/yyyy$$. Un parámetro text en [sign;text=...] sobrescribe este ajuste para esa plantilla.',
           }
+
+          catalog = polib.pofile(path)
           for msgid, msgstr in translations.items():
-              source = f'msgid "{msgid}"\nmsgstr ""'
-              target = f'msgid "{msgid}"\nmsgstr "{msgstr}"'
-              if source not in content:
-                  raise SystemExit(f'Missing untranslated entry: {msgid}')
-              content = content.replace(source, target)
-          path.write_text(content)
+              entry = catalog.find(msgid)
+              if entry is None:
+                  raise SystemExit(f'Missing catalog entry: {msgid}')
+              entry.msgstr = msgstr
+          catalog.save(path)
           PY
 
       - run: composer untranslated
