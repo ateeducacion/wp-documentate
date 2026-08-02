@@ -13,7 +13,7 @@ final class Documentate_AutoFirma_Bundled_Autoloader {
 	/**
 	 * Namespace prefix provided by the bundled library.
 	 */
-	private const PREFIX = 'Erseco\AutoFirma\IntermediateServer\';
+	private const NAMESPACE_PREFIX = 'Erseco\\AutoFirma\\IntermediateServer';
 
 	/**
 	 * Register the fallback loader when Composer did not load the package.
@@ -21,7 +21,9 @@ final class Documentate_AutoFirma_Bundled_Autoloader {
 	 * @return void
 	 */
 	public static function register() {
-		if ( class_exists( self::PREFIX . 'IntermediateServer' ) ) {
+		$namespace_prefix = self::NAMESPACE_PREFIX . '\\';
+
+		if ( class_exists( $namespace_prefix . 'IntermediateServer' ) ) {
 			return;
 		}
 
@@ -32,12 +34,12 @@ final class Documentate_AutoFirma_Bundled_Autoloader {
 		}
 
 		spl_autoload_register(
-			static function ( $class_name ) use ( $base_dir ) {
-				if ( 0 !== strpos( $class_name, self::PREFIX ) ) {
+			static function ( $class_name ) use ( $base_dir, $namespace_prefix ) {
+				if ( 0 !== strpos( $class_name, $namespace_prefix ) ) {
 					return;
 				}
 
-				$relative = substr( $class_name, strlen( self::PREFIX ) );
+				$relative = substr( $class_name, strlen( $namespace_prefix ) );
 				$path = $base_dir . str_replace( '\\', '/', $relative ) . '.php';
 				if ( is_readable( $path ) ) {
 					require_once $path;
