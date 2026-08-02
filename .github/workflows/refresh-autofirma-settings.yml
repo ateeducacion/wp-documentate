@@ -9,6 +9,8 @@ on:
       - admin/class-documentate-admin-settings.php
       - includes/class-documentate-autofirma.php
       - languages/documentate-es_ES.po
+      - tests/unit/admin/DocumentateAdminSettingsTest.php
+      - tests/unit/includes/DocumentateAutoFirmaTest.php
 
 permissions:
   contents: write
