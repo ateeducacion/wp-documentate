@@ -90,11 +90,17 @@ final class Documentate_AutoFirma {
 			true
 		);
 
+		$intermediate_session_url = class_exists( 'Documentate_AutoFirma_Intermediate_Controller' )
+			? Documentate_AutoFirma_Intermediate_Controller::session_url()
+			: '';
+
 		wp_localize_script(
 			'documentate-autofirma',
 			'documentateAutoFirmaConfig',
 			array(
 				'position' => $position,
+				'intermediateSessionUrl' => $intermediate_session_url,
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
 			)
 		);
 	}
