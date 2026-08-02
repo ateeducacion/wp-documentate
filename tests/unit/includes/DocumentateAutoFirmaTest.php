@@ -8,6 +8,39 @@
 class DocumentateAutoFirmaTest extends WP_UnitTestCase {
 
 	/**
+	 * Test the default visible signature text matches AutoFirma.
+	 *
+	 * @return void
+	 */
+	public function test_default_signature_text_matches_autofirma() {
+		$this->assertSame(
+			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.',
+			Documentate_AutoFirma::get_default_signature_text()
+		);
+	}
+
+	/**
+	 * Test the configured visible signature text.
+	 *
+	 * @return void
+	 */
+	public function test_configured_signature_text_uses_plugin_setting() {
+		update_option(
+			'documentate_settings',
+			array(
+				'autofirma_layer2_text' => 'Firmado digitalmente por $$SUBJECTCN$$.',
+			)
+		);
+
+		$this->assertSame(
+			'Firmado digitalmente por $$SUBJECTCN$$.',
+			Documentate_AutoFirma::get_configured_signature_text()
+		);
+
+		delete_option( 'documentate_settings' );
+	}
+
+	/**
 	 * Test default visible signature rectangle.
 	 *
 	 * @return void
