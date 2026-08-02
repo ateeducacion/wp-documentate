@@ -1,5 +1,7 @@
 {
     "require": {
+        "php": ">=8.3",
+        "erseco/autofirma-intermediate-server": "dev-main",
         "tinybutstrong/tinybutstrong": "^3.15.3",
         "tinybutstrong/opentbs": "^1.12.3"
     },
