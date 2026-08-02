@@ -41,6 +41,27 @@ class DocumentateAutoFirmaTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Test an empty configured text falls back to the AutoFirma default.
+	 *
+	 * @return void
+	 */
+	public function test_configured_signature_text_falls_back_when_empty() {
+		update_option(
+			'documentate_settings',
+			array(
+				'autofirma_layer2_text' => '',
+			)
+		);
+
+		$this->assertSame(
+			Documentate_AutoFirma::get_default_signature_text(),
+			Documentate_AutoFirma::get_configured_signature_text()
+		);
+
+		delete_option( 'documentate_settings' );
+	}
+
+	/**
 	 * Test default visible signature rectangle.
 	 *
 	 * @return void
