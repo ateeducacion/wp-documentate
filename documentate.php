@@ -52,6 +52,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaconver
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-template-parser.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-documentate-autofirma.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/autofirma/class-documentate-autofirma-intermediate-controller.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/autofirma/class-documentate-autofirma-runtime-config.php';
 
 if ( interface_exists( 'Erseco\AutoFirma\IntermediateServer\Storage\StoreInterface' ) ) {
 	require_once plugin_dir_path( __FILE__ ) . 'includes/autofirma/class-documentate-autofirma-transient-store.php';
@@ -137,6 +138,7 @@ Documentate_Demo_Data::init( __FILE__ );
 
 // Initialize AutoFirma signature positioning and intermediate-server routes.
 Documentate_AutoFirma::init();
+Documentate_AutoFirma_Runtime_Config::init();
 $documentate_autofirma_intermediate = new Documentate_AutoFirma_Intermediate_Controller();
 $documentate_autofirma_intermediate->register();
 
