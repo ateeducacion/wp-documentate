@@ -10,6 +10,8 @@
 	const config = window.documentateActionsConfig || {};
 	const autoFirmaConfig = window.documentateAutoFirmaConfig || {};
 	const strings = config.strings || {};
+	const nativeAnchorClick = window.HTMLAnchorElement.prototype.click;
+	let pendingBrowserSignature = null;
 
 	/**
 	 * Determine whether an editor contains unsaved changes.
@@ -74,6 +76,9 @@
 
 	/**
 	 * Generate the PDF through the existing authenticated AJAX endpoint.
+	 *
+	 * Browser conversion modes are handled by the normal Documentate action
+	 * controller and intercepted when it tries to download the resulting blob.
 	 *
 	 * @returns {Promise<string>} Generated PDF URL.
 	 */
@@ -176,13 +181,152 @@
 	}
 
 	/**
+	 * Restore the signature button.
+	 *
+	 * @param {HTMLElement} button Signature button.
+	 * @param {string} originalHtml Original button contents.
+	 */
+	function restoreButton(button, originalHtml) {
+		button.innerHTML = originalHtml;
+		button.removeAttribute('aria-disabled');
+		button.classList.remove('disabled');
+	}
+
+	/**
+	 * Display a signing error unless the operation was cancelled.
+	 *
+	 * @param {Error} error Signing error.
+	 */
+	function showSigningError(error) {
+		if (error.name !== 'es.gob.afirma.core.AOCancelledOperationException') {
+			window.alert(error.message || strings.errorGeneric || 'No se pudo firmar el documento.');
+		}
+	}
+
+	/**
+	 * Sign a generated PDF resource and restore the action button.
+	 *
+	 * @param {string} url PDF URL, including blob URLs.
+	 * @param {HTMLElement} button Signature button.
+	 * @param {string} originalHtml Original button contents.
+	 * @returns {Promise<void>}
+	 */
+	async function signGeneratedPdf(url, button, originalHtml) {
+		try {
+			button.textContent = strings.signingInProgress || 'Selecciona tu certificado en AutoFirma...';
+			const response = await fetch(url, { credentials: 'same-origin' });
+			if (!response.ok) {
+				throw new Error(strings.errorGeneric || 'No se pudo descargar el PDF generado.');
+			}
+
+			const signed = await signPdf(arrayBufferToBase64(await response.arrayBuffer()));
+			downloadSignedPdf(signed);
+		} catch (error) {
+			showSigningError(error);
+		} finally {
+			restoreButton(button, originalHtml);
+		}
+	}
+
+	/**
+	 * Copy browser conversion attributes from the PDF action.
+	 */
+	function inheritPdfConversionAttributes() {
+		const signButton = document.querySelector('[data-documentate-action="sign"]');
+		const pdfButton = document.querySelector('.documentate-action-btn--pdf[data-documentate-action="download"]');
+
+		if (!signButton || !pdfButton) {
+			return;
+		}
+
+		['data-documentate-cdn-mode', 'data-documentate-source-format'].forEach((attribute) => {
+			if (pdfButton.hasAttribute(attribute)) {
+				signButton.setAttribute(attribute, pdfButton.getAttribute(attribute));
+			}
+		});
+	}
+
+	/**
+	 * Remove stale editable fields created from the reserved [sign] command.
+	 */
+	function removeReservedSignField() {
+		document
+			.querySelectorAll('[name="documentate_field_sign"], #documentate_field_sign')
+			.forEach((field) => {
+				const container = field.closest('tr, .documentate-field, .form-field');
+				(container || field).remove();
+			});
+	}
+
+	/**
+	 * Whether the signature action must use a browser conversion engine.
+	 *
+	 * @param {HTMLElement} button Signature button.
+	 * @returns {boolean} Whether the normal action controller should convert it.
+	 */
+	function usesBrowserConversion(button) {
+		const sourceFormat = button.getAttribute('data-documentate-source-format');
+		const cdnMode = button.getAttribute('data-documentate-cdn-mode') === '1';
+
+		return Boolean(sourceFormat && (cdnMode || config.collaboraPlayground));
+	}
+
+	/**
+	 * Remember that the next generated PDF blob must be signed, not downloaded.
+	 *
+	 * @param {HTMLElement} button Signature button.
+	 */
+	function prepareBrowserSignature(button) {
+		const originalHtml = button.innerHTML;
+		button.setAttribute('aria-disabled', 'true');
+		button.classList.add('disabled');
+
+		const timeoutId = window.setTimeout(() => {
+			if (pendingBrowserSignature && pendingBrowserSignature.button === button) {
+				restoreButton(button, originalHtml);
+				pendingBrowserSignature = null;
+			}
+		}, 120000);
+
+		pendingBrowserSignature = { button, originalHtml, timeoutId };
+	}
+
+	/**
+	 * Intercept the PDF blob produced by Collabora Playground or WASM conversion.
+	 *
+	 * @returns {void}
+	 */
+	window.HTMLAnchorElement.prototype.click = function () {
+		if (
+			pendingBrowserSignature &&
+			this.href &&
+			this.href.startsWith('blob:') &&
+			this.download &&
+			this.download.toLowerCase().endsWith('.pdf')
+		) {
+			const pending = pendingBrowserSignature;
+			pendingBrowserSignature = null;
+			window.clearTimeout(pending.timeoutId);
+			signGeneratedPdf(this.href, pending.button, pending.originalHtml);
+			return;
+		}
+
+		nativeAnchorClick.call(this);
+	};
+
+	/**
 	 * Handle the Sign and Download action before the legacy click handler.
 	 *
 	 * @param {MouseEvent} event Click event.
 	 */
 	async function handleSignClick(event) {
 		const button = event.target.closest('[data-documentate-action="sign"]');
-		if (!button) {
+		if (!button || button.classList.contains('disabled')) {
+			return;
+		}
+
+		if (usesBrowserConversion(button)) {
+			prepareBrowserSignature(button);
 			return;
 		}
 
@@ -196,32 +340,22 @@
 			}
 		}
 
-		const originalText = button.textContent;
+		const originalHtml = button.innerHTML;
 		button.setAttribute('aria-disabled', 'true');
 		button.classList.add('disabled');
 
 		try {
 			button.textContent = strings.generating || 'Generando documento...';
 			const pdfUrl = await generatePdf();
-			const response = await fetch(pdfUrl, { credentials: 'same-origin' });
-			if (!response.ok) {
-				throw new Error(strings.errorGeneric || 'No se pudo descargar el PDF generado.');
-			}
-
-			button.textContent = strings.signingInProgress || 'Selecciona tu certificado en AutoFirma...';
-			const signed = await signPdf(arrayBufferToBase64(await response.arrayBuffer()));
-			downloadSignedPdf(signed);
+			await signGeneratedPdf(pdfUrl, button, originalHtml);
 		} catch (error) {
-			if (error.name !== 'es.gob.afirma.core.AOCancelledOperationException') {
-				window.alert(error.message || strings.errorGeneric || 'No se pudo firmar el documento.');
-			}
-		} finally {
-			button.textContent = originalText;
-			button.removeAttribute('aria-disabled');
-			button.classList.remove('disabled');
+			showSigningError(error);
+			restoreButton(button, originalHtml);
 		}
 	}
 
+	inheritPdfConversionAttributes();
+	removeReservedSignField();
 	document.addEventListener('click', handleSignClick, true);
 
 	if (window.AutoScript && typeof window.AutoScript.cargarAppAfirma === 'function') {
