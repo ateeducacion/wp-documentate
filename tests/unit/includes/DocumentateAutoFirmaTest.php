@@ -72,9 +72,9 @@ class DocumentateAutoFirmaTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_get_placeholder_parameters_reads_docx_marker() {
-		$template = wp_tempnam( 'documentate-autofirma.docx' );
+		$template = trailingslashit( get_temp_dir() ) . 'documentate-autofirma-' . wp_generate_uuid4() . '.docx';
 		$zip = new ZipArchive();
-		$zip->open( $template, ZipArchive::OVERWRITE );
+		$zip->open( $template, ZipArchive::CREATE | ZipArchive::OVERWRITE );
 		$zip->addFromString(
 			'word/document.xml',
 			'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>[sign;page=3;x=10;y=20;width=220;height=70]</w:t></w:r></w:p></w:body></w:document>'
