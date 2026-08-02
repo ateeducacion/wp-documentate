@@ -35,6 +35,11 @@ final class Documentate_AutoFirma {
 	private const DEFAULT_Y = 72;
 
 	/**
+	 * Default text used by AutoFirma for visible PDF signatures.
+	 */
+	private const DEFAULT_SIGNATURE_TEXT = 'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.';
+
+	/**
 	 * Option used to avoid repeatedly cleaning stored schemas.
 	 */
 	private const SCHEMA_CLEANUP_OPTION = 'documentate_autofirma_schema_cleanup';
@@ -54,6 +59,29 @@ final class Documentate_AutoFirma {
 		add_action( 'admin_init', array( self::class, 'cleanup_existing_schemas' ) );
 		add_action( 'init', array( self::class, 'maybe_seed_demo_type' ), 41 );
 		add_filter( 'sanitize_term_meta__documentate_schema_v2', array( self::class, 'filter_schema' ), 10, 3 );
+	}
+
+	/**
+	 * Get the default visible signature text used by AutoFirma.
+	 *
+	 * @return string Default layer 2 text.
+	 */
+	public static function get_default_signature_text() {
+		return self::DEFAULT_SIGNATURE_TEXT;
+	}
+
+	/**
+	 * Get the configured visible signature text.
+	 *
+	 * @return string Configured text or the AutoFirma default.
+	 */
+	public static function get_configured_signature_text() {
+		$options = get_option( 'documentate_settings', array() );
+		$text = isset( $options['autofirma_layer2_text'] )
+			? sanitize_textarea_field( $options['autofirma_layer2_text'] )
+			: '';
+
+		return '' === trim( $text ) ? self::DEFAULT_SIGNATURE_TEXT : $text;
 	}
 
 	/**
@@ -99,6 +127,7 @@ final class Documentate_AutoFirma {
 			'documentateAutoFirmaConfig',
 			array(
 				'position' => $position,
+				'signatureText' => self::get_configured_signature_text(),
 				'intermediateSessionUrl' => $intermediate_session_url,
 				'restNonce' => wp_create_nonce( 'wp_rest' ),
 			)
