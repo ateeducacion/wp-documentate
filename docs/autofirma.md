@@ -37,7 +37,7 @@ Use parameters when the signature must appear at a specific PDF location:
 | `y` | Vertical offset in PDF points from the bottom-left corner. | `72` |
 | `width` | Visible signature rectangle width in PDF points. | `240` |
 | `height` | Visible signature rectangle height in PDF points. | `80` |
-| `text` | Optional AutoFirma layer 2 text. | Signer common name and signing date |
+| `text` | Optional AutoFirma layer 2 text for this template. | Plugin setting |
 
 Coordinates use the PDF coordinate system, whose origin is the bottom-left corner. One point is 1/72 inch. Zero is a valid value for `x` and `y`.
 
@@ -46,6 +46,35 @@ Example for a signature at the bottom-right area of an A4 page:
 ```text
 [sign;page=-1;x=300;y=40;width=220;height=70]
 ```
+
+## Visible signature text
+
+The default visible text can be changed in **Settings → Documentate → AutoFirma visible signature text**.
+
+The initial value matches the standard AutoFirma text:
+
+```text
+Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.
+```
+
+Supported AutoFirma variables include:
+
+- `$$SUBJECTCN$$`: common name of the certificate holder.
+- `$$ISSUERCN$$`: common name of the certificate issuer.
+- `$$CERTSERIAL$$`: certificate serial number.
+- `$$SIGNDATE=dd/MM/yyyy$$`: signing date using a Java `SimpleDateFormat` pattern.
+
+A template can override the global setting with the `text` parameter:
+
+```text
+[sign;page=-1;x=72;y=72;width=240;height=80;text=Firmado digitalmente por $$SUBJECTCN$$.]
+```
+
+The precedence is:
+
+1. The `text` parameter in `[sign]`.
+2. The value saved in the Documentate settings.
+3. The standard AutoFirma text shown above.
 
 ## Example document
 
