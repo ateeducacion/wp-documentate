@@ -1,0 +1,59 @@
+---
+name: Refresh AutoFirma generated files
+
+on:
+  push:
+    branches:
+      - feature/autofirma-signature-position
+    paths:
+      - package.json
+      - composer.json
+      - assets/js/documentate-autofirma.js
+      - .github/workflows/refresh-autofirma-generated.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/autofirma-signature-position
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Refresh npm lock and browser bundle
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --no-audit --no-fund
+
+      - name: Refresh Composer lock and bundled PHP runtime
+        run: composer update erseco/autofirma-intermediate-server --with-all-dependencies --prefer-dist --no-interaction
+
+      - name: Commit generated files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            package-lock.json \
+            composer.lock \
+            admin/js/documentate-autofirma.js \
+            admin/js/documentate-autofirma.js.map \
+            admin/js/vendor/autoscript.js \
+            includes/vendor/autofirma-intermediate-server
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "build: refresh AutoFirma generated files"
+          git push origin HEAD:feature/autofirma-signature-position
