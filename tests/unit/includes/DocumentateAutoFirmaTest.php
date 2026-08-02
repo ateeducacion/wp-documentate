@@ -91,4 +91,46 @@ class DocumentateAutoFirmaTest extends WP_UnitTestCase {
 		$this->assertSame( '220', $parameters['width'] );
 		$this->assertSame( '70', $parameters['height'] );
 	}
+
+	/**
+	 * Test that sign is removed from stored document schemas.
+	 *
+	 * @return void
+	 */
+	public function test_filter_schema_removes_reserved_sign_fields() {
+		$schema = array(
+			'fields' => array(
+				array(
+					'name' => 'title',
+					'slug' => 'title',
+				),
+				array(
+					'name' => 'sign',
+					'slug' => 'sign',
+				),
+			),
+			'repeaters' => array(
+				array(
+					'name' => 'items',
+					'fields' => array(
+						array(
+							'name' => 'description',
+							'slug' => 'description',
+						),
+						array(
+							'name' => 'SIGN',
+							'slug' => 'sign',
+						),
+					),
+				),
+			),
+		);
+
+		$filtered = Documentate_AutoFirma::filter_schema( $schema );
+
+		$this->assertCount( 1, $filtered['fields'] );
+		$this->assertSame( 'title', $filtered['fields'][0]['slug'] );
+		$this->assertCount( 1, $filtered['repeaters'][0]['fields'] );
+		$this->assertSame( 'description', $filtered['repeaters'][0]['fields'][0]['slug'] );
+	}
 }
