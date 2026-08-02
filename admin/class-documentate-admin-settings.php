@@ -82,6 +82,7 @@ class Documentate_Admin_Settings {
 			'collabora_base_url' => __( 'Collabora Online URL', 'documentate' ),
 			'collabora_lang' => __( 'Collabora Language', 'documentate' ),
 			'collabora_disable_ssl' => __( 'Skip SSL verification (Collabora)', 'documentate' ),
+			'autofirma_layer2_text' => __( 'AutoFirma visible signature text', 'documentate' ),
 			'collaborative_enabled' => __( 'Collaborative Mode', 'documentate' ),
 			'collaborative_signaling' => __( 'WebRTC Signaling Server', 'documentate' ),
 		);
@@ -196,6 +197,30 @@ class Documentate_Admin_Settings {
 	}
 
 	/**
+	 * Render the AutoFirma visible signature text field.
+	 */
+	public function autofirma_layer2_text_render() {
+		$options = get_option( 'documentate_settings', array() );
+		$value = isset( $options['autofirma_layer2_text'] )
+			? sanitize_textarea_field( $options['autofirma_layer2_text'] )
+			: Documentate_AutoFirma::get_default_signature_text();
+
+		if ( '' === trim( $value ) ) {
+			$value = Documentate_AutoFirma::get_default_signature_text();
+		}
+
+		echo '<textarea class="large-text code" rows="3" name="documentate_settings[autofirma_layer2_text]">'
+				. esc_textarea( $value )
+				. '</textarea>';
+		echo '<p class="description">'
+				. esc_html__(
+					'Text shown in the visible PDF signature. The default matches AutoFirma. Supported variables include $$SUBJECTCN$$, $$ISSUERCN$$, $$CERTSERIAL$$ and $$SIGNDATE=dd/MM/yyyy$$. A text parameter in [sign;text=...] overrides this setting for that template.',
+					'documentate',
+				)
+				. '</p>';
+	}
+
+	/**
 	 * Render collaborative mode toggle.
 	 */
 	public function collaborative_enabled_render() {
@@ -271,6 +296,7 @@ class Documentate_Admin_Settings {
 	public function settings_validate( $input ) {
 		$input = $this->validate_conversion_settings( $input );
 		$input = $this->validate_collabora_settings( $input );
+		$input = $this->validate_autofirma_settings( $input );
 
 		return $this->validate_collaborative_settings( $input );
 	}
@@ -309,6 +335,24 @@ class Documentate_Admin_Settings {
 		$input['collabora_lang'] = $lang;
 
 		$input['collabora_disable_ssl'] = $this->validate_checkbox( $input, 'collabora_disable_ssl' );
+
+		return $input;
+	}
+
+	/**
+	 * Validate the AutoFirma visible signature settings.
+	 *
+	 * @param array $input The input fields to validate.
+	 * @return array
+	 */
+	private function validate_autofirma_settings( $input ) {
+		$text = isset( $input['autofirma_layer2_text'] )
+			? sanitize_textarea_field( $input['autofirma_layer2_text'] )
+			: '';
+
+		$input['autofirma_layer2_text'] = '' === trim( $text )
+			? Documentate_AutoFirma::get_default_signature_text()
+			: $text;
 
 		return $input;
 	}
