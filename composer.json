@@ -19,13 +19,18 @@
         "yoast/wp-test-utils": "^1.2.1"
     },
     "scripts": {
-        "post-install-cmd": [
+        "copy-runtime-dependencies": [
             "rm -rf admin/vendor/tinybutstrong",
-            "cp -r vendor/tinybutstrong admin/vendor/"
+            "cp -r vendor/tinybutstrong admin/vendor/",
+            "rm -rf includes/vendor/autofirma-intermediate-server",
+            "mkdir -p includes/vendor/autofirma-intermediate-server",
+            "cp -r vendor/erseco/autofirma-intermediate-server/src includes/vendor/autofirma-intermediate-server/"
+        ],
+        "post-install-cmd": [
+            "@copy-runtime-dependencies"
         ],
         "post-update-cmd": [
-            "rm -rf admin/vendor/tinybutstrong",
-            "cp -r vendor/tinybutstrong admin/vendor/"
+            "@copy-runtime-dependencies"
         ],
         "phpunit": "vendor/bin/phpunit",
         "test": "@phpunit",
