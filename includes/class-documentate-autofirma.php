@@ -104,12 +104,38 @@ final class Documentate_AutoFirma {
 			return false;
 		}
 
-		$placeholder = Documentate_Template_Parser::get_sign_placeholder_info( $template );
-		if ( false === $placeholder ) {
+		$parameters = self::get_placeholder_parameters( $template );
+		if ( false === $parameters ) {
 			return false;
 		}
 
-		return self::normalize_position( $placeholder );
+		return self::normalize_position( $parameters );
+	}
+
+	/**
+	 * Read all parameters from the first [sign] placeholder in a template.
+	 *
+	 * @param string $template_path Absolute DOCX or ODT template path.
+	 * @return array<string,string>|false Placeholder parameters or false when absent.
+	 */
+	public static function get_placeholder_parameters( $template_path ) {
+		$fields = Documentate_Template_Parser::extract_fields( $template_path );
+		if ( is_wp_error( $fields ) ) {
+			return false;
+		}
+
+		foreach ( $fields as $field ) {
+			$placeholder = isset( $field['placeholder'] ) ? strtolower( (string) $field['placeholder'] ) : '';
+			if ( 'sign' !== $placeholder ) {
+				continue;
+			}
+
+			return isset( $field['parameters'] ) && is_array( $field['parameters'] )
+				? $field['parameters']
+				: array();
+		}
+
+		return false;
 	}
 
 	/**
