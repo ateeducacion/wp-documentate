@@ -2,7 +2,7 @@
 
 Documentate can sign generated PDF files with the local AutoFirma application. The feature is enabled per template: the **Sign and Download** action is shown only when the selected DOCX or ODT template contains a `[sign]` placeholder.
 
-The generated PDF is downloaded by the browser, sent to AutoFirma as Base64, signed locally using PAdES and downloaded again as a signed PDF. The unsigned and signed document contents are not uploaded to an additional Documentate endpoint.
+The generated PDF is converted through the same Collabora, LibreOffice WASM or server-side path used by the normal PDF action. The resulting PDF is then signed locally with AutoFirma using PAdES and downloaded as a new file.
 
 ## Basic marker
 
@@ -20,7 +20,7 @@ This enables signing and uses the default visible signature rectangle:
 - 240 points wide.
 - 80 points high.
 
-The placeholder itself is replaced with an empty value during template generation, so `[sign]` is not printed in the resulting document.
+`sign` is a reserved command, not a document field. It is excluded from the generated edit form and replaced with an empty value when the document is rendered.
 
 ## Positioned signature
 
@@ -47,14 +47,36 @@ Example for a signature at the bottom-right area of an A4 page:
 [sign;page=-1;x=300;y=40;width=220;height=70]
 ```
 
+## Example document
+
+The plugin includes `fixtures/demo-autofirma.docx`. In non-production demo environments it creates an **AutoFirma** document type and a sample document automatically.
+
+The template contains regular editable fields and this signing command:
+
+```text
+[sign;page=-1;x=72;y=72;width=240;height=80]
+```
+
 ## Signing workflow
 
 1. Save the Documentate document.
 2. Select **Sign and Download** in the document actions box.
-3. Select a certificate in AutoFirma.
-4. The browser downloads a file named `<document-slug>-<post-id>-signed.pdf`.
+3. Documentate generates the PDF through the configured conversion engine.
+4. Select a certificate in AutoFirma.
+5. The browser downloads `<document-slug>-<post-id>-signed.pdf`.
 
-The operation is cancelled without an error message when the certificate dialog is cancelled by the user.
+Cancelling the certificate dialog cancels the operation without displaying an error.
+
+## Runtime dependencies
+
+The integration uses:
+
+- `@erseco/autofirma-client` for the browser API and AutoScript communication.
+- `erseco/autofirma-intermediate-server` for temporary HTTP storage and retrieval.
+
+The intermediate server is used when the browser cannot communicate directly with AutoFirma, especially on mobile devices. Documentate opens an authenticated, short-lived session and exposes token-protected storage and retrieval URLs. Protocol payloads are encrypted by AutoScript and AutoFirma and are stored temporarily in WordPress transients.
+
+The production plugin package includes the compiled JavaScript client, `autoscript.js` and the PHP runtime required by the intermediate server. Installing the WordPress ZIP does not require running npm or Composer.
 
 ## Requirements
 
@@ -62,12 +84,15 @@ The operation is cancelled without an error message when the certificate dialog 
 - A valid signing certificate available to AutoFirma.
 - A configured PDF generation path in Documentate.
 - A DOCX or ODT template containing `[sign]`.
+- Pretty permalinks when the intermediate server is needed. Plain permalinks produce REST URLs that are incompatible with the AutoFirma protocol query string.
 
-The current implementation signs in the browser and downloads the result. It does not create a WordPress Media Library attachment for the signed PDF.
+The signed result is downloaded by the browser. It is not added to the WordPress Media Library.
 
 ## Troubleshooting
 
-When the signing action is not shown, verify that the active document type uses the template containing `[sign]`. The marker must use the exact placeholder name `sign`.
+When the signing action is not shown, verify that the active document type uses the template containing `[sign]`. The marker must use the exact reserved name `sign`.
+
+When an old editable **Sign** field remains visible, reload the document edit screen. Documentate removes the reserved field from previously stored schemas during the next admin request.
 
 When AutoFirma does not open, verify the local installation and browser protocol registration. Browser restrictions, remote desktop environments and managed devices can prevent the native application from being launched.
 
