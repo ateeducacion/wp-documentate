@@ -46,6 +46,9 @@ if ( is_readable( $documentate_vendor_autoload ) ) {
 	require_once $documentate_vendor_autoload;
 }
 
+require_once plugin_dir_path( __FILE__ ) . 'includes/autofirma/class-documentate-autofirma-bundled-autoloader.php';
+Documentate_AutoFirma_Bundled_Autoloader::register();
+
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaextractor.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemastorage.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/doc-type/class-schemaconverter.php';
