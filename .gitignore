@@ -64,3 +64,8 @@ artifacts/
 public/style/workarea/*.css.maptest-results/
 test-results/*
 .omc/
+
+# Generated runtime translation files. Built from the committed .po sources
+# by `make package` and shipped in the release ZIP; never committed.
+languages/*.mo
+languages/*.l10n.php
