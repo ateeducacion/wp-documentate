@@ -140,7 +140,20 @@ jobs:
         run: npm run test:unit-js
 
       - name: Start wp-env with coverage
-        run: npx wp-env start --config=.wp-env.docker.json --xdebug=coverage
+        run: |
+          for attempt in 1 2 3; do
+            if npx wp-env start --config=.wp-env.docker.json --xdebug=coverage; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            echo "wp-env start failed on attempt ${attempt}; clearing the partial checkout and retrying."
+            rm -rf "$HOME/wp-env"
+            sleep $((attempt * 10))
+          done
 
       - name: Run plugin check
         run: make check-plugin
@@ -229,7 +242,20 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Start wp-env
-        run: npx wp-env start --config=.wp-env.docker.json
+        run: |
+          for attempt in 1 2 3; do
+            if npx wp-env start --config=.wp-env.docker.json; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            echo "wp-env start failed on attempt ${attempt}; clearing the partial checkout and retrying."
+            rm -rf "$HOME/wp-env"
+            sleep $((attempt * 10))
+          done
 
       - name: Run E2E tests
         run: make test-e2e-docker
