@@ -1,9 +1,13 @@
 {
+  "dependencies": {
+    "@erseco/autofirma-client": "^1.9.3-canary.20260802170141.10b2178"
+  },
   "devDependencies": {
     "@matbee/libreoffice-converter": "^2.7.2",
     "@wordpress/e2e-test-utils-playwright": "^1.52.0",
     "@wordpress/env": "^11.12.0",
-    "@wordpress/scripts": "^34.0.0"
+    "@wordpress/scripts": "^34.0.0",
+    "esbuild": "^0.28.1"
   },
   "scripts": {
     "wp-env": "wp-env",
@@ -13,7 +17,8 @@
     "test:unit": "wp-env run tests-cli --config=.wp-env.docker.json --env-cwd=wp-content/plugins/documentate ./vendor/bin/phpunit",
     "test:unit-js": "wp-scripts test-unit-js --config tests/js/jest.config.js",
     "copy:libreoffice-converter": "node scripts/copy-libreoffice-converter.mjs",
-    "postinstall": "npm run copy:libreoffice-converter",
-    "postupdate": "npm run copy:libreoffice-converter"
+    "build:autofirma": "esbuild assets/js/documentate-autofirma.js --bundle --format=iife --outfile=admin/js/documentate-autofirma.js --sourcemap && cp node_modules/@erseco/autofirma-client/vendor/autoscript.js admin/js/vendor/autoscript.js",
+    "postinstall": "npm run copy:libreoffice-converter && npm run build:autofirma",
+    "postupdate": "npm run copy:libreoffice-converter && npm run build:autofirma"
   }
 }

@@ -223,6 +223,36 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * Test the AutoFirma signature text field uses the default value.
+	 */
+	public function test_autofirma_layer2_text_render_uses_default_value() {
+		ob_start();
+		$this->settings->autofirma_layer2_text_render();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'autofirma_layer2_text', $output );
+		$this->assertStringContainsString( 'Firmado por $$SUBJECTCN$$', $output );
+		$this->assertStringContainsString( '$$SIGNDATE=dd/MM/yyyy$$', $output );
+		$this->assertStringContainsString( '$$ISSUERCN$$', $output );
+	}
+
+	/**
+	 * Test the AutoFirma signature text field uses the saved value.
+	 */
+	public function test_autofirma_layer2_text_render_uses_saved_value() {
+		update_option(
+			'documentate_settings',
+			array( 'autofirma_layer2_text' => 'Firma personalizada por $$SUBJECTCN$$.' )
+		);
+
+		ob_start();
+		$this->settings->autofirma_layer2_text_render();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Firma personalizada por $$SUBJECTCN$$.', $output );
+	}
+
+	/**
 	 * Test collaborative_enabled_render outputs checkbox.
 	 */
 	public function test_collaborative_enabled_render_outputs_checkbox() {
@@ -297,6 +327,7 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 			'collabora_base_url'      => 'https://collabora.example.com/',
 			'collabora_lang'          => 'es-ES',
 			'collabora_disable_ssl'   => '1',
+			'autofirma_layer2_text'   => 'Firmado digitalmente por $$SUBJECTCN$$.',
 			'collaborative_enabled'   => '1',
 			'collaborative_signaling' => 'wss://signal.example.com',
 		);
@@ -307,6 +338,7 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		$this->assertSame( 'https://collabora.example.com', $result['collabora_base_url'] );
 		$this->assertSame( 'es-ES', $result['collabora_lang'] );
 		$this->assertSame( '1', $result['collabora_disable_ssl'] );
+		$this->assertSame( 'Firmado digitalmente por $$SUBJECTCN$$.', $result['autofirma_layer2_text'] );
 		$this->assertSame( '1', $result['collaborative_enabled'] );
 		$this->assertSame( 'wss://signal.example.com', $result['collaborative_signaling'] );
 	}
@@ -335,6 +367,20 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		$result = $this->settings->settings_validate( $input );
 
 		$this->assertSame( 'en-US', $result['collabora_lang'] );
+	}
+
+	/**
+	 * Test settings_validate with empty AutoFirma text defaults.
+	 */
+	public function test_settings_validate_empty_autofirma_text_defaults() {
+		$result = $this->settings->settings_validate(
+			array( 'autofirma_layer2_text' => '' )
+		);
+
+		$this->assertSame(
+			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$',
+			$result['autofirma_layer2_text']
+		);
 	}
 
 	/**
@@ -387,5 +433,9 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		$this->assertSame( 'collabora', $result['conversion_engine'] );
 		$this->assertSame( '', $result['collabora_base_url'] );
 		$this->assertSame( 'en-US', $result['collabora_lang'] );
+		$this->assertSame(
+			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$',
+			$result['autofirma_layer2_text']
+		);
 	}
 }

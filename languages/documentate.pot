@@ -54,6 +54,9 @@ msgstr ""
 msgid "Skip SSL verification (Collabora)"
 msgstr ""
 
+msgid "AutoFirma visible signature text"
+msgstr ""
+
 msgid "Collaborative Mode"
 msgstr ""
 
@@ -82,6 +85,9 @@ msgid "Language code to send to Collabora Online (default en-US)."
 msgstr ""
 
 msgid "Disable SSL certificate verification (use only in test environments)."
+msgstr ""
+
+msgid "Text shown in the visible PDF signature. The default matches AutoFirma. Supported variables include $$SUBJECTCN$$, $$ISSUERCN$$, $$CERTSERIAL$$ and $$SIGNDATE=dd/MM/yyyy$$. A text parameter in [sign;text=...] overrides this setting for that template."
 msgstr ""
 
 msgid "Enable real-time collaborative editing using TipTap and Yjs."
@@ -477,6 +483,12 @@ msgstr ""
 msgid "Preview error"
 msgstr ""
 
+msgid "Could not access the generated PDF file."
+msgstr ""
+
+msgid "Could not read the PDF file."
+msgstr ""
+
 msgid "User not authenticated."
 msgstr ""
 
@@ -486,25 +498,22 @@ msgstr ""
 msgid "Preview file not available."
 msgstr ""
 
-msgid "Could not access the generated PDF file."
-msgstr ""
-
-msgid "Could not read the PDF file."
-msgstr ""
-
 msgid "You do not have permission to access this page."
 msgstr ""
 
 msgid "Document Actions"
 msgstr ""
 
-msgid "Configure a DOCX template in the document type."
+msgid "Configure a DOCX or ODT template in the document type before generating PDF."
+msgstr ""
+
+msgid "ODT (Source)"
 msgstr ""
 
 msgid "Configure an ODT template in the document type."
 msgstr ""
 
-msgid "Configure a DOCX or ODT template in the document type before generating PDF."
+msgid "Configure a DOCX template in the document type."
 msgstr ""
 
 msgid "Preview"
@@ -514,9 +523,6 @@ msgid "Download PDF"
 msgstr ""
 
 msgid "Sign and Download"
-msgstr ""
-
-msgid "ODT (Source)"
 msgstr ""
 
 msgid "Other download formats:"
@@ -901,6 +907,9 @@ msgstr ""
 msgid "You do not have permission to manage templates."
 msgstr ""
 
+msgid "Could not open the template for analysis."
+msgstr ""
+
 msgid "The selected template was not found."
 msgstr ""
 
@@ -908,9 +917,6 @@ msgid "The file must be a DOCX or ODT."
 msgstr ""
 
 msgid "ZipArchive is not available on the server."
-msgstr ""
-
-msgid "Could not open the template for analysis."
 msgstr ""
 
 msgid "Scope category"
@@ -1075,61 +1081,22 @@ msgid_plural "%d Revisions"
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "Documents"
-msgstr ""
-
-msgid "Document"
-msgstr ""
-
-msgid "Add New"
-msgstr ""
-
-msgid "Add New Document"
-msgstr ""
-
-msgid "New Document"
-msgstr ""
-
-msgid "Edit Document"
-msgstr ""
-
-msgid "View Document"
-msgstr ""
-
-msgid "All Documents"
-msgstr ""
-
-msgid "Search Documents"
-msgstr ""
-
-msgid "No documents found."
-msgstr ""
-
-msgid "No documents found in trash."
-msgstr ""
-
-msgid "Document Types"
-msgstr ""
-
 msgid "Document Type"
 msgstr ""
 
-msgid "Search Types"
+msgid "Category"
 msgstr ""
 
-msgid "All Types"
+msgid "All document types"
 msgstr ""
 
-msgid "Edit Type"
+msgid "All categories"
 msgstr ""
 
-msgid "Update Type"
+msgid "Archived"
 msgstr ""
 
-msgid "Add New Type"
-msgstr ""
-
-msgid "New Type"
+msgid "All authors"
 msgstr ""
 
 msgid "Document Sections"
@@ -1139,18 +1106,6 @@ msgid "Author"
 msgstr ""
 
 msgid "Configure a document type with fields to edit its content."
-msgstr ""
-
-msgid "Select an option…"
-msgstr ""
-
-msgid "Add item"
-msgstr ""
-
-msgid "Move item"
-msgstr ""
-
-msgid "Delete"
 msgstr ""
 
 msgid "The document contains additional fields that do not belong to the selected type. Review their content before saving."
@@ -1164,19 +1119,16 @@ msgstr ""
 msgid "This field is not defined in the current document type taxonomy."
 msgstr ""
 
-msgid "All authors"
+msgid "Add item"
 msgstr ""
 
-msgid "All document types"
+msgid "Move item"
 msgstr ""
 
-msgid "All categories"
+msgid "Delete"
 msgstr ""
 
-msgid "Archived"
-msgstr ""
-
-msgid "Category"
+msgid "Select an option…"
 msgstr ""
 
 msgid "Enter a valid email (user@domain.tld)"
@@ -1213,6 +1165,60 @@ msgid "keyword1, keyword2"
 msgstr ""
 
 msgid "Comma-separated list."
+msgstr ""
+
+msgid "Documents"
+msgstr ""
+
+msgid "Document"
+msgstr ""
+
+msgid "Add New"
+msgstr ""
+
+msgid "Add New Document"
+msgstr ""
+
+msgid "New Document"
+msgstr ""
+
+msgid "Edit Document"
+msgstr ""
+
+msgid "View Document"
+msgstr ""
+
+msgid "All Documents"
+msgstr ""
+
+msgid "Search Documents"
+msgstr ""
+
+msgid "No documents found."
+msgstr ""
+
+msgid "No documents found in trash."
+msgstr ""
+
+msgid "Document Types"
+msgstr ""
+
+msgid "Search Types"
+msgstr ""
+
+msgid "All Types"
+msgstr ""
+
+msgid "Edit Type"
+msgstr ""
+
+msgid "Update Type"
+msgstr ""
+
+msgid "Add New Type"
+msgstr ""
+
+msgid "New Type"
 msgstr ""
 
 msgid "Generated file not found."

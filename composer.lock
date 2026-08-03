@@ -4,8 +4,61 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3df029b4719cf985ab75a273ea03b60b",
+    "content-hash": "577b9ea2be9606ff31ee06c407ae21f8",
     "packages": [
+        {
+            "name": "erseco/autofirma-intermediate-server",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/erseco/autofirma-intermediate-server.git",
+                "reference": "7ecadb11be0ad836f5b44d82e3cf554f5e736436"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/erseco/autofirma-intermediate-server/zipball/7ecadb11be0ad836f5b44d82e3cf554f5e736436",
+                "reference": "7ecadb11be0ad836f5b44d82e3cf554f5e736436",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.12 || ^2.1",
+                "phpunit/phpunit": "^9.6",
+                "squizlabs/php_codesniffer": "^3.13 || ^4.0"
+            },
+            "default-branch": true,
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Erseco\\AutoFirma\\IntermediateServer\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-2.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Ernesto Serrano",
+                    "homepage": "https://github.com/erseco"
+                }
+            ],
+            "description": "Framework-agnostic PHP implementation of the AutoFirma intermediate server protocol",
+            "homepage": "https://github.com/erseco/autofirma-intermediate-server",
+            "keywords": [
+                "autofirma",
+                "electronic-signature",
+                "intermediate-server",
+                "php"
+            ],
+            "support": {
+                "issues": "https://github.com/erseco/autofirma-intermediate-server/issues",
+                "source": "https://github.com/erseco/autofirma-intermediate-server"
+            },
+            "time": "2026-08-01T17:27:11+00:00"
+        },
         {
             "name": "tinybutstrong/opentbs",
             "version": "v1.12.3",
@@ -5097,10 +5150,14 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "erseco/autofirma-intermediate-server": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": {},
+    "platform": {
+        "php": ">=8.3"
+    },
     "platform-dev": {},
     "platform-overrides": {
         "php": "8.3.0"

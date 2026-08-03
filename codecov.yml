@@ -1,0 +1,10 @@
+ignore:
+  # Third-party sources are copied into the distributable plugin during the
+  # Composer build. Their coverage belongs to the upstream packages.
+  - "includes/vendor/**/*"
+
+  # Generated and vendored browser assets are covered through their source
+  # modules or upstream projects, not through the committed build output.
+  - "admin/js/vendor/**/*"
+  - "admin/js/documentate-autofirma.js"
+  - "admin/js/documentate-autofirma.js.map"
