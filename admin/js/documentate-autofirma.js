@@ -374,7 +374,7 @@
     }
     function buildSignatureParameters() {
       const position = autoFirmaConfig.position || {};
-      const text = position.text || "Firmado por $$SUBJECTCN$$ el $$SIGNDATE=dd/MM/yyyy HH:mm$$";
+      const text = position.text || autoFirmaConfig.signatureText || "Firmado por $$SUBJECTCN$$ el d\xEDa $$SIGNDATE=dd/MM/yyyy$$.";
       return {
         mode: "implicit",
         signatureSubFilter: "ETSI.CAdES.detached",

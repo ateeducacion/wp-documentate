@@ -1,18 +1,19 @@
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: Documentate – Document Generator 0.0.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wp-documentate\n"
+"POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
+"PO-Revision-Date: 2026-08-03T00:00:46+00:00\n"
 "Last-Translator: Área de Tecnología Educativa <ate@gobiernodecanarias.org>\n"
 "Language-Team: Spanish <ate@gobiernodecanarias.org>\n"
+"Language: es_ES\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-07-27T21:53:15+00:00\n"
-"Language: es_ES\n"
-"X-Generator: WP-CLI 2.12.0\n"
-"X-Domain: documentate\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Domain: documentate\n"
+"X-Generator: WP-CLI 2.12.0\n"
 
 #. Plugin Name of the plugin
 msgid "Documentate – Document Generator"
@@ -23,8 +24,14 @@ msgid "https://github.com/ateeducacion/wp-documentate"
 msgstr "https://github.com/ateeducacion/wp-documentate"
 
 #. Description of the plugin
-msgid "Digital document generator. Defines a custom post type for structured documents with customizable sections and allows exporting to Word (DOCX) and PDF."
-msgstr "Generador de documentos digitales. Define un tipo de contenido personalizado para documentos estructurados con secciones configurables y permite exportar a Word (DOCX) y PDF."
+msgid ""
+"Digital document generator. Defines a custom post type for structured "
+"documents with customizable sections and allows exporting to Word (DOCX) and"
+" PDF."
+msgstr ""
+"Generador de documentos digitales. Define un tipo de contenido personalizado"
+" para documentos estructurados con secciones configurables y permite "
+"exportar a Word (DOCX) y PDF."
 
 #. Author of the plugin
 msgid "Área de Tecnología Educativa"
@@ -55,6 +62,9 @@ msgstr "Idioma de Collabora"
 msgid "Skip SSL verification (Collabora)"
 msgstr "Omitir verificación SSL (Collabora)"
 
+msgid "AutoFirma visible signature text"
+msgstr "Texto visible de la firma de AutoFirma"
+
 msgid "Collaborative Mode"
 msgstr "Modo colaborativo"
 
@@ -73,8 +83,19 @@ msgstr "LibreOffice WASM en navegador (experimental)"
 msgid "(not available in WordPress Playground)"
 msgstr "(no disponible en WordPress Playground)"
 
-msgid "Choose whether conversions are performed via Collabora Online (default, server-side) or with LibreOffice WASM in the browser (experimental). LibreOffice WASM downloads large assets and requires a cross-origin isolated browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is recommended for reliable server-side or background PDF generation."
-msgstr "Elige si las conversiones se realizan mediante Collabora Online (predeterminado, en el servidor) o con LibreOffice WASM en el navegador (experimental). LibreOffice WASM descarga archivos de gran tamaño y requiere un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y SharedArrayBuffer); se recomienda Collabora Online para una generación de PDF fiable en el servidor o en segundo plano."
+msgid ""
+"Choose whether conversions are performed via Collabora Online (default, "
+"server-side) or with LibreOffice WASM in the browser (experimental). "
+"LibreOffice WASM downloads large assets and requires a cross-origin isolated"
+" browser (COOP/COEP headers and SharedArrayBuffer); Collabora Online is "
+"recommended for reliable server-side or background PDF generation."
+msgstr ""
+"Elige si las conversiones se realizan mediante Collabora Online "
+"(predeterminado, en el servidor) o con LibreOffice WASM en el navegador "
+"(experimental). LibreOffice WASM descarga archivos de gran tamaño y requiere"
+" un navegador con aislamiento de origen cruzado (cabeceras COOP/COEP y "
+"SharedArrayBuffer); se recomienda Collabora Online para una generación de "
+"PDF fiable en el servidor o en segundo plano."
 
 msgid "Example: https://demo.us.collaboraonline.com"
 msgstr "Ejemplo: https://demo.us.collaboraonline.com"
@@ -83,16 +104,35 @@ msgid "Language code to send to Collabora Online (default en-US)."
 msgstr "Código de idioma a enviar a Collabora Online (predeterminado en-US)."
 
 msgid "Disable SSL certificate verification (use only in test environments)."
-msgstr "Desactivar verificación del certificado SSL (usar solo en entornos de prueba)."
+msgstr ""
+"Desactivar verificación del certificado SSL (usar solo en entornos de "
+"prueba)."
+
+msgid ""
+"Text shown in the visible PDF signature. The default matches AutoFirma. "
+"Supported variables include $$SUBJECTCN$$, $$ISSUERCN$$, $$CERTSERIAL$$ and "
+"$$SIGNDATE=dd/MM/yyyy$$. A text parameter in [sign;text=...] overrides this "
+"setting for that template."
+msgstr ""
+"Texto mostrado en la firma visible del PDF. El valor predeterminado coincide"
+" con AutoFirma. Las variables compatibles incluyen $$SUBJECTCN$$, "
+"$$ISSUERCN$$, $$CERTSERIAL$$ y $$SIGNDATE=dd/MM/yyyy$$. Un parámetro text en"
+" [sign;text=...] sobrescribe este ajuste para esa plantilla."
 
 msgid "Enable real-time collaborative editing using TipTap and Yjs."
 msgstr "Habilitar edición colaborativa en tiempo real usando TipTap y Yjs."
 
-msgid "Replaces the classic TinyMCE editor with TipTap supporting collaborative editing via WebRTC."
-msgstr "Reemplaza el editor clásico TinyMCE con TipTap soportando edición colaborativa vía WebRTC."
+msgid ""
+"Replaces the classic TinyMCE editor with TipTap supporting collaborative "
+"editing via WebRTC."
+msgstr ""
+"Reemplaza el editor clásico TinyMCE con TipTap soportando edición "
+"colaborativa vía WebRTC."
 
 msgid "Signaling server for WebRTC. By default uses the public Yjs server."
-msgstr "Servidor de señalización para WebRTC. Por defecto usa el servidor público de Yjs."
+msgstr ""
+"Servidor de señalización para WebRTC. Por defecto usa el servidor público de"
+" Yjs."
 
 msgid "Available public servers:"
 msgstr "Servidores públicos disponibles:"
@@ -169,11 +209,13 @@ msgstr "Saludo"
 msgid "Closing"
 msgstr "Despedida"
 
-#. translators: Title of the WordPress Media Library frame for selecting attachment files
+#. translators: Title of the WordPress Media Library frame for selecting
+#. attachment files
 msgid "Select files"
 msgstr "Seleccionar archivos"
 
-#. translators: Button label in the Media Library to confirm selection of attachment files
+#. translators: Button label in the Media Library to confirm selection of
+#. attachment files
 msgid "Add to document"
 msgstr "Añadir al documento"
 
@@ -274,8 +316,12 @@ msgstr "Esquema actualizado correctamente."
 msgid "Templates for ODT/DOCX:"
 msgstr "Plantillas para ODT/DOCX:"
 
-msgid "wp-documentate can read the following fields defined in the template and generate the final document."
-msgstr "wp-documentate puede leer los siguientes campos definidos en la plantilla y generar el documento final."
+msgid ""
+"wp-documentate can read the following fields defined in the template and "
+"generate the final document."
+msgstr ""
+"wp-documentate puede leer los siguientes campos definidos en la plantilla y "
+"generar el documento final."
 
 msgid "Fields:"
 msgstr "Campos:"
@@ -379,8 +425,15 @@ msgstr "-- Fila de tabla:"
 msgid "Digital signature (AutoFirma):"
 msgstr "Firma digital (AutoFirma):"
 
-msgid "add [sign] to enable the \"Sign and Download\" button. Optional parameters x and y set the signature position in PDF points from the bottom-left corner of the page. Use page to specify the page number (-1 = last page)."
-msgstr "añade [sign] para activar el botón \"Firmar y descargar\". Los parámetros opcionales x e y definen la posición de la firma en puntos PDF desde la esquina inferior izquierda de la página. Usa page para indicar el número de página (-1 = última página)."
+msgid ""
+"add [sign] to enable the \"Sign and Download\" button. Optional parameters x"
+" and y set the signature position in PDF points from the bottom-left corner "
+"of the page. Use page to specify the page number (-1 = last page)."
+msgstr ""
+"añade [sign] para activar el botón \"Firmar y descargar\". Los parámetros "
+"opcionales x e y definen la posición de la firma en puntos PDF desde la "
+"esquina inferior izquierda de la página. Usa page para indicar el número de "
+"página (-1 = última página)."
 
 msgid "default position (bottom-left, last page)"
 msgstr "posición por defecto (abajo-izquierda, última página)"
@@ -391,11 +444,19 @@ msgstr "posición personalizada en la última página"
 msgid "custom position on page 2"
 msgstr "posición personalizada en la página 2"
 
-msgid "Tip: in ODT/DOCX the text can be fragmented internally. To ensure each marker"
-msgstr "Consejo: en ODT/DOCX el texto puede fragmentarse internamente. Para asegurar que cada marcador"
+msgid ""
+"Tip: in ODT/DOCX the text can be fragmented internally. To ensure each "
+"marker"
+msgstr ""
+"Consejo: en ODT/DOCX el texto puede fragmentarse internamente. Para asegurar"
+" que cada marcador"
 
-msgid "remains intact, write it in a plain text editor, then copy and paste without formatting."
-msgstr "quede íntegro, escríbelo en un editor de texto plano y luego copia y pega sin formato."
+msgid ""
+"remains intact, write it in a plain text editor, then copy and paste without"
+" formatting."
+msgstr ""
+"quede íntegro, escríbelo en un editor de texto plano y luego copia y pega "
+"sin formato."
 
 msgid "Documentate Converter"
 msgstr "Conversor de Documentate"
@@ -478,6 +539,12 @@ msgstr "Documento o estado no válido."
 msgid "Preview error"
 msgstr "Error de vista previa"
 
+msgid "Could not access the generated PDF file."
+msgstr "No se pudo acceder al archivo PDF generado."
+
+msgid "Could not read the PDF file."
+msgstr "No se pudo leer el archivo PDF."
+
 msgid "User not authenticated."
 msgstr "Usuario no autenticado."
 
@@ -487,26 +554,26 @@ msgstr "No se pudo generar el PDF para la vista previa."
 msgid "Preview file not available."
 msgstr "Archivo de vista previa no disponible."
 
-msgid "Could not access the generated PDF file."
-msgstr "No se pudo acceder al archivo PDF generado."
-
-msgid "Could not read the PDF file."
-msgstr "No se pudo leer el archivo PDF."
-
 msgid "You do not have permission to access this page."
 msgstr "No tienes permiso para acceder a esta página."
 
 msgid "Document Actions"
 msgstr "Acciones del documento"
 
-msgid "Configure a DOCX template in the document type."
-msgstr "Configura una plantilla DOCX en el tipo de documento."
+msgid ""
+"Configure a DOCX or ODT template in the document type before generating PDF."
+msgstr ""
+"Configura una plantilla DOCX u ODT en el tipo de documento antes de generar "
+"PDF."
+
+msgid "ODT (Source)"
+msgstr "ODT (Origen)"
 
 msgid "Configure an ODT template in the document type."
 msgstr "Configura una plantilla ODT en el tipo de documento."
 
-msgid "Configure a DOCX or ODT template in the document type before generating PDF."
-msgstr "Configura una plantilla DOCX u ODT en el tipo de documento antes de generar PDF."
+msgid "Configure a DOCX template in the document type."
+msgstr "Configura una plantilla DOCX en el tipo de documento."
 
 msgid "Preview"
 msgstr "Vista previa"
@@ -516,9 +583,6 @@ msgstr "Descargar PDF"
 
 msgid "Sign and Download"
 msgstr "Firmar y descargar"
-
-msgid "ODT (Source)"
-msgstr "ODT (Origen)"
 
 msgid "Other download formats:"
 msgstr "Otros formatos de descarga:"
@@ -561,8 +625,12 @@ msgstr "Convirtiendo en el navegador..."
 msgid "Error loading LibreOffice."
 msgstr "Error al cargar LibreOffice."
 
-msgid "You have unsaved changes. Do you want to generate the document with the last saved version?"
-msgstr "Tienes cambios sin guardar. ¿Quieres generar el documento con la última versión guardada?"
+msgid ""
+"You have unsaved changes. Do you want to generate the document with the last"
+" saved version?"
+msgstr ""
+"Tienes cambios sin guardar. ¿Quieres generar el documento con la última "
+"versión guardada?"
 
 msgid "Please select your certificate in AutoFirma..."
 msgstr "Selecciona tu certificado en AutoFirma..."
@@ -580,7 +648,8 @@ msgid "The source file for conversion does not exist."
 msgstr "El fichero origen para la conversión no existe."
 
 msgid "Configure the Collabora Online service URL to convert documents."
-msgstr "Configura la URL del servicio Collabora Online para convertir documentos."
+msgstr ""
+"Configura la URL del servicio Collabora Online para convertir documentos."
 
 msgid "Output format not supported by Collabora."
 msgstr "Formato de salida no soportado por Collabora."
@@ -607,8 +676,12 @@ msgstr "Collabora Online"
 msgid "Collabora Online is not available to convert documents."
 msgstr "Collabora Online no está disponible para convertir documentos."
 
-msgid "In-browser LibreOffice WASM conversion is not available in WordPress Playground. Use Collabora Online instead."
-msgstr "La conversión LibreOffice WASM en el navegador no está disponible en WordPress Playground. Usa Collabora Online en su lugar."
+msgid ""
+"In-browser LibreOffice WASM conversion is not available in WordPress "
+"Playground. Use Collabora Online instead."
+msgstr ""
+"La conversión LibreOffice WASM en el navegador no está disponible en "
+"WordPress Playground. Usa Collabora Online en su lugar."
 
 #. translators: 1: source extension, 2: target extension.
 #, php-format
@@ -623,14 +696,22 @@ msgstr "Requerido para generar %s."
 msgid "Advanced test document type (ODT)"
 msgstr "Tipo de documento de prueba avanzado (ODT)"
 
-msgid "Example automatically created with the included demo-wp-documentate.odt template."
-msgstr "Ejemplo creado automáticamente con la plantilla demo-wp-documentate.odt incluida."
+msgid ""
+"Example automatically created with the included demo-wp-documentate.odt "
+"template."
+msgstr ""
+"Ejemplo creado automáticamente con la plantilla demo-wp-documentate.odt "
+"incluida."
 
 msgid "Advanced test document type (DOCX)"
 msgstr "Tipo de documento de prueba avanzado (DOCX)"
 
-msgid "Example automatically created with the included demo-wp-documentate.docx template."
-msgstr "Ejemplo creado automáticamente con la plantilla demo-wp-documentate.docx incluida."
+msgid ""
+"Example automatically created with the included demo-wp-documentate.docx "
+"template."
+msgstr ""
+"Ejemplo creado automáticamente con la plantilla demo-wp-documentate.docx "
+"incluida."
 
 #. translators: %s: document type name.
 #, php-format
@@ -686,7 +767,8 @@ msgstr "Encabezado de prueba"
 msgid "First paragraph with example text."
 msgstr "Primer párrafo con texto de ejemplo."
 
-#. translators: 1: bold text label, 2: italic text label, 3: underline text label.
+#. translators: 1: bold text label, 2: italic text label, 3: underline text
+#. label.
 #, php-format
 msgid "Second paragraph with %1$s, %2$s and %3$s."
 msgstr "Segundo párrafo con %1$s, %2$s y %3$s."
@@ -739,20 +821,48 @@ msgstr "Configura una plantilla DOCX en el tipo de documento seleccionado."
 msgid "Configure an ODT template in the selected document type."
 msgstr "Configura una plantilla ODT en el tipo de documento seleccionado."
 
-msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
-msgstr "No se pudo generar el documento base porque el tipo de documento no tiene configurada una plantilla DOCX u ODT."
+msgid ""
+"Could not generate the base document because the document type does not have"
+" a DOCX or ODT template configured."
+msgstr ""
+"No se pudo generar el documento base porque el tipo de documento no tiene "
+"configurada una plantilla DOCX u ODT."
 
-msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
-msgstr "La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La generación de PDF en el servidor o en segundo plano requiere Collabora Online u otro servicio del lado del servidor."
+msgid ""
+"PDF conversion is performed in the browser using LibreOffice WASM. Server-"
+"side or background PDF generation requires Collabora Online or another "
+"server-side service."
+msgstr ""
+"La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La"
+" generación de PDF en el servidor o en segundo plano requiere Collabora "
+"Online u otro servicio del lado del servidor."
 
-msgid "The LibreOffice WASM assets are not installed. Run \"npm install\" (or \"npm run copy:libreoffice-converter\") to enable in-browser conversion, or use Collabora Online."
-msgstr "Los recursos de LibreOffice WASM no están instalados. Ejecuta «npm install» (o «npm run copy:libreoffice-converter») para habilitar la conversión en el navegador, o usa Collabora Online."
+msgid ""
+"The LibreOffice WASM assets are not installed. Run \"npm install\" (or \"npm"
+" run copy:libreoffice-converter\") to enable in-browser conversion, or use "
+"Collabora Online."
+msgstr ""
+"Los recursos de LibreOffice WASM no están instalados. Ejecuta «npm install» "
+"(o «npm run copy:libreoffice-converter») para habilitar la conversión en el "
+"navegador, o usa Collabora Online."
 
-msgid "In-browser conversion requires a cross-origin isolated context (Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp) and SharedArrayBuffer support. If your browser cannot provide them, use Collabora Online instead."
-msgstr "La conversión en el navegador requiere un contexto con aislamiento de origen cruzado (Cross-Origin-Opener-Policy: same-origin y Cross-Origin-Embedder-Policy: require-corp) y compatibilidad con SharedArrayBuffer. Si tu navegador no puede proporcionarlos, usa Collabora Online en su lugar."
+msgid ""
+"In-browser conversion requires a cross-origin isolated context (Cross-"
+"Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-"
+"corp) and SharedArrayBuffer support. If your browser cannot provide them, "
+"use Collabora Online instead."
+msgstr ""
+"La conversión en el navegador requiere un contexto con aislamiento de origen"
+" cruzado (Cross-Origin-Opener-Policy: same-origin y Cross-Origin-Embedder-"
+"Policy: require-corp) y compatibilidad con SharedArrayBuffer. Si tu "
+"navegador no puede proporcionarlos, usa Collabora Online en su lugar."
 
-msgid "Downloading LibreOffice WASM components. This may take a while the first time."
-msgstr "Descargando componentes de LibreOffice WASM. Esto puede tardar la primera vez."
+msgid ""
+"Downloading LibreOffice WASM components. This may take a while the first "
+"time."
+msgstr ""
+"Descargando componentes de LibreOffice WASM. Esto puede tardar la primera "
+"vez."
 
 msgid "Processing with LibreOffice WASM."
 msgstr "Procesando con LibreOffice WASM."
@@ -830,11 +940,17 @@ msgstr "Cuando uno de mis documentos se envía a revisión."
 msgid "Cuando uno de mis documentos se publica."
 msgstr "Cuando uno de mis documentos se publica."
 
-msgid "Otros cambios de estado de mis documentos (devueltos a borrador, archivados, etc.)."
-msgstr "Otros cambios de estado de mis documentos (devueltos a borrador, archivados, etc.)."
+msgid ""
+"Otros cambios de estado de mis documentos (devueltos a borrador, archivados,"
+" etc.)."
+msgstr ""
+"Otros cambios de estado de mis documentos (devueltos a borrador, archivados,"
+" etc.)."
 
-msgid "Cuando un documento de otra persona pasa a revisión (solo administradores)."
-msgstr "Cuando un documento de otra persona pasa a revisión (solo administradores)."
+msgid ""
+"Cuando un documento de otra persona pasa a revisión (solo administradores)."
+msgstr ""
+"Cuando un documento de otra persona pasa a revisión (solo administradores)."
 
 msgid "Notificaciones de Documentate"
 msgstr "Notificaciones de Documentate"
@@ -858,7 +974,8 @@ msgid "Template pre-processing failed (visibility blocks)."
 msgstr "Falló el preprocesamiento de la plantilla (bloques de visibilidad)."
 
 msgid "Template pre-processing failed (placeholder normalization)."
-msgstr "Falló el preprocesamiento de la plantilla (normalización de marcadores)."
+msgstr ""
+"Falló el preprocesamiento de la plantilla (normalización de marcadores)."
 
 msgid "ZipArchive is not available for rich text formatting."
 msgstr "ZipArchive no está disponible para formato de texto enriquecido."
@@ -902,6 +1019,9 @@ msgstr "Elemento cp:coreProperties no encontrado."
 msgid "You do not have permission to manage templates."
 msgstr "No tienes permiso para gestionar plantillas."
 
+msgid "Could not open the template for analysis."
+msgstr "No se pudo abrir la plantilla para su análisis."
+
 msgid "The selected template was not found."
 msgstr "La plantilla seleccionada no se encuentra."
 
@@ -911,29 +1031,38 @@ msgstr "El archivo debe ser un DOCX u ODT."
 msgid "ZipArchive is not available on the server."
 msgstr "ZipArchive no está disponible en el servidor."
 
-msgid "Could not open the template for analysis."
-msgstr "No se pudo abrir la plantilla para su análisis."
-
 msgid "Scope category"
 msgstr "Categoría de ámbito"
 
 msgid "— No scope —"
 msgstr "— Sin ámbito —"
 
-msgid "Documents in this category (and subcategories) will be visible to this user."
-msgstr "Los documentos en esta categoría (y subcategorías) serán visibles para este usuario."
+msgid ""
+"Documents in this category (and subcategories) will be visible to this user."
+msgstr ""
+"Los documentos en esta categoría (y subcategorías) serán visibles para este "
+"usuario."
 
-msgid "Document saved as draft. You must select a document type before publishing."
-msgstr "Documento guardado como borrador. Debes seleccionar un tipo de documento antes de publicar."
+msgid ""
+"Document saved as draft. You must select a document type before publishing."
+msgstr ""
+"Documento guardado como borrador. Debes seleccionar un tipo de documento "
+"antes de publicar."
 
-msgid "Document set to pending review. Only administrators can publish documents."
-msgstr "Documento establecido como pendiente de revisión. Solo los administradores pueden publicar documentos."
+msgid ""
+"Document set to pending review. Only administrators can publish documents."
+msgstr ""
+"Documento establecido como pendiente de revisión. Solo los administradores "
+"pueden publicar documentos."
 
 msgid "Published documents can only be modified by administrators."
-msgstr "Los documentos publicados solo pueden ser modificados por administradores."
+msgstr ""
+"Los documentos publicados solo pueden ser modificados por administradores."
 
 msgid "Documents pending review can only be modified by administrators."
-msgstr "Los documentos pendientes de revisión solo pueden ser modificados por administradores."
+msgstr ""
+"Los documentos pendientes de revisión solo pueden ser modificados por "
+"administradores."
 
 msgid "Only published documents can be archived."
 msgstr "Solo se pueden archivar documentos publicados."
@@ -942,7 +1071,8 @@ msgid "Only administrators can archive documents."
 msgstr "Solo los administradores pueden archivar documentos."
 
 msgid "Archived documents can only be modified by administrators."
-msgstr "Los documentos archivados solo pueden ser modificados por administradores."
+msgstr ""
+"Los documentos archivados solo pueden ser modificados por administradores."
 
 msgctxt "post status"
 msgid "Archived"
@@ -958,14 +1088,26 @@ msgstr[1] "Archivados <span class=\"count\">(%s)</span>"
 msgid "Document Locked"
 msgstr "Documento bloqueado"
 
-msgid "This document is published and read-only. Only an administrator can unlock it by reverting to draft."
-msgstr "Este documento está publicado y es de solo lectura. Solo un administrador puede desbloquearlo revirtiendo a borrador."
+msgid ""
+"This document is published and read-only. Only an administrator can unlock "
+"it by reverting to draft."
+msgstr ""
+"Este documento está publicado y es de solo lectura. Solo un administrador "
+"puede desbloquearlo revirtiendo a borrador."
 
-msgid "This document is archived and read-only. Only an administrator can unarchive it."
-msgstr "Este documento está archivado y es de solo lectura. Solo un administrador puede desarchivarlo."
+msgid ""
+"This document is archived and read-only. Only an administrator can unarchive"
+" it."
+msgstr ""
+"Este documento está archivado y es de solo lectura. Solo un administrador "
+"puede desarchivarlo."
 
-msgid "This document is pending review and read-only. An administrator will review it."
-msgstr "Este documento está pendiente de revisión y es de solo lectura. Un administrador lo revisará."
+msgid ""
+"This document is pending review and read-only. An administrator will review "
+"it."
+msgstr ""
+"Este documento está pendiente de revisión y es de solo lectura. Un "
+"administrador lo revisará."
 
 msgid "Change status to Draft to enable editing."
 msgstr "Cambia el estado a Borrador para habilitar la edición."
@@ -977,10 +1119,16 @@ msgid "Select a document type before publishing."
 msgstr "Selecciona un tipo de documento antes de publicar."
 
 msgid "Editors can only save as Draft or Pending Review."
-msgstr "Los editores solo pueden guardar como Borrador o Pendiente de revisión."
+msgstr ""
+"Los editores solo pueden guardar como Borrador o Pendiente de revisión."
 
-msgid "Are you sure you want to send this document to review? Once submitted, you will not be able to edit it until an administrator returns it to draft."
-msgstr "¿Estás seguro de que quieres enviar este documento a revisión? Una vez enviado, no podrás editarlo hasta que un administrador lo devuelva a borrador."
+msgid ""
+"Are you sure you want to send this document to review? Once submitted, you "
+"will not be able to edit it until an administrator returns it to draft."
+msgstr ""
+"¿Estás seguro de que quieres enviar este documento a revisión? Una vez "
+"enviado, no podrás editarlo hasta que un administrador lo devuelva a "
+"borrador."
 
 msgid "Document Management"
 msgstr "Gestión del documento"
@@ -991,7 +1139,8 @@ msgstr "Guardar"
 msgid "No document types defined. Create one in Document Types."
 msgstr "No hay tipos de documento definidos. Crea uno en Tipos de documento."
 
-msgid "Choose the type when creating the document. It cannot be changed later."
+msgid ""
+"Choose the type when creating the document. It cannot be changed later."
 msgstr "Elige el tipo al crear el documento. No se puede cambiar después."
 
 msgid "Selected type:"
@@ -1010,28 +1159,39 @@ msgid "Approved"
 msgstr "Aprobado"
 
 msgid "No document type selected. Must assign a type before publishing."
-msgstr "No hay tipo de documento seleccionado. Debes asignar un tipo antes de publicar."
+msgstr ""
+"No hay tipo de documento seleccionado. Debes asignar un tipo antes de "
+"publicar."
 
 msgid "Document is read-only. Return to Review to enable editing."
-msgstr "El documento es de solo lectura. Devolver a revisión para habilitar la edición."
+msgstr ""
+"El documento es de solo lectura. Devolver a revisión para habilitar la "
+"edición."
 
 msgid "Document is locked. Contact an administrator."
 msgstr "El documento está bloqueado. Contacta a un administrador."
 
 msgid "Document is archived and read-only. Unarchive to enable editing."
-msgstr "El documento está archivado y es de solo lectura. Desarchiva para habilitar la edición."
+msgstr ""
+"El documento está archivado y es de solo lectura. Desarchiva para habilitar "
+"la edición."
 
 msgid "Document is archived. Contact an administrator to unarchive."
-msgstr "El documento está archivado. Contacta a un administrador para desarchivarlo."
+msgstr ""
+"El documento está archivado. Contacta a un administrador para desarchivarlo."
 
 msgid "Document is pending review. Approve or return to draft."
-msgstr "El documento está pendiente de revisión. Apruébelo o devuélvalo a borrador."
+msgstr ""
+"El documento está pendiente de revisión. Apruébelo o devuélvalo a borrador."
 
 msgid "Document is pending review. An administrator will review it."
-msgstr "El documento está pendiente de revisión. Un administrador lo revisará."
+msgstr ""
+"El documento está pendiente de revisión. Un administrador lo revisará."
 
 msgid "Submit for Pending Review when ready. An administrator will publish."
-msgstr "Envía a Pendiente de revisión cuando esté listo. Un administrador lo publicará."
+msgstr ""
+"Envía a Pendiente de revisión cuando esté listo. Un administrador lo "
+"publicará."
 
 msgid "Save Draft"
 msgstr "Guardar borrador"
@@ -1076,97 +1236,11 @@ msgid_plural "%d Revisions"
 msgstr[0] "%d revisión"
 msgstr[1] "%d revisiones"
 
-msgid "Documents"
-msgstr "Documentos"
-
-msgid "Document"
-msgstr "Documento"
-
-msgid "Add New"
-msgstr "Añadir nuevo"
-
-msgid "Add New Document"
-msgstr "Añadir nuevo documento"
-
-msgid "New Document"
-msgstr "Nuevo documento"
-
-msgid "Edit Document"
-msgstr "Editar documento"
-
-msgid "View Document"
-msgstr "Ver documento"
-
-msgid "All Documents"
-msgstr "Todos los documentos"
-
-msgid "Search Documents"
-msgstr "Buscar documentos"
-
-msgid "No documents found."
-msgstr "No se encontraron documentos."
-
-msgid "No documents found in trash."
-msgstr "No se encontraron documentos en la papelera."
-
-msgid "Document Types"
-msgstr "Tipos de documento"
-
 msgid "Document Type"
 msgstr "Tipo de documento"
 
-msgid "Search Types"
-msgstr "Buscar tipos"
-
-msgid "All Types"
-msgstr "Todos los tipos"
-
-msgid "Edit Type"
-msgstr "Editar tipo"
-
-msgid "Update Type"
-msgstr "Actualizar tipo"
-
-msgid "Add New Type"
-msgstr "Añadir nuevo tipo"
-
-msgid "New Type"
-msgstr "Nuevo tipo"
-
-msgid "Document Sections"
-msgstr "Secciones del documento"
-
-msgid "Author"
-msgstr "Autor"
-
-msgid "Configure a document type with fields to edit its content."
-msgstr "Configura un tipo de documento con campos para editar su contenido."
-
-msgid "Select an option…"
-msgstr "Selecciona una opción…"
-
-msgid "Add item"
-msgstr "Añadir elemento"
-
-msgid "Move item"
-msgstr "Mover elemento"
-
-msgid "Delete"
-msgstr "Eliminar"
-
-msgid "The document contains additional fields that do not belong to the selected type. Review their content before saving."
-msgstr "El documento contiene campos adicionales que no pertenecen al tipo seleccionado. Revisa su contenido antes de guardar."
-
-#. translators: %s: detected dynamic field key.
-#, php-format
-msgid "Additional field: %s"
-msgstr "Campo adicional: %s"
-
-msgid "This field is not defined in the current document type taxonomy."
-msgstr "Este campo no está definido en la taxonomía de tipo de documento actual."
-
-msgid "All authors"
-msgstr "Todos los autores"
+msgid "Category"
+msgstr "Categoría"
 
 msgid "All document types"
 msgstr "Todos los tipos de documento"
@@ -1177,8 +1251,45 @@ msgstr "Todas las categorías"
 msgid "Archived"
 msgstr "Archivado"
 
-msgid "Category"
-msgstr "Categoría"
+msgid "All authors"
+msgstr "Todos los autores"
+
+msgid "Document Sections"
+msgstr "Secciones del documento"
+
+msgid "Author"
+msgstr "Autor"
+
+msgid "Configure a document type with fields to edit its content."
+msgstr "Configura un tipo de documento con campos para editar su contenido."
+
+msgid ""
+"The document contains additional fields that do not belong to the selected "
+"type. Review their content before saving."
+msgstr ""
+"El documento contiene campos adicionales que no pertenecen al tipo "
+"seleccionado. Revisa su contenido antes de guardar."
+
+#. translators: %s: detected dynamic field key.
+#, php-format
+msgid "Additional field: %s"
+msgstr "Campo adicional: %s"
+
+msgid "This field is not defined in the current document type taxonomy."
+msgstr ""
+"Este campo no está definido en la taxonomía de tipo de documento actual."
+
+msgid "Add item"
+msgstr "Añadir elemento"
+
+msgid "Move item"
+msgstr "Mover elemento"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "Select an option…"
+msgstr "Selecciona una opción…"
 
 msgid "Enter a valid email (user@domain.tld)"
 msgstr "Introduce un email válido (usuario@dominio.tld)"
@@ -1215,6 +1326,60 @@ msgstr "palabra1, palabra2"
 
 msgid "Comma-separated list."
 msgstr "Lista separada por comas."
+
+msgid "Documents"
+msgstr "Documentos"
+
+msgid "Document"
+msgstr "Documento"
+
+msgid "Add New"
+msgstr "Añadir nuevo"
+
+msgid "Add New Document"
+msgstr "Añadir nuevo documento"
+
+msgid "New Document"
+msgstr "Nuevo documento"
+
+msgid "Edit Document"
+msgstr "Editar documento"
+
+msgid "View Document"
+msgstr "Ver documento"
+
+msgid "All Documents"
+msgstr "Todos los documentos"
+
+msgid "Search Documents"
+msgstr "Buscar documentos"
+
+msgid "No documents found."
+msgstr "No se encontraron documentos."
+
+msgid "No documents found in trash."
+msgstr "No se encontraron documentos en la papelera."
+
+msgid "Document Types"
+msgstr "Tipos de documento"
+
+msgid "Search Types"
+msgstr "Buscar tipos"
+
+msgid "All Types"
+msgstr "Todos los tipos"
+
+msgid "Edit Type"
+msgstr "Editar tipo"
+
+msgid "Update Type"
+msgstr "Actualizar tipo"
+
+msgid "Add New Type"
+msgstr "Añadir nuevo tipo"
+
+msgid "New Type"
+msgstr "Nuevo tipo"
 
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
