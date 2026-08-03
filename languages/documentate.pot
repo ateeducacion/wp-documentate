@@ -504,6 +504,9 @@ msgstr ""
 msgid "Document Actions"
 msgstr ""
 
+msgid "Unsaved changes"
+msgstr ""
+
 msgid "Configure a DOCX or ODT template in the document type before generating PDF."
 msgstr ""
 
@@ -566,7 +569,13 @@ msgstr ""
 msgid "Error loading LibreOffice."
 msgstr ""
 
-msgid "You have unsaved changes. Do you want to generate the document with the last saved version?"
+msgid "Preview ready"
+msgstr ""
+
+msgid "Your browser blocked the pop-up window."
+msgstr ""
+
+msgid "Open preview"
 msgstr ""
 
 msgid "Please select your certificate in AutoFirma..."
@@ -576,6 +585,39 @@ msgid "AutoFirma is not installed or could not be started."
 msgstr ""
 
 msgid "Download unsigned PDF"
+msgstr ""
+
+msgid "You have unsaved changes"
+msgstr ""
+
+msgid "The document is generated from the last saved version. If you continue without saving, your changes will not appear in it."
+msgstr ""
+
+msgid "Save and preview"
+msgstr ""
+
+msgid "Save and download"
+msgstr ""
+
+msgid "Save and sign"
+msgstr ""
+
+msgid "Use saved version"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Saving changes..."
+msgstr ""
+
+msgid "The action will continue automatically."
+msgstr ""
+
+msgid "Changes saved"
+msgstr ""
+
+msgid "Your changes were saved. Continue to generate the document."
 msgstr ""
 
 msgid "Configure the Collabora Online service base URL in settings."
