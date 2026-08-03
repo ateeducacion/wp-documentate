@@ -312,7 +312,7 @@ check-untranslated:
 	composer check-untranslated
 
 # Generate the LibreOffice WASM glue that the plugin ships but does not track.
-# `composer archive` packages the working tree and ignores .gitignore, so these
+# `wp dist-archive` packages the working tree and ignores .gitignore, so these
 # files only need to exist on disk at packaging time.
 package-assets:
 	@if [ -d node_modules/@matbee/libreoffice-converter ]; then \
@@ -338,8 +338,19 @@ package:
 	$(SED_INPLACE) "s/define( *'DOCUMENTATE_VERSION', '[^']*'/define( 'DOCUMENTATE_VERSION', '$(VERSION)'/" documentate.php
 	$(SED_INPLACE) "s/^Stable tag:.*/Stable tag: $(VERSION)/" readme.txt
 
-	# Create the ZIP package
-	composer archive --format=zip --file="documentate-$(VERSION)"
+	@# Create the ZIP package with proper folder structure.
+	@# `wp dist-archive` reads .distignore straight from the working tree, so the
+	@# generated files that .gitignore keeps out of the repository (the WASM glue,
+	@# the runtime translations) are packaged like any other file.
+	@# --plugin-dirname is what makes the archive extract as documentate/. Without
+	@# it WordPress names the plugin folder after the ZIP file and every release
+	@# lands in a new directory.
+	@# `--force` does not empty an existing archive: dist-archive 3.1 shells out
+	@# to the `zip` binary, which ADDS to one. Without this removal a file that a
+	@# new .distignore rule excludes would survive from an earlier build.
+	rm -f "$(CURDIR)/documentate-$(VERSION).zip"
+	./vendor/bin/wp dist-archive . "$(CURDIR)/documentate-$(VERSION).zip" \
+		--plugin-dirname=documentate --force
 
 	# Restore the version in documentate.php & readme.txt
 	$(SED_INPLACE) "s/^ \* Version:.*/ * Version:           0.0.0/" documentate.php
