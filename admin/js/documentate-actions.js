@@ -811,6 +811,17 @@
 				console.warn('AutoFirma init warning:', e);
 			}
 		}
+
+		// An action the user postponed to save first is replayed as a click, so it
+		// can only run now that the handler above is listening. This module loads
+		// after documentate-unsaved-changes, which is why the guard leaves the call
+		// to us instead of making it from its own ready callback.
+		if (
+			window.documentateUnsavedChanges &&
+			typeof window.documentateUnsavedChanges.resumePendingAction === 'function'
+		) {
+			window.documentateUnsavedChanges.resumePendingAction();
+		}
 	}
 
 	$(init);

@@ -17,6 +17,11 @@ const SOURCE = fs.readFileSync(
 	'utf8'
 );
 
+const ACTIONS_SOURCE = fs.readFileSync(
+	path.join( __dirname, '../../admin/js/documentate-actions.js' ),
+	'utf8'
+);
+
 const POST_ID = 42;
 const STORAGE_KEY = `documentate_pending_action_${ POST_ID }`;
 
@@ -304,6 +309,7 @@ describe( 'save and resume', () => {
 		);
 
 		await loadGuard();
+		window.documentateUnsavedChanges.resumePendingAction();
 
 		expect( downstream ).toHaveBeenCalled();
 		expect( window.sessionStorage.getItem( STORAGE_KEY ) ).toBeNull();
@@ -320,6 +326,7 @@ describe( 'save and resume', () => {
 		);
 
 		await loadGuard();
+		window.documentateUnsavedChanges.resumePendingAction();
 
 		expect( downstream ).not.toHaveBeenCalled();
 		expect( window.sessionStorage.getItem( STORAGE_KEY ) ).toBeNull();
@@ -333,6 +340,7 @@ describe( 'save and resume', () => {
 		);
 
 		await loadGuard();
+		window.documentateUnsavedChanges.resumePendingAction();
 
 		expect( downstream ).not.toHaveBeenCalled();
 		expect( document.querySelector( '.documentate-unsaved-modal.is-visible' ) ).not.toBeNull();
@@ -340,5 +348,76 @@ describe( 'save and resume', () => {
 		document.querySelector( '.documentate-unsaved-modal__primary' ).click();
 
 		expect( downstream ).toHaveBeenCalled();
+	} );
+} );
+
+describe( 'resume against the real action handler', () => {
+	let ajaxSpy;
+
+	beforeEach( () => {
+		// The stand-in bound in the outer beforeEach listens from the start, which
+		// is exactly the ordering these tests must not assume.
+		document.removeEventListener( 'click', downstreamListener );
+
+		window.documentateActionsConfig = {
+			ajaxUrl: '/wp-admin/admin-ajax.php',
+			postId: POST_ID,
+			nonce: 'test-nonce',
+			strings: {},
+		};
+
+		ajaxSpy = jest.fn();
+		global.jQuery.ajax = ajaxSpy;
+	} );
+
+	afterEach( () => {
+		// Each evaluation of documentate-actions delegates another handler on the
+		// document, which outlives the fixture and would double-count later runs.
+		global.jQuery( document ).off( 'click' );
+		delete window.documentateActionsConfig;
+	} );
+
+	/**
+	 * Evaluate both modules in the order the page loads them.
+	 *
+	 * documentate-actions declares the guard as a dependency, so the guard runs
+	 * first and its jQuery ready callback is queued ahead of the one that binds
+	 * the action click handler.
+	 *
+	 * @return {Promise<void>} Resolves once the ready queue has drained.
+	 */
+	async function loadPage() {
+		// eslint-disable-next-line no-new-func
+		new Function( SOURCE )();
+		// eslint-disable-next-line no-new-func
+		new Function( ACTIONS_SOURCE )();
+		await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+		instances.push( window.documentateUnsavedChanges );
+	}
+
+	it( 'generates the document the save interrupted', async () => {
+		// The replay is a synthetic click, so it only does something once
+		// documentate-actions has delegated its handler. Firing it earlier lands
+		// on nothing and the action is lost, with the stored entry consumed.
+		window.sessionStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify( { action: 'download', format: 'pdf', ts: Date.now() } )
+		);
+
+		await loadPage();
+
+		expect( ajaxSpy ).toHaveBeenCalledTimes( 1 );
+		expect( ajaxSpy.mock.calls[ 0 ][ 0 ].data ).toMatchObject( {
+			action: 'documentate_generate_document',
+			post_id: POST_ID,
+			format: 'pdf',
+			output: 'download',
+		} );
+	} );
+
+	it( 'generates nothing when no action was interrupted', async () => {
+		await loadPage();
+
+		expect( ajaxSpy ).not.toHaveBeenCalled();
 	} );
 } );

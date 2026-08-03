@@ -118,6 +118,16 @@ Before submitting, the pending action is recorded in `sessionStorage` under
 the module reads the entry, deletes it immediately, discards it if older than two
 minutes, and replays the action.
 
+The replay is a synthetic click, so it only does something once
+`documentate-actions` has delegated its handler. Both modules bind on DOM ready and
+the guard loads first — `documentate-actions` depends on it — so its ready callback
+runs while nothing is listening yet. `resumePendingAction()` is therefore exposed on
+`window.documentateUnsavedChanges` and called at the end of `documentate-actions`'
+`init()`, after the handler is bound, rather than from the guard's own ready
+callback. Calling it from there consumed the stored entry and dispatched a click
+that landed on nothing: the page saved and reloaded, and the document was never
+generated.
+
 ### Popup blocking
 
 `documentate-actions.js` opens previews with `window.open(url, '_blank')` inside an
@@ -143,7 +153,7 @@ change is announced once rather than on every keystroke.
 | --- | --- |
 | `admin/js/documentate-unsaved-changes.js` | new — detector, gate, modal, resume, indicator |
 | `admin/css/documentate-actions.css` | modal and indicator styles |
-| `admin/js/documentate-actions.js` | delete `hasUnsavedChanges()`; popup fallback for preview |
+| `admin/js/documentate-actions.js` | delete `hasUnsavedChanges()`; popup fallback for preview; resume the pending action after binding |
 | `assets/js/documentate-autofirma.js` | delete `hasUnsavedChanges()` and its `confirm()` |
 | `admin/js/documentate-autofirma.js` | regenerated via `npm run build:autofirma` |
 | `includes/class-documentate-admin-helper.php` | enqueue, dependency, localized strings, indicator markup |
@@ -154,7 +164,9 @@ No changes to the generation layer or the workflow.
 
 - **Jest** — `isDirty()` after `input` on a plain field, after TinyMCE `Dirty`,
   after `input` on `.ProseMirror`; starts clean; `sessionStorage` TTL; gate passes
-  through when clean.
+  through when clean. Plus one test that evaluates the guard and
+  `documentate-actions` in load order and asserts the resumed action reaches
+  `$.ajax`, which a test binding its own listener up front cannot catch.
 - **PHPUnit** — the handle is enqueued with the right dependencies and strings.
 - **Playwright** — edit a field, click Preview, assert the modal; assert the
   "use saved version" branch generates; assert the save branch reloads and resumes.
