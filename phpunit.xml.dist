@@ -15,6 +15,7 @@
     </include>
     <exclude>
       <directory>admin/vendor</directory>
+      <directory>includes/vendor</directory>
     </exclude>
   </coverage>
   <php>
