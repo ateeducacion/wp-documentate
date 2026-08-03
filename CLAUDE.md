@@ -15,6 +15,17 @@ Read `ARCHITECTURE.md` before making significant changes.
 
 ---
 
+## Skills
+
+`.agents/skills/` holds vendored third-party skills; `.claude/skills/` symlinks
+to them. Read the relevant one before working in its area — `wp-plugin-development`
+(hooks, Settings API, packaging), `wp-rest-api` (routes, permission callbacks,
+schema), `wp-plugin-directory-guidelines` (`readme.txt`, licensing, what
+`make check-plugin` enforces), `blueprint` (`blueprint.json`, Playground),
+`security-audit`. Never reformat or edit a skill in place.
+
+---
+
 ## Critical rules
 
 - Make **small, focused diffs**. No unrelated refactors.
@@ -49,6 +60,9 @@ A task is **not done** until all relevant checks pass.
 - UI text in **Spanish**; code, comments, docblocks in **English**.
 - Text domain: `documentate`.
 - Requires Docker / wp-env for `make check-plugin` and `make test`.
+- AutoFirma's intermediate routes use `permission_callback => '__return_true'`
+  deliberately — a 32-char session token authorises them, not the WP session.
+  See the AutoFirma section of `AGENTS.md` before touching `includes/autofirma/`.
 
 ---
 

@@ -36,6 +36,21 @@ make mago-format           # optional secondary Mago format
 
 ---
 
+## Agent skills
+
+This repository ships skills in `.agents/skills/`, which Copilot loads on demand.
+Consult the relevant one before working in its area:
+
+- `wp-plugin-development` — hooks, activation/uninstall, Settings API, options, cron, packaging
+- `wp-rest-api` — `register_rest_route`, `permission_callback`, schema/args, `register_meta`, `show_in_rest`
+- `wp-plugin-directory-guidelines` — `readme.txt`, license headers, naming; what `make check-plugin` enforces
+- `blueprint` — `blueprint.json` and the Playground preview
+- `security-audit` — vulnerability hunting and finding validation
+
+They are vendored verbatim from upstream: never reformat or edit them in place.
+
+---
+
 ## Key Coding Rules
 
 - **PHP indentation**: tab characters (tab-width = 4), per WordPress Coding Standards and `.editorconfig`.
@@ -48,6 +63,10 @@ make mago-format           # optional secondary Mago format
 - **SQL**: always use `$wpdb->prepare()`.
 - **UI text**: Spanish; all code, comments, and docblocks in English.
 - **Text domain**: `documentate`.
+- **AutoFirma exception**: the intermediate routes in `includes/autofirma/` use
+  `permission_callback => '__return_true'` deliberately — AutoFirma is a desktop
+  app with no WordPress session, and a 32-char session token authorises them.
+  Adding a nonce or capability check there breaks signing. See `AGENTS.md`.
 
 ---
 
