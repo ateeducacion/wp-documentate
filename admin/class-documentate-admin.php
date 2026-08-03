@@ -583,16 +583,48 @@ class Documentate_Admin {
 		$term_id = intval( $terms[0] );
 
 		// Get schema from the term.
-		if ( class_exists( 'Documentate\\DocType\\SchemaStorage' ) ) {
-			$storage = new \Documentate\DocType\SchemaStorage();
-			$schema = $storage->get_schema( $term_id );
+		if ( ! class_exists( 'Documentate\\DocType\\SchemaStorage' ) ) {
+			return $labels;
+		}
 
-			if ( is_array( $schema ) && ! empty( $schema ) ) {
-				foreach ( $schema as $field ) {
-					if ( ! empty( $field['slug'] ) && ! empty( $field['label'] ) ) {
-						$labels[ sanitize_key( $field['slug'] ) ] = $field['label'];
-					}
-				}
+		$storage = new \Documentate\DocType\SchemaStorage();
+		$schema = $storage->get_schema( $term_id );
+
+		// The schema groups its entries under `fields` and `repeaters`; both
+		// carry the human readable name in `title`.
+		foreach ( array( 'fields', 'repeaters' ) as $group ) {
+			if ( empty( $schema[ $group ] ) || ! is_array( $schema[ $group ] ) ) {
+				continue;
+			}
+			$labels = array_merge( $labels, $this->collect_schema_entry_labels( $schema[ $group ] ) );
+		}
+
+		return $labels;
+	}
+
+	/**
+	 * Map the slug of every schema entry to its declared label.
+	 *
+	 * @param array<int,array<string,mixed>> $entries Schema fields or repeaters.
+	 * @return array<string,string> Map of slug => label.
+	 */
+	private function collect_schema_entry_labels( array $entries ) {
+		$labels = array();
+
+		foreach ( $entries as $entry ) {
+			if ( ! is_array( $entry ) || empty( $entry['slug'] ) ) {
+				continue;
+			}
+
+			$label = '';
+			if ( ! empty( $entry['title'] ) ) {
+				$label = (string) $entry['title'];
+			} elseif ( ! empty( $entry['label'] ) ) {
+				$label = (string) $entry['label'];
+			}
+
+			if ( '' !== $label ) {
+				$labels[ sanitize_key( $entry['slug'] ) ] = $label;
 			}
 		}
 

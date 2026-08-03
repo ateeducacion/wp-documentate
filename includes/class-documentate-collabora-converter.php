@@ -362,6 +362,17 @@ class Documentate_Collabora_Converter {
 			);
 		}
 
+		// A 200 with no payload would otherwise be written out as a zero byte
+		// document and reported as a successful conversion.
+		if ( '' === $resp_body ) {
+			self::log( 'Empty response body', array( 'endpoint' => $endpoint ) );
+			return new WP_Error(
+				'documentate_collabora_empty_response',
+				__( 'Collabora returned an empty response.', 'documentate' ),
+				array( 'endpoint' => $endpoint )
+			);
+		}
+
 		if ( false === $fs->put_contents( $output_path, $resp_body, FS_CHMOD_FILE ) ) {
 			self::log( 'Write failed', array( 'output_path' => $output_path ) );
 			return new WP_Error(
