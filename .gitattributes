@@ -1,4 +1,12 @@
-# Nothing here feeds the release ZIP. That archive is built by `wp dist-archive`
+# Vendored third party, copied verbatim from upstream by composer's
+# copy-runtime-dependencies script. `-text` stops git from re-encoding it
+# whatever the contributor's core.autocrlf is set to — one of these files
+# (tinybutstrong/CHANGELOG.md) is committed with CRLF, and the copy must stay
+# byte-identical to upstream.
+admin/vendor/**    -text
+includes/vendor/** -text
+
+# Nothing below feeds the release ZIP. That archive is built by `wp dist-archive`
 # and its exclusion list is .distignore, the single source of truth for what
 # ships.
 #

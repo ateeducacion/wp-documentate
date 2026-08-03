@@ -61,8 +61,10 @@ wordpress-develop/
 artifacts/
 
 # Ignore Sass source maps
-public/style/workarea/*.css.maptest-results/
-test-results/*
+*.css.map
+
+# Playwright output
+test-results/
 .omc/
 
 # Generated runtime translation files. Built from the committed .po sources
