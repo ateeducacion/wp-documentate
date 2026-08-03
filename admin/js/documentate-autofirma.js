@@ -289,18 +289,6 @@
     const strings = config.strings || {};
     const nativeAnchorClick = window.HTMLAnchorElement.prototype.click;
     let pendingBrowserSignature = null;
-    function hasUnsavedChanges() {
-      if (window.wp && wp.data && wp.data.select && wp.data.select("core/editor")) {
-        return wp.data.select("core/editor").isEditedPostDirty();
-      }
-      if (window.wp && wp.autosave && wp.autosave.server && typeof wp.autosave.server.isDirty === "function") {
-        return wp.autosave.server.isDirty();
-      }
-      if (window.tinymce && Array.isArray(window.tinymce.editors)) {
-        return window.tinymce.editors.some((editor) => editor.isDirty());
-      }
-      return false;
-    }
     function arrayBufferToBase64(buffer) {
       const bytes = new Uint8Array(buffer);
       const chunks = [];
@@ -515,12 +503,6 @@
       }
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (hasUnsavedChanges()) {
-        const message = strings.unsavedChanges || "Tienes cambios sin guardar. \xBFQuieres firmar la \xFAltima versi\xF3n guardada?";
-        if (!window.confirm(message)) {
-          return;
-        }
-      }
       const originalHtml = button.innerHTML;
       button.setAttribute("aria-disabled", "true");
       button.classList.add("disabled");

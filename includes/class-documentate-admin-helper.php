@@ -697,8 +697,25 @@ class Documentate_Admin_Helper {
 
 		$state = $this->build_actions_state( $post->ID );
 
+		$this->render_unsaved_indicator();
 		$this->render_primary_actions( $state );
 		$this->render_secondary_actions( $state );
+	}
+
+	/**
+	 * Render the passive "unsaved changes" indicator.
+	 *
+	 * Always present but hidden; documentate-unsaved-changes.js toggles it as the
+	 * form becomes dirty. The status role makes assistive technology announce the
+	 * transition without stealing focus.
+	 *
+	 * @return void
+	 */
+	private function render_unsaved_indicator() {
+		echo '<p class="documentate-unsaved-indicator" role="status" hidden>'
+				. '<span class="documentate-unsaved-indicator__dot" aria-hidden="true"></span>'
+				. esc_html__( 'Unsaved changes', 'documentate' )
+				. '</p>';
 	}
 
 	/**
@@ -1163,10 +1180,30 @@ class Documentate_Admin_Helper {
 			DOCUMENTATE_VERSION,
 		);
 
+		// Loaded before the actions script so its capture-phase click handler is
+		// registered first and can gate every action, including the signing one
+		// handled by documentate-autofirma.
+		wp_enqueue_script(
+			'documentate-unsaved-changes',
+			plugins_url( 'admin/js/documentate-unsaved-changes.js', DOCUMENTATE_PLUGIN_FILE ),
+			array( 'jquery', 'wp-a11y' ),
+			DOCUMENTATE_VERSION,
+			true,
+		);
+
+		wp_localize_script(
+			'documentate-unsaved-changes',
+			'documentateUnsavedChangesConfig',
+			array(
+				'postId' => $post_id,
+				'strings' => $this->get_unsaved_changes_script_strings(),
+			)
+		);
+
 		wp_enqueue_script(
 			'documentate-actions',
 			plugins_url( 'admin/js/documentate-actions.js', DOCUMENTATE_PLUGIN_FILE ),
-			array( 'jquery' ),
+			array( 'jquery', 'documentate-unsaved-changes' ),
 			DOCUMENTATE_VERSION,
 			true,
 		);
@@ -1251,13 +1288,38 @@ class Documentate_Admin_Helper {
 			'loadingWasm' => __( 'Loading LibreOffice...', 'documentate' ),
 			'convertingBrowser' => __( 'Converting in browser...', 'documentate' ),
 			'wasmError' => __( 'Error loading LibreOffice.', 'documentate' ),
-			'unsavedChanges' => __(
-				'You have unsaved changes. Do you want to generate the document with the last saved version?',
-				'documentate',
-			),
+			'previewReady' => __( 'Preview ready', 'documentate' ),
+			'previewBlocked' => __( 'Your browser blocked the pop-up window.', 'documentate' ),
+			'openPreview' => __( 'Open preview', 'documentate' ),
 			'signingInProgress' => __( 'Please select your certificate in AutoFirma...', 'documentate' ),
 			'signErrorNoAutofirma' => __( 'AutoFirma is not installed or could not be started.', 'documentate' ),
 			'downloadUnsigned' => __( 'Download unsigned PDF', 'documentate' ),
+		);
+	}
+
+	/**
+	 * Get translatable strings for the unsaved-changes guard.
+	 *
+	 * @return array Translatable strings.
+	 */
+	private function get_unsaved_changes_script_strings() {
+		return array(
+			'title' => __( 'You have unsaved changes', 'documentate' ),
+			'message' => __(
+				'The document is generated from the last saved version. If you continue without saving, your changes will not appear in it.',
+				'documentate',
+			),
+			'saveAndPreview' => __( 'Save and preview', 'documentate' ),
+			'saveAndDownload' => __( 'Save and download', 'documentate' ),
+			'saveAndSign' => __( 'Save and sign', 'documentate' ),
+			'useSaved' => __( 'Use saved version', 'documentate' ),
+			'cancel' => __( 'Cancel', 'documentate' ),
+			'saving' => __( 'Saving changes...', 'documentate' ),
+			'savingWait' => __( 'The action will continue automatically.', 'documentate' ),
+			'savedTitle' => __( 'Changes saved', 'documentate' ),
+			'resumeMessage' => __( 'Your changes were saved. Continue to generate the document.', 'documentate' ),
+			// Same label as the button itself, so the dialog reads as a continuation.
+			'signNow' => __( 'Sign and Download', 'documentate' ),
 		);
 	}
 
