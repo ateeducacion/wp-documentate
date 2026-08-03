@@ -60,6 +60,7 @@ class DocumentateAutoFirmaRuntimeTest extends WP_UnitTestCase {
 			}
 		}
 
+		wp_dequeue_script( 'documentate-autofirma' );
 		wp_deregister_script( 'documentate-autofirma' );
 		wp_set_current_user( 0 );
 		delete_option( 'documentate_autofirma_schema_cleanup' );
@@ -398,6 +399,7 @@ class DocumentateAutoFirmaRuntimeTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_asset_enqueue_ignores_unsupported_contexts() {
+		wp_dequeue_script( 'documentate-autofirma' );
 		wp_deregister_script( 'documentate-autofirma' );
 		Documentate_AutoFirma::enqueue_assets( 'edit.php' );
 		$this->assertFalse( wp_script_is( 'documentate-autofirma', 'enqueued' ) );
