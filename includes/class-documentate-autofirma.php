@@ -37,7 +37,7 @@ final class Documentate_AutoFirma {
 	/**
 	 * Default text used by AutoFirma for visible PDF signatures.
 	 */
-	private const DEFAULT_SIGNATURE_TEXT = 'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.';
+	private const DEFAULT_SIGNATURE_TEXT = 'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$';
 
 	/**
 	 * Option used to avoid repeatedly cleaning stored schemas.

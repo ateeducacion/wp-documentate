@@ -54,7 +54,7 @@ The default visible text can be changed in **Settings → Documentate → AutoFi
 The initial value matches the standard AutoFirma text:
 
 ```text
-Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.
+Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$
 ```
 
 Supported AutoFirma variables include:

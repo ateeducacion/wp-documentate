@@ -233,6 +233,7 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		$this->assertStringContainsString( 'autofirma_layer2_text', $output );
 		$this->assertStringContainsString( 'Firmado por $$SUBJECTCN$$', $output );
 		$this->assertStringContainsString( '$$SIGNDATE=dd/MM/yyyy$$', $output );
+		$this->assertStringContainsString( '$$ISSUERCN$$', $output );
 	}
 
 	/**
@@ -377,7 +378,7 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		);
 
 		$this->assertSame(
-			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.',
+			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$',
 			$result['autofirma_layer2_text']
 		);
 	}
@@ -433,7 +434,7 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		$this->assertSame( '', $result['collabora_base_url'] );
 		$this->assertSame( 'en-US', $result['collabora_lang'] );
 		$this->assertSame(
-			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.',
+			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$',
 			$result['autofirma_layer2_text']
 		);
 	}

@@ -14,7 +14,7 @@ class DocumentateAutoFirmaTest extends WP_UnitTestCase {
 	 */
 	public function test_default_signature_text_matches_autofirma() {
 		$this->assertSame(
-			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.',
+			'Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$',
 			Documentate_AutoFirma::get_default_signature_text()
 		);
 	}

@@ -162,7 +162,7 @@ import { AutoFirmaClient } from "@erseco/autofirma-client";
     const text =
       position.text ||
       autoFirmaConfig.signatureText ||
-      "Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$.";
+      "Firmado por $$SUBJECTCN$$ el día $$SIGNDATE=dd/MM/yyyy$$ con un certificado emitido por $$ISSUERCN$$";
 
     return {
       mode: "implicit",
