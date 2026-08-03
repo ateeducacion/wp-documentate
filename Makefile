@@ -49,7 +49,11 @@ install-requirements:
 
 # ─── Docker (port 8989, requires Docker) ─────────────────────────────────────
 
-start-docker-if-not-running: check-docker
+# The runtime translation files are generated rather than committed, and the
+# wp-env configs run WordPress in Spanish, so they have to exist before the
+# environment serves the plugin. Otherwise the site silently falls back to
+# English and any test or manual check that reads translated UI is misleading.
+start-docker-if-not-running: check-docker package-translations
 	@if [ "$$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$(DOCKER_PORT))" = "000" ]; then \
 		echo "Docker env is NOT running. Starting..."; \
 		$(WP_ENV) start $(DOCKER_CONFIG) --update; \
