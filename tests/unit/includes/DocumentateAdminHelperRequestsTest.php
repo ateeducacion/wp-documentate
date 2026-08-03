@@ -11,6 +11,10 @@
 
 /**
  * @covers Documentate_Admin_Helper
+ * @covers Documentate\Export\Export_Handler
+ * @covers Documentate\Export\Export_DOCX_Handler
+ * @covers Documentate\Export\Export_ODT_Handler
+ * @covers Documentate\Export\Export_PDF_Handler
  */
 class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 

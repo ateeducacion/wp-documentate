@@ -6,7 +6,10 @@
  */
 
 /**
- * @covers Documentate_Admin_Helper::ajax_generate_document
+ * @covers Documentate_Admin_Helper
+ * @covers Documentate_Document_Generator
+ * @covers Documentate_Conversion_Manager
+ * @covers Documentate_Collabora_Converter
  */
 class DocumentateGenerateDocumentAjaxTest extends WP_Ajax_UnitTestCase {
 

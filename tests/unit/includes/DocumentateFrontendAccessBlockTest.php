@@ -9,8 +9,7 @@
  */
 
 /**
- * @covers Documentate_Document_Access_Protection::block_frontend_access
- * @covers Documentate_Document_Access_Protection::user_can_access
+ * @covers Documentate_Document_Access_Protection
  */
 class DocumentateFrontendAccessBlockTest extends Documentate_Test_Base {
 

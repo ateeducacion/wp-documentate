@@ -12,6 +12,8 @@
 
 /**
  * @covers Documentate_Document_Generator
+ * @covers Documentate_Conversion_Manager
+ * @covers Documentate_Collabora_Converter
  */
 class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 
@@ -322,15 +324,18 @@ class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 		$post_id = $this->create_document( $this->create_doc_type_with( 'minimal-scalar.odt' ) );
 		$this->stub_conversion( 200, '' );
 
+		// Post IDs are reused between runs, so clear any leftover output first.
+		$upload_dir = wp_upload_dir();
+		$expected_output = trailingslashit( $upload_dir['basedir'] ) . 'documentate/'
+			. sanitize_title( get_the_title( $post_id ) ) . '-' . $post_id . '.docx';
+		if ( file_exists( $expected_output ) ) {
+			unlink( $expected_output );
+		}
+
 		$result = Documentate_Document_Generator::generate_docx( $post_id );
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'documentate_collabora_empty_response', $result->get_error_code() );
-
-		$upload_dir = wp_upload_dir();
-		$this->assertEmpty(
-			glob( trailingslashit( $upload_dir['basedir'] ) . 'documentate/*-' . $post_id . '.docx' ),
-			'No zero byte document may be left behind.'
-		);
+		$this->assertFileDoesNotExist( $expected_output, 'No zero byte document may be left behind.' );
 	}
 }

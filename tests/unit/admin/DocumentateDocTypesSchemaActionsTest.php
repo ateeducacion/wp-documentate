@@ -6,7 +6,9 @@
  */
 
 /**
- * @covers Documentate_Doc_Types_Admin::ajax_template_fields
+ * @covers Documentate_Doc_Types_Admin
+ * @covers Documentate\DocType\SchemaExtractor
+ * @covers Documentate\DocType\SchemaStorage
  */
 class DocumentateDocTypesSchemaActionsTest extends WP_Ajax_UnitTestCase {
 

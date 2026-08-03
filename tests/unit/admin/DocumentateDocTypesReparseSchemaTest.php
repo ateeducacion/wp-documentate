@@ -8,7 +8,9 @@
 use Documentate\DocType\SchemaStorage;
 
 /**
- * @covers Documentate_Doc_Types_Admin::handle_reparse_schema
+ * @covers Documentate_Doc_Types_Admin
+ * @covers Documentate\DocType\SchemaExtractor
+ * @covers Documentate\DocType\SchemaStorage
  */
 class DocumentateDocTypesReparseSchemaTest extends Documentate_Test_Base {
 

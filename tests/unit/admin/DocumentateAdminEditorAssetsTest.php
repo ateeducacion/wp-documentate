@@ -10,6 +10,7 @@
 
 /**
  * @covers Documentate_Admin
+ * @covers Documentate\DocType\SchemaStorage
  */
 class DocumentateAdminEditorAssetsTest extends Documentate_Test_Base {
 
@@ -424,6 +425,43 @@ class DocumentateAdminEditorAssetsTest extends Documentate_Test_Base {
 		$labels = $this->revision_field_labels();
 
 		$this->assertSame( __( 'Subject', 'documentate' ), $labels['asunto'] );
+	}
+
+	/**
+	 * Hand-written schemas may carry `label` instead of `title`, and entries
+	 * without a slug cannot be mapped at all.
+	 */
+	public function test_revision_field_labels_accept_legacy_label_entries() {
+		$term = wp_insert_term( 'Legacy Labels Type', 'documentate_doc_type' );
+		$storage = new \Documentate\DocType\SchemaStorage();
+		$storage->save_schema(
+			(int) $term['term_id'],
+			array(
+				'version' => 2,
+				'fields' => array(
+					array(
+						'slug' => 'asunto',
+						'label' => 'Asunto heredado',
+						'type' => 'text',
+					),
+					array(
+						'label' => 'Sin slug',
+						'type' => 'text',
+					),
+					'not an entry',
+				),
+				'repeaters' => array(),
+				'meta' => array(),
+			)
+		);
+
+		$post_id = $this->create_document( (int) $term['term_id'] );
+		$_GET['post'] = (string) $post_id;
+
+		$labels = $this->revision_field_labels();
+
+		$this->assertSame( 'Asunto heredado', $labels['asunto'] );
+		$this->assertNotContains( 'Sin slug', $labels );
 	}
 
 	/**
