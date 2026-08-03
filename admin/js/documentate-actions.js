@@ -38,6 +38,9 @@
 						<p class="documentate-loading-modal__error-text"></p>
 						<button type="button" class="button documentate-loading-modal__close">${escapeHtml(strings.close || 'Cerrar')}</button>
 					</div>
+					<div class="documentate-loading-modal__ready">
+						<a class="button button-primary documentate-loading-modal__open" href="#" target="_blank" rel="noopener">${escapeHtml(strings.openPreview || 'Abrir vista previa')}</a>
+					</div>
 				</div>
 			</div>
 		`;
@@ -46,6 +49,11 @@
 
 		// Close button event
 		$modal.on('click', '.documentate-loading-modal__close', function () {
+			hideModal();
+		});
+
+		// Dismiss once the fallback preview link has been followed.
+		$modal.on('click', '.documentate-loading-modal__open', function () {
 			hideModal();
 		});
 
@@ -74,7 +82,7 @@
 			createModal();
 		}
 
-		$modal.removeClass('is-error');
+		$modal.removeClass('is-error is-ready');
 		$modal.find('.documentate-loading-modal__title').text(title || strings.generating || 'Generando documento...');
 		$modal.find('.documentate-loading-modal__message').text(message || strings.wait || 'Por favor, espera mientras se genera el documento.');
 		$modal.addClass('is-visible');
@@ -100,8 +108,35 @@
 	 */
 	function hideModal() {
 		if ($modal) {
-			$modal.removeClass('is-visible is-error');
+			$modal.removeClass('is-visible is-error is-ready');
 		}
+	}
+
+	/**
+	 * Open a generated preview in a new tab.
+	 *
+	 * The URL only becomes known once the AJAX request resolves, which is outside
+	 * the original click gesture, so browsers may refuse the pop-up. That is the
+	 * norm rather than the exception when the action resumes after a save, since
+	 * there is no gesture at all. When the window is refused, the modal turns into
+	 * a link the user can activate, which always counts as a gesture.
+	 *
+	 * @param {string} url Preview URL.
+	 */
+	function openPreviewWindow(url) {
+		const opened = window.open(url, '_blank');
+
+		if (opened) {
+			hideModal();
+			return;
+		}
+
+		$modal.find('.documentate-loading-modal__title').text(strings.previewReady || 'Vista previa lista');
+		$modal.find('.documentate-loading-modal__message').text(
+			strings.previewBlocked || 'Tu navegador ha bloqueado la ventana emergente.'
+		);
+		$modal.find('.documentate-loading-modal__open').attr('href', url);
+		$modal.addClass('is-ready');
 	}
 
 	/**
@@ -483,22 +518,25 @@
 		const blobUrl = URL.createObjectURL(blob);
 
 		if (action === 'preview' && data.outputFormat === 'pdf') {
-			// Open PDF preview in new window/tab
-			window.open(blobUrl, '_blank');
-		} else {
-			// Trigger download (no new window)
-			const a = document.createElement('a');
-			a.href = blobUrl;
-			a.download = 'documento.' + (data.outputFormat || format || 'pdf');
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-
-			// Cleanup blob URL after a delay
-			setTimeout(function () {
-				URL.revokeObjectURL(blobUrl);
-			}, 1000);
+			// Open PDF preview in new window/tab. The blob URL is deliberately not
+			// revoked here: it stays valid for the fallback link when the pop-up
+			// is blocked.
+			openPreviewWindow(blobUrl);
+			return;
 		}
+
+		// Trigger download (no new window)
+		const a = document.createElement('a');
+		a.href = blobUrl;
+		a.download = 'documento.' + (data.outputFormat || format || 'pdf');
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+
+		// Cleanup blob URL after a delay
+		setTimeout(function () {
+			URL.revokeObjectURL(blobUrl);
+		}, 1000);
 
 		hideModal();
 	}
@@ -692,34 +730,8 @@
 
 		e.preventDefault();
 
-		// Check for unsaved changes
-		let hasUnsavedChanges = false;
-
-		// Check WP core editor dirty state if available
-		if (window.wp && wp.data && wp.data.select && wp.data.select('core/editor')) {
-			hasUnsavedChanges = wp.data.select('core/editor').isEditedPostDirty();
-		}
-		// Fallback for classic editor / meta boxes
-		else if (typeof window.wp !== 'undefined' && window.wp.autosave && typeof window.wp.autosave.server !== 'undefined' && typeof window.wp.autosave.server.isDirty === 'function') {
-			hasUnsavedChanges = window.wp.autosave.server.isDirty();
-		}
-		// Extra fallback: TinyMCE
-		else if (typeof window.tinymce !== 'undefined') {
-			const editors = window.tinymce.editors;
-			for (let i = 0; i < editors.length; i++) {
-				if (editors[i].isDirty()) {
-					hasUnsavedChanges = true;
-					break;
-				}
-			}
-		}
-
-		if (hasUnsavedChanges) {
-			const warningMsg = strings.unsavedChanges || 'Tienes cambios sin guardar. ¿Quieres generar el documento con la última versión guardada?';
-			if (!window.confirm(warningMsg)) {
-				return; // User cancelled
-			}
-		}
+		// Unsaved changes are handled upstream by documentate-unsaved-changes.js,
+		// which gates this click on the capture phase.
 
 		// Determine title based on action
 		let title = strings.generating || 'Generando documento...';
@@ -757,9 +769,7 @@
 			success: function (response) {
 				if (response.success && response.data) {
 					if (action === 'preview' && response.data.url) {
-						// Open preview in new tab
-						window.open(response.data.url, '_blank');
-						hideModal();
+						openPreviewWindow(response.data.url);
 					} else if (action === 'sign' && response.data.url) {
 						// Sign and download via AutoFirma (AutoScript.js).
 						handleSignAndDownload(response.data.url);

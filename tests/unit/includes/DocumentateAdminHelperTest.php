@@ -257,6 +257,68 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
+	 * The unsaved-changes guard must load before the actions script.
+	 *
+	 * Its click handler runs on the capture phase, and so does the signing
+	 * handler in documentate-autofirma, which stops propagation. Capture handlers
+	 * on the same node fire in registration order, so the guard only gets to see
+	 * the signing click when its script is registered first. Declaring it as a
+	 * dependency of documentate-actions is what pins that order.
+	 */
+	public function test_enqueue_actions_metabox_assets_loads_unsaved_guard_first() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$_GET['post'] = $post->ID;
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->helper->enqueue_actions_metabox_assets( 'post.php' );
+
+		$this->assertTrue( wp_script_is( 'documentate-unsaved-changes', 'enqueued' ) );
+
+		$actions = wp_scripts()->registered['documentate-actions'];
+		$this->assertContains( 'documentate-unsaved-changes', $actions->deps );
+	}
+
+	/**
+	 * The guard needs its post ID and labels to reach the browser.
+	 */
+	public function test_enqueue_actions_metabox_assets_localizes_unsaved_guard() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+		$_GET['post'] = $post->ID;
+
+		$screen = WP_Screen::get( 'documentate_document' );
+		$screen->post_type = 'documentate_document';
+		$GLOBALS['current_screen'] = $screen;
+
+		$this->helper->enqueue_actions_metabox_assets( 'post.php' );
+
+		$data = wp_scripts()->get_data( 'documentate-unsaved-changes', 'data' );
+
+		// wp_localize_script casts scalars to strings, which is why the guard
+		// parses the ID back to an integer before using it.
+		$this->assertStringContainsString( 'documentateUnsavedChangesConfig', (string) $data );
+		$this->assertStringContainsString( '"postId":"' . $post->ID . '"', (string) $data );
+		$this->assertStringContainsString( 'saveAndPreview', (string) $data );
+	}
+
+	/**
+	 * The actions meta box renders the passive indicator, hidden until dirty.
+	 */
+	public function test_render_actions_metabox_includes_unsaved_indicator() {
+		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
+
+		ob_start();
+		$this->helper->render_actions_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-unsaved-indicator', $output );
+		$this->assertStringContainsString( 'role="status"', $output );
+		$this->assertStringContainsString( 'hidden', $output );
+	}
+
+	/**
 	 * Test build_action_attributes method via reflection.
 	 */
 	public function test_build_action_attributes() {

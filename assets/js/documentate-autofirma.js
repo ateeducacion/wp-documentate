@@ -16,32 +16,6 @@ import { AutoFirmaClient } from "@erseco/autofirma-client";
   let pendingBrowserSignature = null;
 
   /**
-   * Determine whether an editor contains unsaved changes.
-   *
-   * @returns {boolean} Whether the current document is dirty.
-   */
-  function hasUnsavedChanges() {
-    if (window.wp && wp.data && wp.data.select && wp.data.select("core/editor")) {
-      return wp.data.select("core/editor").isEditedPostDirty();
-    }
-
-    if (
-      window.wp &&
-      wp.autosave &&
-      wp.autosave.server &&
-      typeof wp.autosave.server.isDirty === "function"
-    ) {
-      return wp.autosave.server.isDirty();
-    }
-
-    if (window.tinymce && Array.isArray(window.tinymce.editors)) {
-      return window.tinymce.editors.some((editor) => editor.isDirty());
-    }
-
-    return false;
-  }
-
-  /**
    * Convert binary data to Base64 without overflowing the call stack.
    *
    * @param {ArrayBuffer} buffer Binary PDF data.
@@ -394,14 +368,8 @@ import { AutoFirmaClient } from "@erseco/autofirma-client";
     event.preventDefault();
     event.stopImmediatePropagation();
 
-    if (hasUnsavedChanges()) {
-      const message =
-        strings.unsavedChanges ||
-        "Tienes cambios sin guardar. ¿Quieres firmar la última versión guardada?";
-      if (!window.confirm(message)) {
-        return;
-      }
-    }
+    // Unsaved changes are handled upstream by documentate-unsaved-changes.js,
+    // whose capture handler runs before this one.
 
     const originalHtml = button.innerHTML;
     button.setAttribute("aria-disabled", "true");

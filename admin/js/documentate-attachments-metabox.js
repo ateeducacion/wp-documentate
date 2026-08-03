@@ -29,13 +29,17 @@
 
 	/**
 	 * Synchronise the hidden field with the current order of list items.
+	 *
+	 * The change event is triggered explicitly because assigning to a hidden
+	 * input does not emit one, and the unsaved-changes guard relies on it to
+	 * notice attachments being added, removed or reordered.
 	 */
 	function syncField() {
 		var ids = [];
 		$list.children('.documentate-attachment-item').each(function () {
 			ids.push($(this).data('id'));
 		});
-		$field.val(ids.join(','));
+		$field.val(ids.join(',')).trigger('change');
 	}
 
 	$(function () {

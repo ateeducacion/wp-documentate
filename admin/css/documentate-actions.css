@@ -93,6 +93,96 @@
 	display: inline-block;
 }
 
+/* Preview ready fallback, shown when the browser blocks the pop-up window. */
+.documentate-loading-modal__ready {
+	display: none;
+	margin-top: 16px;
+}
+
+.documentate-loading-modal.is-ready .documentate-loading-modal__spinner {
+	display: none;
+}
+
+.documentate-loading-modal.is-ready .documentate-loading-modal__ready {
+	display: block;
+}
+
+/* Unsaved-changes confirmation dialog */
+.documentate-unsaved-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100002;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.6);
+}
+
+.documentate-unsaved-modal.is-visible {
+	display: flex;
+}
+
+.documentate-unsaved-modal__content {
+	background: #fff;
+	border-radius: 8px;
+	padding: 24px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+	max-width: 420px;
+	width: 90%;
+}
+
+.documentate-unsaved-modal__title {
+	margin: 0 0 8px;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.documentate-unsaved-modal__message {
+	margin: 0 0 20px;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #50575e;
+}
+
+.documentate-unsaved-modal__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.documentate-unsaved-modal__cancel {
+	margin-left: auto;
+	color: #646970;
+}
+
+/* Passive indicator inside the actions meta box */
+.documentate-unsaved-indicator {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0 0 12px;
+	padding: 8px 10px;
+	background: #fcf9e8;
+	border-left: 4px solid #dba617;
+	border-radius: 2px;
+	font-size: 12px;
+	color: #646970;
+}
+
+.documentate-unsaved-indicator[hidden] {
+	display: none;
+}
+
+.documentate-unsaved-indicator__dot {
+	flex: 0 0 8px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #dba617;
+}
+
 /* Primary actions: stacked full-width buttons */
 .documentate-actions-primary {
 	display: flex;
