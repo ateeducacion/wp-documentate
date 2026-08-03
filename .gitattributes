@@ -43,3 +43,5 @@ linter-baseline.toml                                       export-ignore
 mago.toml                                                  export-ignore
 ARCHITECTURE.md                                            export-ignore
 GEMINI.md                                                  export-ignore
+# `.agents/` and `.claude/` already match the `.*` rule above; this one does not.
+skills-lock.json                                           export-ignore
