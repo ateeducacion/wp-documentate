@@ -524,6 +524,13 @@
 
 	/**
 	 * Replay the action stored before the last save, if there is one.
+	 *
+	 * Called by documentate-actions once it has delegated its click handler, not
+	 * from this module's own ready callback. The replay is a synthetic click, and
+	 * this module loads first precisely because the other one depends on it, so
+	 * its ready callback runs while nothing is listening for the action yet: the
+	 * click would land on nothing and the stored entry would be consumed for
+	 * nothing.
 	 */
 	function resumePendingAction() {
 		var pending = takePendingAction();
@@ -575,6 +582,7 @@
 		},
 		markDirty: markDirty,
 		markClean: markClean,
+		resumePendingAction: resumePendingAction,
 
 		/**
 		 * Observe dirty-state transitions.
@@ -604,7 +612,5 @@
 				$indicator.prop('hidden', !dirty);
 			});
 		}
-
-		resumePendingAction();
 	});
 })(jQuery);

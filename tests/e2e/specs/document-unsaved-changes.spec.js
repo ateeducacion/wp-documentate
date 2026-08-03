@@ -207,6 +207,12 @@ test.describe( 'Unsaved changes guard', () => {
 			guard.save.click(),
 		] );
 
+		// The point of the branch: the action the save interrupted runs on its own
+		// once the page is back. The loading modal only opens from the generation
+		// handler, so seeing it proves the replayed click was actually handled and
+		// not fired before anything listened for it.
+		await expect( guard.loadingModal ).toBeVisible();
+
 		// The document reloaded from the database, so nothing is pending and the
 		// replay entry was consumed rather than left to fire again later.
 		await expect( guard.indicator ).toBeHidden();
