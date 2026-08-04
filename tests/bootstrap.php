@@ -44,6 +44,9 @@ require_once __DIR__ . '/includes/class-wp-unittest-documentate-test-base.php';
 require_once __DIR__ . '/includes/class-document-xml-asserter.php';
 require_once __DIR__ . '/includes/class-documentate-generation-test-base.php';
 
+// Include the exception used to intercept "redirect then exit()" endings.
+require_once __DIR__ . '/includes/class-documentate-exit-exception.php';
+
 tests_add_filter( 'after_setup_theme', function() {
 
         // Register the custom factories with the global WordPress factory.

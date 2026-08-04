@@ -26,6 +26,12 @@
 
     <config name="minimum_wp_version" value="6.1"/>
 
+    <!-- Check the code really runs on the minimum PHP the plugin declares.
+         Keep testVersion in step with "Requires PHP" in documentate.php and
+         readme.txt, and with the php-version CI installs. -->
+    <config name="testVersion" value="8.3-"/>
+    <rule ref="PHPCompatibilityWP"/>
+
     <rule ref="WordPress"/>
 
     <rule ref="WordPress.WP.I18n">

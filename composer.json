@@ -17,7 +17,8 @@
         "wp-coding-standards/wpcs": "^3.4",
         "wp-phpunit/wp-phpunit": "^7.0.2",
         "yoast/phpunit-polyfills": "^1.1.5",
-        "yoast/wp-test-utils": "^1.2.1"
+        "yoast/wp-test-utils": "^1.2.1",
+        "phpcompatibility/phpcompatibility-wp": "^2.1"
     },
     "scripts": {
         "copy-runtime-dependencies": [
@@ -38,8 +39,8 @@
         "test:coverage": "XDEBUG_MODE=coverage ./vendor/bin/phpunit --colors=always --coverage-text --coverage-html artifacts/coverage/html --coverage-clover artifacts/coverage/clover.xml --coverage-filter=admin --coverage-filter=includes --coverage-filter=public --coverage-filter=documentate.php --coverage-filter=uninstall.php",
         "test:e2e": "wp-scripts test-playwright",
         "test:e2e:ui": "wp-scripts test-playwright --ui",
-        "phpcs": "@php ./vendor/bin/phpcs",
-        "phpcbf": "@php ./vendor/bin/phpcbf",
+        "phpcs": "phpcs --standard=.phpcs.xml.dist",
+        "phpcbf": "phpcbf --standard=.phpcs.xml.dist",
         "mago:lint": "@php ./vendor/bin/mago lint",
         "mago:format": "@php ./vendor/bin/mago format",
         "make-pot": "wp i18n make-pot . languages/documentate.pot --domain=documentate --exclude=vendor,assets,node_modules,tests,wp,wp-content --include=**/*.php",
