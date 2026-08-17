@@ -288,6 +288,7 @@ class DocumentateAdminSettingsTest extends Documentate_Test_Base {
 		$this->assertStringContainsString( 'type="url"', $output );
 		$this->assertStringContainsString( 'collaborative_signaling', $output );
 		$this->assertStringContainsString( 'wss://signaling.yjs.dev', $output );
+		$this->assertStringNotContainsString( 'herokuapp.com', $output );
 	}
 
 	/**

@@ -8,7 +8,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-08-03T10:12:36+00:00\n"
+"PO-Revision-Date: 2026-08-17T09:59:02+00:00\n"
 "Language: es_ES\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Domain: documentate\n"
@@ -105,12 +105,6 @@ msgstr "Servidores públicos disponibles:"
 
 msgid "(Yjs official)"
 msgstr "(Yjs oficial)"
-
-msgid "(Europe)"
-msgstr "(Europa)"
-
-msgid "(USA)"
-msgstr "(EE.UU.)"
 
 msgid "Settings"
 msgstr "Ajustes"

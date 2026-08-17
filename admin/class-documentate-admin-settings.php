@@ -262,8 +262,6 @@ class Documentate_Admin_Settings {
 		echo '<p class="description"><strong>' . esc_html__( 'Available public servers:', 'documentate' ) . '</strong></p>';
 		echo '<ul class="description" style="list-style:disc;margin-left:20px;">';
 		echo '<li><code>wss://signaling.yjs.dev</code> ' . esc_html__( '(Yjs official)', 'documentate' ) . '</li>';
-		echo '<li><code>wss://y-webrtc-signaling-eu.herokuapp.com</code> ' . esc_html__( '(Europe)', 'documentate' ) . '</li>';
-		echo '<li><code>wss://y-webrtc-signaling-us.herokuapp.com</code> ' . esc_html__( '(USA)', 'documentate' ) . '</li>';
 		echo '</ul>';
 	}
 

@@ -105,12 +105,6 @@ msgstr ""
 msgid "(Yjs official)"
 msgstr ""
 
-msgid "(Europe)"
-msgstr ""
-
-msgid "(USA)"
-msgstr ""
-
 msgid "Settings"
 msgstr ""
 
