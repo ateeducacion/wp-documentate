@@ -50,7 +50,8 @@ See `AGENTS.md` for the full agent/developer instructions and `ARCHITECTURE.md` 
 
 `AGENTS.md` is canonical; `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md` point at it.
 
-Reusable procedures ship as agent skills in `.agents/skills/` (symlinked from `.claude/skills/`):
+Reusable procedures ship as agent skills in `.agents/skills/` and
+`.claude/skills/`, installed with `gh skill add`:
 
 | Skill | Read it before |
 |-------|----------------|
@@ -58,13 +59,18 @@ Reusable procedures ship as agent skills in `.agents/skills/` (symlinked from `.
 | `wp-rest-api` | Routes, `permission_callback`, schema/args, `register_meta`, `show_in_rest` |
 | `wp-plugin-directory-guidelines` | `readme.txt`, license headers, naming — what `make check-plugin` enforces |
 | `blueprint` | `blueprint.json` and the Playground preview |
+| `wp-performance` | Backend profiling (WP-CLI profile/doctor, autoload, object cache, cron, HTTP API) |
+| `wp-project-triage` | Inspect what kind of WordPress repo this is before changing tooling |
+| `wp-plugin-security` | Input, output, AJAX/REST, capabilities, files |
 | `security-audit` | Vulnerability hunting and finding validation |
 
-The first four come from [`WordPress/agent-skills`](https://github.com/WordPress/agent-skills)
-(GPL-2.0-or-later), `security-audit` from
+The WordPress ones come from [`WordPress/agent-skills`](https://github.com/WordPress/agent-skills)
+(GPL-2.0-or-later), `wp-plugin-security` from
+[`fernandotellado/ai-skills`](https://github.com/fernandotellado/ai-skills),
+`security-audit` from
 [`cloudflare/security-audit-skill`](https://github.com/cloudflare/security-audit-skill).
-All are vendored verbatim — do not reformat or patch them locally. To add one, drop it in
-`.agents/skills/<name>/` and `ln -s ../../.agents/skills/<name> .claude/skills/<name>`.
+All are vendored verbatim — do not reformat or patch them locally. Add or refresh
+with `gh skill add` / `gh skill update --all` (see `AGENTS.md`).
 
 None of it reaches the release ZIP; `.gitattributes` marks it `export-ignore`.
 

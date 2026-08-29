@@ -17,12 +17,14 @@ Read `ARCHITECTURE.md` before making significant changes.
 
 ## Skills
 
-`.agents/skills/` holds vendored third-party skills; `.claude/skills/` symlinks
-to them. Read the relevant one before working in its area — `wp-plugin-development`
-(hooks, Settings API, packaging), `wp-rest-api` (routes, permission callbacks,
-schema), `wp-plugin-directory-guidelines` (`readme.txt`, licensing, what
+`.agents/skills/` and `.claude/skills/` hold third-party skills installed with
+`gh skill add` (Grok Build reads Claude Code skills automatically). Read the relevant one before working in
+its area — `wp-plugin-development` (hooks, Settings API, packaging),
+`wp-rest-api` (routes, permission callbacks, schema),
+`wp-plugin-directory-guidelines` (`readme.txt`, licensing, what
 `make check-plugin` enforces), `blueprint` (`blueprint.json`, Playground),
-`security-audit`. Never reformat or edit a skill in place.
+`wp-performance`, `wp-project-triage`, `wp-plugin-security`, `security-audit`.
+Never reformat or edit a skill in place. Details in `AGENTS.md`.
 
 ---
 
