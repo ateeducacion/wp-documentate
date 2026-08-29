@@ -28,6 +28,7 @@
 # Agent instructions and vendored skills
 /.agents
 /.claude
+/.grok
 /.omc
 /AGENTS.md
 /CLAUDE.md
