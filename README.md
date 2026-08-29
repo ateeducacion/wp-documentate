@@ -50,8 +50,8 @@ See `AGENTS.md` for the full agent/developer instructions and `ARCHITECTURE.md` 
 
 `AGENTS.md` is canonical; `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md` point at it.
 
-Reusable procedures ship as agent skills in `.agents/skills/` and
-`.claude/skills/`, installed with `gh skill add`:
+Reusable procedures ship as agent skills in `.agents/skills/`, `.claude/skills/`
+and `.grok/skills/`, installed with `gh skill add`:
 
 | Skill | Read it before |
 |-------|----------------|
