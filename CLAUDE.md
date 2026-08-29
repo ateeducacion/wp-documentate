@@ -17,8 +17,8 @@ Read `ARCHITECTURE.md` before making significant changes.
 
 ## Skills
 
-`.agents/skills/`, `.claude/skills/` and `.grok/skills/` hold third-party
-skills installed with `gh skill add`. Read the relevant one before working in
+`.agents/skills/` and `.claude/skills/` hold third-party skills installed with
+`gh skill add` (Grok Build reads Claude Code skills automatically). Read the relevant one before working in
 its area — `wp-plugin-development` (hooks, Settings API, packaging),
 `wp-rest-api` (routes, permission callbacks, schema),
 `wp-plugin-directory-guidelines` (`readme.txt`, licensing, what
