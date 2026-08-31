@@ -6,7 +6,7 @@
     "@matbee/libreoffice-converter": "^2.7.2",
     "@wordpress/e2e-test-utils-playwright": "^1.53.0",
     "@wordpress/env": "^11.14.0",
-    "@wordpress/scripts": "^34.1.0",
+    "@wordpress/scripts": "^34.2.0",
     "esbuild": "^0.28.2",
     "jquery": "^3.7.1"
   },
