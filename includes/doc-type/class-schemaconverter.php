@@ -101,6 +101,31 @@ class SchemaConverter {
 		$label = self::resolve_label( $repeater, $slug );
 		// Preserve the base block name used in the template (e.g., "items").
 		$tbs_name = self::sanitize_tbs_name( $repeater, $slug );
+		$item_schema = self::map_item_schema( $repeater );
+
+		return array(
+			'slug' => $slug,
+			'label' => $label,
+			'type' => 'array',
+			'placeholder' => $slug,
+			// Name of the block in the template ([items;block=...]).
+			'name' => $tbs_name,
+			'data_type' => 'array',
+			'item_schema' => $item_schema,
+		);
+	}
+
+	/**
+	 * Build the item schema for a repeater, nesting sub-repeaters.
+	 *
+	 * A field of type "array" (a TBS sub-block) becomes an item entry of type
+	 * "array" carrying its own item_schema, so the editor can render the rows
+	 * of each parent record.
+	 *
+	 * @param array $repeater Repeater (or nested array field) definition.
+	 * @return array<string,array>
+	 */
+	private static function map_item_schema( $repeater ) {
 		$fields = isset( $repeater['fields'] ) && is_array( $repeater['fields'] ) ? $repeater['fields'] : array();
 		$item_schema = array();
 
@@ -119,6 +144,18 @@ class SchemaConverter {
 			if ( '' === $item_type ) {
 				$item_type = 'textarea';
 			}
+
+			if ( 'array' === $item_type && isset( $field['fields'] ) ) {
+				$item_schema[ $item_slug ] = array(
+					'label' => $item_label,
+					'type' => 'array',
+					'data_type' => 'array',
+					'case' => '',
+					'item_schema' => self::map_item_schema( $field ),
+				);
+				continue;
+			}
+
 			$item_case = isset( $field['case'] ) ? sanitize_key( $field['case'] ) : '';
 
 			$item_schema[ $item_slug ] = array(
@@ -129,16 +166,7 @@ class SchemaConverter {
 			);
 		}
 
-		return array(
-			'slug' => $slug,
-			'label' => $label,
-			'type' => 'array',
-			'placeholder' => $slug,
-			// Name of the block in the template ([items;block=...]).
-			'name' => $tbs_name,
-			'data_type' => 'array',
-			'item_schema' => $item_schema,
-		);
+		return $item_schema;
 	}
 
 	/**

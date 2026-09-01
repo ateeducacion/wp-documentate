@@ -1,0 +1,36 @@
+---
+name: Playground preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      # The repo blueprint carries the demo setup (Spanish locale, demo users,
+      # user-switching, Collabora proxy); only the plugin zip ref changes per PR.
+      - name: Point the blueprint at this branch
+        id: blueprint
+        run: |
+          sed "s|refs/heads/main.zip|refs/heads/${GITHUB_HEAD_REF}.zip|g" blueprint.json > pr-blueprint.json
+          {
+            echo 'json<<BLUEPRINT_EOF'
+            cat pr-blueprint.json
+            echo 'BLUEPRINT_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment with a Playground preview link
+        uses: WordPress/action-wp-playground-pr-preview@v3
+        with:
+          mode: comment
+          blueprint: ${{ steps.blueprint.outputs.json }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

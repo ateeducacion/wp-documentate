@@ -700,6 +700,9 @@ class Documentate_Document_Generator {
 			foreach ( $item as $value ) {
 				if ( is_string( $value ) ) {
 					self::remember_rich_field_value( $value );
+				} elseif ( is_array( $value ) ) {
+					// Nested sub-block rows.
+					self::remember_rich_values_from_array_items( $value );
 				}
 			}
 		}
@@ -1082,6 +1085,11 @@ class Documentate_Document_Generator {
 				continue;
 			}
 			foreach ( $item as $key => $value ) {
+				if ( is_array( $value ) && isset( $item_schema[ $key ]['item_schema'] ) ) {
+					// Nested sub-block rows use their own item schema.
+					$items[ $idx ][ $key ] = self::apply_case_to_array_items( $value, $item_schema[ $key ]['item_schema'] );
+					continue;
+				}
 				if ( ! is_string( $value ) || '' === $value ) {
 					continue;
 				}

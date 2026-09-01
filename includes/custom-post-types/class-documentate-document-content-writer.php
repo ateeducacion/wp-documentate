@@ -133,6 +133,13 @@ class Documentate_Document_Content_Writer {
 	 */
 	private static function array_item_has_content( array $filtered, array $schema ) {
 		foreach ( $filtered as $key => $value ) {
+			if ( is_array( $value ) ) {
+				if ( ! empty( $value ) ) {
+					return true;
+				}
+				continue;
+			}
+
 			$type = isset( $schema[ $key ]['type'] ) ? $schema[ $key ]['type'] : 'textarea';
 			$text = 'rich' === $type
 				? wp_strip_all_tags( (string) $value )
@@ -494,9 +501,16 @@ class Documentate_Document_Content_Writer {
 
 		foreach ( $schema as $key => $settings ) {
 			$raw = isset( $item[ $key ] ) ? $item[ $key ] : '';
-			$raw = is_scalar( $raw ) ? (string) $raw : '';
 			$type = isset( $settings['type'] ) ? $settings['type'] : 'textarea';
 
+			// Nested repeater rows (TBS sub-block) are sanitized against their
+			// own item schema instead of being cast to a string.
+			if ( 'array' === $type ) {
+				$filtered[ $key ] = self::sanitize_array_field_items( is_array( $raw ) ? $raw : array(), $settings );
+				continue;
+			}
+
+			$raw = is_scalar( $raw ) ? (string) $raw : '';
 			$filtered[ $key ] = self::sanitize_field_by_type( $raw, $type );
 		}
 

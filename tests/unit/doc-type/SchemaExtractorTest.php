@@ -296,24 +296,56 @@ class SchemaExtractorTest extends WP_UnitTestCase {
 		// Check that no 'onshow' repeater exists.
 		$repeater_names = array_column( $schema['repeaters'], 'name' );
 		$this->assertNotContains( 'onshow', $repeater_names, 'onshow should NOT be a repeater (it is a visibility directive).' );
+	}
 
-		// Visibility gatekeepers must remain scalar fields (not repeaters).
-		$this->assertNotContains( 'servicios_proveedor', $repeater_names, 'servicios_proveedor is a visibility gatekeeper, not a repeater.' );
-		$this->assertNotContains( 'suministros_proveedor', $repeater_names, 'suministros_proveedor is a visibility gatekeeper, not a repeater.' );
-		$this->assertNotContains( 'expertos_proveedor', $repeater_names, 'expertos_proveedor is a visibility gatekeeper, not a repeater.' );
+	/**
+	 * The propuesta de gasto providers are explicit blocks with a nested
+	 * conceptos sub-repeater (TBS automatic sub-blocks, sub1=conceptos).
+	 */
+	public function test_provider_blocks_nest_their_conceptos_sub_repeater() {
+		$extractor = new SchemaExtractor();
+		$schema    = $extractor->extract( dirname( __FILE__, 4 ) . '/fixtures/propuestagasto.odt' );
 
-		// Each visibility block still owns a tbs:row line-items repeater.
-		foreach ( array( 'g_servicios', 'g_suministros', 'g_expertos' ) as $expected ) {
+		$this->assertNotWPError( $schema );
+
+		$repeater_names = array_column( $schema['repeaters'], 'name' );
+
+		foreach ( array( 'servicios', 'suministros', 'expertos' ) as $kind ) {
+			$this->assertContains( $kind, $repeater_names, sprintf( '%s must be a repeater.', $kind ) );
+			// The sub-block must not surface as a top-level repeater.
+			$this->assertNotContains( $kind . '_sub1', $repeater_names, sprintf( '%s_sub1 must nest inside %s.', $kind, $kind ) );
+
 			$repeater = null;
 			foreach ( $schema['repeaters'] as $candidate ) {
-				if ( $expected === $candidate['name'] ) {
+				if ( $kind === $candidate['name'] ) {
 					$repeater = $candidate;
 					break;
 				}
 			}
-			$this->assertNotNull( $repeater, sprintf( '%s repeater must exist.', $expected ) );
+			$this->assertNotNull( $repeater );
+
 			$field_names = array_column( $repeater['fields'], 'name' );
-			$this->assertContains( 'concepto', $field_names, sprintf( '%s must have concepto field.', $expected ) );
+			foreach ( array( 'proveedor', 'cif', 'bruto', 'total', 'conceptos' ) as $expected_field ) {
+				$this->assertContains( $expected_field, $field_names, sprintf( '%s must carry the %s field.', $kind, $expected_field ) );
+			}
+			// The sub-block fields must not leak into the parent as dotted names.
+			foreach ( $field_names as $field_name ) {
+				$this->assertStringNotContainsString( '_sub1', (string) $field_name, sprintf( '%s must not leak sub-block fields.', $kind ) );
+			}
+
+			$conceptos = null;
+			foreach ( $repeater['fields'] as $field ) {
+				if ( isset( $field['name'] ) && 'conceptos' === $field['name'] ) {
+					$conceptos = $field;
+					break;
+				}
+			}
+			$this->assertNotNull( $conceptos );
+			$this->assertSame( 'array', $conceptos['type'], 'conceptos must be a nested array field.' );
+			$sub_field_names = array_column( $conceptos['fields'], 'name' );
+			foreach ( array( 'concepto', 'cantidad', 'unitario', 'total' ) as $expected_sub ) {
+				$this->assertContains( $expected_sub, $sub_field_names, sprintf( 'conceptos of %s must carry %s.', $kind, $expected_sub ) );
+			}
 		}
 	}
 }

@@ -194,6 +194,11 @@ class Documentate_Document_Repeater_Field {
 		echo '</div>';
 
 		foreach ( $item_schema as $key => $definition ) {
+			if ( isset( $definition['type'] ) && 'array' === $definition['type'] ) {
+				self::render_subarray_field( $slug, $index_attr, $key, $definition, $values, $raw_fields );
+				continue;
+			}
+
 			$field = self::prepare_array_item_field( $key, $definition, $raw_fields, $values, $slug, $index_attr );
 			if ( null === $field ) {
 				continue;
@@ -212,6 +217,147 @@ class Documentate_Document_Repeater_Field {
 		}
 
 		echo '</div>';
+	}
+	/**
+	 * Render a nested repeater (TBS sub-block) inside one parent row.
+	 *
+	 * Each parent record carries its own rows for the sub-repeater (e.g. the
+	 * conceptos of one provider). Inputs are named
+	 * tpl_fields[slug][parent][key][sub][column]; the clone template uses the
+	 * __SUBINDEX__ marker so the parent row's __INDEX__ stays untouched until
+	 * the parent row itself is cloned.
+	 *
+	 * @param string $slug         Parent repeater slug.
+	 * @param string $parent_index Parent row index (or __INDEX__ in the template).
+	 * @param string $key          Item schema key of the nested repeater.
+	 * @param array  $definition   Normalized item schema entry (type array).
+	 * @param array  $values       Values stored for the parent row.
+	 * @param array  $raw_fields   Raw schema definitions, keyed by column.
+	 * @return void
+	 */
+	private static function render_subarray_field( $slug, $parent_index, $key, $definition, $values, $raw_fields ) {
+		$item_key = sanitize_key( $key );
+		if ( '' === $item_key ) {
+			return;
+		}
+
+		$label = isset( $definition['label'] )
+			? sanitize_text_field( $definition['label'] )
+			: Documents_Meta_Handler::humanize_unknown_field_label( $item_key );
+		$sub_schema = isset( $definition['item_schema'] ) && is_array( $definition['item_schema'] )
+			? $definition['item_schema']
+			: array();
+		$sub_raw_fields = self::index_raw_sub_fields( isset( $raw_fields[ $item_key ] ) ? $raw_fields[ $item_key ] : array() );
+
+		$items = isset( $values[ $item_key ] ) && is_array( $values[ $item_key ] ) ? array_values( $values[ $item_key ] ) : array();
+		if ( empty( $items ) ) {
+			// The editor always shows at least one row to type into.
+			$items = array( array() );
+		}
+
+		echo '<div class="documentate-subarray-field" data-subarray-field="'
+				. esc_attr( $item_key )
+				. '" style="margin:12px 0 16px;padding:12px;border:1px solid #e5e5e5;background:#fafafa;">';
+		echo '<div class="documentate-subarray-heading" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">';
+		echo '<span style="font-weight:600;">' . esc_html( $label ) . '</span>';
+		echo '<button type="button" class="button button-secondary documentate-subarray-add">'
+				. esc_html__( 'Add item', 'documentate' )
+				. '</button>';
+		echo '</div>';
+
+		echo '<div class="documentate-subarray-items">';
+		foreach ( $items as $sub_index => $sub_values ) {
+			self::render_subarray_item( $slug, $parent_index, $item_key, (string) $sub_index, $sub_schema, is_array( $sub_values ) ? $sub_values : array(), $sub_raw_fields );
+		}
+		echo '</div>';
+
+		echo '<template class="documentate-subarray-template">';
+		self::render_subarray_item( $slug, $parent_index, $item_key, '__SUBINDEX__', $sub_schema, array(), $sub_raw_fields );
+		echo '</template>';
+		echo '</div>';
+	}
+	/**
+	 * Render one row of a nested repeater.
+	 *
+	 * @param string $slug         Parent repeater slug.
+	 * @param string $parent_index Parent row index.
+	 * @param string $item_key     Item schema key of the nested repeater.
+	 * @param string $sub_index    Row index (or __SUBINDEX__ in the template).
+	 * @param array  $sub_schema   Normalized item schema of the nested repeater.
+	 * @param array  $sub_values   Values stored for this row.
+	 * @param array  $sub_raw      Raw schema definitions, keyed by column.
+	 * @return void
+	 */
+	private static function render_subarray_item( $slug, $parent_index, $item_key, $sub_index, $sub_schema, $sub_values, $sub_raw ) {
+		echo '<div class="documentate-subarray-item" data-subindex="'
+				. esc_attr( $sub_index )
+				. '" style="border:1px solid #e5e5e5;padding:12px;margin-bottom:8px;background:#fff;">';
+		echo '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">';
+		echo '<button type="button" class="button-link-delete documentate-subarray-remove">'
+				. esc_html__( 'Delete', 'documentate' )
+				. '</button>';
+		echo '</div>';
+
+		foreach ( $sub_schema as $sub_key => $sub_definition ) {
+			$column = sanitize_key( $sub_key );
+			if ( '' === $column ) {
+				continue;
+			}
+
+			$raw_field = isset( $sub_raw[ $column ] ) ? $sub_raw[ $column ] : array();
+			$field = array_merge(
+				self::prepare_field_control( $sub_definition, $raw_field, Documents_Meta_Handler::humanize_unknown_field_label( $column ) ),
+				array(
+					'item_key' => $column,
+					'field_name' => 'tpl_fields[' . $slug . '][' . $parent_index . '][' . $item_key . '][' . $sub_index . '][' . $column . ']',
+					'field_id' => 'documentate-' . $slug . '-' . $item_key . '-' . $column . '-' . $parent_index . '-' . $sub_index,
+					'value' => isset( $sub_values[ $column ] ) && is_scalar( $sub_values[ $column ] ) ? (string) $sub_values[ $column ] : '',
+					'definition' => $sub_definition,
+				)
+			);
+
+			echo '<div class="documentate-array-field-control" style="margin-bottom:12px;">';
+			echo '<label for="' . esc_attr( $field['field_id'] ) . '" style="font-weight:600;display:block;margin-bottom:4px;"';
+			if ( '' !== $field['title_attribute'] ) {
+				echo ' title="' . esc_attr( $field['title_attribute'] ) . '"';
+			}
+			echo '>' . esc_html( $field['label'] ) . '</label>';
+
+			self::render_array_item_control( $field, false );
+
+			echo '</div>';
+		}
+
+		echo '</div>';
+	}
+	/**
+	 * Index the raw definitions of a nested repeater's columns by slug.
+	 *
+	 * @param array $raw_entry Raw schema entry of the nested repeater.
+	 * @return array<string,array>
+	 */
+	private static function index_raw_sub_fields( $raw_entry ) {
+		$index = array();
+		if ( ! isset( $raw_entry['fields'] ) || ! is_array( $raw_entry['fields'] ) ) {
+			return $index;
+		}
+
+		foreach ( $raw_entry['fields'] as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$entry_slug = '';
+			if ( isset( $entry['slug'] ) ) {
+				$entry_slug = sanitize_key( $entry['slug'] );
+			} elseif ( isset( $entry['name'] ) ) {
+				$entry_slug = sanitize_key( $entry['name'] );
+			}
+			if ( '' !== $entry_slug ) {
+				$index[ $entry_slug ] = $entry;
+			}
+		}
+
+		return $index;
 	}
 	/**
 	 * Dispatch to the control matching a repeater column's type.
