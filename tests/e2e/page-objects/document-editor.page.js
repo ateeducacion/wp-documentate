@@ -476,8 +476,12 @@ class DocumentEditorPage {
 			return;
 		}
 
-		// Otherwise, send to review first, then approve.
-		if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+		// Otherwise, send to review first, then approve. A brand-new document
+		// (auto-draft) only offers "Save Draft" — "Send to Review" appears once
+		// the draft has been saved, which saveDraft() below takes care of.
+		const canSendToReview = await sendReviewBtn.isVisible().catch( () => false );
+		const canSaveDraft = await this.page.locator( '#documentate-save-draft' ).isVisible().catch( () => false );
+		if ( canSendToReview || canSaveDraft ) {
 			// Ensure a doc type is selected (required to transition beyond draft).
 			if ( await this.hasDocTypes() ) {
 				const currentValue = await this.docTypeSelect.inputValue();
@@ -493,6 +497,7 @@ class DocumentEditorPage {
 			// After save, required fields may have appeared — fill them.
 			await this.fillRequiredFields();
 
+			await this.page.locator( '#documentate-send-review' ).waitFor( { state: 'visible', timeout: 10000 } );
 			await Promise.all( [
 				this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
 				this.page.locator( '#documentate-send-review' ).click(),

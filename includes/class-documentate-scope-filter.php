@@ -66,6 +66,10 @@ class Documentate_Scope_Filter {
 		add_filter( 'views_edit-' . self::POST_TYPE, array( $this, 'filter_view_counts' ), 20 );
 		// Enforce scope on object-level caps (edit/export/delete by ID).
 		add_filter( 'map_meta_cap', array( $this, 'map_meta_cap_scope' ), 10, 4 );
+		// Keep scoped users' documents inside their own scope category.
+		// Priority 1: the category must exist before other save_post handlers
+		// (like the meta saver) re-check edit_post against the scope.
+		add_action( 'save_post_' . self::POST_TYPE, array( $this, 'assign_default_scope_category' ), 1 );
 	}
 
 	/**
@@ -123,6 +127,13 @@ class Documentate_Scope_Filter {
 			return true;
 		}
 
+		// A brand-new stub has no category yet; blocking it here would make it
+		// impossible for scoped users to ever save a new document (the edit_post
+		// capability is checked before the save assigns any category).
+		if ( 'auto-draft' === $post->post_status ) {
+			return true;
+		}
+
 		$term_ids = $this->get_scope_term_ids( $user_id );
 		if ( null === $term_ids ) {
 			return true;
@@ -172,6 +183,41 @@ class Documentate_Scope_Filter {
 		}
 
 		return $caps;
+	}
+
+	/**
+	 * Assign the current user's scope category to documents saved without one.
+	 *
+	 * Scoped users only see (and may only edit) documents inside their scope
+	 * category, so a document they save without selecting any category would
+	 * immediately become invisible and uneditable to them. Falling back to
+	 * their own scope term keeps their documents inside their scope.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return void
+	 */
+	public function assign_default_scope_category( $post_id ) {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		// Unrestricted users (administrators) are never forced into a scope.
+		$term_ids = $this->get_scope_term_ids();
+		if ( null === $term_ids ) {
+			return;
+		}
+
+		$scope_term = absint( get_user_meta( get_current_user_id(), self::SCOPE_META_KEY, true ) );
+		if ( 0 === $scope_term ) {
+			return;
+		}
+
+		$existing = wp_get_post_terms( $post_id, self::SCOPE_TAXONOMY, array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $existing ) || ! empty( $existing ) ) {
+			return;
+		}
+
+		wp_set_post_terms( $post_id, array( $scope_term ), self::SCOPE_TAXONOMY, false );
 	}
 
 	/**

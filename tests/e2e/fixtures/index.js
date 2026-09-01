@@ -61,13 +61,22 @@ const documentHelpers = {
 
 		// Save or publish based on status
 		if ( status === 'publish' ) {
-			// Follow the workflow: Send to Review → Approve & Publish.
+			// Follow the workflow: Save Draft → Send to Review → Approve & Publish.
 			const sendReviewBtn = page.locator( '#documentate-send-review' );
 			const approveBtn = page.locator( '#documentate-approve-publish' );
 
 			if ( await approveBtn.isVisible().catch( () => false ) ) {
 				await approveBtn.click();
-			} else if ( await sendReviewBtn.isVisible().catch( () => false ) ) {
+			} else {
+				// A new document (auto-draft) only offers "Save Draft" —
+				// "Send to Review" appears once the draft has been saved.
+				if ( ! ( await sendReviewBtn.isVisible().catch( () => false ) ) ) {
+					await page.locator( '#documentate-save-draft' ).click();
+					await page.locator( '#message.updated, .notice-success' )
+						.first()
+						.waitFor( { state: 'visible', timeout: 10000 } )
+						.catch( () => {} );
+				}
 				await sendReviewBtn.click();
 				await page.locator( '#message.updated, .notice-success' )
 					.first()

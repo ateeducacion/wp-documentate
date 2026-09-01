@@ -938,7 +938,7 @@ class Documentate_Workflow {
 		echo '<div class="documentate-mgmt-actions">';
 
 		if ( in_array( $status, array( 'auto-draft', 'draft' ), true ) ) {
-			$this->render_draft_buttons( $is_admin );
+			$this->render_draft_buttons( $status );
 		} elseif ( 'pending' === $status ) {
 			$this->render_pending_buttons( $is_admin );
 		} elseif ( 'publish' === $status ) {
@@ -953,19 +953,23 @@ class Documentate_Workflow {
 	/**
 	 * Render buttons for draft/auto-draft status.
 	 *
-	 * @param bool $is_admin Whether current user is admin.
+	 * A brand-new document (auto-draft) only offers "Save Draft": it cannot be
+	 * sent to review until it has been saved at least once.
+	 *
+	 * @param string $status Current post status (auto-draft or draft).
 	 */
-	private function render_draft_buttons( $is_admin ) {
- // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found 
+	private function render_draft_buttons( $status ) {
 		?>
 		<button type="button" id="documentate-save-draft" class="button documentate-mgmt-btn documentate-mgmt-btn--danger">
 			<span class="dashicons dashicons-cloud-saved"></span>
 			<?php esc_html_e( 'Save Draft', 'documentate' ); ?>
 		</button>
+		<?php if ( 'draft' === $status ) : ?>
 		<button type="button" id="documentate-send-review" class="button documentate-mgmt-btn documentate-mgmt-btn--warning">
 			<span class="dashicons dashicons-share-alt2"></span>
 			<?php esc_html_e( 'Send to Review', 'documentate' ); ?>
 		</button>
+		<?php endif; ?>
 		<?php
 	}
 

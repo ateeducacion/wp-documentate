@@ -378,6 +378,45 @@ class Documentate_Document_Scalar_Field {
 		echo '</label>';
 	}
 	/**
+	 * Default option for school-year ("curso") selects: the current academic year.
+	 *
+	 * The academic year runs from September to August, so from September 2026 to
+	 * August 2027 the default is "2026/2027" (or "2026-2027", whichever matches an
+	 * option). Only applies to fields whose key contains "curso" and only when the
+	 * document has no stored value yet.
+	 *
+	 * @param string               $meta_key The meta key for the field.
+	 * @param array<string,string> $options  Select options keyed by value.
+	 * @param int|null             $now      Optional timestamp to resolve the year against.
+	 * @return string Matching option value, or an empty string when none applies.
+	 */
+	public static function get_academic_year_default( $meta_key, $options, $now = null ) {
+		if ( false === strpos( strtolower( (string) $meta_key ), 'curso' ) ) {
+			return '';
+		}
+
+		$timestamp = null === $now ? current_datetime()->getTimestamp() : (int) $now;
+		$year = (int) wp_date( 'Y', $timestamp );
+		$month = (int) wp_date( 'n', $timestamp );
+		$start = $month >= 9 ? $year : $year - 1;
+		$end = $start + 1;
+
+		$candidates = array(
+			$start . '/' . $end,
+			$start . '-' . $end,
+			$start . '/' . substr( (string) $end, -2 ),
+			$start . '-' . substr( (string) $end, -2 ),
+		);
+
+		foreach ( $candidates as $candidate ) {
+			if ( isset( $options[ $candidate ] ) ) {
+				return $candidate;
+			}
+		}
+
+		return '';
+	}
+	/**
 	 * Render a select dropdown control.
 	 *
 	 * @param string              $meta_key         The meta key for the field.
@@ -388,6 +427,9 @@ class Documentate_Document_Scalar_Field {
 	 */
 	private static function render_select_control( $meta_key, $value, $raw_field, $attributes, $attribute_string ) {
 		$options = self::parse_select_options( $raw_field );
+		if ( '' === $value ) {
+			$value = self::get_academic_year_default( $meta_key, $options );
+		}
 		$placeholder = self::get_select_placeholder( $raw_field );
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Attributes escaped in format_field_attributes().
 		echo '<select id="' . esc_attr( $meta_key ) . '" name="' . esc_attr( $meta_key ) . '" ' . $attribute_string . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped

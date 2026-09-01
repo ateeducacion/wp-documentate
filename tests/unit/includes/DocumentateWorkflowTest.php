@@ -915,6 +915,28 @@ class DocumentateWorkflowTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Test render_document_management_metabox for a new document (auto-draft)
+	 * hides Send to Review until the draft has been saved.
+	 */
+	public function test_render_document_management_metabox_auto_draft_hides_send_review() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post = $this->factory->post->create_and_get(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_status' => 'auto-draft',
+			)
+		);
+
+		ob_start();
+		$this->workflow->render_document_management_metabox( $post );
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'documentate-save-draft', $output );
+		$this->assertStringNotContainsString( 'documentate-send-review', $output );
+	}
+
+	/**
 	 * Test render_document_management_metabox for pending as admin.
 	 */
 	public function test_render_document_management_metabox_pending_admin() {
