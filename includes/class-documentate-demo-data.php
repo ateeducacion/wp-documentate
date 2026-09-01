@@ -1433,106 +1433,102 @@ class Documentate_Demo_Data {
 	 */
 	private static function get_propuesta_gasto_provider_fields() {
 		return array(
-			'servicios_proveedor' => array(
-				'type' => 'single',
-				'value' => 'Formación Docente Canarias S.L.',
-			),
-			'servicios_cif' => array(
-				'type' => 'single',
-				'value' => 'B76543210',
-			),
-			'servicios_email' => array(
-				'type' => 'single',
-				'value' => 'contacto@formaciondocente.es',
-			),
-			'servicios_telefono' => array(
-				'type' => 'single',
-				'value' => '922123456',
-			),
-			'servicios_total' => array(
-				'type' => 'single',
-				'value' => '8500',
-			),
-			'g_servicios' => array(
+			'servicios' => array(
 				'type' => 'array',
 				'value' => array(
 					array(
-						'concepto' => 'Curso presencial metodologías activas (20h)',
-						'cantidad' => '2',
-						'unitario' => '2',
-						'sinimpuestos' => '3000',
-						'igic' => '7',
-						'irpf' => '0',
-						'total' => '3210',
-					),
-					array(
-						'concepto' => 'Taller competencia digital docente (10h)',
-						'cantidad' => '3',
-						'unitario' => '2',
-						'sinimpuestos' => '4500',
+						'proveedor' => 'Formación Docente Canarias S.L.',
+						'cif' => 'B76543210',
+						'email' => 'contacto@formaciondocente.es',
+						'telefono' => '922123456',
+						'bruto' => '4500',
 						'igic' => '7',
 						'irpf' => '0',
 						'total' => '4815',
+						'conceptos' => array(
+							array(
+								'concepto' => 'Curso presencial metodologías activas (20h)',
+								'cantidad' => '2',
+								'unitario' => '1500',
+								'total' => '3000',
+							),
+							array(
+								'concepto' => 'Taller competencia digital docente (10h)',
+								'cantidad' => '3',
+								'unitario' => '500',
+								'total' => '1500',
+							),
+						),
+					),
+					array(
+						'proveedor' => 'Aula Abierta Formación S.C.P.',
+						'cif' => 'J35678901',
+						'email' => 'info@aulaabiertaformacion.es',
+						'telefono' => '928111222',
+						'bruto' => '2100',
+						'igic' => '7',
+						'irpf' => '0',
+						'total' => '2247',
+						'conceptos' => array(
+							array(
+								'concepto' => 'Seminario de evaluación competencial (8h)',
+								'cantidad' => '1',
+								'unitario' => '900',
+								'total' => '900',
+							),
+							array(
+								'concepto' => 'Mentoría en centros (12h)',
+								'cantidad' => '4',
+								'unitario' => '300',
+								'total' => '1200',
+							),
+						),
 					),
 				),
 			),
-			'suministros_proveedor' => array(
-				'type' => 'single',
-				'value' => 'TecnoEducación S.A.',
-			),
-			'suministros_cif' => array(
-				'type' => 'single',
-				'value' => 'A12345678',
-			),
-			'suministros_email' => array(
-				'type' => 'single',
-				'value' => 'ventas@tecnoeducacion.es',
-			),
-			'suministros_telefono' => array(
-				'type' => 'single',
-				'value' => '928654321',
-			),
-			'g_suministros' => array(
+			'suministros' => array(
 				'type' => 'array',
 				'value' => array(
 					array(
-						'concepto' => 'Tablets educativas',
-						'cantidad' => '10',
-						'unitario' => '350',
-						'sinimpuestos' => '3500',
+						'proveedor' => 'TecnoEducación S.A.',
+						'cif' => 'A12345678',
+						'email' => 'ventas@tecnoeducacion.es',
+						'telefono' => '928654321',
+						'bruto' => '3500',
 						'igic' => '7',
 						'irpf' => '0',
 						'total' => '3745',
+						'conceptos' => array(
+							array(
+								'concepto' => 'Tablets educativas',
+								'cantidad' => '10',
+								'unitario' => '350',
+								'total' => '3500',
+							),
+						),
 					),
 				),
 			),
-			'expertos_proveedor' => array(
-				'type' => 'single',
-				'value' => 'Dr. Juan Pérez González',
-			),
-			'expertos_cif' => array(
-				'type' => 'single',
-				'value' => '43123456B',
-			),
-			'expertos_email' => array(
-				'type' => 'single',
-				'value' => 'juan.perez@universidad.es',
-			),
-			'expertos_telefono' => array(
-				'type' => 'single',
-				'value' => '650123456',
-			),
-			'g_expertos' => array(
+			'expertos' => array(
 				'type' => 'array',
 				'value' => array(
 					array(
-						'concepto' => 'Ponencia inaugural jornadas formativas',
-						'cantidad' => '1',
-						'unitario' => '500',
-						'sinimpuestos' => '500',
+						'proveedor' => 'Dr. Juan Pérez González',
+						'cif' => '43123456B',
+						'email' => 'juan.perez@universidad.es',
+						'telefono' => '650123456',
+						'bruto' => '500',
 						'igic' => '0',
 						'irpf' => '15',
 						'total' => '425',
+						'conceptos' => array(
+							array(
+								'concepto' => 'Ponencia inaugural jornadas formativas',
+								'cantidad' => '1',
+								'unitario' => '500',
+								'total' => '500',
+							),
+						),
 					),
 				),
 			),

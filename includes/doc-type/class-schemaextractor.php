@@ -452,6 +452,9 @@ class SchemaExtractor {
 			// First pass: identify repeaters from tbs:row or tbs:cell block patterns.
 			'tbs_repeaters' => $this->detect_tbs_repeaters( $placeholders ),
 			'added_tbs_repeaters' => array(),
+			// TBS automatic sub-blocks declared via subN= on an explicit block:
+			// "<block>_subN" => array( parent repeater index, data key ).
+			'sub_blocks' => array(),
 		);
 
 		foreach ( $placeholders as $token ) {
@@ -536,7 +539,23 @@ class SchemaExtractor {
 
 		// Regular data repeater.
 		$state['repeaters'][] = $this->build_repeater_entry( $token );
-		$state['stack'][] = count( $state['repeaters'] ) - 1;
+		$repeater_index = count( $state['repeaters'] ) - 1;
+		$state['stack'][] = $repeater_index;
+
+		// Register TBS automatic sub-blocks (subN=<key>): their fields are named
+		// "<block>_subN.*" in the template and merge each record's <key> array.
+		$parameters = isset( $token['parameters'] ) && is_array( $token['parameters'] ) ? $token['parameters'] : array();
+		$i = 1;
+		while ( isset( $parameters[ 'sub' . $i ] ) ) {
+			$sub_key = sanitize_key( (string) $parameters[ 'sub' . $i ] );
+			if ( '' !== $sub_key ) {
+				$state['sub_blocks'][ sanitize_key( $token_name ) . '_sub' . $i ] = array(
+					'parent' => $repeater_index,
+					'key' => $sub_key,
+				);
+			}
+			++$i;
+		}
 	}
 
 	/**
@@ -580,6 +599,26 @@ class SchemaExtractor {
 			return;
 		}
 
+		// A sub-block ("<name>_subN") nests inside its parent repeater as an
+		// array field named after the data key its rows come from.
+		if ( isset( $state['sub_blocks'][ $base_name ] ) ) {
+			$sub = $state['sub_blocks'][ $base_name ];
+			if ( isset( $state['repeaters'][ $sub['parent'] ] ) ) {
+				$entry = $this->build_tbs_repeater_entry( $base_name, $state['tbs_repeaters'][ $base_name ] );
+				$state['repeaters'][ $sub['parent'] ]['fields'][] = array(
+					'name' => $sub['key'],
+					'slug' => sanitize_key( $sub['key'] ),
+					'title' => '',
+					'description' => '',
+					'type' => 'array',
+					'parameters' => array( 'tbs_sub_block' => $base_name ),
+					'fields' => $entry['fields'],
+				);
+				$state['added_tbs_repeaters'][ $base_name ] = true;
+				return;
+			}
+		}
+
 		$state['repeaters'][] = $this->build_tbs_repeater_entry( $base_name, $state['tbs_repeaters'][ $base_name ] );
 		$state['added_tbs_repeaters'][ $base_name ] = true;
 	}
@@ -592,18 +631,24 @@ class SchemaExtractor {
 	 * @return bool
 	 */
 	private function belongs_to_tbs_repeater( $token, array $state ) {
-		if ( ! empty( $state['stack'] ) ) {
-			return false;
-		}
-
 		$token_name = isset( $token['name'] ) ? (string) $token['name'] : '';
 		if ( false === strpos( $token_name, '.' ) ) {
 			return false;
 		}
 
 		$base_name = $this->extract_tbs_repeater_base( $token_name );
+		if ( '' === $base_name || ! isset( $state['tbs_repeaters'][ $base_name ] ) ) {
+			return false;
+		}
 
-		return '' !== $base_name && isset( $state['tbs_repeaters'][ $base_name ] );
+		if ( empty( $state['stack'] ) ) {
+			return true;
+		}
+
+		// Inside an explicit block, dotted fields normally feed the open
+		// repeater — except fields of a TBS sub-block ("<name>_subN.*"), which
+		// were already collected for the nested repeater in the pre-pass.
+		return isset( $state['sub_blocks'][ $base_name ] );
 	}
 
 	/**

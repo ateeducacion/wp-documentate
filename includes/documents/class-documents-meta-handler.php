@@ -309,6 +309,19 @@ class Documents_Meta_Handler {
 			return array();
 		}
 
+		return self::normalize_decoded_array_items( $decoded );
+	}
+	/**
+	 * Normalize decoded repeater rows, keeping nested sub-repeater rows.
+	 *
+	 * A row value that is itself a list of rows (a TBS sub-block, e.g. the
+	 * conceptos of one provider) is normalized recursively instead of being
+	 * flattened to an empty string.
+	 *
+	 * @param array $decoded Decoded rows.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function normalize_decoded_array_items( array $decoded ) {
 		$items = array();
 		foreach ( $decoded as $item ) {
 			if ( ! is_array( $item ) ) {
@@ -316,6 +329,10 @@ class Documents_Meta_Handler {
 			}
 			$normalized = array();
 			foreach ( $item as $key => $val ) {
+				if ( is_array( $val ) ) {
+					$normalized[ sanitize_key( $key ) ] = self::normalize_decoded_array_items( $val );
+					continue;
+				}
 				$normalized[ sanitize_key( $key ) ] = is_scalar( $val )
 					? (string) self::fix_unescaped_unicode_sequences( (string) $val )
 					: '';
@@ -390,6 +407,19 @@ class Documents_Meta_Handler {
 					? sanitize_text_field( $item['label'] )
 					: self::humanize_unknown_field_label( $item_key );
 				$type = isset( $item['type'] ) ? sanitize_key( $item['type'] ) : 'textarea';
+
+				// Nested repeater (TBS sub-block): keep the array type and
+				// normalize its own item schema recursively.
+				if ( 'array' === $type && isset( $item['item_schema'] ) && is_array( $item['item_schema'] ) ) {
+					$schema[ $item_key ] = array(
+						'label' => $label,
+						'type' => 'array',
+						'data_type' => 'array',
+						'item_schema' => self::normalize_array_item_schema( $item ),
+					);
+					continue;
+				}
+
 				if ( ! in_array( $type, array( 'single', 'textarea', 'rich' ), true ) ) {
 					$type = 'textarea';
 				}

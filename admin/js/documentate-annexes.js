@@ -1,19 +1,34 @@
 (function(){
 'use strict';
 
-function replacePlaceholders(element, index) {
-	var placeholder = /__INDEX__/g;
-	if (element.hasAttribute('data-index')) {
-		element.setAttribute('data-index', element.getAttribute('data-index').replace(placeholder, index));
-	}
+function replaceMarkerInAttributes(element, marker, index) {
+	var placeholder = new RegExp(marker, 'g');
 	var nodes = element.querySelectorAll('*');
 	nodes.forEach(function(node) {
 		Array.prototype.slice.call(node.attributes).forEach(function(attr) {
-			if (attr.value && attr.value.indexOf('__INDEX__') !== -1) {
+			if (attr.value && attr.value.indexOf(marker) !== -1) {
 				node.setAttribute(attr.name, attr.value.replace(placeholder, index));
 			}
 		});
 	});
+	// querySelectorAll does not descend into <template> content, but the
+	// parent row's index must also land inside nested sub-repeater templates.
+	element.querySelectorAll('template').forEach(function(tpl) {
+		tpl.content.querySelectorAll('*').forEach(function(node) {
+			Array.prototype.slice.call(node.attributes).forEach(function(attr) {
+				if (attr.value && attr.value.indexOf(marker) !== -1) {
+					node.setAttribute(attr.name, attr.value.replace(placeholder, index));
+				}
+			});
+		});
+	});
+}
+
+function replacePlaceholders(element, index) {
+	if (element.hasAttribute('data-index')) {
+		element.setAttribute('data-index', element.getAttribute('data-index').replace(/__INDEX__/g, index));
+	}
+	replaceMarkerInAttributes(element, '__INDEX__', index);
 }
 
 function removeRichEditor(field) {
@@ -30,12 +45,22 @@ function updateIndexes(container, slug) {
 	var items = container.querySelectorAll('.documentate-array-item');
 	items.forEach(function(item, idx) {
 		item.setAttribute('data-index', String(idx));
-		var fields = item.querySelectorAll('input, textarea');
+		var fields = item.querySelectorAll('input, textarea, select');
 		fields.forEach(function(field) {
-			removeRichEditor(field);
+			var inSubRow = !!field.closest('.documentate-subarray-item');
+			if (!inSubRow) {
+				removeRichEditor(field);
+			}
 			var name = field.getAttribute('name');
 			if (name) {
-				field.setAttribute('name', name.replace(/\[[0-9]+\](?=\[[^\[]+\]$)/, '[' + idx + ']'));
+				// The first numeric group is always the parent row index, both
+				// for plain fields and for fields of a nested sub-repeater.
+				field.setAttribute('name', name.replace(/\[[0-9]+\]/, '[' + idx + ']'));
+			}
+			if (inSubRow) {
+				// Sub-row ids end with the sub index; leave them to the
+				// sub-repeater's own reindexing.
+				return;
 			}
 			var id = field.getAttribute('id');
 			if (id) {
@@ -44,12 +69,105 @@ function updateIndexes(container, slug) {
 		});
 		var labels = item.querySelectorAll('label[for]');
 		labels.forEach(function(label) {
+			if (label.closest('.documentate-subarray-item')) {
+				return;
+			}
+			var target = label.getAttribute('for');
+			if (target) {
+				label.setAttribute('for', target.replace(/-\d+$/, '-' + idx));
+			}
+		});
+		// Sub-repeater clone templates carry the parent index in their input
+		// names; keep them in sync so later "Add item" clicks post under the
+		// right parent row.
+		item.querySelectorAll('template.documentate-subarray-template').forEach(function(tpl) {
+			tpl.content.querySelectorAll('input, textarea, select').forEach(function(field) {
+				var name = field.getAttribute('name');
+				if (name) {
+					field.setAttribute('name', name.replace(/\[[0-9]+\]/, '[' + idx + ']'));
+				}
+			});
+		});
+	});
+}
+
+function updateSubIndexes(itemsBox) {
+	var rows = itemsBox.querySelectorAll('.documentate-subarray-item');
+	rows.forEach(function(row, idx) {
+		row.setAttribute('data-subindex', String(idx));
+		row.querySelectorAll('input, textarea, select').forEach(function(field) {
+			var name = field.getAttribute('name');
+			if (name) {
+				// The numeric group before the last bracket is the sub index.
+				field.setAttribute('name', name.replace(/\[[0-9]+\](?=\[[^\[]+\]$)/, '[' + idx + ']'));
+			}
+			var id = field.getAttribute('id');
+			if (id) {
+				field.id = id.replace(/-\d+$/, '-' + idx);
+			}
+		});
+		row.querySelectorAll('label[for]').forEach(function(label) {
 			var target = label.getAttribute('for');
 			if (target) {
 				label.setAttribute('for', target.replace(/-\d+$/, '-' + idx));
 			}
 		});
 	});
+}
+
+function initSubArrayField(field) {
+	if (field.getAttribute('data-subarray-init') === '1') {
+		return;
+	}
+	field.setAttribute('data-subarray-init', '1');
+
+	var itemsBox = field.querySelector('.documentate-subarray-items');
+	var template = field.querySelector('template.documentate-subarray-template');
+	var addButton = field.querySelector('.documentate-subarray-add');
+	if (!itemsBox || !template || !addButton) {
+		return;
+	}
+
+	function addSubItem() {
+		var index = itemsBox.querySelectorAll('.documentate-subarray-item').length;
+		var clone = document.importNode(template.content, true);
+		var row = clone.querySelector('.documentate-subarray-item');
+		if (row.hasAttribute('data-subindex')) {
+			row.setAttribute('data-subindex', row.getAttribute('data-subindex').replace(/__SUBINDEX__/g, index));
+		}
+		replaceMarkerInAttributes(row, '__SUBINDEX__', index);
+		itemsBox.appendChild(clone);
+		updateSubIndexes(itemsBox);
+	}
+
+	addButton.addEventListener('click', function(event) {
+		event.preventDefault();
+		addSubItem();
+	});
+
+	field.addEventListener('click', function(event) {
+		if (!event.target.classList.contains('documentate-subarray-remove')) {
+			return;
+		}
+		event.preventDefault();
+		var row = event.target.closest('.documentate-subarray-item');
+		if (row) {
+			row.parentNode.removeChild(row);
+			if (!itemsBox.querySelector('.documentate-subarray-item')) {
+				addSubItem();
+			}
+			updateSubIndexes(itemsBox);
+		}
+	});
+
+	if (!itemsBox.querySelector('.documentate-subarray-item')) {
+		addSubItem();
+	}
+	updateSubIndexes(itemsBox);
+}
+
+function initSubArrays(root) {
+	root.querySelectorAll('.documentate-subarray-field').forEach(initSubArrayField);
 }
 
 function getDragAfterElement(container, y) {
@@ -151,6 +269,7 @@ function initArrayField(field) {
 		var item = clone.querySelector('.documentate-array-item');
 		replacePlaceholders(item, index);
 		container.appendChild(clone);
+		initSubArrays(container);
 		updateIndexes(container, slug);
 		initializeRichEditors(container);
 	}
@@ -215,6 +334,7 @@ function initArrayField(field) {
 		initializeRichEditors(container);
 	});
 
+	initSubArrays(container);
 	updateIndexes(container, slug);
 	initializeRichEditors(container);
 }
