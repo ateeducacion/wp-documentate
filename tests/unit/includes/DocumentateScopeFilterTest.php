@@ -230,6 +230,123 @@ class DocumentateScopeFilterTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A brand-new document stub (auto-draft) has no category yet, and must not
+	 * be blocked or scoped users could never save a new document.
+	 */
+	public function test_scoped_user_can_access_uncategorized_auto_draft() {
+		update_user_meta( $this->editor_user_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->parent_cat_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Auto Draft',
+				'post_status' => 'auto-draft',
+			)
+		);
+
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $post_id, $this->editor_user_id ),
+			'Scoped user should be able to access a new auto-draft without categories.'
+		);
+		$this->assertTrue(
+			user_can( $this->editor_user_id, 'edit_post', $post_id ),
+			'Scoped editor should keep edit_post on a new auto-draft.'
+		);
+	}
+
+	/**
+	 * An uncategorized document that already left auto-draft stays out of scope.
+	 */
+	public function test_scoped_user_cannot_access_uncategorized_draft() {
+		update_user_meta( $this->editor_user_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->parent_cat_id );
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Uncategorized Draft',
+				'post_status' => 'draft',
+			)
+		);
+		wp_set_object_terms( $post_id, array(), 'category' );
+
+		$this->assertFalse(
+			$this->filter->user_can_access_document( $post_id, $this->editor_user_id )
+		);
+	}
+
+	/**
+	 * Saving a document without a category as a scoped user assigns the user's
+	 * scope category, so the document stays visible and editable to them.
+	 */
+	public function test_save_without_category_assigns_scope_category() {
+		update_user_meta( $this->editor_user_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->parent_cat_id );
+		wp_set_current_user( $this->editor_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Editor Draft',
+				'post_status' => 'draft',
+			)
+		);
+
+		$terms = wp_get_post_terms( $post_id, 'category', array( 'fields' => 'ids' ) );
+		$this->assertContains(
+			$this->parent_cat_id,
+			$terms,
+			'Scoped user saves should fall back to the scope category.'
+		);
+		$this->assertTrue(
+			$this->filter->user_can_access_document( $post_id, $this->editor_user_id ),
+			'The document should remain inside the editor scope after saving.'
+		);
+	}
+
+	/**
+	 * A category chosen explicitly on save is never overridden by the scope.
+	 */
+	public function test_save_with_explicit_category_is_not_overridden() {
+		update_user_meta( $this->editor_user_id, Documentate_Scope_Filter::SCOPE_META_KEY, $this->parent_cat_id );
+		wp_set_current_user( $this->editor_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'     => 'documentate_document',
+				'post_title'    => 'Categorized Draft',
+				'post_status'   => 'draft',
+				'post_category' => array( $this->child_cat_id ),
+			)
+		);
+
+		$terms = wp_get_post_terms( $post_id, 'category', array( 'fields' => 'ids' ) );
+		$this->assertContains( $this->child_cat_id, $terms );
+		$this->assertNotContains(
+			$this->parent_cat_id,
+			$terms,
+			'The scope fallback must not run when a category was selected.'
+		);
+	}
+
+	/**
+	 * Administrators are never forced into a scope category.
+	 */
+	public function test_admin_save_without_category_is_untouched() {
+		wp_set_current_user( $this->admin_user_id );
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => 'documentate_document',
+				'post_title'  => 'Admin Draft',
+				'post_status' => 'draft',
+			)
+		);
+
+		$terms = wp_get_post_terms( $post_id, 'category', array( 'fields' => 'ids' ) );
+		$this->assertEmpty( $terms, 'Admin documents should keep no category unless chosen.' );
+	}
+
+	/**
 	 * Test that queries for a different post type are not filtered.
 	 */
 	public function test_other_post_type_query_not_filtered() {

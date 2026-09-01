@@ -33,6 +33,9 @@ test.describe( 'Document Workflow States', () => {
 		await documentEditor.navigateToNew();
 		await documentEditor.fillTitle( 'Publish Attempt Without Type' );
 
+		// A new document must be saved before "Send to Review" is offered.
+		await documentEditor.saveDraft();
+
 		// Try to send to review without doc type — backend forces draft with warning
 		await documentEditor.sendToReviewButton.click();
 		await documentEditor.waitForSave();
