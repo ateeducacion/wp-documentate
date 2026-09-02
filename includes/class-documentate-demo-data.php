@@ -244,6 +244,8 @@ class Documentate_Demo_Data {
 		update_term_meta( $term_id, '_documentate_fixture', $definition['fixture_key'] );
 		update_term_meta( $term_id, 'documentate_type_color', $definition['color'] );
 		update_term_meta( $term_id, 'documentate_type_template_id', $template_id );
+		update_term_meta( $term_id, Documentate_Documento::TERM_META_PREFIJO, isset( $definition['prefijo'] ) ? $definition['prefijo'] : '' );
+		update_term_meta( $term_id, Documentate_Documento::TERM_META_CON_GESTION, empty( $definition['con_gestion'] ) ? '' : '1' );
 
 		$path = get_attached_file( $template_id );
 		if ( ! $path ) {
@@ -382,9 +384,11 @@ class Documentate_Demo_Data {
 	 * Demo document types keyed by the fixture file they are built from.
 	 *
 	 * Declaration order is the seeding order. The fixture key of every entry
-	 * is its slug, so it is derived rather than repeated.
+	 * is its slug, so it is derived rather than repeated. "prefijo" precedes
+	 * the internal name in the lists; "con_gestion" sends the type through
+	 * gestión documental.
 	 *
-	 * @return array<string,array{slug:string,name:string,description:string,color:string}>
+	 * @return array<string,array{slug:string,name:string,description:string,color:string,prefijo?:string,con_gestion?:bool}>
 	 */
 	private static function get_doc_type_fixtures() {
 		return array(
@@ -393,6 +397,8 @@ class Documentate_Demo_Data {
 				'name' => 'Resolución Administrativa',
 				'description' => 'Plantilla para resoluciones administrativas con antecedentes, fundamentos de derecho, resuelvo y anexos.',
 				'color' => '#37517e',
+				'prefijo' => 'RES',
+				'con_gestion' => true,
 			),
 			'demo-wp-documentate.odt' => array(
 				'slug' => 'documentate-demo-wp-documentate-odt',
@@ -417,48 +423,57 @@ class Documentate_Demo_Data {
 				'name' => 'Autorización de viaje',
 				'description' => 'Plantilla para autorizaciones de viaje con listado de asistentes.',
 				'color' => '#e67e22',
+				'prefijo' => 'AV',
 			),
 			'gastossuplidos.odt' => array(
 				'slug' => 'gastos-suplidos',
 				'name' => 'Solicitud de gastos suplidos',
 				'description' => 'Plantilla para solicitud de reembolso de gastos con listado de facturas.',
 				'color' => '#27ae60',
+				'prefijo' => 'GS',
 			),
 			'propuestagasto.odt' => array(
 				'slug' => 'propuesta-gasto',
 				'name' => 'Propuesta de gasto',
 				'description' => 'Plantilla para propuestas de gasto con libramientos, servicios, suministros y expertos.',
 				'color' => '#9b59b6',
+				'prefijo' => 'PG',
+				'con_gestion' => true,
 			),
 			'convocatoriareunion.odt' => array(
 				'slug' => 'convocatoria-reunion',
 				'name' => 'Convocatoria de reunión',
 				'description' => 'Plantilla para convocatorias de reuniones con lugar, fecha, horario y orden del día.',
 				'color' => '#3498db',
+				'prefijo' => 'CONV',
 			),
 			'memoria_pago_cep.odt' => array(
 				'slug' => 'memoria-pago',
 				'name' => 'Memoria justificativa de pago',
 				'description' => 'Plantilla para memorias justificativas de pago con listado de facturas y datos del CEP.',
 				'color' => '#d35400',
+				'prefijo' => 'MP',
 			),
 			'respuesta_escrito.odt' => array(
 				'slug' => 'respuesta-escrito',
 				'name' => 'Respuesta a escrito',
 				'description' => 'Plantilla para respuestas a escritos y solicitudes con destinatario, asunto y texto de respuesta.',
 				'color' => '#2c3e50',
+				'prefijo' => 'RE',
 			),
 			'modelo_informe.odt' => array(
 				'slug' => 'modelo-informe',
 				'name' => 'Modelo de informe',
 				'description' => 'Plantilla para informes con asunto, texto del informe y cargo firmante.',
 				'color' => '#16a085',
+				'prefijo' => 'INF',
 			),
 			'haceconstar.odt' => array(
 				'slug' => 'hace-constar',
 				'name' => 'Hace constar',
 				'description' => 'Plantilla de certificado «Hace constar» que acredita la participación de una persona en determinadas actividades.',
 				'color' => '#c0392b',
+				'prefijo' => 'HC',
 			),
 		);
 	}
