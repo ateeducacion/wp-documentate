@@ -61,26 +61,32 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			// Listen for new page/tab
-			const [ newPage ] = await Promise.all( [
-				context.waitForEvent( 'page' ),
+			// The preview opens in its own tab. Headless Chromium may hand a PDF
+			// to its download machinery instead of rendering it, so the tab can
+			// stay blank while the download carries the URL: whichever arrives
+			// first is the answer.
+			const [ resultado ] = await Promise.all( [
+				Promise.race( [
+					context.waitForEvent( 'page' ).then( async ( tab ) => {
+						await expect
+							.poll( () => tab.url(), { timeout: 20000 } )
+							.not.toBe( '' );
+						const url = tab.url();
+						await tab.close();
+						return url;
+					} ),
+					documentEditor.page
+						.waitForEvent( 'download', { timeout: 20000 } )
+						.then( ( descarga ) => descarga.url() ),
+				] ),
 				previewButton.click(),
 			] );
 
-			// Wait for the new page to load
-			await newPage.waitForLoadState( 'domcontentloaded' );
+			expect( resultado ).toContain( 'action=documentate_preview' );
 
-			// The URL should include the preview action
-			const url = newPage.url();
-			const isPdfUrl = url.includes( 'action=documentate_preview' );
-
-			expect( isPdfUrl ).toBe( true );
-
-			// Verify there's no HTML wrapper (old iframe-based preview)
-			const hasIframe = await newPage.locator( 'iframe#documentate-pdf-frame' ).count();
-			expect( hasIframe ).toBe( 0 );
-
-			await newPage.close();
+			// Served as the PDF itself: the old wrapper answered as HTML.
+			const respuesta = await documentEditor.page.request.get( resultado );
+			expect( respuesta.headers()['content-type'] ).toContain( 'application/pdf' );
 		} );
 
 		test( 'preview returns correct Content-Type header', async ( {
