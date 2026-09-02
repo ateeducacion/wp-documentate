@@ -65,7 +65,7 @@ test.describe( 'Document Preview and Download', () => {
 			// to its download machinery instead of rendering it, so the tab can
 			// stay blank while the download carries the URL: whichever arrives
 			// first is the answer.
-			const [ resultado ] = await Promise.all( [
+			const [ result ] = await Promise.all( [
 				Promise.race( [
 					context.waitForEvent( 'page' ).then( async ( tab ) => {
 						await expect
@@ -82,11 +82,11 @@ test.describe( 'Document Preview and Download', () => {
 				previewButton.click(),
 			] );
 
-			expect( resultado ).toContain( 'action=documentate_preview' );
+			expect( result ).toContain( 'action=documentate_preview' );
 
 			// Served as the PDF itself: the old wrapper answered as HTML.
-			const respuesta = await documentEditor.page.request.get( resultado );
-			expect( respuesta.headers()['content-type'] ).toContain( 'application/pdf' );
+			const response = await documentEditor.page.request.get( result );
+			expect( response.headers()['content-type'] ).toContain( 'application/pdf' );
 		} );
 
 		test( 'preview returns correct Content-Type header', async ( {
