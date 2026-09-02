@@ -234,7 +234,7 @@ class DocumentateGenerateDocumentAjaxTest extends WP_Ajax_UnitTestCase {
 		$this->assertFalse( $response['success'] );
 		$this->assertArrayHasKey( 'message', $response['data'] );
 		$this->assertArrayNotHasKey( 'data', $response['data'] );
-		$this->assertStringContainsString( 'template', strtolower( $response['data']['message'] ) );
+		$this->assertStringContainsString( 'plantilla', strtolower( $response['data']['message'] ) );
 	}
 
 	/**
@@ -265,7 +265,7 @@ class DocumentateGenerateDocumentAjaxTest extends WP_Ajax_UnitTestCase {
 		$response = $this->dispatch();
 
 		$this->assertFalse( $response['success'] );
-		$this->assertStringContainsString( 'permissions', strtolower( $response['data']['message'] ) );
+		$this->assertStringContainsString( 'permisos', strtolower( $response['data']['message'] ) );
 	}
 
 	/**
@@ -278,6 +278,6 @@ class DocumentateGenerateDocumentAjaxTest extends WP_Ajax_UnitTestCase {
 		$response = $this->dispatch();
 
 		$this->assertFalse( $response['success'] );
-		$this->assertStringContainsString( 'permissions', strtolower( $response['data']['message'] ) );
+		$this->assertStringContainsString( 'permisos', strtolower( $response['data']['message'] ) );
 	}
 }

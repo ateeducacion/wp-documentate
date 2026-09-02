@@ -151,7 +151,7 @@ class DocumentateActionsMetaboxStateTest extends WP_UnitTestCase {
 		$this->assertActionDisabled( $markup, 'download', 'docx' );
 
 		$this->assertStringContainsString( 'disabled', $markup );
-		$this->assertStringContainsString( 'Configure a DOCX or ODT template', $markup );
+		$this->assertStringContainsString( 'Configura una plantilla DOCX u ODT', $markup );
 	}
 
 	/**
@@ -256,7 +256,7 @@ class DocumentateActionsMetaboxStateTest extends WP_UnitTestCase {
 	 */
 	public function test_format_message_distinguishes_the_two_causes() {
 		$missing_template = $this->invoke_private( 'build_format_state', array( '', '', false, 'odt' ) );
-		$this->assertStringContainsString( 'Configure an ODT template', $missing_template['message'] );
+		$this->assertStringContainsString( 'Configura una plantilla ODT', $missing_template['message'] );
 
 		$missing_conversion = $this->invoke_private( 'build_format_state', array( '', '/tmp/t.docx', false, 'odt' ) );
 		$this->assertNotSame( $missing_template['message'], $missing_conversion['message'] );
@@ -269,7 +269,7 @@ class DocumentateActionsMetaboxStateTest extends WP_UnitTestCase {
 	 */
 	public function test_pdf_message_covers_each_cause() {
 		$this->assertStringContainsString(
-			'Configure a DOCX or ODT template',
+			'Configura una plantilla DOCX u ODT',
 			$this->invoke_private( 'build_pdf_message', array( '', '', true ) )
 		);
 
@@ -346,6 +346,6 @@ class DocumentateActionsMetaboxStateTest extends WP_UnitTestCase {
 
 		$this->assertStringNotContainsString( '<a ', $markup );
 		$this->assertStringNotContainsString( 'documentate-actions-primary', $markup );
-		$this->assertStringContainsString( 'Insufficient permissions.', $markup );
+		$this->assertStringContainsString( 'Permisos insuficientes.', $markup );
 	}
 }
