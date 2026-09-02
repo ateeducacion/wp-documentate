@@ -71,6 +71,9 @@ jobs:
       - name: Run WordPress Coding Standards
         run: make lint
 
+      - name: Check complexity budget (PHPMD)
+        run: make phpmd
+
       - name: Install npm dependencies
         run: npm ci
 
