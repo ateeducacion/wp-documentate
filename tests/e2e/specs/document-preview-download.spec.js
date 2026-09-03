@@ -4,53 +4,9 @@
  * Uses Page Object Model, REST API setup, and accessible selectors
  * following WordPress/Gutenberg E2E best practices.
  */
-const { test, expect } = require( '../fixtures' );
+const { test, expect, getDownloadUrlViaAjax } = require( '../fixtures' );
 
 test.describe( 'Document Preview and Download', () => {
-	/**
-	 * Call the document generation AJAX endpoint directly from the page
-	 * context and return the download URL. Buttons use href="#" with
-	 * data-documentate-action attributes; the actual download URL is
-	 * returned by the AJAX endpoint.
-	 *
-	 * @param {import('@playwright/test').Page} page   - Playwright page
-	 * @param {string} format                          - 'docx', 'odt', or 'pdf'
-	 * @param {string} [output='download']             - 'download' or 'preview'
-	 * @return {Promise<string|null>} Download URL or null on failure
-	 */
-	async function getDownloadUrlViaAjax( page, format, output = 'download' ) {
-		return await page.evaluate(
-			async ( { fmt, out } ) => {
-				const cfg = window.documentateActionsConfig;
-				if ( ! cfg || ! cfg.ajaxUrl || ! cfg.postId ) {
-					return null;
-				}
-
-				const body = new URLSearchParams( {
-					action: 'documentate_generate_document',
-					post_id: cfg.postId,
-					format: fmt,
-					output: out,
-					_wpnonce: cfg.nonce,
-				} );
-
-				const resp = await fetch( cfg.ajaxUrl, {
-					method: 'POST',
-					credentials: 'same-origin',
-					body,
-				} );
-
-				if ( ! resp.ok ) {
-					return null;
-				}
-
-				const json = await resp.json();
-				return json.success && json.data?.url ? json.data.url : null;
-			},
-			{ fmt: format, out: output }
-		);
-	}
-
 	/**
 	 * Helper to create a document with a type (needed for export/preview).
 	 */
@@ -105,26 +61,32 @@ test.describe( 'Document Preview and Download', () => {
 				return;
 			}
 
-			// Listen for new page/tab
-			const [ newPage ] = await Promise.all( [
-				context.waitForEvent( 'page' ),
+			// The preview opens in its own tab. Headless Chromium may hand a PDF
+			// to its download machinery instead of rendering it, so the tab can
+			// stay blank while the download carries the URL: whichever arrives
+			// first is the answer.
+			const [ result ] = await Promise.all( [
+				Promise.race( [
+					context.waitForEvent( 'page' ).then( async ( tab ) => {
+						await expect
+							.poll( () => tab.url(), { timeout: 20000 } )
+							.not.toBe( '' );
+						const url = tab.url();
+						await tab.close();
+						return url;
+					} ),
+					documentEditor.page
+						.waitForEvent( 'download', { timeout: 20000 } )
+						.then( ( descarga ) => descarga.url() ),
+				] ),
 				previewButton.click(),
 			] );
 
-			// Wait for the new page to load
-			await newPage.waitForLoadState( 'domcontentloaded' );
+			expect( result ).toContain( 'action=documentate_preview' );
 
-			// The URL should include the preview action
-			const url = newPage.url();
-			const isPdfUrl = url.includes( 'action=documentate_preview' );
-
-			expect( isPdfUrl ).toBe( true );
-
-			// Verify there's no HTML wrapper (old iframe-based preview)
-			const hasIframe = await newPage.locator( 'iframe#documentate-pdf-frame' ).count();
-			expect( hasIframe ).toBe( 0 );
-
-			await newPage.close();
+			// Served as the PDF itself: the old wrapper answered as HTML.
+			const response = await documentEditor.page.request.get( result );
+			expect( response.headers()['content-type'] ).toContain( 'application/pdf' );
 		} );
 
 		test( 'preview returns correct Content-Type header', async ( {

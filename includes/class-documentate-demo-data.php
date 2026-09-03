@@ -42,23 +42,14 @@ class Documentate_Demo_Data {
 	/**
 	 * Whether demo content may be seeded in the current environment.
 	 *
-	 * Demo data — most importantly the demo login accounts — must never be
-	 * created on production sites. Seeding is permitted inside WordPress
-	 * Playground and in any non-production environment (local, development,
-	 * staging), as reported by wp_get_environment_type().
+	 * The decision itself lives in Documentate_Demo_Gate; this is the name
+	 * every caller of the plugin already asks by.
 	 *
+	 * @param string|null $environment Environment to evaluate (tests only).
 	 * @return bool True when demo seeding is permitted.
 	 */
-	public static function should_allow_demo_seeding() {
-		if ( ! class_exists( 'Documentate_Collabora_Converter' ) ) {
-			require_once plugin_dir_path( __FILE__ ) . 'class-documentate-collabora-converter.php';
-		}
-
-		if ( Documentate_Collabora_Converter::is_playground() ) {
-			return true;
-		}
-
-		return 'production' !== wp_get_environment_type();
+	public static function should_allow_demo_seeding( $environment = null ) {
+		return Documentate_Demo_Gate::is_allowed( $environment );
 	}
 
 	/**
@@ -244,6 +235,8 @@ class Documentate_Demo_Data {
 		update_term_meta( $term_id, '_documentate_fixture', $definition['fixture_key'] );
 		update_term_meta( $term_id, 'documentate_type_color', $definition['color'] );
 		update_term_meta( $term_id, 'documentate_type_template_id', $template_id );
+		update_term_meta( $term_id, Documentate_Document_Data::TERM_META_PREFIX, isset( $definition['prefix'] ) ? $definition['prefix'] : '' );
+		update_term_meta( $term_id, Documentate_Document_Data::TERM_META_HAS_MANAGEMENT, empty( $definition['has_management'] ) ? '' : '1' );
 
 		$path = get_attached_file( $template_id );
 		if ( ! $path ) {
@@ -382,9 +375,11 @@ class Documentate_Demo_Data {
 	 * Demo document types keyed by the fixture file they are built from.
 	 *
 	 * Declaration order is the seeding order. The fixture key of every entry
-	 * is its slug, so it is derived rather than repeated.
+	 * is its slug, so it is derived rather than repeated. "prefijo" precedes
+	 * the internal name in the lists; "has_management" sends the type through
+	 * gestión documental.
 	 *
-	 * @return array<string,array{slug:string,name:string,description:string,color:string}>
+	 * @return array<string,array{slug:string,name:string,description:string,color:string,prefix?:string,has_management?:bool}>
 	 */
 	private static function get_doc_type_fixtures() {
 		return array(
@@ -393,23 +388,19 @@ class Documentate_Demo_Data {
 				'name' => 'Resolución Administrativa',
 				'description' => 'Plantilla para resoluciones administrativas con antecedentes, fundamentos de derecho, resuelvo y anexos.',
 				'color' => '#37517e',
+				'prefix' => 'RES',
+				'has_management' => true,
 			),
 			'demo-wp-documentate.odt' => array(
 				'slug' => 'documentate-demo-wp-documentate-odt',
-				'name' => __( 'Advanced test document type (ODT)', 'documentate' ),
-				'description' => __(
-					'Example automatically created with the included demo-wp-documentate.odt template.',
-					'documentate',
-				),
+				'name' => 'Tipo de documento de prueba avanzado (ODT)',
+				'description' => 'Ejemplo creado automáticamente con la plantilla demo-wp-documentate.odt incluida.',
 				'color' => '#6c5ce7',
 			),
 			'demo-wp-documentate.docx' => array(
 				'slug' => 'documentate-demo-wp-documentate-docx',
-				'name' => __( 'Advanced test document type (DOCX)', 'documentate' ),
-				'description' => __(
-					'Example automatically created with the included demo-wp-documentate.docx template.',
-					'documentate',
-				),
+				'name' => 'Tipo de documento de prueba avanzado (DOCX)',
+				'description' => 'Ejemplo creado automáticamente con la plantilla demo-wp-documentate.docx incluida.',
 				'color' => '#0f9d58',
 			),
 			'autorizacionviaje.odt' => array(
@@ -417,48 +408,57 @@ class Documentate_Demo_Data {
 				'name' => 'Autorización de viaje',
 				'description' => 'Plantilla para autorizaciones de viaje con listado de asistentes.',
 				'color' => '#e67e22',
+				'prefix' => 'AV',
 			),
 			'gastossuplidos.odt' => array(
 				'slug' => 'gastos-suplidos',
 				'name' => 'Solicitud de gastos suplidos',
 				'description' => 'Plantilla para solicitud de reembolso de gastos con listado de facturas.',
 				'color' => '#27ae60',
+				'prefix' => 'GS',
 			),
 			'propuestagasto.odt' => array(
 				'slug' => 'propuesta-gasto',
 				'name' => 'Propuesta de gasto',
 				'description' => 'Plantilla para propuestas de gasto con libramientos, servicios, suministros y expertos.',
 				'color' => '#9b59b6',
+				'prefix' => 'PG',
+				'has_management' => true,
 			),
 			'convocatoriareunion.odt' => array(
 				'slug' => 'convocatoria-reunion',
 				'name' => 'Convocatoria de reunión',
 				'description' => 'Plantilla para convocatorias de reuniones con lugar, fecha, horario y orden del día.',
 				'color' => '#3498db',
+				'prefix' => 'CONV',
 			),
 			'memoria_pago_cep.odt' => array(
 				'slug' => 'memoria-pago',
 				'name' => 'Memoria justificativa de pago',
 				'description' => 'Plantilla para memorias justificativas de pago con listado de facturas y datos del CEP.',
 				'color' => '#d35400',
+				'prefix' => 'MP',
 			),
 			'respuesta_escrito.odt' => array(
 				'slug' => 'respuesta-escrito',
 				'name' => 'Respuesta a escrito',
 				'description' => 'Plantilla para respuestas a escritos y solicitudes con destinatario, asunto y texto de respuesta.',
 				'color' => '#2c3e50',
+				'prefix' => 'RE',
 			),
 			'modelo_informe.odt' => array(
 				'slug' => 'modelo-informe',
 				'name' => 'Modelo de informe',
 				'description' => 'Plantilla para informes con asunto, texto del informe y cargo firmante.',
 				'color' => '#16a085',
+				'prefix' => 'INF',
 			),
 			'haceconstar.odt' => array(
 				'slug' => 'hace-constar',
 				'name' => 'Hace constar',
 				'description' => 'Plantilla de certificado «Hace constar» que acredita la participación de una persona en determinadas actividades.',
 				'color' => '#c0392b',
+				'prefix' => 'HC',
 			),
 		);
 	}
@@ -478,20 +478,22 @@ class Documentate_Demo_Data {
 			return;
 		}
 
-		// Check if demo documents already exist - if so, skip seeding.
-		if ( self::demo_documents_already_seeded() ) {
-			delete_option( 'documentate_seed_demo_documents' );
-			return;
+		// One document per type: only worth creating on a site that has none.
+		if ( ! self::demo_documents_already_seeded() ) {
+			self::maybe_seed_default_doc_types();
+
+			$seeded_ids = self::seed_specific_demo_documents();
+
+			// Also create demo documents for other document types (advanced demos).
+			self::seed_remaining_demo_documents( $seeded_ids );
+
+			self::assign_demo_document_metadata();
 		}
 
-		self::maybe_seed_default_doc_types();
-
-		$seeded_ids = self::seed_specific_demo_documents();
-
-		// Also create demo documents for other document types (advanced demos).
-		self::seed_remaining_demo_documents( $seeded_ids );
-
-		self::assign_demo_document_metadata();
+		// The documents that walk the workflow are seeded even on a site that
+		// already carried the older set: they are what the application is for,
+		// they mark themselves apart, and seeding them twice creates nothing.
+		Documentate_Demo_App::seed();
 
 		delete_option( 'documentate_seed_demo_documents' );
 	}
@@ -502,27 +504,36 @@ class Documentate_Demo_Data {
 	 * @return bool
 	 */
 	private static function demo_documents_already_seeded() {
-		$existing_demos = get_posts(
-			array(
-				'post_type' => 'documentate_document',
-				'post_status' => 'any',
-				'posts_per_page' => 1,
-				'fields' => 'ids',
-				'meta_query' => array(
-					'relation' => 'OR',
-					array(
-						'key' => '_documentate_demo_key',
-						'compare' => 'EXISTS',
-					),
-					array(
-						'key' => '_documentate_demo_type_id',
-						'compare' => 'EXISTS',
-					),
-				),
+		return ! empty( self::get_demo_document_ids() );
+	}
+
+	/**
+	 * IDs of every seeded demo document, oldest first.
+	 *
+	 * Seeding runs on init in contexts with no user (WP-CLI, the first
+	 * anonymous request, Playground blueprint steps), where the document
+	 * access protection hides every document from WP_Query. The lookup goes
+	 * straight to the database so those contexts still find the demo posts.
+	 *
+	 * @return int[]
+	 */
+	private static function get_demo_document_ids() {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off lookup during demo seeding; WP_Query is filtered by the access protection when no user is logged in.
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT p.ID FROM {$wpdb->posts} p
+				INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+				WHERE p.post_type = %s AND pm.meta_key IN ( %s, %s )
+				ORDER BY p.ID ASC",
+				'documentate_document',
+				'_documentate_demo_key',
+				'_documentate_demo_type_id'
 			)
 		);
 
-		return ! empty( $existing_demos );
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**
@@ -534,10 +545,10 @@ class Documentate_Demo_Data {
 		$seeded_ids = array();
 
 		// Resolución Administrativa ships three demo documents rather than one.
-		$resolucion = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
-		if ( $resolucion instanceof WP_Term ) {
-			self::create_resolucion_demo_documents( $resolucion );
-			$seeded_ids[] = $resolucion->term_id;
+		$resolution = get_term_by( 'slug', 'resolucion-administrativa', 'documentate_doc_type' );
+		if ( $resolution instanceof WP_Term ) {
+			self::create_resolucion_demo_documents( $resolution );
+			$seeded_ids[] = $resolution->term_id;
 		}
 
 		foreach ( self::get_specific_demos() as $slug => $demo ) {
@@ -669,7 +680,7 @@ class Documentate_Demo_Data {
 		}
 
 		// Defence in depth: never create real login accounts on production.
-		if ( ! self::should_allow_demo_seeding() ) {
+		if ( ! Documentate_Demo_Gate::allowed_or_disarm() ) {
 			return;
 		}
 
@@ -683,6 +694,7 @@ class Documentate_Demo_Data {
 				'first_name' => 'María',
 				'last_name' => 'García',
 				'scope' => 'Subdirección de Administración',
+				'gestion' => true,
 			),
 			array(
 				'user_login' => 'author1',
@@ -708,10 +720,13 @@ class Documentate_Demo_Data {
 
 		foreach ( $users as $user_data ) {
 			$scope_name = $user_data['scope'];
-			unset( $user_data['scope'] );
+			$management = ! empty( $user_data['gestion'] );
+			unset( $user_data['scope'], $user_data['gestion'] );
 
-			// Skip if user already exists.
-			if ( username_exists( $user_data['user_login'] ) ) {
+			// An account already there only has its gestión grant checked again.
+			$existing = (int) username_exists( $user_data['user_login'] );
+			if ( $existing > 0 ) {
+				self::grant_management( $existing, $management );
 				continue;
 			}
 
@@ -725,6 +740,21 @@ class Documentate_Demo_Data {
 			if ( $scope_term instanceof WP_Term ) {
 				update_user_meta( $user_id, Documentate_User_Scope::META_KEY, $scope_term->term_id );
 			}
+
+			self::grant_management( (int) $user_id, $management );
+		}
+	}
+
+	/**
+	 * Appoint a demo account gestión documental, when it is one.
+	 *
+	 * @param int  $user_id    User ID.
+	 * @param bool $management Whether the account is gestión documental.
+	 * @return void
+	 */
+	private static function grant_management( $user_id, $management ) {
+		if ( $management ) {
+			Documentate_Roles::grant_management( $user_id );
 		}
 	}
 
@@ -754,33 +784,28 @@ class Documentate_Demo_Data {
 			return;
 		}
 
-		// Get all demo documents.
-		$demo_docs = get_posts(
-			array(
-				'post_type' => 'documentate_document',
-				'post_status' => 'any',
-				'posts_per_page' => -1,
-				'fields' => 'ids',
-				'meta_query' => array(
-					'relation' => 'OR',
-					array(
-						'key' => '_documentate_demo_key',
-						'compare' => 'EXISTS',
-					),
-					array(
-						'key' => '_documentate_demo_type_id',
-						'compare' => 'EXISTS',
-					),
-				),
-			)
-		);
+		$demo_docs = self::get_demo_document_ids();
 
 		if ( empty( $demo_docs ) ) {
 			return;
 		}
 
 		// Build list of authors to round-robin: admin + editor1 + author1.
-		$author_ids = array( get_current_user_id() );
+		// Without a logged-in user (WP-CLI, blueprint steps) fall back to the
+		// first administrator so no demo document is left without an author.
+		$admin_id = get_current_user_id();
+		if ( 0 === $admin_id ) {
+			$admins = get_users(
+				array(
+					'role' => 'administrator',
+					'number' => 1,
+					'orderby' => 'ID',
+					'fields' => 'ID',
+				)
+			);
+			$admin_id = ! empty( $admins ) ? (int) $admins[0] : 0;
+		}
+		$author_ids = array( $admin_id );
 		$editor_user = get_user_by( 'login', 'editor1' );
 		$author_user = get_user_by( 'login', 'author1' );
 		if ( $editor_user ) {
@@ -825,8 +850,10 @@ class Documentate_Demo_Data {
 		}
 
 		$demo_documents = self::get_resolucion_demo_data();
+		$index = 0;
 
 		foreach ( $demo_documents as $demo_key => $demo_data ) {
+			++$index;
 			// Check if this specific demo document already exists.
 			$existing = get_posts(
 				array(
@@ -860,8 +887,11 @@ class Documentate_Demo_Data {
 
 			wp_set_post_terms( $post_id, array( $term_id ), 'documentate_doc_type', false );
 
-			// Save field values.
-			$structured_fields = self::save_demo_fields( $post_id, $demo_data['fields'] );
+			// Save field values, official data included.
+			$structured_fields = self::save_demo_fields(
+				$post_id,
+				array_merge( self::resolution_official_data( $index ), $demo_data['fields'] )
+			);
 
 			update_post_meta( $post_id, '_documentate_demo_type_id', (string) $term_id );
 			update_post_meta( $post_id, '_documentate_demo_key', $demo_key );
@@ -975,6 +1005,38 @@ class Documentate_Demo_Data {
 				);
 			}
 		}
+	}
+
+	/**
+	 * Official data of a resolución: what gestión documental completes.
+	 *
+	 * The template prints "Resolución n.º …, de …. Expediente …." right above
+	 * the antecedentes, so every demo resolución has to carry it.
+	 *
+	 * @param int $index Sequence number of the demo document.
+	 * @return array<string,array{type:string,value:string}>
+	 */
+	private static function resolution_official_data( $index ) {
+		$index = absint( $index );
+
+		return array(
+			'numero_resolucion' => array(
+				'type' => 'single',
+				'value' => sprintf( '%d/2026', 117 + $index ),
+			),
+			'fecha_resolucion' => array(
+				'type' => 'single',
+				'value' => sprintf( '2025-%02d-15', 8 + $index ),
+			),
+			'expediente' => array(
+				'type' => 'single',
+				'value' => sprintf( 'EXP-2026-%04d', 117 + $index ),
+			),
+			'organo_firmante' => array(
+				'type' => 'single',
+				'value' => 'Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación',
+			),
+		);
 	}
 
 	/**
@@ -1817,10 +1879,9 @@ class Documentate_Demo_Data {
 			return false;
 		}
 
-		/* translators: %s: document type name. */
-		$title    = sprintf( __( 'Test document – %s', 'documentate' ), $term->name );
-		$author   = __( 'Demo team', 'documentate' );
-		$keywords = __( 'lorem, ipsum, demo', 'documentate' );
+		$title    = sprintf( 'Documento de prueba – %s', $term->name );
+		$author   = 'Equipo de demostración';
+		$keywords = 'lorem, ipsum, demo';
 
 		$post_id = wp_insert_post(
 			array(
@@ -2067,7 +2128,7 @@ class Documentate_Demo_Data {
 
 		$document_title = isset( $context['document_title'] )
 			? (string) $context['document_title']
-			: __( 'Demo resolution', 'documentate' );
+			: 'Resolución de demostración';
 
 		$by_data_type = self::demo_value_for_data_type( $data_type, $index );
 		if ( null !== $by_data_type ) {
@@ -2079,7 +2140,7 @@ class Documentate_Demo_Data {
 			return $by_slug;
 		}
 
-		return __( 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.', 'documentate' );
+		return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
 	}
 
 	/**
@@ -2136,6 +2197,11 @@ class Documentate_Demo_Data {
 	 * @return string|null
 	 */
 	private static function demo_value_for_special_slug( $slug, $index, $document_title ) {
+		$official = self::resolution_official_data( $index );
+		if ( isset( $official[ $slug ] ) ) {
+			return $official[ $slug ]['value'];
+		}
+
 		if ( 'cif' === $slug ) {
 			return 1 === $index ? 'B12345678' : 'A87654321';
 		}
@@ -2144,8 +2210,7 @@ class Documentate_Demo_Data {
 			if ( 'post_title' === $slug ) {
 				return $document_title;
 			}
-			/* translators: %d: item sequence number. */
-			return sprintf( __( 'Demo item %d', 'documentate' ), $index );
+			return sprintf( 'Elemento de demo %d', $index );
 		}
 
 		if ( self::slug_contains_any( $slug, array( 'body', 'cuerpo', 'content', 'contenido', 'html' ) ) ) {
@@ -2197,26 +2262,25 @@ class Documentate_Demo_Data {
 			array(
 				array( 'summary', 'resumen' ),
 				static function ( $i ) {
-					/* translators: %d: item sequence number. */
-					return sprintf( __( 'Demo summary %d with brief information.', 'documentate' ), $i );
+					return sprintf( 'Resumen de demo %d con información breve.', $i );
 				},
 			),
 			array(
 				array( 'objeto' ),
 				static function () {
-					return __( 'Subject of the example resolution to illustrate the workflow.', 'documentate' );
+					return 'Asunto de la resolución de ejemplo para ilustrar el flujo de trabajo.';
 				},
 			),
 			array(
 				array( 'antecedentes' ),
 				static function () {
-					return __( 'Background facts written with test content.', 'documentate' );
+					return 'Hechos de antecedentes escritos con contenido de prueba.';
 				},
 			),
 			array(
 				array( 'fundamentos' ),
 				static function () {
-					return __( 'Legal grounds for testing with generic references.', 'documentate' );
+					return 'Fundamentos legales para pruebas con referencias genéricas.';
 				},
 			),
 			array(
@@ -2224,9 +2288,9 @@ class Documentate_Demo_Data {
 				static function () {
 					return (
 						'<p>'
-						. __( 'First. Approve the demo action.', 'documentate' )
+						. 'Primero. Aprobar la acción de demostración.'
 						. '</p><p>'
-						. __( 'Second. Notify interested parties.', 'documentate' )
+						. 'Segundo. Notificar a los interesados.'
 						. '</p>'
 					);
 				},
@@ -2234,7 +2298,7 @@ class Documentate_Demo_Data {
 			array(
 				array( 'observaciones' ),
 				static function () {
-					return __( 'Additional observations to complete the template.', 'documentate' );
+					return 'Observaciones adicionales para completar la plantilla.';
 				},
 			),
 			array(
@@ -2306,7 +2370,7 @@ class Documentate_Demo_Data {
 			array(
 				array( 'keywords', 'palabras' ),
 				static function () {
-					return __( 'keywords, tags, demo', 'documentate' );
+					return 'palabras clave, etiquetas, demo';
 				},
 			),
 		);
@@ -2334,32 +2398,31 @@ class Documentate_Demo_Data {
 	 * @return string
 	 */
 	private static function build_rich_demo_html() {
-		$rich  = '<h3>' . __( 'Test heading', 'documentate' ) . '</h3>';
-		$rich .= '<p>' . __( 'First paragraph with example text.', 'documentate' ) . '</p>';
+		$rich  = '<h3>Encabezado de prueba</h3>';
+		$rich .= '<p>Primer párrafo con texto de ejemplo.</p>';
 		$rich .=
 			'<p>'
 			. sprintf(
-				/* translators: 1: bold text label, 2: italic text label, 3: underline text label. */
-				__( 'Second paragraph with %1$s, %2$s and %3$s.', 'documentate' ),
-				'<strong>' . __( 'bold', 'documentate' ) . '</strong>',
-				'<em>' . __( 'italics', 'documentate' ) . '</em>',
-				'<u>' . __( 'underline', 'documentate' ) . '</u>'
+				'Segundo párrafo con %1$s, %2$s y %3$s.',
+				'<strong>negrita</strong>',
+				'<em>cursiva</em>',
+				'<u>subrayado</u>'
 			)
 			. '</p>';
-		$rich .= '<ul><li>' . __( 'Item one', 'documentate' ) . '</li><li>' . __( 'Item two', 'documentate' ) . '</li></ul>';
+		$rich .= '<ul><li>Elemento uno</li><li>Elemento dos</li></ul>';
 		$rich .=
 			'<table><tr><th>'
-			. __( 'Col 1', 'documentate' )
+			. 'Col 1'
 			. '</th><th>'
-			. __( 'Col 2', 'documentate' )
+			. 'Col 2'
 			. '</th></tr><tr><td>'
-			. __( 'Data A1', 'documentate' )
+			. 'Dato A1'
 			. '</td><td>'
-			. __( 'Data A2', 'documentate' )
+			. 'Dato A2'
 			. '</td></tr><tr><td>'
-			. __( 'Data B1', 'documentate' )
+			. 'Dato B1'
 			. '</td><td>'
-			. __( 'Data B2', 'documentate' )
+			. 'Dato B2'
 			. '</td></tr></table>';
 		return $rich;
 	}
@@ -2435,9 +2498,9 @@ class Documentate_Demo_Data {
 		$options['alert_color'] = 'danger';
 		$options['alert_message'] =
 			'<strong>'
-			. __( 'Warning', 'documentate' )
+			. 'Advertencia'
 			. ':</strong> '
-			. __( 'You are running this site with demo data.', 'documentate' );
+			. 'Estás ejecutando este sitio con datos de demostración.';
 		update_option( 'documentate_settings', $options );
 
 		// Restore original user.

@@ -276,7 +276,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Insufficient permissions', $message );
+		$this->assertStringContainsString( 'Permisos insuficientes', $message );
 	}
 
 	/**
@@ -294,7 +294,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Insufficient permissions', $message );
+		$this->assertStringContainsString( 'Permisos insuficientes', $message );
 		$this->assertSame( 'publish', get_post_status( $post_id ) );
 	}
 
@@ -318,7 +318,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Invalid nonce', $message );
+		$this->assertStringContainsString( 'Nonce no válido', $message );
 		$this->assertSame( 'publish', get_post_status( $post_id ) );
 	}
 
@@ -349,7 +349,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Invalid document or status', $message );
+		$this->assertStringContainsString( 'Documento o estado no válido', $message );
 	}
 
 	/**
@@ -366,7 +366,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Invalid document or status', $message );
+		$this->assertStringContainsString( 'Documento o estado no válido', $message );
 		$this->assertSame( 'publish', get_post_status( $post_id ) );
 	}
 
@@ -382,7 +382,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 				$this->helper->handle_unarchive_action();
 			}
 		);
-		$this->assertStringContainsString( 'Invalid nonce', $nonce_message );
+		$this->assertStringContainsString( 'Nonce no válido', $nonce_message );
 
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 		$_GET['_wpnonce'] = wp_create_nonce( 'documentate_unarchive_' . $post_id );
@@ -392,7 +392,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 				$this->helper->handle_unarchive_action();
 			}
 		);
-		$this->assertStringContainsString( 'Insufficient permissions', $cap_message );
+		$this->assertStringContainsString( 'Permisos insuficientes', $cap_message );
 		$this->assertSame( 'archived', get_post_status( $post_id ) );
 	}
 
@@ -415,7 +415,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Invalid nonce', $message );
+		$this->assertStringContainsString( 'Nonce no válido', $message );
 	}
 
 	/**
@@ -437,7 +437,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Insufficient permissions', $message );
+		$this->assertStringContainsString( 'Permisos insuficientes', $message );
 	}
 
 	/**
@@ -468,7 +468,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Insufficient permissions', $message );
+		$this->assertStringContainsString( 'Permisos insuficientes', $message );
 	}
 
 	/**
@@ -485,7 +485,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Invalid nonce', $message );
+		$this->assertStringContainsString( 'Nonce no válido', $message );
 	}
 
 	/**
@@ -503,7 +503,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'template', strtolower( $message ) );
+		$this->assertStringContainsString( 'plantilla', strtolower( $message ) );
 	}
 
 	/**
@@ -520,7 +520,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Invalid nonce', $message );
+		$this->assertStringContainsString( 'Nonce no válido', $message );
 	}
 
 	/**
@@ -538,7 +538,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Insufficient permissions', $message );
+		$this->assertStringContainsString( 'Permisos insuficientes', $message );
 	}
 
 	/**
@@ -556,7 +556,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Could not generate the PDF for preview', $message );
+		$this->assertStringContainsString( 'No se pudo generar el PDF para la vista previa', $message );
 	}
 
 	/**
@@ -575,7 +575,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Preview file not available', $message );
+		$this->assertStringContainsString( 'Archivo de vista previa no disponible', $message );
 	}
 
 	/**
@@ -596,7 +596,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Could not access the generated PDF file', $message );
+		$this->assertStringContainsString( 'No se pudo acceder al archivo PDF generado', $message );
 	}
 
 	/**
@@ -659,7 +659,7 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		);
 
-		$this->assertStringContainsString( 'Could not access the generated PDF file', $message );
+		$this->assertStringContainsString( 'No se pudo acceder al archivo PDF generado', $message );
 	}
 
 	/**
@@ -746,6 +746,6 @@ class DocumentateAdminHelperRequestsTest extends Documentate_Test_Base {
 			}
 		}
 
-		$this->assertStringContainsString( 'do not have permission', $message );
+		$this->assertStringContainsString( 'No tienes permiso', $message );
 	}
 }

@@ -170,22 +170,6 @@ class DocumentEditorPage {
 		);
 	}
 
-	/**
-	 * Export button.
-	 */
-	get exportButton() {
-		return this.page.locator(
-			'#documentate_actions [data-documentate-export-modal-open], #documentate_actions #documentate-export-button, #documentate_actions .documentate-export-button'
-		);
-	}
-
-	/**
-	 * Export modal.
-	 */
-	get exportModal() {
-		return this.page.locator( '.documentate-export-modal, #documentate-export-modal' );
-	}
-
 	// ─────────────────────────────────────────────────────────────────
 	// Navigation
 	// ─────────────────────────────────────────────────────────────────
@@ -444,9 +428,25 @@ class DocumentEditorPage {
 	}
 
 	/**
-	 * Return a pending document to draft.
+	 * Reason textarea shown before a "Devolver" submit.
 	 */
-	async returnToDraft() {
+	get returnMotivoField() {
+		return this.page.locator( '#documentate-return-draft-motivo' );
+	}
+
+	/**
+	 * Return a pending document to draft, giving the reason the workflow requires.
+	 *
+	 * The first click on "Devolver al área" reveals the reason box; the
+	 * second one submits.
+	 *
+	 * @param {string} motivo - Reason of the return.
+	 */
+	async returnToDraft( motivo = 'Revisión E2E' ) {
+		if ( ! ( await this.returnMotivoField.isVisible().catch( () => false ) ) ) {
+			await this.returnToDraftButton.click();
+		}
+		await this.returnMotivoField.fill( motivo );
 		await Promise.all( [
 			this.page.waitForNavigation( { waitUntil: 'domcontentloaded' } ),
 			this.returnToDraftButton.click(),
@@ -542,22 +542,6 @@ class DocumentEditorPage {
 	async trash() {
 		await this.trashLink.click();
 		await this.page.waitForURL( /post_type=documentate_document/ );
-	}
-
-	/**
-	 * Open the export modal.
-	 */
-	async openExportModal() {
-		await this.exportButton.first().click();
-		await this.exportModal.waitFor( { state: 'visible', timeout: 5000 } );
-	}
-
-	/**
-	 * Close the export modal.
-	 */
-	async closeExportModal() {
-		await this.page.keyboard.press( 'Escape' );
-		await this.exportModal.waitFor( { state: 'hidden', timeout: 5000 } );
 	}
 
 	/**

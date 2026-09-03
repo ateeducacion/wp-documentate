@@ -33,10 +33,7 @@ class Documentate_Document_Generator {
 			if ( '' === $odt_template ) {
 				return new WP_Error(
 					'documentate_template_missing',
-					__(
-						'Configure a DOCX template in the selected document type.',
-						'documentate',
-					)
+					'Configura una plantilla DOCX en el tipo de documento seleccionado.'
 				);
 			}
 
@@ -85,10 +82,7 @@ class Documentate_Document_Generator {
 			if ( '' === $docx_template ) {
 				return new WP_Error(
 					'documentate_template_missing',
-					__(
-						'Configure an ODT template in the selected document type.',
-						'documentate',
-					)
+					'Configura una plantilla ODT en el tipo de documento seleccionado.'
 				);
 			}
 
@@ -171,10 +165,7 @@ class Documentate_Document_Generator {
 				if ( is_wp_error( $docx_result ) ) {
 					return new WP_Error(
 						'documentate_pdf_source_missing',
-						__(
-							'Could not generate the base document because the document type does not have a DOCX or ODT template configured.',
-							'documentate',
-						),
+						'No se pudo generar el documento base porque el tipo de documento no tiene configurada una plantilla DOCX u ODT.',
 						array(
 							'odt' => $odt_result,
 							'docx' => $docx_result,
@@ -815,7 +806,49 @@ class Documentate_Document_Generator {
 			wp_mkdir_p( $dir );
 		}
 
+		self::protect_output_dir( $dir );
+
 		return $dir;
+	}
+
+	/**
+	 * Keep the generated documents out of reach of a plain HTTP request.
+	 *
+	 * Every download and every preview is streamed by admin-post.php after a
+	 * capability check, so nothing ever links to these files: the file name
+	 * ("<título>-<id>.pdf") is guessable and the uploads folder is served by
+	 * the web server, which is the only way in. Apache is told to refuse it;
+	 * on a server that ignores .htaccess the deny file is harmless and the
+	 * index stops the directory from being listed.
+	 *
+	 * @param string $dir Absolute output directory path.
+	 * @return void
+	 */
+	private static function protect_output_dir( $dir ) {
+		global $wp_filesystem;
+
+		if ( ! $wp_filesystem instanceof WP_Filesystem_Base ) {
+			if ( ! function_exists( 'WP_Filesystem' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			WP_Filesystem();
+		}
+
+		if ( ! $wp_filesystem instanceof WP_Filesystem_Base ) {
+			return;
+		}
+
+		$guards = array(
+			'.htaccess' => "Require all denied\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n",
+			'index.html' => '',
+		);
+
+		foreach ( $guards as $name => $contents ) {
+			$path = trailingslashit( $dir ) . $name;
+			if ( ! $wp_filesystem->exists( $path ) ) {
+				$wp_filesystem->put_contents( $path, $contents, FS_CHMOD_FILE );
+			}
+		}
 	}
 
 	/**
