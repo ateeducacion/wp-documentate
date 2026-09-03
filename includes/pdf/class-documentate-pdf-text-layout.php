@@ -46,6 +46,12 @@ class Documentate_Pdf_Text_Layout {
 	 * lines that must not be stretched: the one that ends the paragraph and
 	 * the one before a forced break.
 	 *
+	 * `spaces` can be 0 on any line, `last` ones and others alike: a word too
+	 * long for the column is cut into lines of one piece each, and a line the
+	 * space itself did not fit on ends with a single word. A caller that
+	 * justifies by dividing the leftover width by `spaces` must check it
+	 * first and leave such a line unstretched, or it divides by zero.
+	 *
 	 * @param array<int,array<string,mixed>> $runs  Runs, or array('br'=>true) for a forced break.
 	 * @param float                          $width Available width, mm.
 	 * @return array<int,array{runs:array,width:float,spaces:int,last:bool}>
@@ -63,8 +69,8 @@ class Documentate_Pdf_Text_Layout {
 				continue;
 			}
 
-			if ( $token['space'] && empty( $current ) ) {
-				continue; // A line never opens with a space.
+			if ( $token['space'] && $this->space_is_redundant( $current ) ) {
+				continue; // A line neither opens with a space nor doubles one.
 			}
 
 			if ( $used + $token['width'] > $width && ! empty( $current ) ) {
@@ -92,6 +98,23 @@ class Documentate_Pdf_Text_Layout {
 		$lines[] = $this->close( $current, true );
 
 		return $lines;
+	}
+
+	/**
+	 * Whether a space would be wasted on the line as it stands: there is
+	 * nothing before it, or what is there already ends in a space.
+	 *
+	 * Each run is tokenised on its own, so `'a '` followed by `' b'` arrives
+	 * as two spaces in a row. Collapsing them here keeps the pair from being
+	 * drawn twice and from counting twice towards the justification.
+	 *
+	 * @param array<int,array<string,mixed>> $tokens Tokens gathered for the line.
+	 * @return bool
+	 */
+	private function space_is_redundant( array $tokens ) {
+		$end = count( $tokens );
+
+		return 0 === $end || $tokens[ $end - 1 ]['space'];
 	}
 
 	/**

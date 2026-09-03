@@ -94,6 +94,23 @@ class DocumentatePdfTextLayoutTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Each run is tokenised on its own, so markup like `<b>a </b><i> b</i>`
+	 * puts a space at both sides of the boundary. The line keeps one, and
+	 * counts one, or the text doubles and the justification stretches wrong.
+	 */
+	public function test_spaces_at_both_sides_of_a_run_boundary_collapse_to_one() {
+		$lines = $this->layout()->lines(
+			array( $this->text_run( 'a ', true ), $this->text_run( ' b' ) ),
+			50
+		);
+
+		$this->assertSame( array( 'a b' ), $this->texts( $lines ) );
+		$this->assertSame( 1, $lines[0]['spaces'] );
+		$this->assertSame( 'a ', $lines[0]['runs'][0]['text'] );
+		$this->assertSame( 'b', $lines[0]['runs'][1]['text'] );
+	}
+
+	/**
 	 * Runs of different style stay apart, and words of the same style are
 	 * joined into a single run so the renderer draws one cell per span.
 	 */
