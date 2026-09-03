@@ -194,6 +194,18 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A foot written before the body is still drawn under it, which is what
+	 * every browser does and what a totals line needs. Rows written straight
+	 * into the table keep their place among the body rows.
+	 */
+	public function test_a_foot_written_before_the_body_is_drawn_under_it() {
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $this->render( '<table><thead><tr><td>CABECERA</td></tr></thead><tfoot><tr><td>TOTAL</td></tr></tfoot><tr><td>suelta</td></tr><tbody><tr><td>cuerpo</td></tr></tbody></table>' ) );
+
+		$this->assertSame( array( 'CABECERA', 'suelta', 'cuerpo', 'TOTAL' ), array_column( $ops, 'text' ) );
+		$this->assertLessThan( $ops[2]['y'], $ops[3]['y'] );
+	}
+
+	/**
 	 * A first row of plain cells is body content, so it is not repeated.
 	 */
 	public function test_a_first_row_of_plain_cells_is_not_repeated() {
@@ -380,19 +392,36 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * A row taller than the page is drawn where it started rather than cut in
-	 * pieces, and the table carries on from the next page. Its overflow is a
-	 * documented limitation; what matters here is that it stays one row and
-	 * spills onto no page of its own.
+	 * A row no page could hold spills onto the pages it needs instead of
+	 * running off the sheet. Every word reaches the paper, and the table
+	 * carries on under it.
 	 */
-	public function test_a_row_taller_than_the_page_is_drawn_whole() {
+	public function test_a_row_taller_than_the_page_flows_onto_the_next_one() {
 		$bytes = $this->render( '<table><tr><td>' . str_repeat( 'palabra ', 900 ) . '</td><td>lado</td></tr><tr><td>siguiente</td><td>final</td></tr></table>' );
-		$page  = $this->page_of( $bytes );
+		$ops   = Documentate_Pdf_Test_Helper::text_ops( $bytes );
+		$texts = array_column( $ops, 'text' );
 
-		$this->assertSame( 2, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
-		$this->assertSame( 1, $page['lado'] );
-		$this->assertSame( 2, $page['siguiente'] );
-		$this->assertSame( 2, $page['final'] );
+		$this->assertGreaterThan( 1, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
+
+		// Not one of the 900 words is lost, and the rest of the table follows.
+		$this->assertSame( 900, substr_count( implode( ' ', $texts ), 'palabra' ) );
+		$this->assertContains( 'lado', $texts );
+		$this->assertContains( 'final', $texts );
+
+		foreach ( $ops as $op ) {
+			$this->assertGreaterThan( 20.0 * self::POINTS_PER_MM, $op['y'], 'drawn below the foot of the page' );
+			$this->assertLessThan( ( 297.0 - 20.0 ) * self::POINTS_PER_MM, $op['y'], 'drawn above the head of the page' );
+		}
+
+		// The row starts where it stood, so no empty page is left in front of it.
+		$this->assertSame( 1, $ops[0]['page'] );
+
+		// What follows the cell that spilled is drawn under it, not over it.
+		$lado      = array_search( 'lado', $texts, true );
+		$siguiente = array_search( 'siguiente', $texts, true );
+
+		$this->assertLessThan( $ops[ $lado - 1 ]['y'], $ops[ $lado ]['y'] );
+		$this->assertLessThan( $ops[ $lado ]['y'], $ops[ $siguiente ]['y'] );
 	}
 
 	/**
@@ -411,6 +440,25 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 		$this->assertSame( 2, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
 		$this->assertSame( array( 'UNICA', 'fila' ), Documentate_Pdf_Test_Helper::texts( $bytes ) );
 		$this->assertSame( 2, $this->page_of( $bytes )['UNICA'] );
+	}
+
+	/**
+	 * A row that fits on a page of its own, but no longer fits once the head
+	 * has been repeated above it, flows as well: the head must not push a
+	 * line of it into the foot margin.
+	 */
+	public function test_a_row_squeezed_by_the_repeated_head_flows_too() {
+		$head  = '<thead><tr><th>' . str_repeat( 'cabecera ', 110 ) . '</th></tr></thead>';
+		$rows  = '<tr><td>corta</td></tr><tr><td>' . str_repeat( 'palabra ', 610 ) . '</td></tr>';
+		$bytes = $this->render( '<table>' . $head . '<tbody>' . $rows . '</tbody></table>' );
+		$ops   = Documentate_Pdf_Test_Helper::text_ops( $bytes );
+
+		$this->assertGreaterThan( 1, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
+		$this->assertSame( 610, substr_count( implode( ' ', array_column( $ops, 'text' ) ), 'palabra' ) );
+
+		foreach ( $ops as $op ) {
+			$this->assertGreaterThan( 20.0 * self::POINTS_PER_MM, $op['y'], 'drawn into the foot margin' );
+		}
 	}
 
 	/**

@@ -13,11 +13,13 @@
  * its automatic page break switched off: the row's borders are drawn in one
  * piece and nothing inside a cell may put the rest of it on another page.
  *
- * The one thing that does not fit this model is a row taller than the whole
- * body area, which no page could hold. Such a row is drawn where it started
- * rather than cut in half, so its foot runs off the page; the table then
- * carries on from the top of the next one. The shipped models hold nothing
- * like it — the tallest is a supplier line of a few wrapped lines.
+ * The one thing that does not fit this model is a row there is no room to
+ * reserve: one taller than the whole body area, or one the repeated head has
+ * eaten the room of. Such a row is flowed instead — the page break stays on,
+ * its cells run onto the pages they need, and it goes unboxed. Text on the
+ * paper is worth more than a border, and an official document may not lose a
+ * line to one. The shipped models hold nothing like it: the tallest row is a
+ * supplier line of a few wrapped lines.
  *
  * @package Documentate
  */
@@ -55,10 +57,20 @@ class Documentate_Pdf_Table_Writer {
 	const HEADER_GREY = 230;
 
 	/**
-	 * Rows of a table. libxml inserts no implicit `tbody`, so a row is as
-	 * often a child of the table itself as of one of its sections.
+	 * Head rows of a table.
 	 */
-	const ROW_PATH = './tr | ./thead/tr | ./tbody/tr | ./tfoot/tr';
+	const HEAD_PATH = './thead/tr';
+
+	/**
+	 * Body rows of a table. libxml inserts no implicit `tbody`, so a row is
+	 * as often a child of the table itself as of one.
+	 */
+	const BODY_PATH = './tr | ./tbody/tr';
+
+	/**
+	 * Foot rows of a table.
+	 */
+	const FOOT_PATH = './tfoot/tr';
 
 	/**
 	 * Cells of a row, in the order they are drawn in.
@@ -117,7 +129,7 @@ class Documentate_Pdf_Table_Writer {
 	 * @param float      $width Width of the column, in mm.
 	 */
 	public function write( DOMElement $table, $x, $width ) {
-		$rows = $this->query( $table, self::ROW_PATH );
+		$rows = $this->rows( $table );
 		if ( empty( $rows ) ) {
 			return;
 		}
@@ -163,7 +175,7 @@ class Documentate_Pdf_Table_Writer {
 	 * @return float Height in mm.
 	 */
 	public function measure( DOMElement $table, $width ) {
-		$rows = $this->query( $table, self::ROW_PATH );
+		$rows = $this->rows( $table );
 		if ( empty( $rows ) ) {
 			return 0.0;
 		}
@@ -177,6 +189,26 @@ class Documentate_Pdf_Table_Writer {
 		}
 
 		return $height + self::SPACING;
+	}
+
+	/**
+	 * The rows of a table, in the order they are drawn.
+	 *
+	 * Head first, then body, then foot, whatever order the sections were
+	 * written in: a `tfoot` before the `tbody` is valid HTML and every
+	 * browser still prints the foot last, so a totals line goes under the
+	 * lines it totals. Rows written straight into the table keep their place
+	 * among the body rows.
+	 *
+	 * @param DOMElement $table Table to read.
+	 * @return array<int,DOMElement>
+	 */
+	private function rows( DOMElement $table ) {
+		return array_merge(
+			$this->query( $table, self::HEAD_PATH ),
+			$this->query( $table, self::BODY_PATH ),
+			$this->query( $table, self::FOOT_PATH )
+		);
 	}
 
 	/**
@@ -498,8 +530,14 @@ class Documentate_Pdf_Table_Writer {
 	 * Draw one row: the boxes first, then the content over them.
 	 *
 	 * The page break is switched off for as long as the row is being drawn,
-	 * so a cell that runs long draws past the foot of the page instead of
-	 * leaving the borders of its row behind on it.
+	 * so that nothing inside a cell can take a page in the middle of a row.
+	 * That is safe for exactly as long as the room is there: a row is boxed
+	 * only when it fits in what is left of the page, and its content is what
+	 * was measured, so no cell can reach the foot of the page.
+	 *
+	 * A row that does not fit is flowed instead. It got here either because
+	 * no page could hold it, or because the head repeated above it ate the
+	 * room it was promised.
 	 *
 	 * @param array<int,array<string,mixed>> $cells  Cells of the row.
 	 * @param float                          $x      Left edge of the row, in mm.
@@ -507,7 +545,13 @@ class Documentate_Pdf_Table_Writer {
 	 * @param bool                           $border Whether the cells are boxed.
 	 */
 	private function draw_row( array $cells, $x, $height, $border ) {
-		$top  = $this->pdf->GetY();
+		$top = $this->pdf->GetY();
+
+		if ( $height > $this->pdf->remaining_height() ) {
+			$this->pdf->SetXY( $x, $this->flow_row( $cells, $x, $top ) );
+			return;
+		}
+
 		$auto = $this->pdf->set_auto_page_break( false );
 
 		$this->draw_boxes( $cells, $x, $top, $height, $border );
@@ -515,6 +559,52 @@ class Documentate_Pdf_Table_Writer {
 
 		$this->pdf->set_auto_page_break( $auto );
 		$this->pdf->SetXY( $x, $top + $height );
+	}
+
+	/**
+	 * Draw a row there is no room to reserve, letting its cells run on.
+	 *
+	 * There is nothing else to do with such a row. Holding it together would
+	 * push its foot past the sheet and take the text with it, and an official
+	 * document may not lose a line to a border. So the automatic page break
+	 * stays on and the cells spill onto the pages they need.
+	 *
+	 * No box is drawn for it. A box would have to be closed on the page it
+	 * opened on, hundreds of millimetres below the paper, around a cell whose
+	 * text is somewhere else: a border that lies about what it encloses is
+	 * worth less than the text it would cost.
+	 *
+	 * The cells keep their columns and start together at the top of the row.
+	 * From the moment one of them spills, the row starts again under what
+	 * spilled, because a page that has been closed cannot be drawn on again.
+	 *
+	 * @param array<int,array<string,mixed>> $cells Cells of the row.
+	 * @param float                          $x     Left edge of the row, in mm.
+	 * @param float                          $top   Top of the row, in mm.
+	 * @return float Foot of the row, in mm on the page it ends on.
+	 */
+	private function flow_row( array $cells, $x, $top ) {
+		$bottom = $top;
+
+		foreach ( $cells as $cell ) {
+			if ( $cell['inner'] > 0.0 ) {
+				$page = $this->pdf->PageNo();
+
+				$this->pdf->SetXY( $x + self::PADDING, $top + self::PADDING );
+				$this->writer->write_block( $cell['node'], $x + self::PADDING, $cell['inner'], $cell['style'] );
+
+				if ( $page !== $this->pdf->PageNo() ) {
+					$top    = $this->pdf->GetY();
+					$bottom = $top;
+				}
+
+				$bottom = max( $bottom, $this->pdf->GetY() );
+			}
+
+			$x += $cell['width'];
+		}
+
+		return $bottom;
 	}
 
 	/**
