@@ -303,6 +303,26 @@ class Documentate_Pdf_Document extends FPDF {
 	}
 
 	/**
+	 * The run style that reproduces the font selected right now.
+	 *
+	 * FPDF keeps its font state to itself, so a caller that has to select
+	 * other fonts for a while — measuring a block of text, say — takes this
+	 * before it starts and hands it back to `apply_style()` when it is done.
+	 * Only the face and the size are reported, which is all `apply_style()`
+	 * ever sets: the family is always the one the document was built with.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function current_style() {
+		return array(
+			'bold'      => false !== strpos( $this->FontStyle, 'B' ),
+			'italic'    => false !== strpos( $this->FontStyle, 'I' ),
+			'underline' => (bool) $this->underline,
+			'size'      => (float) $this->FontSizePt,
+		);
+	}
+
+	/**
 	 * Width of UTF-8 text in the given style, in mm.
 	 *
 	 * Measuring selects the style, so the caller has to re-apply its own before

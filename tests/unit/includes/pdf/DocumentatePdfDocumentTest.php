@@ -413,6 +413,38 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The selected font is reported back as the run style that set it, so a
+	 * caller measuring text in other fonts can put it back afterwards.
+	 */
+	public function test_current_style_reports_the_selected_font() {
+		$pdf = $this->make( array( 'font_size' => 11 ) );
+		$pdf->AddPage();
+
+		$this->assertSame(
+			array(
+				'bold'      => false,
+				'italic'    => false,
+				'underline' => false,
+				'size'      => 11.0,
+			),
+			$pdf->current_style()
+		);
+
+		$style = array(
+			'bold'      => true,
+			'italic'    => true,
+			'underline' => true,
+			'size'      => 13.0,
+		);
+		$pdf->apply_style( $style );
+		$this->assertSame( $style, $pdf->current_style() );
+
+		$pdf->measure( 'Resolución', array( 'size' => 22 ) );
+		$pdf->apply_style( $style );
+		$this->assertSame( $style, $pdf->current_style() );
+	}
+
+	/**
 	 * The line height follows the current font size.
 	 */
 	public function test_line_height_scales_with_the_font_size() {
