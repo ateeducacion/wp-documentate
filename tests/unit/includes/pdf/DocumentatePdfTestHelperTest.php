@@ -121,6 +121,58 @@ class DocumentatePdfTestHelperTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The same image drawn on two pages yields one placement per page.
+	 *
+	 * This is what counting `/Subtype /Image` cannot tell you: the dictionary is
+	 * written once, so only the invocations say where the image was drawn.
+	 */
+	public function test_image_ops_attributes_each_placement_to_its_page() {
+		$path = $this->write_jpeg_carrying( 'x' );
+
+		try {
+			$pdf = new FPDF();
+			$pdf->AddPage();
+			$pdf->Image( $path, 10, 40, 20, 20, 'JPG' );
+			$pdf->AddPage();
+			$pdf->AddPage();
+			$pdf->Image( $path, 30, 50, 20, 20, 'JPG' );
+			$bytes = $pdf->Output( 'S' );
+		} finally {
+			unlink( $path );
+		}
+
+		$this->assertSame( 1, preg_match_all( '#/Subtype /Image#', $bytes ) );
+
+		$ops = Documentate_Pdf_Test_Helper::image_ops( $bytes );
+		$this->assertCount( 2, $ops );
+		$this->assertSame( array( 1, 3 ), array_column( $ops, 'page' ) );
+		$this->assertSame( array( 'I1', 'I1' ), array_column( $ops, 'name' ) );
+	}
+
+	/**
+	 * Each placement carries the size and point coordinates FPDF wrote for it.
+	 */
+	public function test_image_ops_reports_the_geometry_of_each_placement() {
+		$path = $this->write_jpeg_carrying( 'x' );
+
+		try {
+			$pdf = new FPDF();
+			$pdf->AddPage();
+			$pdf->Image( $path, 10, 40, 20, 25, 'JPG' );
+			$ops = Documentate_Pdf_Test_Helper::image_ops( $pdf->Output( 'S' ) );
+		} finally {
+			unlink( $path );
+		}
+
+		$this->assertCount( 1, $ops );
+		$this->assertEqualsWithDelta( 20 * self::POINTS_PER_MM, $ops[0]['w'], 0.01 );
+		$this->assertEqualsWithDelta( 25 * self::POINTS_PER_MM, $ops[0]['h'], 0.01 );
+		$this->assertEqualsWithDelta( 10 * self::POINTS_PER_MM, $ops[0]['x'], 0.01 );
+		// The PDF origin is the foot of the page, so y is the bottom of the image.
+		$this->assertEqualsWithDelta( self::A4_HEIGHT_PT - ( 65 * self::POINTS_PER_MM ), $ops[0]['y'], 0.01 );
+	}
+
+	/**
 	 * Characters FPDF escapes inside a PDF string are restored verbatim.
 	 */
 	public function test_texts_restores_escaped_characters() {
@@ -170,6 +222,7 @@ class DocumentatePdfTestHelperTest extends WP_UnitTestCase {
 		$this->assertSame( 0, Documentate_Pdf_Test_Helper::page_count( 'no soy un PDF' ) );
 		$this->assertSame( array(), Documentate_Pdf_Test_Helper::text_ops( 'no soy un PDF' ) );
 		$this->assertSame( array(), Documentate_Pdf_Test_Helper::texts( '' ) );
+		$this->assertSame( array(), Documentate_Pdf_Test_Helper::image_ops( 'no soy un PDF' ) );
 	}
 
 	/**

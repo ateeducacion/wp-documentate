@@ -35,22 +35,22 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Every image placed in the document, as millimetres from the top-left corner.
+	 * Every image placed in the document, with the page that draws it and its
+	 * box in millimetres from the top-left corner.
 	 *
 	 * @param string $bytes Raw PDF bytes.
-	 * @return array<int,array{x:float,y:float,w:float,h:float}>
+	 * @return array<int,array{page:int,x:float,y:float,w:float,h:float}>
 	 */
 	private function image_placements( $bytes ) {
-		preg_match_all( '#q ([\d.]+) 0 0 ([\d.]+) ([\d.]+) ([\d.]+) cm /I\d+ Do Q#', $bytes, $matches, PREG_SET_ORDER );
-
 		$placements = array();
-		foreach ( $matches as $match ) {
-			list( , $w, $h, $x, $y ) = array_map( 'floatval', $match );
-			$placements[]            = array(
-				'x' => round( $x * self::MM_PER_POINT, 2 ),
-				'y' => round( 297 - ( ( $y + $h ) * self::MM_PER_POINT ), 2 ),
-				'w' => round( $w * self::MM_PER_POINT, 2 ),
-				'h' => round( $h * self::MM_PER_POINT, 2 ),
+
+		foreach ( Documentate_Pdf_Test_Helper::image_ops( $bytes ) as $op ) {
+			$placements[] = array(
+				'page' => $op['page'],
+				'x'    => round( $op['x'] * self::MM_PER_POINT, 2 ),
+				'y'    => round( 297 - ( ( $op['y'] + $op['h'] ) * self::MM_PER_POINT ), 2 ),
+				'w'    => round( $op['w'] * self::MM_PER_POINT, 2 ),
+				'h'    => round( $op['h'] * self::MM_PER_POINT, 2 ),
 			);
 		}
 
@@ -288,6 +288,9 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 
 	/**
 	 * The letterhead goes on page one and the crest on the pages after it.
+	 *
+	 * Both images are embedded once whatever page draws them, so the assertion
+	 * has to look at which page's content stream invokes each one.
 	 */
 	public function test_letterhead_and_crest_go_to_the_right_pages() {
 		$pdf = $this->make(
@@ -298,10 +301,26 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 		);
 		$pdf->AddPage();
 		$pdf->AddPage();
+		$pdf->AddPage();
 		$bytes = $pdf->Output( 'S' );
+		$ops   = Documentate_Pdf_Test_Helper::image_ops( $bytes );
 
 		$this->assertSame( 2, preg_match_all( '#/Subtype /Image#', $bytes ) );
-		$this->assertSame( 2, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
+		$this->assertSame( 3, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
+
+		// FPDF numbers images in first-use order: the letterhead, then the crest.
+		$by_image = array();
+		foreach ( $ops as $op ) {
+			$by_image[ $op['name'] ][] = $op['page'];
+		}
+
+		$this->assertSame(
+			array(
+				'I1' => array( 1 ),
+				'I2' => array( 2, 3 ),
+			),
+			$by_image
+		);
 	}
 
 	/**
@@ -321,16 +340,18 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 		$this->assertSame(
 			array(
 				array(
-					'x' => 21.25,
-					'y' => 19.4,
-					'w' => 93.5,
-					'h' => 21.7,
+					'page' => 1,
+					'x'    => 21.25,
+					'y'    => 19.4,
+					'w'    => 93.5,
+					'h'    => 21.7,
 				),
 				array(
-					'x' => 182.1,
-					'y' => 20.0,
-					'w' => 7.9,
-					'h' => 15.0,
+					'page' => 2,
+					'x'    => 182.1,
+					'y'    => 20.0,
+					'w'    => 7.9,
+					'h'    => 15.0,
 				),
 			),
 			$placements
@@ -349,10 +370,11 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 		$this->assertSame(
 			array(
 				array(
-					'x' => 22.4,
-					'y' => 35.3,
-					'w' => 63.4,
-					'h' => 14.7,
+					'page' => 1,
+					'x'    => 22.4,
+					'y'    => 35.3,
+					'w'    => 63.4,
+					'h'    => 14.7,
 				),
 			),
 			$this->image_placements( $bytes )

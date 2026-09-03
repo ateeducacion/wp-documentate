@@ -1,6 +1,6 @@
 <?php
 /**
- * Extracts text operations from PDF bytes produced by FPDF, for assertions.
+ * Extracts text and image operations from PDF bytes produced by FPDF, for assertions.
  *
  * The helper walks the indirect objects of the file, keeps the page objects in
  * the order FPDF wrote them, and reads the content stream each one points at
@@ -9,14 +9,15 @@
  * that happen to look like a text operator cannot leak into the results.
  *
  * Only the operators FPDF emits are understood: `BT x y Td (text) Tj ET` for
- * text, and the escapes `\\`, `\(`, `\)` and `\r` inside a PDF string. Text is
- * decoded from cp1252, the encoding FPDF uses for the core fonts.
+ * text, `q w 0 0 h x y cm /Name Do Q` for an image placement, and the escapes
+ * `\\`, `\(`, `\)` and `\r` inside a PDF string. Text is decoded from cp1252,
+ * the encoding FPDF uses for the core fonts.
  *
  * @package Documentate
  */
 
 /**
- * Reads text back out of PDF bytes.
+ * Reads text and image placements back out of PDF bytes.
  */
 class Documentate_Pdf_Test_Helper {
 
@@ -30,22 +31,37 @@ class Documentate_Pdf_Test_Helper {
 	 * @return array<int,array{page:int,x:float,y:float,text:string}>
 	 */
 	public static function text_ops( $pdf ) {
-		$objects = self::objects( (string) $pdf );
-		$ops     = array();
-		$page    = 0;
+		$ops = array();
 
-		foreach ( $objects as $object ) {
-			if ( ! self::is_page_object( $object['dict'] ) ) {
-				continue;
-			}
-			++$page;
-
-			$content = self::content_of( $object['dict'], $objects );
-			if ( '' === $content ) {
-				continue;
-			}
-
+		foreach ( self::page_contents( (string) $pdf ) as $page => $content ) {
 			$ops = array_merge( $ops, self::text_ops_in( $content, $page ) );
+		}
+
+		return $ops;
+	}
+
+	/**
+	 * Return every image placement as [page, name, x, y, w, h].
+	 *
+	 * A placement is attributed to the page whose content stream invokes it,
+	 * which is the only way to tell an image drawn on page one from the same
+	 * image drawn on page two: the image dictionary is written once however
+	 * many pages use it, so counting `/Subtype /Image` says nothing about where
+	 * anything was drawn.
+	 *
+	 * Only the `q w 0 0 h x y cm /Name Do Q` form FPDF emits is understood.
+	 * Sizes and coordinates are the raw PDF user-space values in points, with
+	 * x and y measured from the bottom-left corner of the page. Pages are
+	 * numbered from one.
+	 *
+	 * @param string $pdf Raw PDF bytes.
+	 * @return array<int,array{page:int,name:string,x:float,y:float,w:float,h:float}>
+	 */
+	public static function image_ops( $pdf ) {
+		$ops = array();
+
+		foreach ( self::page_contents( (string) $pdf ) as $page => $content ) {
+			$ops = array_merge( $ops, self::image_ops_in( $content, $page ) );
 		}
 
 		return $ops;
@@ -77,6 +93,35 @@ class Documentate_Pdf_Test_Helper {
 		}
 
 		return $count;
+	}
+
+	/**
+	 * Decoded content stream of every page, keyed by page number from one.
+	 *
+	 * Pages whose content cannot be read are left out, so the keys are not
+	 * necessarily contiguous, but the numbering still follows the page objects.
+	 *
+	 * @param string $pdf Raw PDF bytes.
+	 * @return array<int,string>
+	 */
+	private static function page_contents( $pdf ) {
+		$objects  = self::objects( $pdf );
+		$contents = array();
+		$page     = 0;
+
+		foreach ( $objects as $object ) {
+			if ( ! self::is_page_object( $object['dict'] ) ) {
+				continue;
+			}
+			++$page;
+
+			$content = self::content_of( $object['dict'], $objects );
+			if ( '' !== $content ) {
+				$contents[ $page ] = $content;
+			}
+		}
+
+		return $contents;
 	}
 
 	/**
@@ -225,6 +270,34 @@ class Documentate_Pdf_Test_Helper {
 				'x'    => (float) $match[1],
 				'y'    => (float) $match[2],
 				'text' => self::decode_string( $match[3] ),
+			);
+		}
+
+		return $ops;
+	}
+
+	/**
+	 * Pull the image placements out of one decoded content stream.
+	 *
+	 * @param string $content Decoded content stream.
+	 * @param int    $page    Number of the page the stream belongs to.
+	 * @return array<int,array{page:int,name:string,x:float,y:float,w:float,h:float}>
+	 */
+	private static function image_ops_in( $content, $page ) {
+		$pattern = '#q\s+(-?[\d.]+)\s+0\s+0\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+cm\s*/([A-Za-z0-9]+)\s+Do\s+Q#';
+		if ( ! preg_match_all( $pattern, $content, $matches, PREG_SET_ORDER ) ) {
+			return array();
+		}
+
+		$ops = array();
+		foreach ( $matches as $match ) {
+			$ops[] = array(
+				'page' => $page,
+				'name' => $match[5],
+				'x'    => (float) $match[3],
+				'y'    => (float) $match[4],
+				'w'    => (float) $match[1],
+				'h'    => (float) $match[2],
 			);
 		}
 
