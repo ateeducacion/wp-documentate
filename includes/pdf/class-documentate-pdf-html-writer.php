@@ -778,6 +778,15 @@ class Documentate_Pdf_Html_Writer {
 	 * a table cell, in room its row reserved before it started: a page taken
 	 * there would leave the borders of the row on the page before.
 	 *
+	 * No test covers that check, because as the table writer stands today it
+	 * cannot fire. The writer boxes a row only when the row fits in the room
+	 * left on the page, and it draws exactly the content it measured, so
+	 * every line inside a boxed cell has at least one cell padding of slack
+	 * and never reaches the break. The check stays all the same: that
+	 * invariant belongs to the table writer's fit rule, not to this method,
+	 * and if the rule ever changes this is what keeps a page from being
+	 * taken in the middle of a row. It costs one comparison.
+	 *
 	 * @param float $height Height about to be drawn, in mm.
 	 */
 	private function ensure_space( $height ) {
