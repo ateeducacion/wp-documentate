@@ -114,6 +114,79 @@ class DocumentatePdfMergerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A nested repeater can also be delimited with its own begin and end
+	 * markers. Its name is not a field of its own, so it looks like a leftover
+	 * when the layout is read, but the parent's merge consumes its tags. Asking
+	 * TBS to clear a block it can no longer find would fail the whole merge.
+	 */
+	public function test_a_nested_block_with_its_own_markers_is_not_cleared_afterwards() {
+		$body = '[servicios;block=begin;sub1=conceptos]<p>[servicios.proveedor]</p>'
+			. '[servicios_sub1;block=begin]<span>[servicios_sub1.concepto]</span>[servicios_sub1;block=end]'
+			. '[servicios;block=end]';
+
+		$out = $this->merge(
+			$body,
+			array(
+				'servicios' => array(
+					array(
+						'proveedor' => 'P1',
+						'conceptos' => array(
+							array( 'concepto' => 'c1' ),
+							array( 'concepto' => 'c2' ),
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertNotWPError( $out );
+		$this->assertStringContainsString( '<span>c1</span>', $out );
+		$this->assertStringContainsString( '<span>c2</span>', $out );
+	}
+
+	/**
+	 * Square brackets are ordinary punctuation in administrative Spanish, and a
+	 * rich field is injected verbatim, so merged content is full of things that
+	 * look exactly like an unmerged tag. Only the layout may nominate a tag for
+	 * clearing; what a user typed is never a candidate.
+	 */
+	public function test_brackets_written_by_a_user_are_not_mistaken_for_leftover_tags() {
+		$out = $this->merge(
+			'<div>[cuerpo;strconv=no;protect=no]</div><p>[huerfano]</p>',
+			array( 'cuerpo' => '<p>Nota [sic] al margen y [nota] entre corchetes.</p>' )
+		);
+
+		$this->assertStringContainsString( '<p>Nota [sic] al margen y [nota] entre corchetes.</p>', $out );
+		$this->assertStringNotContainsString( '[huerfano', $out );
+	}
+
+	/**
+	 * The narrowest version of the same trap: a rich field whose text names its
+	 * own tag. The name really is a layout tag, so only the fact that a field
+	 * answered for it keeps the user's sentence intact.
+	 */
+	public function test_a_rich_field_may_name_its_own_tag_in_its_text() {
+		$out = $this->merge(
+			'<div>[cuerpo;strconv=no;protect=no]</div>',
+			array( 'cuerpo' => '<p>El campo [cuerpo] se rellena solo.</p>' )
+		);
+
+		$this->assertStringContainsString( '<p>El campo [cuerpo] se rellena solo.</p>', $out );
+	}
+
+	/**
+	 * A scalar keeps its brackets too. TBS protects the opening bracket of a
+	 * merged value into an entity so it can never be read back as a tag, so
+	 * either spelling is correct here; what must not happen is the bracketed
+	 * word disappearing.
+	 */
+	public function test_brackets_in_a_scalar_value_survive_the_merge() {
+		$out = $this->merge( '<p>[x]</p>', array( 'x' => 'Ley 39/2015 [sic]' ) );
+
+		$this->assertMatchesRegularExpression( '/<p>Ley 39\/2015 (?:\[|&#91;)sic\]<\/p>/', $out );
+	}
+
+	/**
 	 * A layout richer than the document's schema must not print its unmatched
 	 * tags: a leftover field is emptied and a leftover block is dropped, while
 	 * the automatic onshow fields TBS itself resolves are left alone.

@@ -299,10 +299,13 @@ class Documentate_OpenTBS {
 		if ( ! file_exists( $template_path ) ) {
 			return new WP_Error( 'documentate_template_missing', __( 'Template not found.', 'documentate' ) );
 		}
-		try {
-			// Set locale for TBS date formatting (month/day names in local language).
-			$old_locale = self::push_locale();
+		// Set locale for TBS date formatting (month/day names in local language).
+		// LC_TIME is process wide, so the finally below puts it back on every
+		// exit: the two pre-processing errors return early, and a leaked locale
+		// would silently reformat every date the rest of the request prints.
+		$old_locale = self::push_locale();
 
+		try {
 			$tbs_engine = new clsTinyButStrong();
 			$tbs_engine->Plugin( TBS_INSTALL, OPENTBS_PLUGIN );
 			$tbs_engine->LoadTemplate( $template_path, OPENTBS_ALREADY_UTF8 );
@@ -363,13 +366,11 @@ class Documentate_OpenTBS {
 
 			$tbs_engine->Show( OPENTBS_FILE, $dest_path );
 
-			// Restore original locale.
-			self::pop_locale( $old_locale );
 			return true;
 		} catch ( \Throwable $e ) {
-			// Restore original locale on error.
-			self::pop_locale( isset( $old_locale ) ? $old_locale : false );
 			return new WP_Error( 'documentate_opentbs_error', $e->getMessage() );
+		} finally {
+			self::pop_locale( $old_locale );
 		}
 	}
 

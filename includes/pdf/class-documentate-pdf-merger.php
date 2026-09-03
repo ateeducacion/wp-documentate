@@ -65,10 +65,15 @@ class Documentate_Pdf_Merger {
 			}
 			$tbs->Source = $source;
 
+			// A leftover belongs to the layout, not to the merged document, so
+			// the candidates are read here while the source is still only the
+			// markup we authored. Merged values never enter the set.
+			$leftovers = self::layout_leftovers( $tbs->Source, $fields );
+
 			$tbs->ResetVarRef( false );
 			self::merge_blocks( $tbs, $fields );
 			self::merge_scalars( $tbs, $fields );
-			self::clear_leftovers( $tbs );
+			self::clear_leftovers( $tbs, $leftovers );
 
 			// Runs the final [onshow...] and [var....] pass and leaves the
 			// merged HTML in Source without echoing it or exiting.
@@ -125,27 +130,53 @@ class Documentate_Pdf_Merger {
 	}
 
 	/**
-	 * Empty the tags no field answered for.
+	 * List the layout's tags that no field is going to answer for.
 	 *
-	 * A layout may be richer than the schema of the document being rendered.
-	 * Whatever TBS did not merge is still literal text in the source, and
-	 * printing "[objeto]" into an official document is worse than printing
-	 * nothing, so every remaining tag is merged away: blocks are dropped whole
-	 * and fields are replaced with an empty string.
+	 * A layout may be richer than the schema of the document being rendered,
+	 * and printing "[objeto]" into an official document is worse than printing
+	 * nothing. Which tags are unanswered is decided from the layout alone, and
+	 * decided before anything is merged: once values are in, a rich field's
+	 * "[sic]" or a citation's brackets are indistinguishable from a tag, and
+	 * clearing those would delete a person's words without saying so.
 	 *
-	 * @param clsTinyButStrong $tbs Engine holding the merged layout.
-	 * @return void
+	 * @param string $source Layout source, before any value has been merged.
+	 * @param array  $fields Merge fields that are about to be merged.
+	 * @return array<string,bool> Unanswered tag name => whether it opens a block.
 	 */
-	private static function clear_leftovers( clsTinyButStrong $tbs ) {
-		if ( ! preg_match_all( '/\[([a-z][a-z0-9_]*)(?:\.[a-z0-9_.]+)?(?:;[^\]]*)?\]/i', $tbs->Source, $matches ) ) {
-			return;
+	private static function layout_leftovers( $source, array $fields ) {
+		if ( ! preg_match_all( '/\[([a-z][a-z0-9_]*)(?:\.[a-z0-9_.]+)?(?:;[^\]]*)?\]/i', $source, $matches ) ) {
+			return array();
 		}
 
+		$leftovers = array();
 		foreach ( array_unique( $matches[1] ) as $name ) {
 			if ( in_array( strtolower( $name ), self::RESERVED_PREFIXES, true ) ) {
 				continue;
 			}
-			if ( preg_match( '/\[' . preg_quote( $name, '/' ) . ';[^\]]*block=begin/i', $tbs->Source ) ) {
+			if ( array_key_exists( $name, $fields ) ) {
+				continue;
+			}
+			$leftovers[ $name ] = (bool) preg_match( '/\[' . preg_quote( $name, '/' ) . ';[^\]]*block=begin/i', $source );
+		}
+
+		return $leftovers;
+	}
+
+	/**
+	 * Merge away the tags layout_leftovers() found: blocks are dropped whole,
+	 * fields are replaced with an empty string.
+	 *
+	 * Some of these names no longer appear in the source at all, because a
+	 * parent repeater consumed its sub-block along the way. TBS treats both as
+	 * a no-op rather than an error, so they need no guard here.
+	 *
+	 * @param clsTinyButStrong   $tbs       Engine holding the merged layout.
+	 * @param array<string,bool> $leftovers Tag name => whether it opens a block.
+	 * @return void
+	 */
+	private static function clear_leftovers( clsTinyButStrong $tbs, array $leftovers ) {
+		foreach ( $leftovers as $name => $is_block ) {
+			if ( $is_block ) {
 				$tbs->MergeBlock( $name, array() );
 			} else {
 				$tbs->MergeField( $name, '' );
