@@ -1,0 +1,398 @@
+<?php
+/**
+ * Tests for the institutional FPDF document base.
+ *
+ * The expected coordinates come from the ODT templates the PDF renderer
+ * replaces: `fixtures/propuestagasto.odt` (standard letterhead and address
+ * band), `fixtures/resolucion.odt` (folio box and crest) and
+ * `fixtures/modelo_informe.odt` (large letterhead and footer addresses),
+ * measured on the PDF LibreOffice exports from them.
+ *
+ * @package Documentate
+ */
+
+/**
+ * Test class for Documentate_Pdf_Document.
+ */
+class DocumentatePdfDocumentTest extends WP_UnitTestCase {
+
+	/**
+	 * Millimetres per PDF point.
+	 */
+	const MM_PER_POINT = 25.4 / 72;
+
+	/**
+	 * Build a document with compression off so the assertions can read the
+	 * content-stream operators straight out of the bytes.
+	 *
+	 * @param array<string,mixed> $options Document options.
+	 * @return Documentate_Pdf_Document
+	 */
+	private function make( array $options = array() ) {
+		$pdf = new Documentate_Pdf_Document( $options );
+		$pdf->SetCompression( false );
+		return $pdf;
+	}
+
+	/**
+	 * Every image placed in the document, as millimetres from the top-left corner.
+	 *
+	 * @param string $bytes Raw PDF bytes.
+	 * @return array<int,array{x:float,y:float,w:float,h:float}>
+	 */
+	private function image_placements( $bytes ) {
+		preg_match_all( '#q ([\d.]+) 0 0 ([\d.]+) ([\d.]+) ([\d.]+) cm /I\d+ Do Q#', $bytes, $matches, PREG_SET_ORDER );
+
+		$placements = array();
+		foreach ( $matches as $match ) {
+			list( , $w, $h, $x, $y ) = array_map( 'floatval', $match );
+			$placements[]            = array(
+				'x' => round( $x * self::MM_PER_POINT, 2 ),
+				'y' => round( 297 - ( ( $y + $h ) * self::MM_PER_POINT ), 2 ),
+				'w' => round( $w * self::MM_PER_POINT, 2 ),
+				'h' => round( $h * self::MM_PER_POINT, 2 ),
+			);
+		}
+
+		return $placements;
+	}
+
+	/**
+	 * The origins of every rotation the document opened, in millimetres.
+	 *
+	 * @param string $bytes Raw PDF bytes.
+	 * @return array<int,array{x:float,y:float}>
+	 */
+	private function rotation_origins( $bytes ) {
+		preg_match_all( '/q 0\.00 1\.00 -1\.00 0\.00 ([\d.]+) ([\d.]+) cm/', $bytes, $matches, PREG_SET_ORDER );
+
+		$origins = array();
+		foreach ( $matches as $match ) {
+			$origins[] = array(
+				'x' => round( (float) $match[1] * self::MM_PER_POINT, 2 ),
+				'y' => round( 297 - ( (float) $match[2] * self::MM_PER_POINT ), 2 ),
+			);
+		}
+
+		return $origins;
+	}
+
+	/**
+	 * UTF-8 becomes Windows-1252 and unmappable glyphs are transliterated, not dropped.
+	 */
+	public function test_latin1_transcodes_and_transliterates() {
+		$this->assertSame(
+			'Ni' . chr( 241 ) . 'o ' . chr( 128 ) . ' ' . chr( 150 ),
+			Documentate_Pdf_Document::latin1( 'Niño € –' )
+		);
+		$this->assertStringNotContainsString( '?', Documentate_Pdf_Document::latin1( 'flecha → aquí' ) );
+	}
+
+	/**
+	 * Without options the page is A4 portrait with 20 mm margins all round.
+	 */
+	public function test_defaults_are_a4_portrait_with_20mm_margins() {
+		$pdf = $this->make();
+		$pdf->AddPage();
+		$this->assertEqualsWithDelta( 170.0, $pdf->content_width(), 0.01 );
+		$this->assertEqualsWithDelta( 257.0, $pdf->remaining_height(), 0.5 );
+	}
+
+	/**
+	 * The first-page margins override the standard ones on page one only.
+	 */
+	public function test_first_page_margins_only_apply_to_page_one() {
+		$pdf = $this->make(
+			array(
+				'margins'            => array( 52, 20, 43, 20 ),
+				'first_page_margins' => array( 52, 22.5, 43, 22.5 ),
+			)
+		);
+		$pdf->AddPage();
+		$this->assertEqualsWithDelta( 165.0, $pdf->content_width(), 0.01 );
+		$this->assertEqualsWithDelta( 202.0, $pdf->remaining_height(), 0.5 );
+		$pdf->AddPage();
+		$this->assertEqualsWithDelta( 170.0, $pdf->content_width(), 0.01 );
+	}
+
+	/**
+	 * Without a first-page override every page keeps the standard margins.
+	 */
+	public function test_margins_are_the_same_on_every_page_without_a_first_page_override() {
+		$pdf = $this->make( array( 'margins' => array( 52, 20, 43, 20 ) ) );
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$this->assertEqualsWithDelta( 170.0, $pdf->content_width(), 0.01 );
+		$this->assertEqualsWithDelta( 202.0, $pdf->remaining_height(), 0.5 );
+	}
+
+	/**
+	 * Nothing is drawn when every chrome option is switched off.
+	 */
+	public function test_no_chrome_is_drawn_when_every_option_is_off() {
+		$pdf = $this->make();
+		$pdf->AddPage();
+		$bytes = $pdf->Output( 'S' );
+		$this->assertSame( array(), Documentate_Pdf_Test_Helper::texts( $bytes ) );
+		$this->assertSame( 0, preg_match_all( '#/Subtype /Image#', $bytes ) );
+	}
+
+	/**
+	 * The folio box repeats on every page, counting up to the document total.
+	 */
+	public function test_folio_header_prints_page_of_total_on_every_page() {
+		$pdf = $this->make( array( 'folio' => 'header' ) );
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$texts = Documentate_Pdf_Test_Helper::texts( $pdf->Output( 'S' ) );
+		$this->assertContains( 'Folio 1/2', $texts );
+		$this->assertContains( 'Folio 2/2', $texts );
+	}
+
+	/**
+	 * The folio label and its frame land where the ODT header frame puts them.
+	 */
+	public function test_folio_header_box_is_placed_and_framed_like_the_odt_frame() {
+		$pdf = $this->make( array( 'folio' => 'header' ) );
+		$pdf->AddPage();
+		$bytes = $pdf->Output( 'S' );
+		$folio = Documentate_Pdf_Test_Helper::text_ops( $bytes );
+
+		$this->assertCount( 1, $folio );
+		$this->assertEqualsWithDelta( 142.6, $folio[0]['x'] * self::MM_PER_POINT, 0.2 );
+		$this->assertEqualsWithDelta( 32.5, 297 - ( $folio[0]['y'] * self::MM_PER_POINT ), 0.8 );
+		// The frame: 25.7 x 9.8 mm stroked rectangle whose top-left is (139.7, 25.8) mm.
+		$this->assertStringContainsString( '396.00 768.76 72.85 -27.78 re S', $bytes );
+	}
+
+	/**
+	 * The page number can also go in the footer instead of the header.
+	 */
+	public function test_folio_footer_prints_the_page_number_at_the_bottom() {
+		$pdf = $this->make( array( 'folio' => 'footer' ) );
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+
+		$this->assertSame( array( '1', '2' ), array_column( $ops, 'text' ) );
+		$this->assertSame( array( 1, 2 ), array_column( $ops, 'page' ) );
+		// Below the body area, which ends 20 mm above the page bottom by default.
+		$this->assertGreaterThan( 270.0, 297 - ( $ops[0]['y'] * self::MM_PER_POINT ) );
+	}
+
+	/**
+	 * The address band runs up the left margin of the first page only.
+	 */
+	public function test_addresses_band_is_rotated_and_only_on_first_page() {
+		$pdf = $this->make( array( 'addresses' => 'band' ) );
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$bytes = $pdf->Output( 'S' );
+		$ops   = Documentate_Pdf_Test_Helper::text_ops( $bytes );
+		$band  = array_values( array_filter( $ops, static fn( $op ) => str_contains( $op['text'], 'Santa Cruz de Tenerife' ) ) );
+
+		$this->assertCount( 1, $band );
+		$this->assertSame( 1, $band[0]['page'] );
+		$this->assertMatchesRegularExpression( '/q 0\.00 1\.00 -1\.00 0\.00 [\d.]+ [\d.]+ cm/', $bytes );
+	}
+
+	/**
+	 * Both band lines are rotated about the measured ODT baselines, 3 mm apart.
+	 */
+	public function test_address_band_lines_are_rotated_about_the_measured_baselines() {
+		$pdf = $this->make( array( 'addresses' => 'band' ) );
+		$pdf->AddPage();
+		$origins = $this->rotation_origins( $pdf->Output( 'S' ) );
+
+		$this->assertCount( 2, $origins );
+		// FPDF puts the baseline 0.3 em past the cell origin, which the rotation
+		// turns into 0.79 mm to the right at 7.5 pt: 4.11 + 0.79 = 4.90 mm.
+		$this->assertEqualsWithDelta( 4.11, $origins[0]['x'], 0.05 );
+		$this->assertEqualsWithDelta( 7.13, $origins[1]['x'], 0.05 );
+		// Both cells start at the foot of the page and run upwards.
+		$this->assertEqualsWithDelta( 297.0, $origins[0]['y'], 0.05 );
+		$this->assertEqualsWithDelta( 297.0, $origins[1]['y'], 0.05 );
+	}
+
+	/**
+	 * The header variant prints both addresses as plain lines under the letterhead.
+	 */
+	public function test_addresses_header_prints_two_lines_below_the_letterhead() {
+		$pdf = $this->make( array( 'addresses' => 'header' ) );
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+
+		$this->assertCount( 2, $ops );
+		$this->assertSame( array( 1, 1 ), array_column( $ops, 'page' ) );
+		$this->assertStringContainsString( 'Santa Cruz de Tenerife', $ops[0]['text'] );
+		$this->assertStringContainsString( 'Las Palmas de Gran Canaria', $ops[1]['text'] );
+		// The second line sits below the first: lower on the page is a smaller PDF y.
+		$this->assertGreaterThan( $ops[1]['y'], $ops[0]['y'] );
+	}
+
+	/**
+	 * The footer variant prints the two four-line columns on every page.
+	 */
+	public function test_addresses_footer_prints_two_columns_on_every_page() {
+		$pdf = $this->make( array( 'addresses' => 'footer' ) );
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$ops   = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+		$texts = array_column( $ops, 'text' );
+
+		$this->assertCount( 2, array_keys( $texts, 'C/ Granadera Canaria nº 2', true ) );
+		$this->assertCount( 2, array_keys( $texts, 'Avenida Buenos Aires nº 5', true ) );
+		$this->assertContains( '1 / 2', $texts );
+		$this->assertContains( '2 / 2', $texts );
+
+		$columns = array_values( array_filter( $ops, static fn( $op ) => 1 === $op['page'] && ( str_starts_with( $op['text'], 'C/ ' ) || str_starts_with( $op['text'], 'Avenida ' ) ) ) );
+		$this->assertEqualsWithDelta( 47.55, $columns[0]['x'] * self::MM_PER_POINT, 0.05 );
+		$this->assertEqualsWithDelta( 110.0, $columns[1]['x'] * self::MM_PER_POINT, 0.05 );
+		$this->assertEqualsWithDelta( 229.5, 297 - ( $columns[0]['y'] * self::MM_PER_POINT ), 0.1 );
+	}
+
+	/**
+	 * The footer already carries the page number, so the folio option cannot double it.
+	 */
+	public function test_footer_addresses_suppress_a_second_page_number() {
+		$pdf = $this->make(
+			array(
+				'addresses' => 'footer',
+				'folio'     => 'footer',
+			)
+		);
+		$pdf->AddPage();
+		$texts = Documentate_Pdf_Test_Helper::texts( $pdf->Output( 'S' ) );
+
+		$this->assertContains( '1 / 1', $texts );
+		$this->assertNotContains( '1', $texts );
+	}
+
+	/**
+	 * The letterhead goes on page one and the crest on the pages after it.
+	 */
+	public function test_letterhead_and_crest_go_to_the_right_pages() {
+		$pdf = $this->make(
+			array(
+				'letterhead' => 'standard',
+				'crest'      => true,
+			)
+		);
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$bytes = $pdf->Output( 'S' );
+
+		$this->assertSame( 2, preg_match_all( '#/Subtype /Image#', $bytes ) );
+		$this->assertSame( 2, Documentate_Pdf_Test_Helper::page_count( $bytes ) );
+	}
+
+	/**
+	 * The standard letterhead and the crest sit where the ODT frames put them.
+	 */
+	public function test_standard_letterhead_and_crest_match_the_odt_frames() {
+		$pdf = $this->make(
+			array(
+				'letterhead' => 'standard',
+				'crest'      => true,
+			)
+		);
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$placements = $this->image_placements( $pdf->Output( 'S' ) );
+
+		$this->assertSame(
+			array(
+				array(
+					'x' => 21.25,
+					'y' => 19.4,
+					'w' => 93.5,
+					'h' => 21.7,
+				),
+				array(
+					'x' => 182.1,
+					'y' => 20.0,
+					'w' => 7.9,
+					'h' => 15.0,
+				),
+			),
+			$placements
+		);
+	}
+
+	/**
+	 * The large letterhead is a different, wider logo drawn further down.
+	 */
+	public function test_large_letterhead_matches_the_odt_frame() {
+		$pdf = $this->make( array( 'letterhead' => 'large' ) );
+		$pdf->AddPage();
+		$bytes = $pdf->Output( 'S' );
+
+		$this->assertSame( 1, preg_match_all( '#/Subtype /Image#', $bytes ) );
+		$this->assertSame(
+			array(
+				array(
+					'x' => 22.4,
+					'y' => 35.3,
+					'w' => 63.4,
+					'h' => 14.7,
+				),
+			),
+			$this->image_placements( $bytes )
+		);
+	}
+
+	/**
+	 * Word spacing reaches the content stream and can be cleared again.
+	 */
+	public function test_word_spacing_is_emitted_and_reset() {
+		$pdf = $this->make();
+		$pdf->AddPage();
+		$pdf->set_word_spacing( 1.5 );
+		$pdf->set_word_spacing( 0 );
+		$bytes = $pdf->Output( 'S' );
+
+		$this->assertStringContainsString( '4.252 Tw', $bytes );
+		$this->assertStringContainsString( '0.000 Tw', $bytes );
+	}
+
+	/**
+	 * A run style switches face and size, and underlining reaches the page.
+	 */
+	public function test_apply_style_switches_face_size_and_underline() {
+		$pdf   = $this->make();
+		$pdf->AddPage();
+		$plain = $pdf->measure( 'Resolución', array() );
+
+		$this->assertGreaterThan( $plain, $pdf->measure( 'Resolución', array( 'bold' => true ) ) );
+		$this->assertNotEqualsWithDelta( $plain, $pdf->measure( 'Resolución', array( 'italic' => true ) ), 0.01 );
+		$this->assertEqualsWithDelta( 2 * $plain, $pdf->measure( 'Resolución', array( 'size' => 22 ) ), 0.01 );
+
+		$pdf->apply_style( array( 'underline' => true ) );
+		$pdf->Cell( 40, 5, Documentate_Pdf_Document::latin1( 'Resolución' ) );
+		$this->assertStringContainsString( ' re f', $pdf->Output( 'S' ) );
+	}
+
+	/**
+	 * The line height follows the current font size.
+	 */
+	public function test_line_height_scales_with_the_font_size() {
+		$pdf = $this->make( array( 'font_size' => 11 ) );
+		$pdf->AddPage();
+		$this->assertEqualsWithDelta( 4.85, $pdf->line_height(), 0.01 );
+
+		$pdf->apply_style( array( 'size' => 22 ) );
+		$this->assertEqualsWithDelta( 9.70, $pdf->line_height(), 0.01 );
+	}
+
+	/**
+	 * The bundled chrome images ship with the plugin and are readable.
+	 */
+	public function test_bundled_images_are_shipped_with_the_plugin() {
+		foreach ( array( 'membrete.png', 'membrete-grande.png', 'escudo.jpg' ) as $name ) {
+			$path = Documentate_Pdf_Document::image_path( $name );
+			$this->assertFileExists( $path );
+			$this->assertIsReadable( $path );
+		}
+	}
+}
