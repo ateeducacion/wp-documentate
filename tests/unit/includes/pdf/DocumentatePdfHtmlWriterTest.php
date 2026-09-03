@@ -398,16 +398,32 @@ class DocumentatePdfHtmlWriterTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Interim behaviour until Task 6: a table is walked as ordinary blocks, so
-	 * every cell prints as its own paragraph, with no borders and no columns.
-	 * Task 6 replaces the `table` case of block() and this test with it.
+	 * A table goes to the table writer: its cells are drawn side by side on
+	 * one baseline, inside boxes, instead of one under the other.
 	 */
-	public function test_table_cells_are_drawn_as_paragraphs_until_the_table_writer_lands() {
-		$ops = Documentate_Pdf_Test_Helper::text_ops( $this->render( '<table><tr><td>uno</td><td>dos</td></tr></table>' ) );
+	public function test_a_table_is_drawn_as_a_table() {
+		$bytes = $this->render( '<table><tr><td>uno</td><td>dos</td></tr></table>' );
+		$ops   = Documentate_Pdf_Test_Helper::text_ops( $bytes );
 
 		$this->assertSame( array( 'uno', 'dos' ), array_column( $ops, 'text' ) );
-		$this->assertLessThan( $ops[0]['y'], $ops[1]['y'] );
-		$this->assertEqualsWithDelta( $ops[0]['x'], $ops[1]['x'], 0.01 );
+		$this->assertEqualsWithDelta( $ops[0]['y'], $ops[1]['y'], 0.01 );
+		$this->assertGreaterThan( $ops[0]['x'], $ops[1]['x'] );
+		$this->assertSame( 2, substr_count( $bytes, ' re S' ) );
+	}
+
+	/**
+	 * A table inside a column is measured as a table, so a block that holds
+	 * one is as tall as the rows it will be drawn with.
+	 */
+	public function test_measure_block_measures_a_table_as_a_table() {
+		$writer = $this->writer( $this->document() );
+		$rows   = str_repeat( '<tr><td>fila</td></tr>', 5 );
+
+		$one  = $writer->measure_block( $this->column( '<table><tr><td>fila</td></tr></table>' ), 60.0 );
+		$five = $writer->measure_block( $this->column( '<table>' . $rows . '</table>' ), 60.0 );
+
+		$this->assertGreaterThan( 0, $one );
+		$this->assertEqualsWithDelta( 5 * ( $one - Documentate_Pdf_Table_Writer::SPACING ), $five - Documentate_Pdf_Table_Writer::SPACING, 0.01 );
 	}
 
 	/**

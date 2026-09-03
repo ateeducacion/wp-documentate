@@ -127,6 +127,40 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The body area is what a page has room for, whatever has been drawn on
+	 * it already: the height a block would have on a page of its own.
+	 */
+	public function test_body_height_is_the_room_a_fresh_page_has() {
+		$pdf = $this->make( array( 'margins' => array( 52, 20, 43, 20 ) ) );
+		$pdf->AddPage();
+
+		$this->assertEqualsWithDelta( 202.0, $pdf->body_height(), 0.5 );
+		$this->assertEqualsWithDelta( $pdf->remaining_height(), $pdf->body_height(), 0.01 );
+
+		$pdf->Ln( 60.0 );
+		$this->assertEqualsWithDelta( 202.0, $pdf->body_height(), 0.5 );
+		$this->assertEqualsWithDelta( 142.0, $pdf->remaining_height(), 0.5 );
+	}
+
+	/**
+	 * Switching the automatic page break off reports the setting it replaces
+	 * and leaves the bottom margin where it was, so what is left of the page
+	 * still measures the same.
+	 */
+	public function test_the_automatic_page_break_is_switched_off_and_back_on() {
+		$pdf = $this->make( array( 'margins' => array( 52, 20, 43, 20 ) ) );
+		$pdf->AddPage();
+
+		$this->assertTrue( $pdf->set_auto_page_break( false ) );
+		$this->assertFalse( $pdf->AcceptPageBreak() );
+		$this->assertEqualsWithDelta( 202.0, $pdf->remaining_height(), 0.5 );
+
+		$this->assertFalse( $pdf->set_auto_page_break( true ) );
+		$this->assertTrue( $pdf->AcceptPageBreak() );
+		$this->assertEqualsWithDelta( 202.0, $pdf->remaining_height(), 0.5 );
+	}
+
+	/**
 	 * Nothing is drawn when every chrome option is switched off.
 	 */
 	public function test_no_chrome_is_drawn_when_every_option_is_off() {

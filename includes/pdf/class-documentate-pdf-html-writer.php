@@ -42,9 +42,10 @@ class Documentate_Pdf_Html_Writer {
 	/**
 	 * Elements that break the flow of text and are drawn on their own.
 	 *
-	 * The table parts are here so that a table walked as plain blocks — what
-	 * happens until the table writer lands — still prints one cell per
-	 * paragraph instead of running every cell together into one line.
+	 * The table parts are here for markup that lost its table on the way in:
+	 * a stray row or cell then prints one paragraph per cell instead of
+	 * running every cell together into one line. A whole table goes to the
+	 * table writer instead.
 	 */
 	const BLOCK_TAGS = array(
 		'p',
@@ -154,6 +155,14 @@ class Documentate_Pdf_Html_Writer {
 	private $text_layout;
 
 	/**
+	 * Renderer the tables are handed to, which fills its cells back in
+	 * through this writer.
+	 *
+	 * @var Documentate_Pdf_Table_Writer
+	 */
+	private $tables;
+
+	/**
 	 * Left edge of the active column in mm, or null for the page text area.
 	 *
 	 * @var float|null
@@ -198,6 +207,7 @@ class Documentate_Pdf_Html_Writer {
 		$this->pdf         = $pdf;
 		$this->layout      = $layout;
 		$this->text_layout = new Documentate_Pdf_Text_Layout( array( $pdf, 'measure' ) );
+		$this->tables      = new Documentate_Pdf_Table_Writer( $pdf, $this );
 	}
 
 	/**
@@ -437,7 +447,9 @@ class Documentate_Pdf_Html_Writer {
 	private function block( DOMElement $el, array $style ) {
 		$tag = strtolower( $el->tagName );
 
-		if ( ! $this->measuring && $this->has_class( $el, self::PAGE_BREAK_CLASS ) ) {
+		// A block cannot start a page while the automatic break is off: the
+		// document is then inside a table row that reserved its own room.
+		if ( ! $this->measuring && $this->pdf->AcceptPageBreak() && $this->has_class( $el, self::PAGE_BREAK_CLASS ) ) {
 			$this->pdf->AddPage();
 		}
 
@@ -465,15 +477,30 @@ class Documentate_Pdf_Html_Writer {
 				$this->image( $el );
 				break;
 			case 'table':
-				// Interim behaviour, replaced by Documentate_Pdf_Table_Writer:
-				// the rows and cells are walked as ordinary blocks, so every
-				// cell still prints, one paragraph per cell, with no borders
-				// and no columns.
-				$this->children( $el, $style );
+				$this->table( $el );
 				break;
 			default:
 				$this->children( $el, $style ); // div, li, table parts, unknown.
 		}
+	}
+
+	/**
+	 * Hand a table to the table writer, inside the active column.
+	 *
+	 * The column travels with the table because a table a rich field brought
+	 * with it belongs inside the cell that holds it, not across the page.
+	 *
+	 * @param DOMElement $el Table element.
+	 */
+	private function table( DOMElement $el ) {
+		$width = $this->flow_width() - $this->indent;
+
+		if ( $this->measuring ) {
+			$this->measured += $this->tables->measure( $el, $width );
+			return;
+		}
+
+		$this->tables->write( $el, $this->flow_x() + $this->indent, $width );
 	}
 
 	/**
@@ -747,10 +774,14 @@ class Documentate_Pdf_Html_Writer {
 	/**
 	 * Start a new page when what comes next does not fit on this one.
 	 *
+	 * A document with the automatic break switched off is being drawn inside
+	 * a table cell, in room its row reserved before it started: a page taken
+	 * there would leave the borders of the row on the page before.
+	 *
 	 * @param float $height Height about to be drawn, in mm.
 	 */
 	private function ensure_space( $height ) {
-		if ( ! $this->measuring && $this->pdf->remaining_height() < $height ) {
+		if ( ! $this->measuring && $this->pdf->AcceptPageBreak() && $this->pdf->remaining_height() < $height ) {
 			$this->pdf->AddPage();
 		}
 	}

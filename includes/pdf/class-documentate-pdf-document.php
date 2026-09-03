@@ -289,6 +289,38 @@ class Documentate_Pdf_Document extends FPDF {
 	}
 
 	/**
+	 * Height of the body area of a page, in mm.
+	 *
+	 * It is the most any one block can take without spilling, which is how a
+	 * table tells a row that will not fit on this page from one that would
+	 * not fit on a page of its own either.
+	 *
+	 * @return float
+	 */
+	public function body_height() {
+		return $this->PageBreakTrigger - $this->tMargin;
+	}
+
+	/**
+	 * Switch the automatic page break on or off, keeping the bottom margin.
+	 *
+	 * A caller that has already reserved the room for what it is about to
+	 * draw — a table row it measured before starting it — switches the break
+	 * off, so that neither FPDF nor the HTML writer can start a page halfway
+	 * through and leave the row's borders behind on the page before.
+	 *
+	 * @param bool $enabled Whether a page break may be taken.
+	 * @return bool The setting that was in force, to hand back afterwards.
+	 */
+	public function set_auto_page_break( $enabled ) {
+		$was = $this->AcceptPageBreak();
+
+		$this->SetAutoPageBreak( (bool) $enabled, $this->bMargin );
+
+		return $was;
+	}
+
+	/**
 	 * Select the core font face and size a run style asks for.
 	 *
 	 * @param array<string,mixed> $style Run style: `bold`, `italic`, `underline`, `size`.
