@@ -232,30 +232,41 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * The footer variant prints the two four-line columns on every page.
+	 * The footer variant prints the two four-line columns on the pages after
+	 * the first, which is where the ODT puts them: its `style:footer-first` is
+	 * empty because page one carries the large letterhead instead.
 	 */
-	public function test_addresses_footer_prints_two_columns_on_every_page() {
+	public function test_addresses_footer_prints_two_columns_on_every_page_but_the_first() {
 		$pdf = $this->make( array( 'addresses' => 'footer' ) );
 		$pdf->AddPage();
 		$pdf->AddPage();
-		$ops   = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
-		$texts = array_column( $ops, 'text' );
+		$pdf->AddPage();
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
 
-		$this->assertCount( 2, array_keys( $texts, 'C/ Granadera Canaria nº 2', true ) );
-		$this->assertCount( 2, array_keys( $texts, 'Avenida Buenos Aires nº 5', true ) );
-		$this->assertContains( '1 / 2', $texts );
-		$this->assertContains( '2 / 2', $texts );
+		$this->assertSame( array( 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3 ), array_column( $ops, 'page' ) );
+		$this->assertCount( 2, array_keys( array_column( $ops, 'text' ), 'C/ Granadera Canaria nº 2', true ) );
+		$this->assertCount( 2, array_keys( array_column( $ops, 'text' ), 'Avenida Buenos Aires nº 5', true ) );
 
-		$columns = array_values( array_filter( $ops, static fn( $op ) => 1 === $op['page'] && ( str_starts_with( $op['text'], 'C/ ' ) || str_starts_with( $op['text'], 'Avenida ' ) ) ) );
+		$columns = array_values( array_filter( $ops, static fn( $op ) => 2 === $op['page'] && ( str_starts_with( $op['text'], 'C/ ' ) || str_starts_with( $op['text'], 'Avenida ' ) ) ) );
 		$this->assertEqualsWithDelta( 47.55, $columns[0]['x'] * self::MM_PER_POINT, 0.05 );
 		$this->assertEqualsWithDelta( 110.0, $columns[1]['x'] * self::MM_PER_POINT, 0.05 );
 		$this->assertEqualsWithDelta( 229.5, 297 - ( $columns[0]['y'] * self::MM_PER_POINT ), 0.1 );
 	}
 
 	/**
-	 * The footer already carries the page number, so the folio option cannot double it.
+	 * A single-page document gets no footer addresses at all, as in the ODT.
 	 */
-	public function test_footer_addresses_suppress_a_second_page_number() {
+	public function test_addresses_footer_leaves_a_one_page_document_empty() {
+		$pdf = $this->make( array( 'addresses' => 'footer' ) );
+		$pdf->AddPage();
+
+		$this->assertSame( array(), Documentate_Pdf_Test_Helper::texts( $pdf->Output( 'S' ) ) );
+	}
+
+	/**
+	 * The address block carries no page number, so a folio can sit beside it.
+	 */
+	public function test_footer_addresses_and_folio_can_be_combined() {
 		$pdf = $this->make(
 			array(
 				'addresses' => 'footer',
@@ -263,10 +274,16 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 			)
 		);
 		$pdf->AddPage();
-		$texts = Documentate_Pdf_Test_Helper::texts( $pdf->Output( 'S' ) );
+		$pdf->AddPage();
+		$ops   = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+		$texts = array_column( $ops, 'text' );
 
-		$this->assertContains( '1 / 1', $texts );
-		$this->assertNotContains( '1', $texts );
+		// Page one: the folio only. Page two: the folio and the eight address lines.
+		$this->assertSame( array( 1 ), array_column( array_filter( $ops, static fn( $op ) => 1 === $op['page'] ), 'page' ) );
+		$this->assertSame( array( '1', '2' ), array_values( array_intersect( $texts, array( '1', '2' ) ) ) );
+		$this->assertContains( 'C/ Granadera Canaria nº 2', $texts );
+		// Nothing prints the «N / M» pair the ODT footer does not have.
+		$this->assertSame( array(), array_filter( $texts, static fn( $text ) => str_contains( $text, ' / ' ) ) );
 	}
 
 	/**

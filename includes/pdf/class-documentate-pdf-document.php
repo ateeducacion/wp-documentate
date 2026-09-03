@@ -226,10 +226,7 @@ class Documentate_Pdf_Document extends FPDF {
 	 */
 	public function Footer() { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.MethodNameInvalid -- FPDF hook.
 		if ( 'footer' === $this->options['addresses'] ) {
-			// The address block prints «N / M» itself; printing the folio as
-			// well would repeat the page number.
 			$this->draw_footer_addresses();
-			return;
 		}
 
 		if ( 'footer' === $this->options['folio'] ) {
@@ -449,8 +446,16 @@ class Documentate_Pdf_Document extends FPDF {
 
 	/**
 	 * Draw the two-column address block that sits above the foot of the page.
+	 *
+	 * The ODT leaves its `style:footer-first` empty, so the block starts on the
+	 * second page: the first one carries the large letterhead instead. It holds
+	 * no page numbering either, which is why nothing here prints one.
 	 */
 	private function draw_footer_addresses() {
+		if ( 1 === $this->PageNo() ) {
+			return;
+		}
+
 		$this->SetFont( $this->options['font'], '', self::ADDRESS_FONT_SIZE );
 
 		list( $left_x, $right_x ) = self::FOOTER_ADDRESS_COLUMNS;
@@ -461,9 +466,6 @@ class Documentate_Pdf_Document extends FPDF {
 			$this->Cell( $column, self::FOOTER_ADDRESS_LINE, self::latin1( $line ) );
 			$this->Cell( $column, self::FOOTER_ADDRESS_LINE, self::latin1( self::FOOTER_ADDRESS_RIGHT[ $index ] ) );
 		}
-
-		$this->SetXY( $this->lMargin, self::FOOTER_ADDRESS_TOP + ( count( self::FOOTER_ADDRESS_LEFT ) * self::FOOTER_ADDRESS_LINE ) );
-		$this->Cell( 0, self::FOLIO_FOOTER_HEIGHT, self::latin1( $this->PageNo() . ' / ' . $this->AliasNbPages ), 0, 0, 'R' );
 	}
 
 	/**
