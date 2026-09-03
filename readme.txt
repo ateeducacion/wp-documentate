@@ -25,6 +25,10 @@ It uses OpenTBS to merge the document data into the template and can optionally 
 - **Workflow, revisions, attachments and collaborative editing.**
 - **Multisite compatible.**
 
+### Third-party libraries
+
+- FPDF by Olivier Plathey (http://www.fpdf.org/), MIT-style permissive license.
+
 == Installation ==
 
 1. Download the latest release from the GitHub releases page.
