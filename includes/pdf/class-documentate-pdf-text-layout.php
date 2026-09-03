@@ -41,6 +41,10 @@ class Documentate_Pdf_Text_Layout {
 	/**
 	 * Break runs into lines that fit $width.
 	 *
+	 * A line is only ever cut where a space was, never at a run boundary, so
+	 * text the markup split across styles without a space between the parts
+	 * travels from line to line as one piece.
+	 *
 	 * `spaces` counts the spaces left inside the drawn line, so the caller can
 	 * justify it by sharing out the width it did not use. `last` marks the
 	 * lines that must not be stretched: the one that ends the paragraph and
@@ -74,9 +78,10 @@ class Documentate_Pdf_Text_Layout {
 			}
 
 			if ( $used + $token['width'] > $width && ! empty( $current ) ) {
-				$lines[] = $this->close( $current, false );
-				$current = array();
-				$used    = 0.0;
+				list( $head, $current ) = $this->wrap( $current, $token, $width );
+
+				$lines[] = $this->close( $head, false );
+				$used    = $this->width_of( $current );
 
 				if ( $token['space'] ) {
 					continue; // The space fell at the break; it is not carried over.
@@ -98,6 +103,74 @@ class Documentate_Pdf_Text_Layout {
 		$lines[] = $this->close( $current, true );
 
 		return $lines;
+	}
+
+	/**
+	 * Split a line to make room for a token that no longer fits: the tokens
+	 * that stay on it, and the tokens that go down with the incoming one.
+	 *
+	 * There is one token per word *and* per run, so `…Consejeria</a>, procede`
+	 * arrives as `Consejeria` and `,` with nothing between them. Breaking at
+	 * that boundary would orphan the comma at the head of the next line, so
+	 * the cut is made at the line's last space instead and everything after
+	 * that space travels with the token that displaced it.
+	 *
+	 * The line stays whole when it holds no space to cut at, and when what
+	 * would move down leaves no room for the incoming token either. Both hand
+	 * the caller an empty line to fill, which is what lets a stretch too long
+	 * for any line be cut character by character instead of moving for ever.
+	 *
+	 * @param array<int,array<string,mixed>> $tokens Tokens gathered for the line.
+	 * @param array<string,mixed>            $token  Token that did not fit.
+	 * @param float                          $width  Available width, mm.
+	 * @return array{0:array,1:array} Tokens that stay, tokens that move down.
+	 */
+	private function wrap( array $tokens, array $token, $width ) {
+		if ( $token['space'] ) {
+			return array( $tokens, array() ); // The break already falls at a space.
+		}
+
+		list( $head, $tail ) = $this->split_at_last_space( $tokens );
+
+		if ( empty( $head ) || $this->width_of( $tail ) + $token['width'] > $width ) {
+			return array( $tokens, array() );
+		}
+
+		return array( $head, $tail );
+	}
+
+	/**
+	 * Cut a line's tokens after its last space.
+	 *
+	 * @param array<int,array<string,mixed>> $tokens Tokens gathered for the line.
+	 * @return array{0:array,1:array} The head, ending in that space, and the tail
+	 *                                after it. The head is empty when the line
+	 *                                holds no space at all.
+	 */
+	private function split_at_last_space( array $tokens ) {
+		for ( $index = count( $tokens ) - 1; $index >= 0; $index-- ) {
+			if ( $tokens[ $index ]['space'] ) {
+				return array( array_slice( $tokens, 0, $index + 1 ), array_slice( $tokens, $index + 1 ) );
+			}
+		}
+
+		return array( array(), $tokens );
+	}
+
+	/**
+	 * Total width of a stretch of tokens, in mm.
+	 *
+	 * @param array<int,array<string,mixed>> $tokens Tokens to add up.
+	 * @return float
+	 */
+	private function width_of( array $tokens ) {
+		$width = 0.0;
+
+		foreach ( $tokens as $token ) {
+			$width += $token['width'];
+		}
+
+		return $width;
 	}
 
 	/**
@@ -254,14 +327,12 @@ class Documentate_Pdf_Text_Layout {
 			--$end;
 		}
 
+		$drawn  = array_slice( $tokens, 0, $end );
 		$runs   = array();
 		$style  = null;
-		$width  = 0.0;
 		$spaces = 0;
 
-		for ( $index = 0; $index < $end; $index++ ) {
-			$token   = $tokens[ $index ];
-			$width  += $token['width'];
+		foreach ( $drawn as $token ) {
 			$spaces += $token['space'] ? 1 : 0;
 
 			// Same style as the token before: one cell, not one per word.
@@ -276,7 +347,7 @@ class Documentate_Pdf_Text_Layout {
 
 		return array(
 			'runs'   => $runs,
-			'width'  => $width,
+			'width'  => $this->width_of( $drawn ),
 			'spaces' => $spaces,
 			'last'   => $last,
 		);

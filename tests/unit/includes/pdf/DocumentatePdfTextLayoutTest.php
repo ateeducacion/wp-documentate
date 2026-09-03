@@ -44,6 +44,17 @@ class DocumentatePdfTextLayoutTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * An input run with some of its style keys set.
+	 *
+	 * @param string              $text  Run text.
+	 * @param array<string,mixed> $style Style keys to override.
+	 * @return array<string,mixed>
+	 */
+	private function styled_run( $text, array $style ) {
+		return array_merge( $this->text_run( $text ), $style );
+	}
+
+	/**
 	 * The text of every line, in order.
 	 *
 	 * @param array<int,array<string,mixed>> $lines Lines returned by the layout.
@@ -127,6 +138,91 @@ class DocumentatePdfTextLayoutTest extends WP_UnitTestCase {
 		$this->assertFalse( $lines[0]['runs'][1]['bold'] );
 		$this->assertSame( 'valor largo aquí', $lines[0]['runs'][1]['text'] );
 		$this->assertSame( 3, $lines[0]['spaces'] );
+	}
+
+	/**
+	 * A run boundary is not a place to break. The comma opening the third run
+	 * is glued to the word closing the second, so it travels down with it
+	 * instead of being orphaned at the start of the next line.
+	 */
+	public function test_a_comma_after_a_link_is_not_orphaned_on_the_next_line() {
+		$lines = $this->layout()->lines(
+			array(
+				$this->text_run( 'Visto el ' ),
+				$this->styled_run( 'portal de la Consejeria', array( 'link' => 'https://example.test' ) ),
+				$this->text_run( ', procede resolver.' ),
+			),
+			32
+		);
+
+		$this->assertSame(
+			array( 'Visto el portal de la', 'Consejeria, procede resolver.' ),
+			$this->texts( $lines )
+		);
+		$this->assertSame( 4, $lines[0]['spaces'] );
+		$this->assertEqualsWithDelta( 21.0, $lines[0]['width'], 0.001 );
+		$this->assertFalse( $lines[0]['last'] );
+		$this->assertSame( 2, $lines[1]['spaces'] );
+		$this->assertEqualsWithDelta( 29.0, $lines[1]['width'], 0.001 );
+		$this->assertTrue( $lines[1]['last'] );
+	}
+
+	/**
+	 * The full stop closing a bold word goes down with the word.
+	 */
+	public function test_a_period_after_a_bold_word_travels_with_it() {
+		$lines = $this->layout()->lines(
+			array( $this->text_run( 'Hola ' ), $this->text_run( 'mundo', true ), $this->text_run( '. Fin' ) ),
+			13
+		);
+
+		$this->assertSame( array( 'Hola', 'mundo. Fin' ), $this->texts( $lines ) );
+		$this->assertTrue( $lines[1]['runs'][0]['bold'] );
+		$this->assertSame( '. Fin', $lines[1]['runs'][1]['text'] );
+	}
+
+	/**
+	 * A bracket opening an italic phrase goes down with the phrase, rather
+	 * than dangling at the end of the line above it.
+	 */
+	public function test_an_opening_bracket_travels_with_the_phrase_it_opens() {
+		$lines = $this->layout()->lines(
+			array( $this->text_run( 'Vease (' ), $this->styled_run( 'la nota', array( 'italic' => true ) ) ),
+			8
+		);
+
+		$this->assertSame( array( 'Vease', '(la nota' ), $this->texts( $lines ) );
+		$this->assertSame( '(', $lines[1]['runs'][0]['text'] );
+	}
+
+	/**
+	 * When the line holds no space to break at, the tokens stay where they
+	 * are: carrying the whole line down would move the same tokens for ever.
+	 */
+	public function test_a_line_with_no_space_to_break_at_is_still_cut_by_characters() {
+		$lines = $this->layout()->lines(
+			array( $this->text_run( 'abcdefgh' ), $this->text_run( 'ijk' ) ),
+			5
+		);
+
+		$this->assertSame( array( 'abcde', 'fgh', 'ijk' ), $this->texts( $lines ) );
+	}
+
+	/**
+	 * Tokens are only carried down when they leave room for the token that
+	 * displaced them. Carrying them anyway would print past the margin.
+	 */
+	public function test_tokens_are_not_carried_down_when_they_would_still_not_fit() {
+		$lines = $this->layout()->lines(
+			array( $this->text_run( 'aaa bbbbbb' ), $this->text_run( 'ccccc' ) ),
+			10
+		);
+
+		$this->assertSame( array( 'aaa bbbbbb', 'ccccc' ), $this->texts( $lines ) );
+
+		foreach ( $lines as $line ) {
+			$this->assertLessThanOrEqual( 10.0, $line['width'] );
+		}
 	}
 
 	/**
