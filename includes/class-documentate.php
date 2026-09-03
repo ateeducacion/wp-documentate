@@ -142,6 +142,7 @@ class Documentate {
 
 		// Native PDF renderer, built on the FPDF copy vendored under admin/vendor.
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-document.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-text-layout.php';
 
 		if ( class_exists( '\Documentate\Document\Meta\Document_Meta_Box' ) ) {
 			$document_meta_box = new \Documentate\Document\Meta\Document_Meta_Box();

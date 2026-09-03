@@ -1,0 +1,261 @@
+<?php
+/**
+ * Line breaking for the styled runs the native PDF renderer draws.
+ *
+ * @package Documentate
+ */
+
+defined( 'ABSPATH' ) || exit();
+
+/**
+ * Breaks a sequence of styled text runs into lines that fit a given width.
+ *
+ * The class knows nothing about FPDF. It is given a measuring callable,
+ * `fn( string $text, array $style ): float`, so the same algorithm serves the
+ * real document and a test that counts characters. Widths are millimetres,
+ * the unit the document works in.
+ */
+class Documentate_Pdf_Text_Layout {
+
+	/**
+	 * Run keys that pick a font or a link, and so decide where a run ends.
+	 */
+	const STYLE_KEYS = array( 'bold', 'italic', 'underline', 'link', 'size' );
+
+	/**
+	 * Width of a string in a style, in mm.
+	 *
+	 * @var callable
+	 */
+	private $measure;
+
+	/**
+	 * Keep the callable the layout measures with.
+	 *
+	 * @param callable $measure fn( string $text, array $style ): float, in mm.
+	 */
+	public function __construct( callable $measure ) {
+		$this->measure = $measure;
+	}
+
+	/**
+	 * Break runs into lines that fit $width.
+	 *
+	 * `spaces` counts the spaces left inside the drawn line, so the caller can
+	 * justify it by sharing out the width it did not use. `last` marks the
+	 * lines that must not be stretched: the one that ends the paragraph and
+	 * the one before a forced break.
+	 *
+	 * @param array<int,array<string,mixed>> $runs  Runs, or array('br'=>true) for a forced break.
+	 * @param float                          $width Available width, mm.
+	 * @return array<int,array{runs:array,width:float,spaces:int,last:bool}>
+	 */
+	public function lines( array $runs, $width ) {
+		$lines   = array();
+		$current = array();
+		$used    = 0.0;
+
+		foreach ( $this->tokens( $runs ) as $token ) {
+			if ( $token['br'] ) {
+				$lines[] = $this->close( $current, true );
+				$current = array();
+				$used    = 0.0;
+				continue;
+			}
+
+			if ( $token['space'] && empty( $current ) ) {
+				continue; // A line never opens with a space.
+			}
+
+			if ( $used + $token['width'] > $width && ! empty( $current ) ) {
+				$lines[] = $this->close( $current, false );
+				$current = array();
+				$used    = 0.0;
+
+				if ( $token['space'] ) {
+					continue; // The space fell at the break; it is not carried over.
+				}
+			}
+
+			foreach ( $this->fit( $token, $width ) as $index => $piece ) {
+				if ( $index > 0 ) {
+					$lines[] = $this->close( $current, false );
+					$current = array();
+					$used    = 0.0;
+				}
+
+				$current[] = $piece;
+				$used     += $piece['width'];
+			}
+		}
+
+		$lines[] = $this->close( $current, true );
+
+		return $lines;
+	}
+
+	/**
+	 * Flatten the runs into one measured token per word and per space.
+	 *
+	 * Whitespace collapses here: any run of it becomes a single space, so the
+	 * line builder only ever sees words separated by one space each.
+	 *
+	 * @param array<int,array<string,mixed>> $runs Runs as given to lines().
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function tokens( array $runs ) {
+		$tokens = array();
+
+		foreach ( $runs as $run ) {
+			if ( ! empty( $run['br'] ) ) {
+				// A break draws nothing, so it is built here rather than by
+				// token(): measuring it would select a font for no reason.
+				$tokens[] = array(
+					'text'  => '',
+					'style' => array(),
+					'width' => 0.0,
+					'space' => false,
+					'br'    => true,
+				);
+				continue;
+			}
+
+			$style = array_intersect_key( $run, array_flip( self::STYLE_KEYS ) );
+			ksort( $style );
+			$text = isset( $run['text'] ) ? (string) $run['text'] : '';
+
+			// PREG_SPLIT_DELIM_CAPTURE alternates words and separators, so the
+			// odd offsets are the whitespace. Text that is not valid UTF-8
+			// fails the split and is kept whole rather than dropped.
+			$parts = preg_split( '/(\s+)/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE );
+			if ( ! is_array( $parts ) ) {
+				$parts = array( $text );
+			}
+
+			foreach ( $parts as $offset => $part ) {
+				if ( '' === $part ) {
+					continue;
+				}
+
+				$space    = ( 1 === $offset % 2 );
+				$tokens[] = $this->token( $space ? ' ' : $part, $style, $space );
+			}
+		}
+
+		return $tokens;
+	}
+
+	/**
+	 * Measure a piece of text and wrap it as a token.
+	 *
+	 * @param string              $text  Token text.
+	 * @param array<string,mixed> $style Style the token is drawn in.
+	 * @param bool                $space Whether the token is a space.
+	 * @return array<string,mixed>
+	 */
+	private function token( $text, array $style, $space = false ) {
+		return array(
+			'text'  => $text,
+			'style' => $style,
+			'width' => (float) call_user_func( $this->measure, $text, $style ),
+			'space' => $space,
+			'br'    => false,
+		);
+	}
+
+	/**
+	 * Place a token, cutting a word that no whole line could hold.
+	 *
+	 * @param array<string,mixed> $token Token to place.
+	 * @param float               $width Available width, mm.
+	 * @return array<int,array<string,mixed>> One token, or the pieces it was cut into.
+	 */
+	private function fit( array $token, $width ) {
+		if ( $token['width'] <= $width ) {
+			return array( $token );
+		}
+
+		$pieces = array();
+		$rest   = $token['text'];
+
+		while ( '' !== $rest ) {
+			$take     = $this->prefix_length( $rest, $token['style'], $width );
+			$pieces[] = $this->token( (string) mb_substr( $rest, 0, $take, 'UTF-8' ), $token['style'] );
+			$rest     = (string) mb_substr( $rest, $take, null, 'UTF-8' );
+		}
+
+		return $pieces;
+	}
+
+	/**
+	 * How many leading characters of $text fit in $width, at least one.
+	 *
+	 * The search halves the word instead of walking it, which costs a
+	 * logarithmic number of measurements rather than one per character. It
+	 * never answers zero, so the caller cutting a word always advances.
+	 *
+	 * @param string              $text  Text to cut.
+	 * @param array<string,mixed> $style Style the text is drawn in.
+	 * @param float               $width Available width, mm.
+	 * @return int
+	 */
+	private function prefix_length( $text, array $style, $width ) {
+		$low  = 1;
+		$high = mb_strlen( $text, 'UTF-8' );
+
+		while ( $low < $high ) {
+			$middle = (int) ceil( ( $low + $high ) / 2 );
+			$piece  = (string) mb_substr( $text, 0, $middle, 'UTF-8' );
+
+			if ( (float) call_user_func( $this->measure, $piece, $style ) <= $width ) {
+				$low = $middle;
+			} else {
+				$high = $middle - 1;
+			}
+		}
+
+		return $low;
+	}
+
+	/**
+	 * Close a line: drop the space at its edge, join tokens of equal style
+	 * into runs, and total up what the caller needs to justify it.
+	 *
+	 * @param array<int,array<string,mixed>> $tokens Tokens gathered for the line.
+	 * @param bool                           $last   Whether the line ends the paragraph or precedes a forced break.
+	 * @return array{runs:array,width:float,spaces:int,last:bool}
+	 */
+	private function close( array $tokens, $last ) {
+		$end = count( $tokens );
+		if ( $end > 0 && $tokens[ $end - 1 ]['space'] ) {
+			--$end;
+		}
+
+		$runs   = array();
+		$style  = null;
+		$width  = 0.0;
+		$spaces = 0;
+
+		for ( $index = 0; $index < $end; $index++ ) {
+			$token   = $tokens[ $index ];
+			$width  += $token['width'];
+			$spaces += $token['space'] ? 1 : 0;
+
+			// Same style as the token before: one cell, not one per word.
+			if ( $style === $token['style'] ) {
+				$runs[ count( $runs ) - 1 ]['text'] .= $token['text'];
+				continue;
+			}
+
+			$style  = $token['style'];
+			$runs[] = array_merge( array( 'text' => $token['text'] ), $style );
+		}
+
+		return array(
+			'runs'   => $runs,
+			'width'  => $width,
+			'spaces' => $spaces,
+			'last'   => $last,
+		);
+	}
+}
