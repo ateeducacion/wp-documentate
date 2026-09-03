@@ -908,6 +908,9 @@ msgstr "Maqueta PDF no encontrada."
 msgid "Could not process the visibility blocks of the layout."
 msgstr "No se pudieron procesar los bloques de visibilidad de la maqueta."
 
+msgid "Could not scan the layout for unmatched fields."
+msgstr "No se pudo analizar la maqueta en busca de campos sin datos."
+
 msgid "The PDF layout could not be merged."
 msgstr "No se pudo fusionar la maqueta del PDF."
 
@@ -1269,3 +1272,9 @@ msgstr "Nuevo tipo"
 
 msgid "Generated file not found."
 msgstr "Fichero generado no encontrado."
+
+msgid "The document has no document type."
+msgstr "El documento no tiene tipo de documento."
+
+msgid "The generated PDF could not be saved."
+msgstr "No se ha podido guardar el PDF generado."

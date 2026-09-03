@@ -907,6 +907,9 @@ msgstr ""
 msgid "Could not process the visibility blocks of the layout."
 msgstr ""
 
+msgid "Could not scan the layout for unmatched fields."
+msgstr ""
+
 msgid "The PDF layout could not be merged."
 msgstr ""
 

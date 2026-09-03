@@ -161,6 +161,70 @@ class DocumentatePdfMergerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * An orphan block inside a repeater is the dangerous case. TBS pairs the
+	 * first block=begin with the last block=end, so once the repeater has
+	 * expanded there are as many copies of the orphan's markers as there are
+	 * rows, and clearing it would delete everything between the first and the
+	 * last — the rows in between with it, silently, ErrCount still zero.
+	 */
+	public function test_an_orphan_block_inside_a_repeater_does_not_swallow_its_rows() {
+		$body = '[servicios;block=begin]<p>[servicios.proveedor]</p>'
+			. '[extra;block=begin]<span>[extra.z]</span>[extra;block=end]'
+			. '[servicios;block=end]';
+
+		$out = $this->merge(
+			$body,
+			array(
+				'servicios' => array(
+					array( 'proveedor' => 'P1' ),
+					array( 'proveedor' => 'P2' ),
+					array( 'proveedor' => 'P3' ),
+				),
+			)
+		);
+
+		$this->assertNotWPError( $out );
+		$this->assertSame( 3, substr_count( $out, '<p>' ) );
+		$this->assertStringContainsString( '<p>P1</p>', $out );
+		$this->assertStringContainsString( '<p>P2</p>', $out );
+		$this->assertStringContainsString( '<p>P3</p>', $out );
+		$this->assertStringNotContainsString( '[extra', $out );
+	}
+
+	/**
+	 * The layout may orphan the very name a user wrote in a rich field. Only
+	 * clearing the orphan while the buffer still holds nothing but the layout
+	 * keeps the two apart.
+	 */
+	public function test_a_rich_fields_brackets_survive_a_layout_orphan_of_the_same_name() {
+		$out = $this->merge(
+			'<div>[cuerpo;strconv=no;protect=no]</div><p>[nota]</p>',
+			array( 'cuerpo' => '<p>Vease [nota] al margen.</p>' )
+		);
+
+		$this->assertStringContainsString( '<p>Vease [nota] al margen.</p>', $out );
+		$this->assertStringContainsString( '<p></p>', $out );
+	}
+
+	/**
+	 * block=tr is the form an HTML layout uses for a repeated row, so an
+	 * orphaned row carries block=tr and not block=begin. Handing it to
+	 * MergeField makes TBS raise an alert and kills the whole document, so the
+	 * routing has to look for any block= parameter.
+	 */
+	public function test_an_orphaned_block_tr_row_is_removed_and_the_merge_succeeds() {
+		$out = $this->merge(
+			'<table><tr><td>fija</td></tr><tr><td>[extra.y;block=tr]</td></tr></table>',
+			array()
+		);
+
+		$this->assertNotWPError( $out );
+		$this->assertStringNotContainsString( '[extra', $out );
+		$this->assertSame( 1, substr_count( $out, '<tr>' ) );
+		$this->assertStringContainsString( 'fija', $out );
+	}
+
+	/**
 	 * The narrowest version of the same trap: a rich field whose text names its
 	 * own tag. The name really is a layout tag, so only the fact that a field
 	 * answered for it keeps the user's sentence intact.
@@ -321,6 +385,89 @@ class DocumentatePdfMergerTest extends WP_UnitTestCase {
 
 		$this->assertWPError( $out );
 		$this->assertSame( 'documentate_regex_error', $out->get_error_code() );
+	}
+
+	/**
+	 * Scanning the layout for orphans is a regular expression too, and PCRE
+	 * gives up on some inputs. Treating that as "no orphans found" would let
+	 * every one of them through into the document, so it is an error, like the
+	 * visibility pass beside it.
+	 */
+	public function test_a_pcre_failure_while_scanning_for_orphans_is_an_error() {
+		$limit = ini_get( 'pcre.backtrack_limit' );
+		$jit   = ini_get( 'pcre.jit' );
+		ini_set( 'pcre.jit', '0' );
+		ini_set( 'pcre.backtrack_limit', '1' );
+
+		try {
+			// No visibility block, so the pass before this one has nothing to
+			// backtrack over and the failure lands on the orphan scan.
+			$out = $this->merge( str_repeat( '<p>[campo;ope=utf8,upper]</p>', 40 ), array() );
+		} finally {
+			ini_set( 'pcre.backtrack_limit', $limit );
+			ini_set( 'pcre.jit', $jit );
+		}
+
+		$this->assertWPError( $out );
+		$this->assertSame( 'documentate_regex_error', $out->get_error_code() );
+	}
+
+	/**
+	 * TBS formats "(locale)" dates with strftime(), deprecated since PHP 8.1.
+	 * With display_errors on, that notice is printed straight into the buffer
+	 * this class exists to keep clean, which would corrupt a PDF stream or a
+	 * JSON response just as a TBS error would.
+	 */
+	public function test_the_strftime_deprecation_is_not_printed_into_the_output() {
+		$display = ini_get( 'display_errors' );
+		$repeats = ini_get( 'ignore_repeated_errors' );
+		$level   = error_reporting();
+		ini_set( 'display_errors', '1' );
+		// The containers run with ignore_repeated_errors on, so a notice an
+		// earlier test already printed from the same line would be swallowed
+		// here and the assertion below would hold for the wrong reason.
+		ini_set( 'ignore_repeated_errors', '0' );
+		error_reporting( E_ALL );
+		// PHPUnit installs a handler that eats deprecations. Stand it down so
+		// the notice is printed the way it would be in a real request.
+		set_error_handler( null );
+
+		ob_start();
+		try {
+			$out = $this->merge( '<p>[d;frm=\'mmmm (locale)\']</p>', array( 'd' => '2026-03-01' ) );
+		} finally {
+			$echoed = ob_get_clean();
+			restore_error_handler();
+			ini_set( 'display_errors', $display );
+			ini_set( 'ignore_repeated_errors', $repeats );
+			error_reporting( $level );
+		}
+
+		$this->assertSame( '', $echoed );
+		$this->assertNotWPError( $out );
+	}
+
+	/**
+	 * Muting that one deprecation must not mute anything else, and must not
+	 * outlive the merge.
+	 */
+	public function test_muting_the_deprecation_leaves_other_errors_and_the_handler_alone() {
+		$seen = array();
+		set_error_handler(
+			static function ( $errno, $errstr ) use ( &$seen ) {
+				$seen[] = $errstr;
+				return true;
+			}
+		);
+
+		try {
+			$this->merge( '<p>[d;frm=\'mmmm (locale)\']</p>', array( 'd' => '2026-03-01' ) );
+			trigger_error( 'sigue viva', E_USER_WARNING );
+		} finally {
+			restore_error_handler();
+		}
+
+		$this->assertSame( array( 'sigue viva' ), $seen );
 	}
 
 	/**
