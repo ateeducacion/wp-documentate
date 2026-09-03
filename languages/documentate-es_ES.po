@@ -902,6 +902,15 @@ msgstr "Falló el preprocesamiento de la plantilla (bloques de visibilidad)."
 msgid "Template pre-processing failed (placeholder normalization)."
 msgstr "Falló el preprocesamiento de la plantilla (normalización de marcadores)."
 
+msgid "PDF layout not found."
+msgstr "Maqueta PDF no encontrada."
+
+msgid "Could not process the visibility blocks of the layout."
+msgstr "No se pudieron procesar los bloques de visibilidad de la maqueta."
+
+msgid "The PDF layout could not be merged."
+msgstr "No se pudo fusionar la maqueta del PDF."
+
 msgid "ZipArchive is not available for rich text formatting."
 msgstr "ZipArchive no está disponible para formato de texto enriquecido."
 

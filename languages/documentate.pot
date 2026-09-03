@@ -901,6 +901,15 @@ msgstr ""
 msgid "Template pre-processing failed (placeholder normalization)."
 msgstr ""
 
+msgid "PDF layout not found."
+msgstr ""
+
+msgid "Could not process the visibility blocks of the layout."
+msgstr ""
+
+msgid "The PDF layout could not be merged."
+msgstr ""
+
 msgid "ZipArchive is not available for rich text formatting."
 msgstr ""
 

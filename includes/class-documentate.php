@@ -146,6 +146,7 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-layout.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-table-writer.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-html-writer.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-merger.php';
 
 		if ( class_exists( '\Documentate\Document\Meta\Document_Meta_Box' ) ) {
 			$document_meta_box = new \Documentate\Document\Meta\Document_Meta_Box();

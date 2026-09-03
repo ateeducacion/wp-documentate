@@ -1,0 +1,319 @@
+<?php
+/**
+ * Tests for the TinyButStrong merge that fills an HTML PDF layout.
+ *
+ * The merge is the step between a document's field values and the HTML the
+ * PDF renderer walks. What matters here is not that TBS works — it is that
+ * this wrapper asks TBS for the right thing: scalars escaped, rich fields
+ * verbatim, repeaters expanded, and above all that a layout the document
+ * cannot fill never leaks a literal tag or a TBS error message into the
+ * bytes that become a PDF.
+ *
+ * @package Documentate
+ */
+
+/**
+ * Test class for Documentate_Pdf_Merger.
+ */
+class DocumentatePdfMergerTest extends WP_UnitTestCase {
+
+	/**
+	 * Layout files written by layout_file(), removed when the test ends.
+	 *
+	 * @var string[]
+	 */
+	private $written = array();
+
+	/**
+	 * Remove the layout files the test wrote.
+	 */
+	public function tear_down() {
+		foreach ( $this->written as $path ) {
+			if ( file_exists( $path ) ) {
+				unlink( $path );
+			}
+		}
+		$this->written = array();
+
+		parent::tear_down();
+	}
+
+	/**
+	 * Write a layout holding the given body and schedule its removal.
+	 *
+	 * @param string $body Layout body markup.
+	 * @return string Absolute path to the layout file.
+	 */
+	private function layout_file( $body ) {
+		$path = wp_tempnam( 'layout' );
+		file_put_contents( $path, '<html><head><title>T</title></head><body>' . $body . '</body></html>' );
+		$this->written[] = $path;
+
+		return $path;
+	}
+
+	/**
+	 * Merge one body fragment wrapped in a minimal HTML layout.
+	 *
+	 * @param string $body   Layout body markup.
+	 * @param array  $fields Merge fields.
+	 * @return string|WP_Error Merged HTML, or the error the merge reported.
+	 */
+	private function merge( $body, array $fields ) {
+		return Documentate_Pdf_Merger::merge( $this->layout_file( $body ), $fields );
+	}
+
+	/**
+	 * A scalar is HTML-escaped and its line breaks become <br /> tags.
+	 */
+	public function test_scalars_are_escaped_and_newlines_become_br() {
+		$out = $this->merge( '<p>[x]</p>', array( 'x' => "a <b> & c\nd" ) );
+
+		$this->assertStringContainsString( 'a &lt;b&gt; &amp; c<br />', $out );
+		$this->assertStringNotContainsString( '<p>a <b>', $out );
+	}
+
+	/**
+	 * A rich HTML field asking for strconv=no and protect=no is injected as it
+	 * stands: its tags survive and its square brackets are not protected into
+	 * entities.
+	 */
+	public function test_rich_fields_are_injected_verbatim_with_strconv_no() {
+		$out = $this->merge( '<div>[cuerpo;strconv=no;protect=no]</div>', array( 'cuerpo' => '<p>Hola [1]</p>' ) );
+
+		$this->assertStringContainsString( '<p>Hola [1]</p>', $out );
+		$this->assertStringNotContainsString( '&#91;', $out );
+	}
+
+	/**
+	 * A repeater expands its block once per row, and a nested repeater expands
+	 * its own rows inside the parent section.
+	 */
+	public function test_blocks_rows_and_nested_sub_blocks() {
+		$body = '[servicios;block=begin;sub1=conceptos]<table><tr><td>[servicios.proveedor]</td></tr><tr><td>[servicios_sub1.concepto;block=tr]</td></tr></table>[servicios;block=end]';
+
+		$out = $this->merge(
+			$body,
+			array(
+				'servicios' => array(
+					array(
+						'proveedor' => 'P1',
+						'conceptos' => array(
+							array( 'concepto' => 'c1' ),
+							array( 'concepto' => 'c2' ),
+						),
+					),
+				),
+			)
+		);
+
+		$this->assertSame( 3, substr_count( $out, '<tr>' ) );
+		$this->assertStringContainsString( 'P1', $out );
+		$this->assertStringContainsString( 'c1', $out );
+		$this->assertStringContainsString( 'c2', $out );
+	}
+
+	/**
+	 * A layout richer than the document's schema must not print its unmatched
+	 * tags: a leftover field is emptied and a leftover block is dropped, while
+	 * the automatic onshow fields TBS itself resolves are left alone.
+	 */
+	public function test_leftover_tags_are_cleared() {
+		$out = $this->merge(
+			'<p>[huerfano]</p>[lista;block=begin]<p>[lista.x]</p>[lista;block=end]<p>[onshow.ok]</p>',
+			array( 'ok' => 'si' )
+		);
+
+		$this->assertStringNotContainsString( '[huerfano', $out );
+		$this->assertStringNotContainsString( '[lista', $out );
+		$this->assertStringContainsString( '<p></p>', $out );
+		$this->assertStringContainsString( '<p>si</p>', $out );
+	}
+
+	/**
+	 * TBS reports a broken layout by echoing the message. Echoing into an AJAX
+	 * response or a PDF byte stream corrupts it, so the merge must stay silent
+	 * and report a WP_Error instead.
+	 */
+	public function test_tbs_errors_become_wp_errors_not_output() {
+		ob_start();
+		$out    = $this->merge( '[b;block=begin;sub1=falta][b.x][b;block=end]', array( 'b' => array( array( 'x' => 1 ) ) ) );
+		$echoed = ob_get_clean();
+
+		$this->assertSame( '', $echoed );
+		$this->assertWPError( $out );
+		$this->assertSame( 'documentate_pdf_merge_error', $out->get_error_code() );
+	}
+
+	/**
+	 * A visibility block over an empty field is dropped, and the TBS operators
+	 * and formats the ODT templates already use behave the same way here.
+	 */
+	public function test_visibility_blocks_and_upper_and_frm() {
+		$body = '[onshow;block=begin;bloc=lista]<p>hay</p>[onshow;block=end]<p>[t;ope=utf8,upper]</p><p>[n;frm=\'0.000,00 €\']</p><p>[d;frm=\'d\'] de [d;frm=\'mmmm (locale)\']</p>';
+
+		$out = $this->merge(
+			$body,
+			array(
+				'lista' => array(),
+				't'     => 'ñu',
+				'n'     => 1234.5,
+				'd'     => '2026-03-01',
+			)
+		);
+
+		$this->assertStringNotContainsString( 'hay', $out );
+		$this->assertStringContainsString( '<p>ÑU</p>', $out );
+		$this->assertStringContainsString( '<p>1.234,50 €</p>', $out );
+		// The month name comes from strftime() and needs the es_ES locale to
+		// be installed; the test containers only carry C, so English is
+		// accepted as the documented fallback. TBS cuts "(locale)" out of the
+		// format string and leaves the space that preceded it behind.
+		$this->assertMatchesRegularExpression( '/<p>1 de (marzo|march) ?<\/p>/i', $out );
+		$this->assertStringNotContainsString( '2026-03-01', $out );
+	}
+
+	/**
+	 * A visibility block over a field that does have data is kept.
+	 */
+	public function test_visibility_blocks_keep_a_block_whose_field_has_data() {
+		$out = $this->merge(
+			'[onshow;block=begin;bloc=lista]<p>hay</p>[onshow;block=end]',
+			array( 'lista' => array( array( 'x' => 1 ) ) )
+		);
+
+		$this->assertStringContainsString( '<p>hay</p>', $out );
+	}
+
+	/**
+	 * The schema extractor reads parameters TBS knows nothing about. TBS must
+	 * store and ignore them rather than treat them as merge instructions.
+	 */
+	public function test_unknown_documentate_parameters_are_ignored() {
+		$out = $this->merge( '<p>[f;type=\'text\';title=\'F\';rol=\'gestion\';required=\'true\']</p>', array( 'f' => 'v' ) );
+
+		$this->assertStringContainsString( '<p>v</p>', $out );
+	}
+
+	/**
+	 * PHP turns a numeric field name into an integer array key, and no TBS tag
+	 * can be spelled that way. Such a key is skipped rather than handed to TBS,
+	 * which would report the block it cannot find as a merge error.
+	 */
+	public function test_keys_that_cannot_name_a_tag_are_skipped() {
+		$out = $this->merge(
+			'<p>[x]</p>',
+			array(
+				'x' => 'v',
+				'0' => array( array( 'y' => 1 ) ),
+				''  => 'nada',
+			)
+		);
+
+		$this->assertNotWPError( $out );
+		$this->assertStringContainsString( '<p>v</p>', $out );
+	}
+
+	/**
+	 * A layout path that is not there is an error, not a warning and an empty
+	 * document.
+	 */
+	public function test_missing_layout_is_an_error() {
+		$out = Documentate_Pdf_Merger::merge( '/no/existe.html', array() );
+
+		$this->assertWPError( $out );
+		$this->assertSame( 'documentate_pdf_layout_missing', $out->get_error_code() );
+	}
+
+	/**
+	 * The visibility pass runs a regular expression over the whole layout and
+	 * returns null when PCRE gives up. That must surface as an error instead
+	 * of blanking the document.
+	 */
+	public function test_a_pcre_failure_in_the_visibility_pass_is_an_error() {
+		$limit = ini_get( 'pcre.backtrack_limit' );
+		$jit   = ini_get( 'pcre.jit' );
+		ini_set( 'pcre.jit', '0' );
+		ini_set( 'pcre.backtrack_limit', '1' );
+
+		try {
+			$out = $this->merge(
+				'[onshow;block=begin;bloc=lista]' . str_repeat( '<p>x</p>', 50 ) . '[onshow;block=end]',
+				array( 'lista' => array( array( 'x' => 1 ) ) )
+			);
+		} finally {
+			ini_set( 'pcre.backtrack_limit', $limit );
+			ini_set( 'pcre.jit', $jit );
+		}
+
+		$this->assertWPError( $out );
+		$this->assertSame( 'documentate_regex_error', $out->get_error_code() );
+	}
+
+	/**
+	 * The merge switches LC_TIME so month names come out in Spanish. It must
+	 * put back the locale the request had, whatever happened.
+	 */
+	public function test_the_previous_locale_is_restored() {
+		$this->with_lc_time(
+			'C',
+			function () {
+				$this->merge( '<p>[d;frm=\'mmmm (locale)\']</p>', array( 'd' => '2026-03-01' ) );
+
+				$this->assertSame( 'C', setlocale( LC_TIME, 0 ) );
+			}
+		);
+	}
+
+	/**
+	 * The locale is restored even when the merge fails part-way through.
+	 */
+	public function test_the_previous_locale_is_restored_after_an_error() {
+		$this->with_lc_time(
+			'C',
+			function () {
+				$out = $this->merge( '[b;block=begin;sub1=falta][b.x][b;block=end]', array( 'b' => array( array( 'x' => 1 ) ) ) );
+
+				$this->assertWPError( $out );
+				$this->assertSame( 'C', setlocale( LC_TIME, 0 ) );
+			}
+		);
+	}
+
+	/**
+	 * A layout whose visibility block never closes is malformed. TBS cannot
+	 * resolve the stray marker, so the merge must refuse rather than hand the
+	 * renderer a document with a marker in it.
+	 */
+	public function test_a_visibility_block_that_never_closes_is_an_error() {
+		$out = $this->merge(
+			'[onshow;block=begin;bloc=lista]<p>dentro</p>',
+			array( 'lista' => array( array( 'x' => 1 ) ) )
+		);
+
+		$this->assertWPError( $out );
+		$this->assertSame( 'documentate_pdf_merge_error', $out->get_error_code() );
+	}
+
+	/**
+	 * Run a callback with LC_TIME pinned to a known locale.
+	 *
+	 * Reading the ambient locale instead would let a merge that leaks its own
+	 * locale go unnoticed, because the leaked value is what the next test
+	 * would read as its baseline.
+	 *
+	 * @param string   $locale   Locale to pin LC_TIME to.
+	 * @param callable $callback Assertions to run under that locale.
+	 * @return void
+	 */
+	private function with_lc_time( $locale, callable $callback ) {
+		$ambient = setlocale( LC_TIME, 0 );
+		setlocale( LC_TIME, $locale );
+
+		try {
+			$callback();
+		} finally {
+			setlocale( LC_TIME, $ambient );
+		}
+	}
+}
