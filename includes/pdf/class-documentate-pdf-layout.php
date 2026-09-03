@@ -7,8 +7,9 @@
  * margins, font — and its `<body>` carries the TinyButStrong tags the merger
  * fills in. This class reads the head; the writer draws the body.
  *
- * Only the file reader lives here for now. Resolving the layout of a document
- * type from its term meta, and listing the shipped layouts, is Task 7.
+ * A document type points at one of these files through its
+ * `documentate_type_pdf_layout` term meta, and `for_post()` is what turns a
+ * document into the layout that renders it.
  *
  * @package Documentate
  */
@@ -19,6 +20,11 @@ defined( 'ABSPATH' ) || exit();
  * Reads a layout file and hands over its title and validated options.
  */
 class Documentate_Pdf_Layout {
+
+	/**
+	 * Taxonomy whose terms are the document types.
+	 */
+	const TAXONOMY = 'documentate_doc_type';
 
 	/**
 	 * Term meta of `documentate_doc_type` that names the layout of a type.
@@ -104,6 +110,54 @@ class Documentate_Pdf_Layout {
 	 * @var array<string,string>
 	 */
 	private $meta = array();
+
+	/**
+	 * Directory the shipped layouts live in.
+	 *
+	 * @return string Absolute path, with a trailing slash.
+	 */
+	public static function dir() {
+		return DOCUMENTATE_PLUGIN_DIR . 'templates/pdf/';
+	}
+
+	/**
+	 * Every shipped layout, as slug => title, sorted by slug.
+	 *
+	 * This is the list the document-type screen offers in its layout select,
+	 * so a layout that gives itself no `<title>` is labelled with its slug
+	 * rather than with nothing at all.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function available() {
+		$files  = glob( self::dir() . '*.html' );
+		$titles = array();
+
+		foreach ( is_array( $files ) ? $files : array() as $file ) {
+			$slug  = basename( $file, '.html' );
+			$title = self::for_file( $file )->title();
+
+			$titles[ $slug ] = ( '' === $title ) ? $slug : $title;
+		}
+
+		ksort( $titles, SORT_STRING );
+
+		return $titles;
+	}
+
+	/**
+	 * Layout the document type of a post asks for.
+	 *
+	 * Never fails: a post carrying no type, a type naming no layout and a type
+	 * naming a layout that is not there all resolve to the generic layout, so
+	 * every document has something to render on.
+	 *
+	 * @param int $post_id Document the layout is wanted for.
+	 * @return self
+	 */
+	public static function for_post( $post_id ) {
+		return self::for_file( self::dir() . self::slug_for_post( $post_id ) . '.html' );
+	}
 
 	/**
 	 * Read a layout from a file.
@@ -215,7 +269,35 @@ class Documentate_Pdf_Layout {
 	 * @return string
 	 */
 	private static function image_dir() {
-		return DOCUMENTATE_PLUGIN_DIR . 'templates/pdf/img/';
+		return self::dir() . 'img/';
+	}
+
+	/**
+	 * Layout slug the document type of a post names, or the default one.
+	 *
+	 * The stored name is untrusted input: an administrator types it, and a
+	 * corrupt row can hold anything at all. It is first reduced to the
+	 * characters a key may have, which both settles a hand-edited value and
+	 * leaves nothing a path could be built out of — no separator, no dot, no
+	 * null byte — and it then has to name one of the layouts actually
+	 * shipped. The two checks overlap deliberately: either alone would confine
+	 * the name as the code stands, so keeping both means a later change to one
+	 * of them cannot open a hole by itself.
+	 *
+	 * @param int $post_id Document the layout is wanted for.
+	 * @return string
+	 */
+	private static function slug_for_post( $post_id ) {
+		$terms = wp_get_post_terms( (int) $post_id, self::TAXONOMY, array( 'fields' => 'ids' ) );
+		if ( is_wp_error( $terms ) || empty( $terms ) ) {
+			return self::DEFAULT_SLUG;
+		}
+
+		// A document carries a single type, so the first term is the one that counts.
+		$stored = get_term_meta( (int) $terms[0], self::META_KEY, true );
+		$slug   = is_string( $stored ) ? sanitize_key( $stored ) : '';
+
+		return array_key_exists( $slug, self::available() ) ? $slug : self::DEFAULT_SLUG;
 	}
 
 	/**
