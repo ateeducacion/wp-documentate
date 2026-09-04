@@ -179,4 +179,139 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 
 		$this->assertNothingUnmerged( $pdf );
 	}
+
+	/**
+	 * Three suppliers with two concepts each expand into six concept rows, and
+	 * the section of a repeater left empty is dropped whole.
+	 */
+	public function test_propuestagasto_layout_expands_nested_repeaters_and_hides_empty_sections() {
+		$pdf = $this->render(
+			'propuestagasto.odt',
+			'propuestagasto',
+			'Programa de formación en metodologías activas',
+			array(
+				'curso'               => '2024/2025',
+				'letra_decreto'       => 'a',
+				'para'                => 'la formación del profesorado en metodologías activas y competencias digitales',
+				'objeto'              => 'Desarrollo de un programa de formación continua para el profesorado de centros públicos de Canarias.',
+				'lineadeactuacion'    => 'Formación del profesorado y desarrollo profesional docente',
+				'destinatarios'       => 'Profesorado de centros públicos de primaria y secundaria',
+				'alcance_centros'     => '150',
+				'alcance_profesorado' => '2500',
+				'alcance_alumnado'    => '45000',
+				'alcance_familias'    => '',
+				'gasto_letra'         => 'veinticinco mil euros',
+				'gasto_numero'        => '25000',
+				'partida'             => '18.03.322B.229.0100',
+			),
+			array(
+				'servicios' => array(
+					$this->supplier( 'Formación Docente Canarias S.L.', 'B76543210', 'Curso de metodologías activas', 'Taller de competencia digital' ),
+					$this->supplier( 'Aula Abierta Formación S.C.P.', 'J35678901', 'Seminario de evaluación', 'Mentoría en centros' ),
+					$this->supplier( 'Innova Educación Canarias S.L.', 'B11223344', 'Jornada de buenas prácticas', 'Acompañamiento a claustros' ),
+				),
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'INFORME-PROPUESTA DEL RESPONSABLE DEL SERVICIO', 'The fixed opening of the report should be printed.' );
+		$this->assertDrawn( $pdf, 'PROGRAMA DE FORMACIÓN EN METODOLOGÍAS ACTIVAS', 'The heading prints the title in upper case.' );
+		$this->assertDrawn( $pdf, 'A DESARROLLAR EN EL CURSO ESCOLAR 2024/2025', 'The school year should be merged into the heading.' );
+		$this->assertDrawn( $pdf, 'BLOQUE I: PROPUESTA EDUCATIVA', 'The first block heading should be printed.' );
+		$this->assertDrawn( $pdf, 'BLOQUE II: PROPUESTA ECONÓMICA', 'The second block heading should be printed.' );
+		$this->assertDrawn( $pdf, 'Programa de formación en metodologías activas', 'The «Título:» line prints the title as it was typed.' );
+
+		$this->assertDrawn( $pdf, 'CENTROS', 'The reach table should carry its fixed column headings.' );
+		$this->assertDrawn( $pdf, '45.000', 'A reach figure should be printed with the thousands separator frm asks for.' );
+		$this->assertDrawn( $pdf, '---', 'A reach figure left blank should print the three dashes ifempty asks for.' );
+
+		$this->assertDrawn( $pdf, '25.000,00 €', 'The total spend should be printed as an amount, not as a bare number.' );
+		$this->assertDrawn( $pdf, '18.03.322B.229.0100', 'The budget line should be merged.' );
+
+		$this->assertDrawn( $pdf, 'SERVICIOS a contratar', 'The services section should be shown, because the repeater has rows.' );
+		$this->assertNotDrawn( $pdf, 'SUMINISTROS a contratar', 'The supplies section should be dropped, because its repeater is empty.' );
+		$this->assertNotDrawn( $pdf, 'PERSONAL experto a contratar', 'The experts section should be dropped, because its repeater is empty.' );
+
+		foreach ( array( 'Formación Docente Canarias S.L.', 'Aula Abierta Formación S.C.P.', 'Innova Educación Canarias S.L.' ) as $supplier ) {
+			$this->assertDrawn( $pdf, $supplier, 'Every supplier of the repeater should get a table of its own.' );
+		}
+
+		$concepts = array(
+			'Curso de metodologías activas',
+			'Taller de competencia digital',
+			'Seminario de evaluación',
+			'Mentoría en centros',
+			'Jornada de buenas prácticas',
+			'Acompañamiento a claustros',
+		);
+		foreach ( $concepts as $concept ) {
+			$this->assertDrawn( $pdf, $concept, 'Every concept of every supplier should get a row of its own.' );
+		}
+		$this->assertSame( 6, $this->count_drawn( $pdf, $concepts ), 'Three suppliers of two concepts each should draw six concept rows.' );
+
+		$this->assertDrawn( $pdf, '4.500,00 €', 'The gross amount of a supplier should be printed as an amount.' );
+		$this->assertDrawn( $pdf, '1.500,00 €', 'A unit price should be printed as an amount.' );
+
+		$this->assertDrawn( $pdf, 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS', 'The signature block should close the report.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
+	 * One supplier of the propuesta de gasto, with two concepts.
+	 *
+	 * @param string $name    Trading name of the supplier.
+	 * @param string $cif     Tax number of the supplier.
+	 * @param string $first   Description of its first concept.
+	 * @param string $second  Description of its second concept.
+	 * @return array<string,mixed>
+	 */
+	private function supplier( $name, $cif, $first, $second ) {
+		return array(
+			'proveedor' => $name,
+			'cif'       => $cif,
+			'email'     => 'contacto@example.es',
+			'telefono'  => '922123456',
+			'bruto'     => '4500',
+			'igic'      => '315',
+			'irpf'      => '0',
+			'total'     => '4815',
+			'conceptos' => array(
+				array(
+					'concepto' => $first,
+					'cantidad' => '2',
+					'unitario' => '1500',
+					'total'    => '3000',
+				),
+				array(
+					'concepto' => $second,
+					'cantidad' => '3',
+					'unitario' => '500',
+					'total'    => '1500',
+				),
+			),
+		);
+	}
+
+	/**
+	 * How many text operations of the PDF are one of the given strings.
+	 *
+	 * Counting the operations rather than searching the joined text is what
+	 * tells one row per concept from a repeater that merged every concept into
+	 * a single cell.
+	 *
+	 * @param string   $pdf      Raw PDF bytes.
+	 * @param string[] $expected Strings to count.
+	 * @return int
+	 */
+	private function count_drawn( $pdf, array $expected ) {
+		$found = 0;
+
+		foreach ( Documentate_Pdf_Test_Helper::texts( $pdf ) as $text ) {
+			if ( in_array( trim( $text ), $expected, true ) ) {
+				++$found;
+			}
+		}
+
+		return $found;
+	}
 }
