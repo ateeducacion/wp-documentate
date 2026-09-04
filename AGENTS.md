@@ -169,6 +169,12 @@ A task is **not complete** if any of the following remain:
   reproduces, in millimetres: `<table width="165mm" cellpadding="0.49">`. The
   width is also accepted as a percentage. Without them a table fills its column
   and takes the default padding.
+- A cell declares the rest through `style`: `border: none`, `background:
+  #rrggbb` (or `none`) and `font-weight: normal|bold`. A `th` is boxed, filled
+  and bold by default, which several templates do not do — read their
+  `fo:border`, `fo:background-color` and paragraph style rather than assuming.
+- The address furniture is drawn in Helvetica whatever the body font is: every
+  template asks for a `swiss` family there.
 
 ### Translations
 

@@ -54,6 +54,15 @@ class Documentate_Pdf_Document extends FPDF {
 	const ADDRESS_LASPALMAS = 'Calle Granadera Canaria 2, Edf. Granadera Canaria Planta 1ª | CP 35071 Las Palmas de Gran Canaria | Tfno: 928 45 54 00 | Fax: 928 45 57 42';
 
 	/**
+	 * Face the address furniture is drawn in.
+	 *
+	 * Every template asks for a sans-serif for its addresses — Univers LT
+	 * Std 45 Light, Tahoma, Trebuchet MS, all `style:font-family-generic`
+	 * "swiss" — whatever serif the body of that layout uses.
+	 */
+	const ADDRESS_FONT = 'helvetica';
+
+	/**
 	 * Point size of every address block.
 	 */
 	const ADDRESS_FONT_SIZE = 7.5;
@@ -97,6 +106,15 @@ class Documentate_Pdf_Document extends FPDF {
 	 * Distance from the foot of the body area to the top of the footer folio cell.
 	 */
 	const FOLIO_FOOTER_LIFT = 4.3;
+
+	/**
+	 * Length of the address band, in mm.
+	 *
+	 * The `svg:width` of the frame the templates rotate into the margin. It
+	 * is a little longer than the page, and starts at the top edge, so the
+	 * band centres 0.74 mm below the middle of the sheet.
+	 */
+	const BAND_LENGTH = 298.48;
 
 	/**
 	 * Baseline of the first band line, from the left edge of the page.
@@ -482,18 +500,18 @@ class Documentate_Pdf_Document extends FPDF {
 	 * counter-clockwise about its own origin.
 	 */
 	private function draw_address_band() {
-		$this->SetFont( $this->options['font'], '', self::ADDRESS_FONT_SIZE );
+		$this->SetFont( self::ADDRESS_FONT, '', self::ADDRESS_FONT_SIZE );
 		$baseline = 0.3 * $this->FontSize;
 
-		$this->rotated_text( self::BAND_BASELINE_X - $baseline, $this->h, 90, self::ADDRESS_TENERIFE, $this->h, 'C' );
-		$this->rotated_text( self::BAND_BASELINE_X + self::BAND_LINE_GAP - $baseline, $this->h, 90, self::ADDRESS_LASPALMAS, $this->h, 'C' );
+		$this->rotated_text( self::BAND_BASELINE_X - $baseline, self::BAND_LENGTH, 90, self::ADDRESS_TENERIFE, self::BAND_LENGTH, 'C' );
+		$this->rotated_text( self::BAND_BASELINE_X + self::BAND_LINE_GAP - $baseline, self::BAND_LENGTH, 90, self::ADDRESS_LASPALMAS, self::BAND_LENGTH, 'C' );
 	}
 
 	/**
 	 * Draw both addresses as two plain lines under the letterhead.
 	 */
 	private function draw_header_addresses() {
-		$this->SetFont( $this->options['font'], '', self::ADDRESS_FONT_SIZE );
+		$this->SetFont( self::ADDRESS_FONT, '', self::ADDRESS_FONT_SIZE );
 		$this->SetXY( $this->lMargin, self::HEADER_ADDRESS_Y );
 		$this->Cell( 0, self::HEADER_ADDRESS_LINE, self::latin1( self::ADDRESS_TENERIFE ), 0, 2 );
 		$this->Cell( 0, self::HEADER_ADDRESS_LINE, self::latin1( self::ADDRESS_LASPALMAS ), 0, 2 );
@@ -511,7 +529,7 @@ class Documentate_Pdf_Document extends FPDF {
 			return;
 		}
 
-		$this->SetFont( $this->options['font'], '', self::ADDRESS_FONT_SIZE );
+		$this->SetFont( self::ADDRESS_FONT, '', self::ADDRESS_FONT_SIZE );
 
 		list( $left_x, $right_x ) = self::FOOTER_ADDRESS_COLUMNS;
 		$column                   = $right_x - $left_x;

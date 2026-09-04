@@ -118,7 +118,10 @@ is, so the blank lines between them are written as empty paragraphs, one per
 blank line the template leaves. A table states the width and the cell padding
 its template declares — `<table width="165mm" cellpadding="0.49">`, both in
 millimetres, a width also accepted as a percentage — and fills the column
-without them.
+without them. A cell states the rest of what its template gives it with
+`style`: `border: none` for a cell the template leaves open, `background`
+for its `fo:background-color`, and `font-weight` for a heading the template
+does not set in bold.
 
 Choose the layout in the document type's **PDF layout** field. A type with none
 falls back to `generic.html`, which lists every field with its label.

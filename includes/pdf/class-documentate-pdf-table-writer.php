@@ -378,6 +378,58 @@ class Documentate_Pdf_Table_Writer {
 	}
 
 	/**
+	 * How a cell asks to be painted: boxed, filled and bold.
+	 *
+	 * A `th` is boxed, filled with `HEADER_FILL` and bold. Any cell may
+	 * override that the way its template declares it: `border: none` for a
+	 * cell the template leaves open, `background` for the `fo:background-color`
+	 * it gives the cell, and `font-weight` for a heading its template does not
+	 * set in bold.
+	 *
+	 * @param DOMElement $el     Cell element.
+	 * @param bool       $header Whether the cell is a `th`.
+	 * @return array{boxed:bool,fill:array<int,int>|null,bold:bool}
+	 */
+	private function cell_paint( DOMElement $el, $header ) {
+		$paint = array(
+			'boxed' => true,
+			'fill'  => $header ? self::HEADER_FILL : null,
+			'bold'  => (bool) $header,
+		);
+
+		$style = $el->getAttribute( 'style' );
+
+		if ( preg_match( '/(?:^|;)\s*border\s*:\s*none/i', $style ) ) {
+			$paint['boxed'] = false;
+			$paint['fill']  = null;
+		}
+
+		if ( preg_match( '/(?:^|;)\s*background(?:-color)?\s*:\s*(#[0-9a-f]{6}|none)/i', $style, $match ) ) {
+			$paint['fill'] = '#' === $match[1][0] ? self::rgb( $match[1] ) : null;
+		}
+
+		if ( preg_match( '/(?:^|;)\s*font-weight\s*:\s*(normal|bold)/i', $style, $match ) ) {
+			$paint['bold'] = 'bold' === strtolower( $match[1] );
+		}
+
+		return $paint;
+	}
+
+	/**
+	 * A `#rrggbb` colour as red, green and blue.
+	 *
+	 * @param string $hex Six hexadecimal digits behind a hash.
+	 * @return array<int,int>
+	 */
+	private static function rgb( $hex ) {
+		return array(
+			hexdec( substr( $hex, 1, 2 ) ),
+			hexdec( substr( $hex, 3, 2 ) ),
+			hexdec( substr( $hex, 5, 2 ) ),
+		);
+	}
+
+	/**
 	 * Padding a table leaves between a cell border and its content, in mm.
 	 *
 	 * A table states the `fo:padding` of the template it reproduces with
@@ -482,14 +534,17 @@ class Documentate_Pdf_Table_Writer {
 			$width  = array_sum( array_slice( $widths, $column, $span ) );
 			$header = 'th' === strtolower( $cell->tagName );
 
+			$paint = $this->cell_paint( $cell, $header );
+
 			$cells[] = array(
 				'node'   => $cell,
 				'width'  => $width,
 				'inner'  => max( 0.0, $width - ( 2 * $padding ) ),
 				'pad'    => $padding,
-				'header' => $header,
+				'boxed'  => $paint['boxed'],
+				'fill'   => $paint['fill'],
 				// Only the face: a size here would be measured but not drawn.
-				'style'  => $header ? array( 'bold' => true ) : array(),
+				'style'  => $paint['bold'] ? array( 'bold' => true ) : array(),
 			);
 
 			$column += $span;
@@ -695,10 +750,10 @@ class Documentate_Pdf_Table_Writer {
 	 */
 	private function draw_boxes( array $cells, $x, $top, $height, $border ) {
 		foreach ( $cells as $cell ) {
-			$style = ( $border ? 'D' : '' ) . ( $cell['header'] ? 'F' : '' );
+			$style = ( $border && $cell['boxed'] ? 'D' : '' ) . ( null === $cell['fill'] ? '' : 'F' );
 
-			if ( $cell['header'] ) {
-				$this->pdf->SetFillColor( self::HEADER_FILL[0], self::HEADER_FILL[1], self::HEADER_FILL[2] );
+			if ( null !== $cell['fill'] ) {
+				$this->pdf->SetFillColor( $cell['fill'][0], $cell['fill'][1], $cell['fill'][2] );
 			}
 
 			if ( '' !== $style ) {

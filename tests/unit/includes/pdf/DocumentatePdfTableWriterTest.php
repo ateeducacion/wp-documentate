@@ -293,6 +293,46 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 		}
 	}
 
+	/**
+	 * A cell can drop its border, as the templates do around their totals.
+	 */
+	public function test_cell_can_ask_for_no_border() {
+		$boxed = $this->render( '<table><tr><td>a</td><td>b</td></tr></table>' );
+		$open  = $this->render( '<table><tr><td style="border:none">a</td><td>b</td></tr></table>' );
+
+		$this->assertSame( 2, substr_count( $boxed, ' re S' ) );
+		$this->assertSame( 1, substr_count( $open, ' re S' ), 'The open cell should draw no box.' );
+	}
+
+	/**
+	 * A cell can carry the `fo:background-color` its template gives it.
+	 */
+	public function test_cell_can_ask_for_a_background() {
+		$bytes = $this->render( '<table><tr><td style="background:#dee6ef">a</td><td>b</td></tr></table>' );
+
+		$this->assertStringContainsString( '0.871 0.902 0.937 rg', $bytes );
+		$this->assertSame( 1, substr_count( $bytes, ' re B' ), 'Only the cell that asked for it should be filled.' );
+
+		$plain = $this->render( '<table><tr><th style="background:none">a</th></tr></table>' );
+		$this->assertSame( 0, substr_count( $plain, ' re B' ), 'A head cell can drop its fill too.' );
+	}
+
+	/**
+	 * A head cell can drop the bold its template does not set.
+	 */
+	public function test_head_cell_can_ask_for_a_normal_weight() {
+		$bold   = $this->render( '<table><tr><th>CABECERA</th></tr></table>' );
+		$normal = $this->render( '<table><tr><th style="font-weight:normal">CABECERA</th></tr></table>' );
+
+		$this->assertNotSame( '', $this->font_of( $bold, 'CABECERA' ) );
+		$this->assertNotSame(
+			$this->font_of( $bold, 'CABECERA' ),
+			$this->font_of( $normal, 'CABECERA' ),
+			'The head cell should not be set in bold when it asks not to be.'
+		);
+		$this->assertStringContainsString( '0.871 0.902 0.937 rg', $normal, 'It should keep its fill.' );
+	}
+
 	public function test_colspan_widths_and_percent_widths() {
 		$by = $this->x_of( $this->render( '<table><tr><td width="25%">a</td><td width="25%">b</td><td width="50%">c</td></tr><tr><td colspan="2">ab</td><td>c2</td></tr></table>' ) );
 

@@ -64,7 +64,8 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	 * @return array<int,array{x:float,y:float}>
 	 */
 	private function rotation_origins( $bytes ) {
-		preg_match_all( '/q 0\.00 1\.00 -1\.00 0\.00 ([\d.]+) ([\d.]+) cm/', $bytes, $matches, PREG_SET_ORDER );
+		// The band's origin is just off the foot of the sheet, so its y is negative.
+		preg_match_all( '/q 0\.00 1\.00 -1\.00 0\.00 (-?[\d.]+) (-?[\d.]+) cm/', $bytes, $matches, PREG_SET_ORDER );
 
 		$origins = array();
 		foreach ( $matches as $match ) {
@@ -227,7 +228,7 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 
 		$this->assertCount( 1, $band );
 		$this->assertSame( 1, $band[0]['page'] );
-		$this->assertMatchesRegularExpression( '/q 0\.00 1\.00 -1\.00 0\.00 [\d.]+ [\d.]+ cm/', $bytes );
+		$this->assertMatchesRegularExpression( '/q 0\.00 1\.00 -1\.00 0\.00 -?[\d.]+ -?[\d.]+ cm/', $bytes );
 	}
 
 	/**
@@ -243,9 +244,55 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 		// turns into 0.79 mm to the right at 7.5 pt: 4.11 + 0.79 = 4.90 mm.
 		$this->assertEqualsWithDelta( 4.11, $origins[0]['x'], 0.05 );
 		$this->assertEqualsWithDelta( 7.13, $origins[1]['x'], 0.05 );
-		// Both cells start at the foot of the page and run upwards.
-		$this->assertEqualsWithDelta( 297.0, $origins[0]['y'], 0.05 );
-		$this->assertEqualsWithDelta( 297.0, $origins[1]['y'], 0.05 );
+		// Both cells run upwards from the foot of the frame the ODT declares,
+		// 298.48 mm long, which overhangs the sheet by 1.48 mm.
+		$this->assertEqualsWithDelta( 298.48, $origins[0]['y'], 0.05 );
+		$this->assertEqualsWithDelta( 298.48, $origins[1]['y'], 0.05 );
+	}
+
+	/**
+	 * The band centres on the frame, not on the sheet.
+	 *
+	 * The frame is a little longer than the page and starts at its top edge,
+	 * so the text centres 0.74 mm below the middle of the sheet, which is
+	 * where the ODT puts it.
+	 */
+	public function test_address_band_centres_on_the_frame_the_odt_declares() {
+		$pdf = $this->make( array( 'addresses' => 'band' ) );
+		$pdf->AddPage();
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+
+		$band = array_values( array_filter( $ops, static fn( $op ) => str_contains( $op['text'], 'Santa Cruz de Tenerife' ) ) );
+		$this->assertCount( 1, $band );
+
+		// The rotated cell is centred, so its text starts half the slack in.
+		$width = $pdf->GetStringWidth( Documentate_Pdf_Document::latin1( Documentate_Pdf_Document::ADDRESS_TENERIFE ) );
+		$start = ( Documentate_Pdf_Document::BAND_LENGTH - $width ) / 2;
+
+		$this->assertEqualsWithDelta( 149.24, Documentate_Pdf_Document::BAND_LENGTH / 2, 0.01 );
+		$this->assertGreaterThan( 0.0, $start );
+	}
+
+	/**
+	 * The addresses are set in a sans face, whichever face the body uses.
+	 *
+	 * Every template asks for a `swiss` family for its addresses — Univers,
+	 * Tahoma, Trebuchet MS — while the body of the same document is a serif.
+	 */
+	public function test_addresses_are_drawn_in_a_sans_face() {
+		foreach ( array( 'band', 'header', 'footer' ) as $variant ) {
+			$pdf = $this->make(
+				array(
+					'addresses' => $variant,
+					'font'      => 'times',
+				)
+			);
+			$pdf->AddPage();
+			$pdf->AddPage();
+			$bytes = $pdf->Output( 'S' );
+
+			$this->assertStringContainsString( 'Helvetica', $bytes, $variant . ': the addresses should be set in a sans face.' );
+		}
 	}
 
 	/**
