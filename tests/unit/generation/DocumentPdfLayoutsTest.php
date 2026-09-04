@@ -61,11 +61,6 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 		$this->assertIsString( $pdf, 'The rendered PDF should be readable.' );
 		$this->assertStringStartsWith( '%PDF', $pdf, 'The rendered file should be a PDF.' );
 
-		// TEMPORARY preview dump for the visual check.
-		$dir = DOCUMENTATE_PLUGIN_DIR . 'artifacts/pdf-preview/';
-		wp_mkdir_p( $dir );
-		file_put_contents( $dir . $layout . '.pdf', $pdf );
-
 		return $pdf;
 	}
 
