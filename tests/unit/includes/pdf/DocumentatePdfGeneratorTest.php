@@ -352,16 +352,17 @@ class DocumentatePdfGeneratorTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
-	 * A number, a decimal, a zero and a boolean all reach the page.
+	 * A document carrying one field of every troublesome type.
 	 *
-	 * These fields do not arrive as strings: normalize_number_value() hands
-	 * back an int or a float and normalize_boolean_value() an int. A row that
-	 * only accepted strings would print the label of an amount with nothing
-	 * under it, so the same document would show a figure in its ODT download
-	 * and a gap in its PDF, with nothing reporting it. Zero is here on its own
-	 * account: it is a legitimate amount and a falsy guard would swallow it.
+	 * The trailing text field is not decoration. The folio is drawn last on
+	 * every page, so without a row after `aprobado` the boolean's assertion
+	 * would read the bare page number "1" and pass with the values missing
+	 * altogether. `cierre` is a plain string, so it survives whatever the row
+	 * builder does to the others and keeps every typed field away from the end.
+	 *
+	 * @return int Post ID.
 	 */
-	public function test_a_number_a_zero_and_a_boolean_reach_the_page() {
+	private function document_with_typed_fields() {
 		$term_id = self::factory()->term->create( array( 'taxonomy' => 'documentate_doc_type' ) );
 
 		$storage = new Documentate\DocType\SchemaStorage();
@@ -394,26 +395,65 @@ class DocumentatePdfGeneratorTest extends Documentate_Generation_Test_Base {
 						'type'  => 'boolean',
 						'title' => 'Aprobado',
 					),
+					array(
+						'name'  => 'cierre',
+						'slug'  => 'cierre',
+						'type'  => 'text',
+						'title' => 'Cierre',
+					),
 				),
 			)
 		);
 
-		$post = $this->create_document_with_data(
+		return $this->create_document_with_data(
 			$term_id,
 			array(
 				'importe'  => '1234',
 				'decimal'  => '99,5',
 				'saldo'    => '0',
 				'aprobado' => 'si',
+				'cierre'   => 'Ultima fila',
 			)
 		);
+	}
 
-		$texts = Documentate_Pdf_Test_Helper::texts( $this->pdf_bytes( $post ) );
+	/**
+	 * A number, a decimal, a zero and a boolean all reach the page.
+	 *
+	 * These fields do not arrive as strings: normalize_number_value() hands
+	 * back an int or a float and normalize_boolean_value() an int. A row that
+	 * only accepted strings would print the label of an amount with nothing
+	 * under it, so the same document would show a figure in its ODT download
+	 * and a gap in its PDF, with nothing reporting it. Zero is here on its own
+	 * account: it is a legitimate amount and a falsy guard would swallow it.
+	 *
+	 * One field per test rather than four assertions in one, so each type
+	 * fails on its own account instead of hiding behind the first one to go.
+	 *
+	 * @dataProvider provide_typed_fields
+	 *
+	 * @param string $label Label the field is drawn under.
+	 * @param string $drawn Text that should follow that label.
+	 */
+	public function test_a_typed_field_reaches_the_page( $label, $drawn ) {
+		$texts = Documentate_Pdf_Test_Helper::texts( $this->pdf_bytes( $this->document_with_typed_fields() ) );
 
-		$this->assertSame( '1234', $this->text_after( $texts, 'Importe' ) );
-		$this->assertSame( '99.5', $this->text_after( $texts, 'Decimal' ) );
-		$this->assertSame( '0', $this->text_after( $texts, 'Saldo' ) );
-		$this->assertSame( '1', $this->text_after( $texts, 'Aprobado' ) );
+		$this->assertSame( $drawn, $this->text_after( $texts, $label ) );
+	}
+
+	/**
+	 * Each typed field of the document above, and the text it should draw.
+	 *
+	 * @return array<string, array{0: string, 1: string}>
+	 */
+	public function provide_typed_fields() {
+		return array(
+			'an integer'      => array( 'Importe', '1234' ),
+			'a decimal'       => array( 'Decimal', '99.5' ),
+			'a zero'          => array( 'Saldo', '0' ),
+			'a boolean'       => array( 'Aprobado', '1' ),
+			'the string after them' => array( 'Cierre', 'Ultima fila' ),
+		);
 	}
 
 	/**
@@ -463,18 +503,30 @@ class DocumentatePdfGeneratorTest extends Documentate_Generation_Test_Base {
 	 * The generic layout draws a row as its label and then its value, and the
 	 * empty half of a row draws nothing at all, so the two are consecutive.
 	 * Reading the value this way pins it to its own label rather than to
-	 * anything else on the page that happens to carry the same characters —
-	 * the folio, for one, prints "1" in the footer.
+	 * anything else on the page that happens to carry the same characters.
+	 *
+	 * It cannot tell body text from page furniture, and it must not be trusted
+	 * to. The folio is drawn last on every page, so a row that is the final one
+	 * of the document is followed by a bare page number that reads exactly like
+	 * a value — a document whose last field printed nothing would still return
+	 * "1" here. A caller therefore has to leave a row after the one it is
+	 * asserting on. The guard below only catches the blunter version of the
+	 * same mistake, a label with nothing after it at all.
 	 *
 	 * @param string[] $texts Texts in drawing order.
 	 * @param string   $label Text to look for.
-	 * @return string|null The next text, or null when the label was not drawn.
+	 * @return string The next text.
 	 */
 	private function text_after( array $texts, $label ) {
 		$at = array_search( $label, $texts, true );
 		$this->assertNotFalse( $at, 'The label "' . $label . '" should be drawn.' );
+		$this->assertArrayHasKey(
+			$at + 1,
+			$texts,
+			'Nothing follows "' . $label . '", so there is no value to read.'
+		);
 
-		return isset( $texts[ $at + 1 ] ) ? $texts[ $at + 1 ] : null;
+		return $texts[ $at + 1 ];
 	}
 
 	/**
