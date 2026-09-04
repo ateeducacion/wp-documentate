@@ -33,7 +33,7 @@ The core functionality involves taking structured data entered by users in WordP
   3. `Documentate_Pdf_Document` (an FPDF subclass) draws the institutional chrome: the letterhead on the first page, the addresses either rotated up the left margin or across the header, the crest on continuation pages, and the folio.
   4. `Documentate_Pdf_Html_Writer` walks the merged HTML and draws it between the margins, with `Documentate_Pdf_Text_Layout` deciding line breaks and `Documentate_Pdf_Table_Writer` drawing tables whose rows grow, repeat their header after a page break, and spill rather than run off the sheet.
   5. `Documentate_Pdf_Generator` joins those and writes the file atomically.
-- **Adding a layout:** put `templates/pdf/<slug>.html` beside the others, keep every field name identical to the ODT template of the same document type, and choose it in the document type's *PDF layout* field. `docs/removing-collabora.md` records what to delete when the converters are eventually retired.
+- **Adding a layout:** put `templates/pdf/<slug>.html` beside the others, keep every field name identical to the ODT template of the same document type, and choose it in the document type's *PDF layout* field. The renderer follows the templates' own metrics — single line spacing, no space between paragraphs, `#dee6ef` behind a heading cell — so a layout reproduces the template's blank lines as empty paragraphs and states a table's `style:width` and `fo:padding` with `width` and `cellpadding`, in millimetres. `docs/removing-collabora.md` records what to delete when the converters are eventually retired.
 
 ### 2.4. Document Conversion (alternative engines)
 

@@ -159,6 +159,16 @@ A task is **not complete** if any of the following remain:
   markup — `file=` would then read any path off the server.
 - A repeated table row uses `block=tr`. `block=tbs:row` is an OpenTBS alias and
   is not registered for HTML layouts.
+- Paragraphs are set solid, matching the `Standard` style the templates use, so
+  a layout writes each blank line of its template as an empty paragraph. Read
+  the template's own spacing rather than guessing: `fo:margin-*` and
+  `fo:line-height` on the paragraph styles, `fo:padding` and `style:width` on
+  the table styles, and a leading `<text:line-break/>` also reads as a blank
+  line.
+- A table declares the width and the cell padding of the template it
+  reproduces, in millimetres: `<table width="165mm" cellpadding="0.49">`. The
+  width is also accepted as a percentage. Without them a table fills its column
+  and takes the default padding.
 
 ### Translations
 

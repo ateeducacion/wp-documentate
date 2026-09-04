@@ -112,6 +112,14 @@ rather than escaped, and a repeated table row uses `block=tr`. Do not add
 `protect=no`: it would leave a user's own text live as engine markup, and
 TinyButStrong's `file=` parameter would then read any path off the server.
 
+A layout reproduces the spacing of its template rather than relying on the
+renderer. Paragraphs are set solid, as the `Standard` style of the templates
+is, so the blank lines between them are written as empty paragraphs, one per
+blank line the template leaves. A table states the width and the cell padding
+its template declares — `<table width="165mm" cellpadding="0.49">`, both in
+millimetres, a width also accepted as a percentage — and fills the column
+without them.
+
 Choose the layout in the document type's **PDF layout** field. A type with none
 falls back to `generic.html`, which lists every field with its label.
 
