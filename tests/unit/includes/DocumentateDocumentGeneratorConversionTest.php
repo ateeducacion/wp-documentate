@@ -3,7 +3,8 @@
  * Conversion-path tests for Documentate_Document_Generator.
  *
  * When a document type only ships one of the two OpenTBS templates, the
- * generator renders that one and converts it. Collabora is the conversion
+ * generator renders that one and converts it. PDF is the exception: it is
+ * drawn on the server and never converted at all. Collabora is the conversion
  * engine configured by default, so every test here intercepts the HTTP layer:
  * no request ever leaves the process.
  *
@@ -206,9 +207,10 @@ class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * PDF is produced from the ODT template when one is configured.
+	 * PDF is drawn on the server, so no conversion request is made even when a
+	 * conversion service is configured and an ODT template is right there.
 	 */
-	public function test_pdf_is_converted_from_the_odt_source() {
+	public function test_pdf_is_drawn_natively_instead_of_being_converted() {
 		$post_id = $this->create_document( $this->create_doc_type_with( 'minimal-scalar.odt' ) );
 		$this->stub_conversion();
 
@@ -216,14 +218,14 @@ class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 
 		$this->assertIsString( $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
 		$this->assertStringEndsWith( '.pdf', $result );
-		$this->assertSame( array( 'https://demo.us.collaboraonline.com/cool/convert-to/pdf' ), $this->requests );
+		$this->assertSame( array(), $this->requests, 'The native renderer must not call a conversion service.' );
 	}
 
 	/**
-	 * A document type with only a DOCX template still yields a PDF, sourced from
-	 * the DOCX because the ODT branch failed first.
+	 * A document type carrying only a DOCX template still yields a PDF: the
+	 * native renderer draws an HTML layout and never opens the office template.
 	 */
-	public function test_pdf_falls_back_to_the_docx_source() {
+	public function test_pdf_needs_no_odt_template() {
 		$post_id = $this->create_document( $this->create_doc_type_with( 'minimal-scalar.docx' ) );
 		$this->stub_conversion();
 
@@ -231,13 +233,28 @@ class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 
 		$this->assertIsString( $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
 		$this->assertStringEndsWith( '.pdf', $result );
-		// One request converts DOCX to ODT, the second converts the source to PDF.
-		$this->assertNotEmpty( $this->requests );
-		$this->assertStringEndsWith( '/cool/convert-to/pdf', end( $this->requests ) );
+		$this->assertSame( array(), $this->requests );
 	}
 
 	/**
-	 * A document without any template reports the missing configuration.
+	 * The browser-only engine leaves PDF alone: it is drawn on the server, so
+	 * it needs no conversion engine and reports no unavailability.
+	 */
+	public function test_pdf_needs_no_conversion_engine() {
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'wasm' ) );
+		$post_id = $this->create_document( $this->create_doc_type_with( 'minimal-scalar.odt' ) );
+		$this->stub_conversion();
+
+		$result = $this->track( Documentate_Document_Generator::generate_pdf( $post_id ) );
+
+		$this->assertIsString( $result, is_wp_error( $result ) ? $result->get_error_message() : '' );
+		$this->assertStringEndsWith( '.pdf', $result );
+		$this->assertSame( array(), $this->requests );
+	}
+
+	/**
+	 * A document without a type reports it: DOCX and ODT because no template
+	 * can be found for one, PDF because there is no schema to draw.
 	 *
 	 * @dataProvider provide_generator_methods
 	 *
@@ -264,7 +281,7 @@ class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 		return array(
 			'docx' => array( 'generate_docx', 'documentate_template_missing' ),
 			'odt' => array( 'generate_odt', 'documentate_template_missing' ),
-			'pdf' => array( 'generate_pdf', 'documentate_pdf_source_missing' ),
+			'pdf' => array( 'generate_pdf', 'documentate_pdf_no_type' ),
 		);
 	}
 
@@ -299,7 +316,6 @@ class DocumentateDocumentGeneratorConversionTest extends Documentate_Test_Base {
 		return array(
 			'odt template, docx requested' => array( 'minimal-scalar.odt', 'generate_docx' ),
 			'docx template, odt requested' => array( 'minimal-scalar.docx', 'generate_odt' ),
-			'odt template, pdf requested' => array( 'minimal-scalar.odt', 'generate_pdf' ),
 		);
 	}
 

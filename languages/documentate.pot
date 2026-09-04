@@ -913,6 +913,12 @@ msgstr ""
 msgid "The PDF layout could not be merged."
 msgstr ""
 
+msgid "The document has no document type."
+msgstr ""
+
+msgid "The generated PDF could not be saved."
+msgstr ""
+
 msgid "ZipArchive is not available for rich text formatting."
 msgstr ""
 

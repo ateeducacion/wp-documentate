@@ -2,8 +2,9 @@
 /**
  * Document generator for Documentate based on OpenTBS templates.
  *
- * Generates DOCX/ODT using preconfigured templates via OpenTBS. PDF is
- * currently handled via print preview from the admin UI.
+ * Generates DOCX/ODT using preconfigured templates via OpenTBS. PDF is drawn
+ * natively by Documentate_Pdf_Generator, out of an HTML layout rather than out
+ * of the office template.
  *
  * @package Documentate
  */
@@ -155,61 +156,18 @@ class Documentate_Document_Generator {
 	}
 
 	/**
-	 * Generate a PDF file using the configured conversion engine.
+	 * Generate a PDF file for a given Document post.
+	 *
+	 * The PDF is drawn on the server out of the HTML layout the document type
+	 * names, so it needs neither an office template nor a conversion service.
 	 *
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
 	public static function generate_pdf( $post_id ) {
-		try {
-			$source_path = '';
-			$source_format = '';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-generator.php';
 
-			$odt_result = self::generate_odt( $post_id );
-			if ( is_wp_error( $odt_result ) ) {
-				$docx_result = self::generate_docx( $post_id );
-				if ( is_wp_error( $docx_result ) ) {
-					return new WP_Error(
-						'documentate_pdf_source_missing',
-						__(
-							'Could not generate the base document because the document type does not have a DOCX or ODT template configured.',
-							'documentate',
-						),
-						array(
-							'odt' => $odt_result,
-							'docx' => $docx_result,
-						),
-					);
-				}
-				$source_path = $docx_result;
-				$source_format = 'docx';
-			} else {
-				$source_path = $odt_result;
-				$source_format = 'odt';
-			}
-
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-			if ( ! Documentate_Conversion_Manager::is_available() ) {
-				return new WP_Error(
-					'documentate_conversion_not_available',
-					Documentate_Conversion_Manager::get_unavailable_message(
-						$source_format,
-						'pdf',
-					)
-				);
-			}
-
-			$target = self::build_output_path( $post_id, 'pdf' );
-
-			$result = Documentate_Conversion_Manager::convert( $source_path, $target, 'pdf', $source_format );
-			if ( is_wp_error( $result ) ) {
-				return $result;
-			}
-
-			return $target;
-		} catch ( \Throwable $e ) {
-			return new WP_Error( 'documentate_pdf_error', $e->getMessage() );
-		}
+		return Documentate_Pdf_Generator::generate( $post_id );
 	}
 
 	/**
@@ -306,7 +264,7 @@ class Documentate_Document_Generator {
 	 * @param int $post_id Document post ID.
 	 * @return array
 	 */
-	private static function build_merge_fields( $post_id ) {
+	public static function build_merge_fields( $post_id ) {
 		self::reset_rich_field_values();
 
 		$opts = get_option( 'documentate_settings', array() );
@@ -340,6 +298,101 @@ class Documentate_Document_Generator {
 	}
 
 	/**
+	 * Build the rows the generic PDF layout prints, one per schema field.
+	 *
+	 * The generic layout is what a document type that names no layout of its
+	 * own falls back to, so it carries no field names: it prints the schema as
+	 * it finds it. Each row is a label and a value, and a value is either
+	 * plain text or the HTML a rich field keeps, never both. A repeater
+	 * becomes a table of its records.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return array<int,array{label:string,text:string,html:string}>
+	 */
+	public static function build_generic_rows( $post_id ) {
+		$type_id = self::get_document_type_id( $post_id );
+		if ( null === $type_id ) {
+			return array();
+		}
+
+		$schema = class_exists( 'Documentate_Documents' )
+			? Documentate_Documents::get_term_schema( $type_id )
+			: self::get_type_schema( $type_id );
+
+		$structured = self::load_structured_content( $post_id );
+		$rows = array();
+
+		foreach ( $schema as $def ) {
+			$slug = isset( $def['slug'] ) ? sanitize_key( $def['slug'] ) : '';
+
+			// The title heads the layout, so it is not one of the rows below it.
+			if ( '' === $slug || 'post_title' === $slug ) {
+				continue;
+			}
+
+			$type = isset( $def['type'] ) ? sanitize_key( $def['type'] ) : 'textarea';
+
+			$rows[] = ( 'array' === $type )
+				? self::generic_repeater_row( $def, $slug, $structured, $post_id )
+				: self::generic_scalar_row( $def, $slug, $type, $structured, $post_id );
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * The generic-layout row of a scalar field.
+	 *
+	 * @param array  $def        Schema field definition.
+	 * @param string $slug       Sanitized field slug.
+	 * @param string $type       Declared control type.
+	 * @param array  $structured Parsed structured content.
+	 * @param int    $post_id    Document post ID.
+	 * @return array{label:string,text:string,html:string}
+	 */
+	private static function generic_scalar_row( $def, $slug, $type, array $structured, $post_id ) {
+		$resolved = self::resolve_scalar_field_value( $def, $slug, $type, $structured, $post_id );
+
+		return Documentate_Pdf_Generic_Rows::scalar(
+			self::generic_row_label( $def, $slug ),
+			$resolved['value'],
+			self::is_rich_type( $resolved['type'] ) || $resolved['has_html'],
+		);
+	}
+
+	/**
+	 * The generic-layout row of a repeater, whose records make a table.
+	 *
+	 * @param array  $def        Schema field definition.
+	 * @param string $slug       Sanitized field slug.
+	 * @param array  $structured Parsed structured content.
+	 * @param int    $post_id    Document post ID.
+	 * @return array{label:string,text:string,html:string}
+	 */
+	private static function generic_repeater_row( $def, $slug, array $structured, $post_id ) {
+		$item_schema = isset( $def['item_schema'] ) && is_array( $def['item_schema'] ) ? $def['item_schema'] : array();
+
+		return Documentate_Pdf_Generic_Rows::repeater(
+			self::generic_row_label( $def, $slug ),
+			$item_schema,
+			self::get_array_field_items_for_merge( $structured, $slug, $post_id ),
+		);
+	}
+
+	/**
+	 * Label a generic-layout row is introduced by.
+	 *
+	 * @param array  $def  Schema field definition.
+	 * @param string $slug Sanitized field slug.
+	 * @return string
+	 */
+	private static function generic_row_label( $def, $slug ) {
+		$label = isset( $def['label'] ) && is_string( $def['label'] ) ? trim( $def['label'] ) : '';
+
+		return ( '' === $label ) ? $slug : $label;
+	}
+
+	/**
 	 * Parse the structured field values stored in the document content.
 	 *
 	 * @param int $post_id Document post ID.
@@ -365,7 +418,7 @@ class Documentate_Document_Generator {
 	 * @param int $post_id Document post ID.
 	 * @return int|null Term ID, or null when the document has no type.
 	 */
-	private static function get_document_type_id( $post_id ) {
+	public static function get_document_type_id( $post_id ) {
 		$types = wp_get_post_terms( $post_id, 'documentate_doc_type', array( 'fields' => 'ids' ) );
 		if ( is_wp_error( $types ) || empty( $types ) ) {
 			return null;
@@ -495,11 +548,40 @@ class Documentate_Document_Generator {
 	 * @return void
 	 */
 	private static function add_scalar_schema_field( array &$fields, $def, $slug, array $names, $type, array $structured, $post_id ) {
+		$resolved = self::resolve_scalar_field_value( $def, $slug, $type, $structured, $post_id );
+
+		self::assign_field_value( $fields, $names, $resolved['value'] );
+
+		// Register for rich text conversion if typed as rich/html.
+		// Also check if prepared value still contains HTML as a safety net.
+		if ( self::is_rich_type( $resolved['type'] ) || $resolved['has_html'] ) {
+			self::remember_rich_field_value( $resolved['value'] );
+		}
+
+		self::log_merge_field( $slug, $type, $resolved['type'], $resolved['raw'], $resolved['value'], $resolved['has_html'] );
+	}
+
+	/**
+	 * Resolve the value a scalar schema field is merged with.
+	 *
+	 * Both output paths read a field through here, so what an ODT prints and
+	 * what a PDF prints are the same string: same type promotion, same
+	 * sanitization, same case transformation.
+	 *
+	 * @param array  $def        Schema field definition.
+	 * @param string $slug       Sanitized field slug.
+	 * @param string $type       Declared control type.
+	 * @param array  $structured Parsed structured content.
+	 * @param int    $post_id    Document post ID.
+	 * @return array{raw:string,type:string,value:string,has_html:bool} Stored value,
+	 *         the type it was actually treated as, the value to merge, and whether
+	 *         that value still carries block HTML.
+	 */
+	private static function resolve_scalar_field_value( $def, $slug, $type, array $structured, $post_id ) {
 		$data_type = isset( $def['data_type'] ) ? sanitize_key( $def['data_type'] ) : 'text';
 		$value = self::get_structured_field_value( $structured, $slug, $post_id );
 
 		// Force rich type if value contains block HTML, BEFORE prepare strips tags.
-		$original_type = $type;
 		if ( ! self::is_rich_type( $type ) && Documents_Meta_Handler::value_contains_block_html( $value ) ) {
 			$type = 'rich';
 		}
@@ -513,15 +595,12 @@ class Documentate_Document_Generator {
 			$prepared = self::apply_case_transformation( $prepared, $field_case );
 		}
 
-		self::assign_field_value( $fields, $names, $prepared );
-
-		// Register for rich text conversion if typed as rich/html.
-		// Also check if prepared value still contains HTML as a safety net.
-		if ( self::is_rich_type( $type ) || $prepared_has_html ) {
-			self::remember_rich_field_value( $prepared );
-		}
-
-		self::log_merge_field( $slug, $original_type, $type, $value, $prepared, $prepared_has_html );
+		return array(
+			'raw' => $value,
+			'type' => $type,
+			'value' => $prepared,
+			'has_html' => $prepared_has_html,
+		);
 	}
 
 	/**
@@ -795,7 +874,7 @@ class Documentate_Document_Generator {
 	 * @param string $extension File extension (docx|odt|pdf).
 	 * @return string
 	 */
-	private static function build_output_path( $post_id, $extension ) {
+	public static function build_output_path( $post_id, $extension ) {
 		$extension = sanitize_key( $extension );
 		$dir = self::ensure_output_dir();
 		$filename = sanitize_title( get_the_title( $post_id ) ) . '-' . $post_id . '.' . $extension;
@@ -808,7 +887,7 @@ class Documentate_Document_Generator {
 	 *
 	 * @return string Absolute directory path.
 	 */
-	private static function ensure_output_dir() {
+	public static function ensure_output_dir() {
 		$upload_dir = wp_upload_dir();
 		$dir = trailingslashit( $upload_dir['basedir'] ) . 'documentate';
 		if ( ! is_dir( $dir ) ) {
