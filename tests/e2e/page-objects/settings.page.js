@@ -43,6 +43,15 @@ class SettingsPage {
 	}
 
 	/**
+	 * Native FPDF radio option, the default engine.
+	 *
+	 * @return {import('@playwright/test').Locator} The radio input
+	 */
+	get fpdfOption() {
+		return this.page.locator( 'input[type="radio"][value="fpdf"]' );
+	}
+
+	/**
 	 * Collabora radio option.
 	 */
 	get collaboraOption() {

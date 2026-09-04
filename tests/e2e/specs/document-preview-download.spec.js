@@ -8,6 +8,15 @@ const { test, expect } = require( '../fixtures' );
 
 test.describe( 'Document Preview and Download', () => {
 	/**
+	 * Seeded demo document types, matched by the format of the office
+	 * template behind them. The editable download offers that format and no
+	 * other, so a test that cares about formats has to name its type instead
+	 * of taking whichever one happens to sort first.
+	 */
+	const ODT_TYPE = /\(ODT\)/;
+	const DOCX_TYPE = /\(DOCX\)/;
+
+	/**
 	 * Call the document generation AJAX endpoint directly from the page
 	 * context and return the download URL. Buttons use href="#" with
 	 * data-documentate-action attributes; the actual download URL is
@@ -52,16 +61,25 @@ test.describe( 'Document Preview and Download', () => {
 	}
 
 	/**
-	 * Helper to create a document with a type (needed for export/preview).
+	 * Create and publish a document of one of the seeded demo types.
+	 *
+	 * @param {Object} documentEditor - Document editor page object
+	 * @param {RegExp} typePattern    - Matches the name of the type to pick
+	 * @return {Promise<number|null>} Post ID of the published document
 	 */
-	async function createDocumentWithType( documentEditor ) {
+	async function createDocumentWithType( documentEditor, typePattern = ODT_TYPE ) {
 		await documentEditor.navigateToNew();
-		await documentEditor.fillTitle( 'Preview Download Test' );
+		await documentEditor.fillTitle( `Preview Download Test ${ Date.now() }` );
 
-		// Select a document type if available
-		if ( await documentEditor.hasDocTypes() ) {
-			await documentEditor.selectFirstDocType();
-		}
+		// Types are listed by name, so pick the one whose template format the
+		// test is about rather than the first entry in the dropdown.
+		const option = documentEditor.docTypeSelect
+			.locator( 'option' )
+			.filter( { hasText: typePattern } )
+			.first();
+		await documentEditor.docTypeSelect.selectOption(
+			await option.getAttribute( 'value' )
+		);
 
 		// Publish the document
 		await documentEditor.publish();
@@ -71,13 +89,19 @@ test.describe( 'Document Preview and Download', () => {
 
 	/**
 	 * Get the actions metabox buttons.
+	 *
+	 * Located by the label a user reads. The two editable-download buttons
+	 * are labelled with the bare format name.
+	 *
+	 * @param {import('@playwright/test').Page} page - Playwright page
+	 * @return {Object} Locators keyed by action
 	 */
 	function getActionButtons( page ) {
 		return {
-			preview: page.locator( '#documentate_actions a:has-text("Previsualizar")' ),
+			preview: page.locator( '#documentate_actions a:has-text("Vista previa")' ),
 			docx: page.locator( '#documentate_actions a:has-text("DOCX")' ),
 			odt: page.locator( '#documentate_actions a:has-text("ODT")' ),
-			pdf: page.locator( '#documentate_actions a:has-text("PDF")' ),
+			pdf: page.locator( '#documentate_actions a:has-text("Descargar PDF")' ),
 		};
 	}
 
@@ -92,18 +116,9 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available (no conversion engine)' );
-				return;
-			}
-
-			const isDisabled = await previewButton.evaluate( ( el ) =>
-				el.hasAttribute( 'disabled' ) || el.classList.contains( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'Preview button is disabled (conversion not configured)' );
-				return;
-			}
+			// The native renderer needs nothing configured, so preview is a live
+			// link and never the disabled <button> the metabox falls back to.
+			await expect( previewButton ).toBeVisible();
 
 			// Listen for new page/tab
 			const [ newPage ] = await Promise.all( [
@@ -136,29 +151,16 @@ test.describe( 'Document Preview and Download', () => {
 
 			const page = documentEditor.page;
 			const buttons = getActionButtons( page );
-			const previewButton = buttons.preview.first();
 
-			if ( ! await previewButton.isVisible() ) {
-				test.skip( 'Preview button not available' );
-				return;
-			}
-
-			const isDisabled = await previewButton.evaluate( ( el ) =>
-				el.hasAttribute( 'disabled' ) || el.classList.contains( 'disabled' )
-			);
-			if ( isDisabled ) {
-				test.skip( 'Preview button is disabled' );
-				return;
-			}
+			await expect( buttons.preview.first() ).toBeVisible();
 
 			// Buttons use AJAX (href="#"), so call the AJAX endpoint
 			// directly to get the real preview URL.
 			const previewUrl = await getDownloadUrlViaAjax( page, 'pdf', 'preview' );
 
-			if ( ! previewUrl ) {
-				test.skip( 'Preview generation failed via AJAX' );
-				return;
-			}
+			// The native engine draws the PDF in this process, so generation
+			// succeeds with no conversion service reachable.
+			expect( previewUrl ).toBeTruthy();
 
 			// Make a request and check headers
 			const response = await request.get( previewUrl );
@@ -176,41 +178,45 @@ test.describe( 'Document Preview and Download', () => {
 		} );
 	} );
 
-	test.describe( 'DOCX Download', () => {
-		test( 'DOCX button triggers file download', async ( {
+	test.describe( 'Editable Download', () => {
+		test( 'a type with an ODT template offers ODT and no DOCX', async ( {
 			documentEditor,
 		} ) => {
-			const postId = await createDocumentWithType( documentEditor );
+			const postId = await createDocumentWithType( documentEditor, ODT_TYPE );
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
-
-			// Pre-check: verify DOCX generation is available (requires conversion engine).
-			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
-			if ( ! downloadUrl ) {
-				test.skip( 'DOCX generation not available (no conversion engine)' );
-				return;
-			}
-
 			const buttons = getActionButtons( page );
-			const docxButton = buttons.docx.first();
 
-			// Start waiting for download before clicking
-			const downloadPromise = page.waitForEvent( 'download' );
-			await docxButton.click();
+			// The editable download hands over the rendered template itself, so
+			// the only format on offer is the one the type has a template in.
+			await expect( buttons.odt ).toHaveCount( 1 );
+			await expect( buttons.docx ).toHaveCount( 0 );
 
-			const download = await downloadPromise;
+			await expect(
+				page.locator( '#documentate_actions .documentate-actions-secondary__label' )
+			).toHaveText( 'Descarga editable:' );
+		} );
 
-			// Verify filename ends with .docx
-			const filename = download.suggestedFilename();
-			expect( filename ).toMatch( /\.docx$/i );
+		test( 'a type with a DOCX template offers DOCX and no ODT', async ( {
+			documentEditor,
+		} ) => {
+			const postId = await createDocumentWithType( documentEditor, DOCX_TYPE );
+			await documentEditor.navigateToEdit( postId );
+
+			const buttons = getActionButtons( documentEditor.page );
+
+			// Mirror of the rule above: nothing is converted between office
+			// formats in either direction, so a DOCX type never offers ODT.
+			await expect( buttons.docx ).toHaveCount( 1 );
+			await expect( buttons.odt ).toHaveCount( 0 );
 		} );
 
 		test( 'DOCX download returns correct Content-Type', async ( {
 			documentEditor,
 			request,
 		} ) => {
-			const postId = await createDocumentWithType( documentEditor );
+			const postId = await createDocumentWithType( documentEditor, DOCX_TYPE );
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
@@ -219,10 +225,7 @@ test.describe( 'Document Preview and Download', () => {
 			// directly to get the real download URL.
 			const downloadUrl = await getDownloadUrlViaAjax( page, 'docx' );
 
-			if ( ! downloadUrl ) {
-				test.skip( 'Document generation failed via AJAX' );
-				return;
-			}
+			expect( downloadUrl ).toBeTruthy();
 
 			const response = await request.get( downloadUrl );
 
@@ -240,17 +243,14 @@ test.describe( 'Document Preview and Download', () => {
 		test( 'ODT button triggers file download', async ( {
 			documentEditor,
 		} ) => {
-			const postId = await createDocumentWithType( documentEditor );
+			const postId = await createDocumentWithType( documentEditor, ODT_TYPE );
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
 
 			// Pre-check: verify ODT generation is available.
 			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
-			if ( ! downloadUrl ) {
-				test.skip( 'ODT generation not available' );
-				return;
-			}
+			expect( downloadUrl ).toBeTruthy();
 
 			const buttons = getActionButtons( page );
 			const odtButton = buttons.odt.first();
@@ -269,7 +269,7 @@ test.describe( 'Document Preview and Download', () => {
 			documentEditor,
 			request,
 		} ) => {
-			const postId = await createDocumentWithType( documentEditor );
+			const postId = await createDocumentWithType( documentEditor, ODT_TYPE );
 			await documentEditor.navigateToEdit( postId );
 
 			const page = documentEditor.page;
@@ -278,10 +278,7 @@ test.describe( 'Document Preview and Download', () => {
 			// directly to get the real download URL.
 			const downloadUrl = await getDownloadUrlViaAjax( page, 'odt' );
 
-			if ( ! downloadUrl ) {
-				test.skip( 'Document generation failed via AJAX' );
-				return;
-			}
+			expect( downloadUrl ).toBeTruthy();
 
 			const response = await request.get( downloadUrl );
 
@@ -304,12 +301,10 @@ test.describe( 'Document Preview and Download', () => {
 
 			const page = documentEditor.page;
 
-			// Pre-check: verify PDF generation is available (requires conversion engine).
+			// Pre-check: the native engine renders the PDF in this process, with
+			// no conversion service in the way.
 			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
-			if ( ! downloadUrl ) {
-				test.skip( 'PDF generation not available (no conversion engine)' );
-				return;
-			}
+			expect( downloadUrl ).toBeTruthy();
 
 			const buttons = getActionButtons( page );
 			const pdfButton = buttons.pdf.first();
@@ -337,10 +332,7 @@ test.describe( 'Document Preview and Download', () => {
 			// directly to get the real download URL.
 			const downloadUrl = await getDownloadUrlViaAjax( page, 'pdf' );
 
-			if ( ! downloadUrl ) {
-				test.skip( 'Document generation failed via AJAX' );
-				return;
-			}
+			expect( downloadUrl ).toBeTruthy();
 
 			const response = await request.get( downloadUrl );
 
@@ -374,32 +366,34 @@ test.describe( 'Document Preview and Download', () => {
 			const buttons = getActionButtons( documentEditor.page );
 			const previewButton = buttons.preview.first();
 
-			if ( await previewButton.isVisible() ) {
-				// New AJAX-based buttons have data attributes instead of direct URLs
-				const action = await previewButton.getAttribute( 'data-documentate-action' );
-				const format = await previewButton.getAttribute( 'data-documentate-format' );
-				expect( action ).toBe( 'preview' );
-				expect( format ).toBe( 'pdf' );
-			}
+			await expect( previewButton ).toBeVisible();
+
+			// New AJAX-based buttons have data attributes instead of direct URLs
+			const action = await previewButton.getAttribute( 'data-documentate-action' );
+			const format = await previewButton.getAttribute( 'data-documentate-format' );
+			expect( action ).toBe( 'preview' );
+			expect( format ).toBe( 'pdf' );
+			expect( await previewButton.getAttribute( 'href' ) ).toBe( '#' );
 		} );
 
-		test( 'disabled buttons show tooltip with reason', async ( {
+		test( 'a type with a template leaves no action disabled', async ( {
 			documentEditor,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			// Find any disabled button
-			const disabledButton = documentEditor.page.locator(
-				'#documentate_actions button[disabled]'
-			).first();
+			const page = documentEditor.page;
+			const buttons = getActionButtons( page );
 
-			if ( await disabledButton.isVisible() ) {
-				const title = await disabledButton.getAttribute( 'title' );
-				// Disabled buttons should have a title explaining why
-				expect( title ).toBeTruthy();
-				expect( title.length ).toBeGreaterThan( 0 );
-			}
+			// Preview and PDF render as links when they are available and as
+			// disabled <button> elements carrying a reason when they are not.
+			// The native engine is always available, so a type that has a
+			// template gets the links and nothing is left disabled.
+			await expect( buttons.preview ).toHaveCount( 1 );
+			await expect( buttons.pdf ).toHaveCount( 1 );
+			await expect(
+				page.locator( '#documentate_actions button[disabled]' )
+			).toHaveCount( 0 );
 		} );
 
 		test( 'clicking action button shows loading modal', async ( {
@@ -408,15 +402,12 @@ test.describe( 'Document Preview and Download', () => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			// Find any enabled action button
+			// Use a download action: preview would open a pop-up window.
 			const actionButton = documentEditor.page.locator(
-				'#documentate_actions a[data-documentate-action]'
+				'#documentate_actions a[data-documentate-action="download"]'
 			).first();
 
-			if ( ! await actionButton.isVisible() ) {
-				test.skip( 'No action buttons available' );
-				return;
-			}
+			await expect( actionButton ).toBeVisible();
 
 			// Click the button
 			await actionButton.click();
