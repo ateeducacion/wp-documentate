@@ -5,6 +5,8 @@
  * @package Documentate
  */
 
+defined( 'ABSPATH' ) || exit();
+
 // phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- TinyButStrong properties.
 
 /**

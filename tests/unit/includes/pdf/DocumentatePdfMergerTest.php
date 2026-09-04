@@ -516,6 +516,49 @@ class DocumentatePdfMergerTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A field value cannot smuggle a TinyButStrong parameter into the document.
+	 *
+	 * The engine's `file=` parameter reads any path with a plain `fopen()` and
+	 * splices the contents in. Rich fields are injected verbatim so their markup
+	 * survives, which is exactly what makes them a place to try it: a user with
+	 * no more than the area role types the marker into a text field. Protection
+	 * turns the opening bracket into an entity, so the marker is inert, and the
+	 * writer's DOM parse decodes it again, so a bracketed word still prints.
+	 */
+	public function test_a_field_value_cannot_read_a_file_off_the_server() {
+		$secret = wp_tempnam( 'documentate-probe' );
+		file_put_contents( $secret, 'TOP-SECRET-VALUE' );
+
+		$out = $this->merge(
+			'<div>[cuerpo;strconv=no]</div>',
+			array( 'cuerpo' => '<p>Nota [sic] y [onshow;file=' . $secret . '] al final.</p>' )
+		);
+
+		unlink( $secret );
+
+		$this->assertIsString( $out );
+		$this->assertStringNotContainsString( 'TOP-SECRET-VALUE', $out );
+		$this->assertStringContainsString( 'sic', $out );
+	}
+
+	/**
+	 * No shipped layout disables bracket protection.
+	 *
+	 * `strconv=no` is what a rich field needs; `protect=no` is what would make
+	 * the marker above live. They are one word apart, so the guard is a test
+	 * rather than a comment.
+	 */
+	public function test_no_shipped_layout_turns_protection_off() {
+		foreach ( glob( Documentate_Pdf_Layout::dir() . '*.html' ) as $layout ) {
+			$this->assertStringNotContainsString(
+				'protect=no',
+				file_get_contents( $layout ),
+				basename( $layout ) . ' must not disable bracket protection.'
+			);
+		}
+	}
+
+	/**
 	 * Run a callback with LC_TIME pinned to a known locale.
 	 *
 	 * Reading the ambient locale instead would let a merge that leaks its own
