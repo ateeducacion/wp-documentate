@@ -27,7 +27,10 @@ It uses OpenTBS to merge the document data into the template, and draws the PDF 
 
 ### Third-party libraries
 
-- FPDF by Olivier Plathey (http://www.fpdf.org/), MIT-style permissive license.
+The plugin bundles these, each under its own licence:
+
+- FPDF by Olivier Plathey (http://www.fpdf.org/), which draws the PDF. It declares the GD and zlib PHP extensions as requirements.
+- TinyButStrong and OpenTBS by Skrol29 (https://www.tinybutstrong.com/), which merge a document's fields into its template.
 
 == Installation ==
 

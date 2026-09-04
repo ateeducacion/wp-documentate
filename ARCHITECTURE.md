@@ -24,7 +24,18 @@ The core functionality involves taking structured data entered by users in WordP
   3. The `Documentate_OpenTBS` wrapper uses the `tbs_class` and `tbs_plugin_opentbs` libraries to merge WordPress post data (title, content, author, custom fields) into the `.odt` template placeholders.
   4. The result is a generated `.odt` file.
 
-### 2.3. Document Conversion
+### 2.3. PDF Rendering (native)
+
+- **Location:** `includes/pdf/`, layouts in `templates/pdf/`.
+- **Flow:**
+  1. `Documentate_Pdf_Layout::for_post()` resolves the layout the document type names in the `documentate_type_pdf_layout` term meta, falling back to `generic.html`. A layout is an HTML file whose `<head>` carries `<meta name="documentate-*">` values for the page furniture: `letterhead`, `addresses`, `folio`, `crest`, `margins`, `first-page-margins`, `font` and `font-size`.
+  2. `Documentate_Pdf_Merger` merges the document's fields into that HTML with TinyButStrong, using the same tags the ODT template uses. A rich-text field carries `strconv=no;protect=no` so its markup is injected verbatim; tags the schema does not answer are cleared before the merge, so a bracketed word a user typed is never mistaken for one.
+  3. `Documentate_Pdf_Document` (an FPDF subclass) draws the institutional chrome: the letterhead on the first page, the addresses either rotated up the left margin or across the header, the crest on continuation pages, and the folio.
+  4. `Documentate_Pdf_Html_Writer` walks the merged HTML and draws it between the margins, with `Documentate_Pdf_Text_Layout` deciding line breaks and `Documentate_Pdf_Table_Writer` drawing tables whose rows grow, repeat their header after a page break, and spill rather than run off the sheet.
+  5. `Documentate_Pdf_Generator` joins those and writes the file atomically.
+- **Adding a layout:** put `templates/pdf/<slug>.html` beside the others, keep every field name identical to the ODT template of the same document type, and choose it in the document type's *PDF layout* field. `docs/removing-collabora.md` records what to delete when the converters are eventually retired.
+
+### 2.4. Document Conversion (alternative engines)
 
 - **Location:** `includes/class-documentate-conversion-manager.php`, `includes/class-documentate-collabora-converter.php`, `includes/class-documentate-libreoffice-wasm-converter.php`.
 - **Flow:**
@@ -33,7 +44,7 @@ The core functionality involves taking structured data entered by users in WordP
      - **Collabora Online:** Makes a remote API call to a Collabora server to perform the conversion (server-side, recommended for background/batch generation).
      - **LibreOffice WASM (browser):** Runs `@matbee/libreoffice-converter` client-side. The conversion happens in a cross-origin isolated popup that loads plugin-local WASM assets (`admin/vendor/libreoffice-converter`). It is browser-only: there is no server-side path, and it requires COOP/COEP headers plus `SharedArrayBuffer`. See `admin/vendor/libreoffice-converter/README.md` for the large-asset handling.
 
-### 2.4. Access Control and Scopes
+### 2.5. Access Control and Scopes
 
 - **Location:** `includes/class-documentate-user-scope.php`, `includes/class-documentate-scope-filter.php`, `includes/class-documentate-document-access-protection.php`.
 - **Logic:**

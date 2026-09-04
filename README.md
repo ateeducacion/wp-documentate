@@ -100,6 +100,23 @@ Selectable under **Settings → Conversion Engine**:
 - **Collabora Online**: server-side web service that converts the rendered ODT/DOCX into a PDF.
 - **LibreOffice WASM** (experimental): runs entirely in the browser via [`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter). Large binaries are loaded from a CDN (configurable); requires cross-origin isolation headers (`COOP`/`COEP`). See [`admin/vendor/libreoffice-converter/README.md`](admin/vendor/libreoffice-converter/README.md).
 
+## Adding a PDF layout
+
+A layout is an HTML file in `templates/pdf/`. Its `<head>` states the page
+furniture with `<meta name="documentate-*">` values — `letterhead`, `addresses`,
+`folio`, `crest`, `margins`, `first-page-margins`, `font`, `font-size` — and its
+`<body>` is the document, written with the same TinyButStrong tags as the ODT
+template of that document type. Keep the field names identical, or the value
+never merges. A rich-text field needs `;strconv=no;protect=no` so its markup is
+drawn rather than escaped, and a repeated table row uses `block=tr`.
+
+Choose the layout in the document type's **PDF layout** field. A type with none
+falls back to `generic.html`, which lists every field with its label.
+
+[`docs/removing-collabora.md`](docs/removing-collabora.md) records what to delete
+once the native engine has been proven in production and the converters are
+retired.
+
 ## Access control
 
 - **Document Types (templates)**: only administrators can create/edit/delete them.

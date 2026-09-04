@@ -15,7 +15,8 @@ official resolutions and structured administrative documents. It uses:
 - Custom post type `documentate_document`
 - Custom taxonomy `documentate_doc_type` (template definitions)
 - OpenTBS for ODT/DOCX template merging
-- Collabora Online (server-side) / LibreOffice WASM in the browser
+- FPDF for native PDF rendering from an HTML layout (the default engine)
+- Collabora Online (server-side) / LibreOffice WASM in the browser, still selectable
   (`@matbee/libreoffice-converter`) for optional format conversion
 - PHPUnit for unit tests, Playwright for E2E tests
 - PHPCS with WordPress Coding Standards for PHP linting and formatting
@@ -146,6 +147,16 @@ A task is **not complete** if any of the following remain:
 - Use WordPress nonces for all forms and AJAX endpoints.
 - Check capabilities with `current_user_can()` before privileged operations.
 - Use `$wpdb->prepare()` — never interpolate variables into SQL.
+
+### PDF layouts
+
+- A layout lives in `templates/pdf/<slug>.html` and is chosen per document type.
+- Keep every field name identical to the ODT or DOCX template of that type; the
+  schema comes from the office template, so a differing name never merges.
+- A `type='html'` field carries `;strconv=no;protect=no`, or its markup arrives
+  escaped and prints as visible tags.
+- A repeated table row uses `block=tr`. `block=tbs:row` is an OpenTBS alias and
+  is not registered for HTML layouts.
 
 ### Translations
 
@@ -329,6 +340,7 @@ Read `ARCHITECTURE.md` for details on:
 
 - Data flow and CPT/taxonomy structure
 - OpenTBS document generation pipeline
+- Native PDF rendering (`includes/pdf/`, layouts in `templates/pdf/`)
 - Conversion engines (Collabora, LibreOffice WASM in the browser)
 - Access control and scope filtering
 
