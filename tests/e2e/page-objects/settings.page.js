@@ -43,9 +43,7 @@ class SettingsPage {
 	}
 
 	/**
-	 * Native FPDF radio option, the default engine.
-	 *
-	 * @return {import('@playwright/test').Locator} The radio input
+	 * Native PDF (FPDF) radio option, the engine a fresh site starts on.
 	 */
 	get fpdfOption() {
 		return this.page.locator( 'input[type="radio"][value="fpdf"]' );
@@ -207,6 +205,15 @@ class SettingsPage {
 	 */
 	async expectSaveSuccess( expect ) {
 		await expect( this.successNotice.first() ).toBeVisible();
+	}
+
+	/**
+	 * Assert the native PDF option is checked.
+	 *
+	 * @param {import('@playwright/test').expect} expect - Playwright expect
+	 */
+	async expectFpdfSelected( expect ) {
+		await expect( this.fpdfOption ).toBeChecked();
 	}
 
 	/**

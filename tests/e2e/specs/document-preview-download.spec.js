@@ -109,35 +109,49 @@ test.describe( 'Document Preview and Download', () => {
 		test( 'preview button opens PDF directly in browser', async ( {
 			documentEditor,
 			context,
+			request,
 		} ) => {
 			const postId = await createDocumentWithType( documentEditor );
 			await documentEditor.navigateToEdit( postId );
 
-			const buttons = getActionButtons( documentEditor.page );
+			const page = documentEditor.page;
+			const buttons = getActionButtons( page );
 			const previewButton = buttons.preview.first();
 
 			// The native renderer needs nothing configured, so preview is a live
 			// link and never the disabled <button> the metabox falls back to.
 			await expect( previewButton ).toBeVisible();
 
-			// Listen for new page/tab
+			// Headless Chromium has no PDF viewer, so the tab it opens for one
+			// never commits and reports an empty URL. Record the address the
+			// page hands to the browser instead.
+			await page.evaluate( () => {
+				window.documentateOpenedUrls = [];
+				const nativeOpen = window.open.bind( window );
+				window.open = ( url, ...rest ) => {
+					window.documentateOpenedUrls.push( url );
+					return nativeOpen( url, ...rest );
+				};
+			} );
+
+			// Awaiting the page event is the assertion that a tab really opened.
 			const [ newPage ] = await Promise.all( [
 				context.waitForEvent( 'page' ),
 				previewButton.click(),
 			] );
 
-			// Wait for the new page to load
-			await newPage.waitForLoadState( 'domcontentloaded' );
+			const openedUrl = await page.evaluate(
+				() => window.documentateOpenedUrls[ 0 ]
+			);
 
-			// The URL should include the preview action
-			const url = newPage.url();
-			const isPdfUrl = url.includes( 'action=documentate_preview' );
+			// The tab points straight at the streaming endpoint.
+			expect( openedUrl ).toContain( 'action=documentate_preview_stream' );
 
-			expect( isPdfUrl ).toBe( true );
-
-			// Verify there's no HTML wrapper (old iframe-based preview)
-			const hasIframe = await newPage.locator( 'iframe#documentate-pdf-frame' ).count();
-			expect( hasIframe ).toBe( 0 );
+			// And that endpoint answers with the PDF itself, not with an HTML
+			// page wrapping it in an iframe the way the old preview did.
+			const streamed = await request.get( openedUrl );
+			expect( streamed.status() ).toBe( 200 );
+			expect( streamed.headers()[ 'content-type' ] ).toContain( 'application/pdf' );
 
 			await newPage.close();
 		} );
