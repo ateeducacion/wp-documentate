@@ -8,7 +8,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-09-04T00:00:00+00:00\n"
+"PO-Revision-Date: 2026-09-04T02:07:40+00:00\n"
 "Language: es_ES\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Domain: documentate\n"
@@ -786,6 +786,9 @@ msgstr "Configura una plantilla DOCX en el tipo de documento seleccionado."
 
 msgid "Configure an ODT template in the selected document type."
 msgstr "Configura una plantilla ODT en el tipo de documento seleccionado."
+
+msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
+msgstr "No se pudo generar el documento base porque el tipo de documento no tiene configurada una plantilla DOCX u ODT."
 
 msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
 msgstr "La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La generación de PDF en el servidor o en segundo plano requiere Collabora Online u otro servicio del lado del servidor."

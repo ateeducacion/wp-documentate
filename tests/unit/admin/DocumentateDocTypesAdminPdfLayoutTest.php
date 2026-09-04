@@ -18,7 +18,21 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 	 * the default". A second layout, shipped for the length of the test, makes
 	 * the difference observable.
 	 */
-	const EXTRA_SLUG = 'zz-test-layout';
+	const EXTRA_SLUG_PREFIX = 'zz-test-layout-';
+
+	/**
+	 * Slug of this process's throwaway layout.
+	 *
+	 * The name carries the process id because `templates/pdf/` is a shipped
+	 * directory that `Documentate_Pdf_Layout::available()` globs, and two
+	 * concurrent runs sharing it would have one teardown delete the other's
+	 * file mid-test.
+	 *
+	 * @return string
+	 */
+	private function extra_slug() {
+		return self::EXTRA_SLUG_PREFIX . getmypid();
+	}
 
 	/**
 	 * Doc types admin instance.
@@ -66,7 +80,7 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 	 * @return string
 	 */
 	private function extra_layout_path() {
-		return Documentate_Pdf_Layout::dir() . self::EXTRA_SLUG . '.html';
+		return Documentate_Pdf_Layout::dir() . $this->extra_slug() . '.html';
 	}
 
 	/**
@@ -109,14 +123,14 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 	 */
 	public function test_edit_form_renders_the_layout_select_with_current_value() {
 		$term_id = $this->create_doc_type();
-		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, self::EXTRA_SLUG );
+		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, $this->extra_slug() );
 
 		$html = $this->render_edit_form( $term_id );
 
 		$this->assertStringContainsString( 'name="documentate_type_pdf_layout"', $html );
 		$this->assertStringContainsString( 'value="generic"', $html );
 		$this->assertMatchesRegularExpression(
-			'/<option value="' . self::EXTRA_SLUG . '"[^>]*selected/',
+			'/<option value="' . $this->extra_slug() . '"[^>]*selected/',
 			$html,
 			'The stored layout must be the selected option.'
 		);
@@ -138,7 +152,7 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 
 		$this->assertMatchesRegularExpression( '/<option value="generic"[^>]*selected/', $html );
 		$this->assertDoesNotMatchRegularExpression(
-			'/<option value="' . self::EXTRA_SLUG . '"[^>]*selected/',
+			'/<option value="' . $this->extra_slug() . '"[^>]*selected/',
 			$html
 		);
 	}
@@ -165,10 +179,10 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 		$html = (string) ob_get_clean();
 
 		$this->assertStringContainsString( 'name="documentate_type_pdf_layout"', $html );
-		$this->assertStringContainsString( 'value="' . self::EXTRA_SLUG . '"', $html );
+		$this->assertStringContainsString( 'value="' . $this->extra_slug() . '"', $html );
 		$this->assertMatchesRegularExpression( '/<option value="generic"[^>]*selected/', $html );
 		$this->assertDoesNotMatchRegularExpression(
-			'/<option value="' . self::EXTRA_SLUG . '"[^>]*selected/',
+			'/<option value="' . $this->extra_slug() . '"[^>]*selected/',
 			$html
 		);
 	}
@@ -198,9 +212,9 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 		$term_id = $this->create_doc_type();
 		$this->with_term_save_nonce( $term_id );
 
-		$_POST[ Documentate_Pdf_Layout::META_KEY ] = self::EXTRA_SLUG;
+		$_POST[ Documentate_Pdf_Layout::META_KEY ] = $this->extra_slug();
 		$this->admin->save_term( $term_id );
-		$this->assertSame( self::EXTRA_SLUG, get_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, true ) );
+		$this->assertSame( $this->extra_slug(), get_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, true ) );
 
 		$_POST[ Documentate_Pdf_Layout::META_KEY ] = '../x';
 		$this->admin->save_term( $term_id );
@@ -253,10 +267,10 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 		$term_id = $this->create_doc_type();
 		$this->with_term_save_nonce( $term_id );
 
-		$_POST[ Documentate_Pdf_Layout::META_KEY ] = strtoupper( self::EXTRA_SLUG );
+		$_POST[ Documentate_Pdf_Layout::META_KEY ] = strtoupper( $this->extra_slug() );
 		$this->admin->save_term( $term_id );
 
-		$this->assertSame( self::EXTRA_SLUG, get_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, true ) );
+		$this->assertSame( $this->extra_slug(), get_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, true ) );
 	}
 
 	/**
@@ -264,12 +278,12 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 	 */
 	public function test_edit_form_normalises_the_case_of_the_stored_layout() {
 		$term_id = $this->create_doc_type();
-		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, strtoupper( self::EXTRA_SLUG ) );
+		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, strtoupper( $this->extra_slug() ) );
 
 		$html = $this->render_edit_form( $term_id );
 
 		$this->assertMatchesRegularExpression(
-			'/<option value="' . self::EXTRA_SLUG . '"[^>]*selected/',
+			'/<option value="' . $this->extra_slug() . '"[^>]*selected/',
 			$html
 		);
 	}
@@ -279,7 +293,7 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 	 */
 	public function test_save_term_clears_the_layout_when_none_is_submitted() {
 		$term_id = $this->create_doc_type();
-		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, self::EXTRA_SLUG );
+		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, $this->extra_slug() );
 		$this->with_term_save_nonce( $term_id );
 
 		unset( $_POST[ Documentate_Pdf_Layout::META_KEY ] );
@@ -296,7 +310,7 @@ class DocumentateDocTypesAdminPdfLayoutTest extends Documentate_Test_Base {
 		update_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, 'generic' );
 
 		unset( $_POST['_wpnonce'] );
-		$_POST[ Documentate_Pdf_Layout::META_KEY ] = self::EXTRA_SLUG;
+		$_POST[ Documentate_Pdf_Layout::META_KEY ] = $this->extra_slug();
 		$this->admin->save_term( $term_id );
 
 		$this->assertSame( 'generic', get_term_meta( $term_id, Documentate_Pdf_Layout::META_KEY, true ) );

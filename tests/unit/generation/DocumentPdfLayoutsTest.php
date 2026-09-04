@@ -26,7 +26,7 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 	 * of the tag or a sub-field. Prose brackets — "[sic]", "[1]" — do not
 	 * match, so a document quoting them still passes.
 	 */
-	const UNMERGED_TAG = '/\[[a-z_]+[;\].]/';
+	const UNMERGED_TAG = '/\[[a-z0-9_]+[;\].]/';
 
 	/**
 	 * Render a document of the given type on the given layout.

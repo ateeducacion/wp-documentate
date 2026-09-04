@@ -3,7 +3,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Documentate – Document Generator 0.0.0\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wp-documentate\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/pdf-nativo-fpdf\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -784,6 +784,9 @@ msgid "Configure a DOCX template in the selected document type."
 msgstr ""
 
 msgid "Configure an ODT template in the selected document type."
+msgstr ""
+
+msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
 msgstr ""
 
 msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
