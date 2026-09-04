@@ -103,6 +103,17 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
+	 * Assert that the text the PDF draws matches a pattern.
+	 *
+	 * @param string $pdf     Raw PDF bytes.
+	 * @param string $pattern Regular expression the drawn text should match.
+	 * @param string $message Why it should.
+	 */
+	private function assertDrawnMatches( $pdf, $pattern, $message ) {
+		$this->assertMatchesRegularExpression( $pattern, $this->drawn_text( $pdf ), $message );
+	}
+
+	/**
 	 * Assert that the PDF does not draw a phrase.
 	 *
 	 * @param string $pdf        Raw PDF bytes.
@@ -290,6 +301,135 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 				),
 			),
 		);
+	}
+
+	/**
+	 * The certificate prints who certifies, the fixed HACE CONSTAR wording and
+	 * the list of what the person took part in.
+	 */
+	public function test_haceconstar_layout_prints_the_certification_and_its_list() {
+		$pdf = $this->render(
+			'haceconstar.odt',
+			'haceconstar',
+			'Certificado de participación',
+			array(
+				'firmante'        => 'Ivonne Piñero Montesdeoca',
+				'cargo'           => 'RESPONSABLE DEL SERVICIO DE ORDENACIÓN DE LAS ENSEÑANZAS Y EDUCACIÓN DE PERSONAS ADULTAS',
+				'tratamiento'     => 'Doña',
+				'nombre_completo' => 'Beatriz Oliver Taño',
+				'dni'             => '12345678A',
+				'participaciones' => '<ul><li>Comisión de evaluación del programa de innovación educativa.</li>'
+					. '<li>Tribunal de selección de materiales didácticos.</li></ul>',
+				'lugar_firma'     => 'Santa Cruz de Tenerife',
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'IVONNE PIÑERO MONTESDEOCA', 'The signer should be printed in upper case, as ope=utf8,upper asks.' );
+		$this->assertDrawn( $pdf, 'RESPONSABLE DEL SERVICIO DE ORDENACIÓN', 'The office of the signer should be merged.' );
+		$this->assertDrawn( $pdf, 'HACE CONSTAR que según los datos que obran', 'The fixed certification wording should be printed.' );
+		$this->assertDrawn( $pdf, 'Doña BEATRIZ OLIVER TAÑO', 'The courtesy title and the name should be merged, the name in upper case.' );
+		$this->assertDrawn( $pdf, 'con DNI n.º 12345678A', 'The identity number should be merged.' );
+		$this->assertDrawn( $pdf, 'Comisión de evaluación del programa', 'The rich list of participations should be merged.' );
+		$this->assertDrawn( $pdf, '•', 'The rich list should be drawn as a bulleted list.' );
+		$this->assertDrawn( $pdf, 'Y para que conste, firmo la presente.', 'The fixed closing should be printed.' );
+		$this->assertDrawn( $pdf, 'En Santa Cruz de Tenerife, a la fecha de la firma electrónica', 'The place of signature should be merged into the closing line.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
+	 * The meeting call prints its fixed letter, the indented where-and-when
+	 * block and the agenda.
+	 */
+	public function test_convocatoriareunion_layout_prints_the_call_and_its_agenda() {
+		$pdf = $this->render(
+			'convocatoriareunion.odt',
+			'convocatoriareunion',
+			'Convocatoria de reunión de coordinación',
+			array(
+				'motivo_reunion' => 'de coordinación de centros de referencia',
+				'area'           => 'Área de Tecnología Educativa',
+				'convocado'      => 'la persona responsable de las TIC',
+				'tipo_reunion'   => 'telemática',
+				'lugar'          => 'Videoconferencia (se enviará enlace por correo electrónico)',
+				'dia'            => '2025-03-15',
+				'horario'        => 'de 10:00 a 12:00 horas',
+				'orden_del_dia'  => '<ul><li>Bienvenida y presentación de los asistentes.</li>'
+					. '<li>Planificación de las jornadas de formación del profesorado.</li>'
+					. '<li>Ruegos y preguntas.</li></ul>',
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'Convocatoria de reunión de coordinación de centros de referencia', 'The heading should be the fixed wording followed by the reason.' );
+		$this->assertDrawn( $pdf, 'Estimado Director, estimada Directora', 'The fixed salutation should be printed.' );
+		$this->assertDrawn( $pdf, 'Desde el Área de Tecnología Educativa', 'The calling area should be merged.' );
+		$this->assertDrawn( $pdf, 'La Persona Responsable De Las Tic', 'The person called should be merged in title case, as ope=utf8,upperw asks.' );
+		$this->assertDrawn( $pdf, 'a la reunión telemática', 'The kind of meeting should be merged.' );
+		$this->assertDrawn( $pdf, 'Lugar: Videoconferencia', 'The place of the meeting should be merged.' );
+		$this->assertDrawn( $pdf, 'Horario: de 10:00 a 12:00 horas', 'The time of the meeting should be merged.' );
+		$this->assertDrawn( $pdf, 'Con el siguiente orden del día', 'The fixed lead-in of the agenda should be printed.' );
+		$this->assertDrawn( $pdf, 'Bienvenida y presentación de los asistentes', 'The rich agenda should be merged.' );
+		$this->assertDrawn( $pdf, 'Se ruega trasladar esta información', 'The fixed closing should be printed.' );
+		$this->assertDrawn( $pdf, 'EL RESPONSABLE DEL SERVICIO DE ORDENACIÓN', 'The signing office should close the letter.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
+	 * The travel authorisation prints its heading, the event table and one row
+	 * per traveller.
+	 */
+	public function test_autorizacionviaje_layout_prints_the_event_table_and_every_traveller() {
+		$pdf = $this->render(
+			'autorizacionviaje.odt',
+			'autorizacionviaje',
+			'Autorización de viaje a Madrid',
+			array(
+				'lugar'               => 'Madrid',
+				'fecha_evento_inicio' => '2025-03-10',
+				'fecha_evento_fin'    => '2025-03-12',
+				'invitante'           => 'Ministerio de Educación, Formación Profesional y Deportes',
+				'temas'               => '<p>Reunión de coordinación interterritorial sobre programas de innovación educativa.</p>',
+				'pagador'             => 'Consejería de Educación, Formación Profesional, Actividad Física y Deportes',
+			),
+			array(
+				'asistentes' => array(
+					array(
+						'apellido1' => 'García',
+						'apellido2' => 'Hernández',
+						'nombre'    => 'María del Carmen',
+					),
+					array(
+						'apellido1' => 'Rodríguez',
+						'apellido2' => 'Pérez',
+						'nombre'    => 'Juan Antonio',
+					),
+				),
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'AUTORIZACIÓN - VIAJE', 'The fixed heading should be printed.' );
+		$this->assertDrawn( $pdf, 'TÍTULO', 'The event table should carry its fixed labels.' );
+		$this->assertDrawn( $pdf, 'AUTORIZACIÓN DE VIAJE A MADRID', 'The event title should be printed in upper case in the table.' );
+		$this->assertDrawn( $pdf, 'MADRID', 'The place of the event should be printed in upper case in the table.' );
+		$this->assertDrawn( $pdf, 'Desde Ministerio de Educación', 'The inviting body should be merged.' );
+		// The month name comes from strftime under the LC_TIME locale, which a
+		// container without es_ES falls back to English for. The day and the
+		// year are what the frm parameters of the ODT are being checked for.
+		$this->assertDrawnMatches( $pdf, '/del 10 de \\w+ de 2025 al 12 de \\w+ de 2025\\./u', 'The dates should be spelled out as the frm parameters of the ODT ask.' );
+		$this->assertDrawn( $pdf, 'FECHA: Del 2025-03-10 al 2025-03-12', 'The table prints the raw dates, because the ODT gives those two tags no frm.' );
+		$this->assertDrawn( $pdf, 'Reunión de coordinación interterritorial', 'The rich list of topics should be merged.' );
+		$this->assertDrawn( $pdf, 'Apellido 1', 'The travellers table should carry its fixed headings.' );
+
+		foreach ( array( 'García', 'Rodríguez', 'Hernández', 'Pérez', 'María Del Carmen', 'Juan Antonio' ) as $part ) {
+			$this->assertDrawn( $pdf, $part, 'Every traveller should get a row of its own.' );
+		}
+		$this->assertSame( 2, $this->count_drawn( $pdf, array( 'García', 'Rodríguez' ) ), 'Two travellers should draw two rows.' );
+
+		$this->assertDrawn( $pdf, 'Los gastos de desplazamiento, alojamiento y dietas serán a cargo de Consejería', 'The paying body should be merged.' );
+		$this->assertDrawn( $pdf, 'CONFORME CON LO QUE SE PROPONE AUTORIZO', 'The fixed approval line should be printed.' );
+
+		$this->assertNothingUnmerged( $pdf );
 	}
 
 	/**
