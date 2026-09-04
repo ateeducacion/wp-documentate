@@ -1859,7 +1859,9 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	/**
 	 * Under the native engine the actions script must be told nothing about
 	 * browser conversion, not even the Playground fast path: the PDF is drawn
-	 * in PHP and there is nothing for the browser to convert.
+	 * in PHP and there is nothing for the browser to convert. It is told that it
+	 * is in Playground, because a preview cannot open in a new tab inside that
+	 * sandboxed iframe and has to go to the embedded viewer instead.
 	 */
 	public function test_add_conversion_mode_config_is_silent_under_the_native_engine() {
 		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
@@ -1893,7 +1895,34 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 
 		$this->assertArrayNotHasKey( 'collaboraPlayground', $native );
 		$this->assertArrayNotHasKey( 'cdnMode', $native );
-		$this->assertSame( array( 'test' => 'value' ), $native, 'The config must be handed back untouched.' );
+		$this->assertArrayNotHasKey( 'converterUrl', $native );
+		$this->assertArrayNotHasKey( 'collaboraUrl', $native );
+
+		// The one thing it does carry: where it is running.
+		$this->assertTrue( $native['inPlayground'] );
+		$this->assertSame( 'value', $native['test'], 'The caller\'s config must survive.' );
+	}
+
+	/**
+	 * Outside Playground the native engine says nothing at all.
+	 *
+	 * A preview opens in a new tab everywhere else, so the flag that diverts it
+	 * to the embedded viewer must not be set where the tab works.
+	 */
+	public function test_the_native_engine_sets_no_playground_flag_outside_playground() {
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+		update_option( 'documentate_settings', array( 'conversion_engine' => 'fpdf' ) );
+
+		$config = $method->invoke( $this->helper, array( 'test' => 'value' ) );
+
+		$this->assertSame( array( 'test' => 'value' ), $config, 'The config must be handed back untouched.' );
 	}
 
 	/**

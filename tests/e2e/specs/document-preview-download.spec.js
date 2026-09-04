@@ -423,24 +423,41 @@ test.describe( 'Document Preview and Download', () => {
 
 			await expect( actionButton ).toBeVisible();
 
-			// Click the button
+			// Watch for the modal before clicking. The native engine draws the PDF
+			// in milliseconds, so the modal opens and closes again faster than an
+			// assertion can catch it standing still; what the test is about is
+			// that it was shown at all.
+			await documentEditor.page.evaluate( () => {
+				window.__documentateModalShown = false;
+				const seen = () => {
+					const modal = document.querySelector( '#documentate-loading-modal' );
+					if ( modal && modal.classList.contains( 'is-visible' ) ) {
+						window.__documentateModalShown = true;
+					}
+				};
+				seen();
+				// The modal is created on demand, so watch the whole document:
+				// it may not exist yet when this runs.
+				new window.MutationObserver( seen ).observe( document.documentElement, {
+					subtree: true,
+					childList: true,
+					attributes: true,
+					attributeFilter: [ 'class' ],
+				} );
+			} );
+
 			await actionButton.click();
 
-			// Loading modal should appear
+			await documentEditor.page.waitForFunction(
+				() => true === window.__documentateModalShown,
+				null,
+				{ timeout: 10000 }
+			);
+
+			// And the modal carries the loading UI it is supposed to.
 			const modal = documentEditor.page.locator( '#documentate-loading-modal' );
-			await expect( modal ).toBeVisible( { timeout: 2000 } );
-
-			// Modal should render its loading UI, but spinner may be hidden if it
-			// transitions immediately into the documented error state.
-			const spinner = modal.locator( '.documentate-loading-modal__spinner' );
-			await expect( spinner ).toHaveCount( 1 );
-
-			if ( await modal.evaluate( ( element ) => element.classList.contains( 'is-error' ) ) ) {
-				await expect( spinner ).not.toBeVisible();
-				await expect( modal.locator( '.documentate-loading-modal__close' ) ).toBeVisible();
-			} else {
-				await expect( spinner ).toBeVisible();
-			}
+			await expect( modal.locator( '.documentate-loading-modal__spinner' ) ).toHaveCount( 1 );
+			await expect( modal.locator( '.documentate-loading-modal__title' ) ).toHaveCount( 1 );
 		} );
 	} );
 } );

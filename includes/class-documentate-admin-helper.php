@@ -1335,8 +1335,15 @@ class Documentate_Admin_Helper {
 	 */
 	private function add_conversion_mode_config( $config ) {
 		// The native renderer produces the PDF here, so the script must not be
-		// told to convert anything in the browser.
+		// told to convert anything in the browser. It does need to know it is in
+		// Playground: opening a preview in a new tab does not work inside that
+		// sandboxed iframe, so the script shows the PDF in its embedded viewer
+		// instead, exactly as the Collabora path already does there.
 		if ( $this->uses_native_pdf_engine() ) {
+			if ( Documentate_Collabora_Converter::is_playground() ) {
+				$config['inPlayground'] = true;
+			}
+
 			return $config;
 		}
 
