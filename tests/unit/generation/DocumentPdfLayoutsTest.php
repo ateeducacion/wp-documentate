@@ -125,6 +125,30 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
+	 * How far down page one the topmost line of text is drawn, in millimetres.
+	 *
+	 * PDF coordinates run up from the foot of the page, so the highest text
+	 * operation of page one becomes a distance from the top edge. It is a
+	 * baseline, so it sits a little below the top of the glyphs.
+	 *
+	 * @param string $pdf Raw PDF bytes.
+	 * @return float
+	 */
+	private function first_line_top( $pdf ) {
+		$page = array_filter(
+			Documentate_Pdf_Test_Helper::text_ops( $pdf ),
+			static function ( $op ) {
+				return 1 === $op['page'];
+			}
+		);
+		$this->assertNotEmpty( $page, 'Page one should draw some text.' );
+
+		$page_height = 297.0 * 72 / 25.4;
+
+		return ( $page_height - max( array_column( $page, 'y' ) ) ) * 25.4 / 72;
+	}
+
+	/**
 	 * Assert that no TinyButStrong tag reached the page.
 	 *
 	 * A tag that survives is printed verbatim into an official document, so
@@ -268,6 +292,50 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
+	 * The two sections the previous test leaves empty are printed when their
+	 * repeaters do have rows, and the one it filled is the one dropped here.
+	 *
+	 * Without this, deleting a whole section from the layout would satisfy the
+	 * "empty section is hidden" assertion of the previous test.
+	 */
+	public function test_propuestagasto_layout_shows_the_supplies_and_experts_sections_when_they_have_rows() {
+		$pdf = $this->render(
+			'propuestagasto.odt',
+			'propuestagasto',
+			'Equipamiento de aulas del futuro',
+			array(
+				'curso'        => '2025/2026',
+				'letra_decreto' => 'b',
+				'para'         => 'la dotación de equipamiento tecnológico',
+				'objeto'       => 'Dotación de equipamiento para las aulas del futuro.',
+				'gasto_letra'  => 'nueve mil euros',
+				'gasto_numero' => '9000',
+				'partida'      => '18.03.322B.640.2010 - PCT BE',
+			),
+			array(
+				'suministros' => array(
+					$this->supplier( 'TecnoEducación S.A.', 'A12345678', 'Tabletas educativas', 'Pizarras digitales' ),
+				),
+				'expertos'    => array(
+					$this->supplier( 'Ivonne Montesdeoca Morales', '43111222C', 'Diseño de la formación', 'Impartición de la formación' ),
+				),
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'SUMINISTROS a contratar', 'The supplies section should be shown, because its repeater has rows.' );
+		$this->assertDrawn( $pdf, 'PERSONAL experto a contratar', 'The experts section should be shown, because its repeater has rows.' );
+		$this->assertNotDrawn( $pdf, 'SERVICIOS a contratar', 'The services section should be dropped, because its repeater is empty.' );
+
+		$this->assertDrawn( $pdf, 'TecnoEducación S.A.', 'The supplies table should carry its supplier.' );
+		$this->assertDrawn( $pdf, 'Ivonne Montesdeoca Morales', 'The experts table should carry its expert.' );
+		$this->assertDrawn( $pdf, 'Tabletas educativas', 'A concept of the supplies repeater should get a row.' );
+		$this->assertDrawn( $pdf, 'Impartición de la formación', 'A concept of the experts repeater should get a row.' );
+		$this->assertDrawn( $pdf, '9.000,00 €', 'The total spend should be printed as an amount.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
 	 * The report prints its subject, its rich body and the signing office, on
 	 * the large letterhead.
 	 */
@@ -284,6 +352,12 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 				'firma_cargo' => 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS, INCLUSIÓN E INNOVACIÓN',
 			)
 		);
+
+		// The large letterhead is drawn from 35.3 mm to 50.0 mm down the page,
+		// and the first page keeps a top margin of its own to clear it.
+		$top = $this->first_line_top( $pdf );
+		$this->assertGreaterThan( 50.0, $top, 'The body of page one should start below the large letterhead.' );
+		$this->assertLessThan( 90.0, $top, 'The body of page one should not be pushed halfway down the sheet either.' );
 
 		$this->assertDrawn( $pdf, 'Asunto: Remisión de informe sobre adaptaciones curriculares', 'The subject line should carry its fixed label and the merged subject.' );
 		$this->assertDrawn( $pdf, 'En relación con el asunto indicado', 'The rich body should be merged as text, not as escaped markup.' );
@@ -313,6 +387,10 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 				'firma_cargo'        => 'EL RESPONSABLE DEL SERVICIO DE ORDENACIÓN DE LAS ENSEÑANZAS Y EDUCACIÓN DE PERSONAS ADULTAS',
 			)
 		);
+
+		$top = $this->first_line_top( $pdf );
+		$this->assertGreaterThan( 50.0, $top, 'The body of page one should start below the large letterhead.' );
+		$this->assertLessThan( 90.0, $top, 'The body of page one should not be pushed halfway down the sheet either.' );
 
 		$this->assertDrawn( $pdf, 'DESTINATARIO/A: D./D.ª Juan Rodríguez Martín', 'The addressee should carry its fixed label and the merged name.' );
 		$this->assertDrawn( $pdf, 'juan.rodriguez@example.es', 'The address of the addressee should be merged.' );
