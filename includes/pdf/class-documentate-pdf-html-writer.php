@@ -100,8 +100,13 @@ class Documentate_Pdf_Html_Writer {
 
 	/**
 	 * Space left after a paragraph, in mm.
+	 *
+	 * The `Standard` paragraph style of the ODT templates declares no
+	 * vertical margin, and the rich values merged into a document inherit
+	 * the style of the paragraph they land in. Both the layouts and the
+	 * templates separate paragraphs with an empty one instead.
 	 */
-	const PARA_SPACING = 2.0;
+	const PARA_SPACING = 0.0;
 
 	/**
 	 * Space left before a heading, in mm.

@@ -32,8 +32,11 @@ class Documentate_Pdf_Document extends FPDF {
 
 	/**
 	 * Line spacing as a multiple of the font size.
+	 *
+	 * Single spacing in the ODT templates, whose paragraphs inherit the
+	 * `Standard` style: 12.65 pt of advance for a body line of 11 pt.
 	 */
-	const LINE_HEIGHT_FACTOR = 1.25;
+	const LINE_HEIGHT_FACTOR = 1.15;
 
 	/**
 	 * Millimetres per PostScript point, for turning a font size into a length.

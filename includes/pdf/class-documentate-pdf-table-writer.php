@@ -38,13 +38,24 @@ class Documentate_Pdf_Table_Writer {
 
 	/**
 	 * Space between the border of a cell and its content, in mm.
+	 *
+	 * The `fo:padding` the ODT templates declare on their table cells. A
+	 * table whose template declares another one says so with `cellpadding`.
 	 */
-	const PADDING = 1.5;
+	const PADDING = 0.97;
+
+	/**
+	 * Largest cell padding a table may ask for, in mm.
+	 */
+	const MAX_PADDING = 10.0;
 
 	/**
 	 * Space left under a table, in mm.
+	 *
+	 * The ODT tables carry no vertical margin: an empty paragraph in the
+	 * layout separates a table from what follows it, as in the template.
 	 */
-	const SPACING = 2.0;
+	const SPACING = 0.0;
 
 	/**
 	 * Weight of a cell border, in mm.
@@ -52,9 +63,11 @@ class Documentate_Pdf_Table_Writer {
 	const BORDER_WIDTH = 0.2;
 
 	/**
-	 * Grey a header cell is filled with, on the 0-255 scale.
+	 * Colour a header cell is filled with, as red, green and blue.
+	 *
+	 * `#dee6ef`, the background the ODT templates give a heading cell.
 	 */
-	const HEADER_GREY = 230;
+	const HEADER_FILL = array( 222, 230, 239 );
 
 	/**
 	 * Head rows of a table.
@@ -134,11 +147,12 @@ class Documentate_Pdf_Table_Writer {
 			return;
 		}
 
-		$x      = (float) $x;
-		$width  = (float) $width;
-		$widths = $this->column_widths( $table, $rows, $width );
-		$header = $this->header_rows( $rows );
-		$border = '0' !== $table->getAttribute( 'border' );
+		$x       = (float) $x;
+		$width   = $this->table_width( $table, (float) $width );
+		$widths  = $this->column_widths( $table, $rows, $width );
+		$padding = $this->padding( $table );
+		$header  = $this->header_rows( $rows );
+		$border  = '0' !== $table->getAttribute( 'border' );
 
 		if ( $border ) {
 			$this->pdf->SetDrawColor( 0 );
@@ -148,12 +162,12 @@ class Documentate_Pdf_Table_Writer {
 		$this->caption( $table, $x, $width );
 
 		foreach ( $rows as $index => $row ) {
-			$cells  = $this->row_cells( $row, $widths );
+			$cells  = $this->row_cells( $row, $widths, $padding );
 			$height = $this->row_height( $cells );
 
 			if ( $this->needs_page( $height ) ) {
 				$this->pdf->AddPage();
-				$this->repeat_header( $rows, $header, $index, $widths, $x, $border );
+				$this->repeat_header( $rows, $header, $index, $widths, $x, $border, $padding );
 			}
 
 			$this->draw_row( $cells, $x, $height, $border );
@@ -180,12 +194,13 @@ class Documentate_Pdf_Table_Writer {
 			return 0.0;
 		}
 
-		$width  = (float) $width;
-		$widths = $this->column_widths( $table, $rows, $width );
-		$height = $this->caption_height( $table, $width );
+		$width   = $this->table_width( $table, (float) $width );
+		$widths  = $this->column_widths( $table, $rows, $width );
+		$padding = $this->padding( $table );
+		$height  = $this->caption_height( $table, $width );
 
 		foreach ( $rows as $row ) {
-			$height += $this->row_height( $this->row_cells( $row, $widths ) );
+			$height += $this->row_height( $this->row_cells( $row, $widths, $padding ) );
 		}
 
 		return $height + self::SPACING;
@@ -363,6 +378,59 @@ class Documentate_Pdf_Table_Writer {
 	}
 
 	/**
+	 * Padding a table leaves between a cell border and its content, in mm.
+	 *
+	 * A table states the `fo:padding` of the template it reproduces with
+	 * `cellpadding`, in millimetres. Without one it takes the default. A
+	 * padding beyond `MAX_PADDING` is a typo, and honouring it would leave
+	 * the cells too narrow to hold anything.
+	 *
+	 * @param DOMElement $table Table element.
+	 * @return float
+	 */
+	private function padding( DOMElement $table ) {
+		$declared = trim( $table->getAttribute( 'cellpadding' ) );
+
+		if ( ! is_numeric( rtrim( $declared, 'm' ) ) ) {
+			return self::PADDING;
+		}
+
+		$padding = (float) $declared;
+
+		return ( $padding >= 0.0 && $padding <= self::MAX_PADDING ) ? $padding : self::PADDING;
+	}
+
+	/**
+	 * Width a table takes of the column it sits in, in mm.
+	 *
+	 * A table may declare its own width, as the ODT templates do, either as
+	 * a percentage of the available width or as an absolute length in
+	 * millimetres. Anything wider than the column, and anything it does not
+	 * declare, fills the column.
+	 *
+	 * @param DOMElement $table     Table element.
+	 * @param float      $available Width of the column the table sits in, in mm.
+	 * @return float
+	 */
+	private function table_width( DOMElement $table, $available ) {
+		$declared = trim( $table->getAttribute( 'width' ) );
+
+		if ( preg_match( '/(?:^|;)\s*width\s*:\s*([\d.]+\s*(?:%|mm)?)/i', $table->getAttribute( 'style' ), $match ) ) {
+			$declared = preg_replace( '/\s+/', '', $match[1] );
+		}
+
+		if ( str_ends_with( $declared, '%' ) ) {
+			$width = (float) $declared * $available / 100;
+		} elseif ( str_ends_with( $declared, 'mm' ) ) {
+			$width = (float) $declared;
+		} else {
+			return $available;
+		}
+
+		return ( $width > 0 && $width < $available ) ? $width : $available;
+	}
+
+	/**
 	 * How many columns a cell or a column declaration covers.
 	 *
 	 * @param DOMElement $el Cell or `col` element.
@@ -400,11 +468,12 @@ class Documentate_Pdf_Table_Writer {
 	 * is boxed but not filled in, because a column of no width would cut its
 	 * text one character to a line.
 	 *
-	 * @param DOMElement       $row    Row to read.
-	 * @param array<int,float> $widths Width of each column, in mm.
+	 * @param DOMElement       $row     Row to read.
+	 * @param array<int,float> $widths  Width of each column, in mm.
+	 * @param float            $padding Padding of the table, in mm.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function row_cells( DOMElement $row, array $widths ) {
+	private function row_cells( DOMElement $row, array $widths, $padding ) {
 		$cells  = array();
 		$column = 0;
 
@@ -416,7 +485,8 @@ class Documentate_Pdf_Table_Writer {
 			$cells[] = array(
 				'node'   => $cell,
 				'width'  => $width,
-				'inner'  => max( 0.0, $width - ( 2 * self::PADDING ) ),
+				'inner'  => max( 0.0, $width - ( 2 * $padding ) ),
+				'pad'    => $padding,
 				'header' => $header,
 				// Only the face: a size here would be measured but not drawn.
 				'style'  => $header ? array( 'bold' => true ) : array(),
@@ -444,7 +514,10 @@ class Documentate_Pdf_Table_Writer {
 			}
 		}
 
-		return $height + ( 2 * self::PADDING );
+		// Every cell of a row carries the padding of its table.
+		$padding = empty( $cells ) ? self::PADDING : $cells[0]['pad'];
+
+		return $height + ( 2 * $padding );
 	}
 
 	/**
@@ -493,14 +566,15 @@ class Documentate_Pdf_Table_Writer {
 	 * @param array<int,DOMElement> $rows   Rows of the table.
 	 * @param array<int,int>        $header Indexes of the head rows.
 	 * @param int                   $index  Index of the row about to be drawn.
-	 * @param array<int,float>      $widths Width of each column, in mm.
-	 * @param float                 $x      Left edge of the column, in mm.
-	 * @param bool                  $border Whether the cells are boxed.
+	 * @param array<int,float>      $widths  Width of each column, in mm.
+	 * @param float                 $x       Left edge of the column, in mm.
+	 * @param bool                  $border  Whether the cells are boxed.
+	 * @param float                 $padding Padding of the table, in mm.
 	 */
-	private function repeat_header( array $rows, array $header, $index, array $widths, $x, $border ) {
+	private function repeat_header( array $rows, array $header, $index, array $widths, $x, $border, $padding ) {
 		foreach ( $header as $head ) {
 			if ( $head < $index ) {
-				$cells = $this->row_cells( $rows[ $head ], $widths );
+				$cells = $this->row_cells( $rows[ $head ], $widths, $padding );
 				$this->draw_row( $cells, $x, $this->row_height( $cells ), $border );
 			}
 		}
@@ -590,8 +664,8 @@ class Documentate_Pdf_Table_Writer {
 			if ( $cell['inner'] > 0.0 ) {
 				$page = $this->pdf->PageNo();
 
-				$this->pdf->SetXY( $x + self::PADDING, $top + self::PADDING );
-				$this->writer->write_block( $cell['node'], $x + self::PADDING, $cell['inner'], $cell['style'] );
+				$this->pdf->SetXY( $x + $cell['pad'], $top + $cell['pad'] );
+				$this->writer->write_block( $cell['node'], $x + $cell['pad'], $cell['inner'], $cell['style'] );
 
 				if ( $page !== $this->pdf->PageNo() ) {
 					$top    = $this->pdf->GetY();
@@ -624,7 +698,7 @@ class Documentate_Pdf_Table_Writer {
 			$style = ( $border ? 'D' : '' ) . ( $cell['header'] ? 'F' : '' );
 
 			if ( $cell['header'] ) {
-				$this->pdf->SetFillColor( self::HEADER_GREY );
+				$this->pdf->SetFillColor( self::HEADER_FILL[0], self::HEADER_FILL[1], self::HEADER_FILL[2] );
 			}
 
 			if ( '' !== $style ) {
@@ -648,8 +722,8 @@ class Documentate_Pdf_Table_Writer {
 	private function draw_contents( array $cells, $x, $top ) {
 		foreach ( $cells as $cell ) {
 			if ( $cell['inner'] > 0.0 ) {
-				$this->pdf->SetXY( $x + self::PADDING, $top + self::PADDING );
-				$this->writer->write_block( $cell['node'], $x + self::PADDING, $cell['inner'], $cell['style'] );
+				$this->pdf->SetXY( $x + $cell['pad'], $top + $cell['pad'] );
+				$this->writer->write_block( $cell['node'], $x + $cell['pad'], $cell['inner'], $cell['style'] );
 			}
 
 			$x += $cell['width'];

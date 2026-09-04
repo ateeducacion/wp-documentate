@@ -480,14 +480,17 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 
 	/**
 	 * The line height follows the current font size.
+	 *
+	 * A body line of 11 pt advances 12.65 pt, the single spacing the ODT
+	 * templates get from their `Standard` paragraph style.
 	 */
 	public function test_line_height_scales_with_the_font_size() {
 		$pdf = $this->make( array( 'font_size' => 11 ) );
 		$pdf->AddPage();
-		$this->assertEqualsWithDelta( 4.85, $pdf->line_height(), 0.01 );
+		$this->assertEqualsWithDelta( 12.65 * 0.3528, $pdf->line_height(), 0.01 );
 
 		$pdf->apply_style( array( 'size' => 22 ) );
-		$this->assertEqualsWithDelta( 9.70, $pdf->line_height(), 0.01 );
+		$this->assertEqualsWithDelta( 2 * 12.65 * 0.3528, $pdf->line_height(), 0.01 );
 	}
 
 	/**

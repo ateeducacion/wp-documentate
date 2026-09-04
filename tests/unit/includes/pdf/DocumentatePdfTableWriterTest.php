@@ -84,6 +84,18 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The y of every text operation, keyed by the text drawn.
+	 *
+	 * PDF y grows upwards, so a row drawn lower has the smaller value.
+	 *
+	 * @param string $pdf Raw PDF bytes.
+	 * @return array<string,float>
+	 */
+	private function y_of( $pdf ) {
+		return array_column( Documentate_Pdf_Test_Helper::text_ops( $pdf ), 'y', 'text' );
+	}
+
+	/**
 	 * The page every text operation was drawn on, keyed by the text drawn.
 	 *
 	 * @param string $pdf Raw PDF bytes.
@@ -221,6 +233,66 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 	 * the columns it spans, and the cell after it starts where the column it
 	 * opens does.
 	 */
+	/**
+	 * A table narrower than its column keeps the width it declares.
+	 *
+	 * The ODT templates size their tables in centimetres rather than filling
+	 * the text area, so a layout says so and the columns share that width.
+	 */
+	public function test_table_honours_its_own_declared_width() {
+		foreach ( array( '<table width="165mm">', '<table style="width: 165mm">' ) as $open ) {
+			$by = $this->x_of( $this->render( $open . '<tr><td>a</td><td>b</td></tr></table>' ) );
+
+			$this->assertEqualsWithDelta( 82.5 * self::POINTS_PER_MM, $by['b'] - $by['a'], 0.01 );
+		}
+
+		$half = $this->x_of( $this->render( '<table width="50%"><tr><td>a</td><td>b</td></tr></table>' ) );
+		$this->assertEqualsWithDelta( 42.5 * self::POINTS_PER_MM, $half['b'] - $half['a'], 0.01 );
+	}
+
+	/**
+	 * A width wider than the column, or none at all, fills the column.
+	 */
+	public function test_table_width_never_overflows_its_column() {
+		$full = $this->x_of( $this->render( '<table><tr><td>a</td><td>b</td></tr></table>' ) );
+
+		foreach ( array( '<table width="400mm">', '<table width="150%">', '<table width="auto">' ) as $open ) {
+			$by = $this->x_of( $this->render( $open . '<tr><td>a</td><td>b</td></tr></table>' ) );
+
+			$this->assertEqualsWithDelta( $full['b'] - $full['a'], $by['b'] - $by['a'], 0.01 );
+		}
+	}
+
+	/**
+	 * A table can state the cell padding of the template it reproduces.
+	 *
+	 * The ODT templates do not all use the same `fo:padding`, and the padding
+	 * decides both how tall a row is and how wide its content wraps.
+	 */
+	public function test_table_honours_its_own_cell_padding() {
+		$rows = '<tr><th>C</th></tr><tr><td>v</td></tr>';
+		$tall = $this->y_of( $this->render( '<table>' . $rows . '</table>' ) );
+		$tight = $this->y_of( $this->render( '<table cellpadding="0">' . $rows . '</table>' ) );
+
+		$this->assertEqualsWithDelta(
+			2 * Documentate_Pdf_Table_Writer::PADDING * self::POINTS_PER_MM,
+			( $tall['C'] - $tall['v'] ) - ( $tight['C'] - $tight['v'] ),
+			0.01,
+			'Dropping the padding should shorten the head row by the padding above and below it.'
+		);
+
+		foreach ( array( 'banana', '-1', '400' ) as $nonsense ) {
+			$default = $this->y_of( $this->render( '<table cellpadding="' . $nonsense . '">' . $rows . '</table>' ) );
+
+			$this->assertEqualsWithDelta(
+				$tall['C'] - $tall['v'],
+				$default['C'] - $default['v'],
+				0.01,
+				'A padding that is not a sane length should leave the default in place.'
+			);
+		}
+	}
+
 	public function test_colspan_widths_and_percent_widths() {
 		$by = $this->x_of( $this->render( '<table><tr><td width="25%">a</td><td width="25%">b</td><td width="50%">c</td></tr><tr><td colspan="2">ab</td><td>c2</td></tr></table>' ) );
 
@@ -313,13 +385,14 @@ class DocumentatePdfTableWriterTest extends WP_UnitTestCase {
 
 	/**
 	 * A header cell is drawn in a different font from a body cell, over a
-	 * grey fill. The fill marks the head even when the table has no borders.
+	 * blue-grey fill. The fill marks the head even when the table has no
+	 * borders.
 	 */
 	public function test_th_is_bold_with_fill() {
 		$bytes = $this->render( '<table><tr><th>CABECERA</th><td>cuerpo</td></tr></table>' );
 
 		$this->assertStringContainsString( 'Times-Bold', $bytes );
-		$this->assertStringContainsString( '0.902 g', $bytes );
+		$this->assertStringContainsString( '0.871 0.902 0.937 rg', $bytes ); // #dee6ef, as in the templates.
 		$this->assertSame( 1, substr_count( $bytes, ' re B' ) );
 
 		$this->assertNotSame( '', $this->font_of( $bytes, 'CABECERA' ) );
