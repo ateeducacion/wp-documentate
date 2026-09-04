@@ -107,8 +107,10 @@ furniture with `<meta name="documentate-*">` values — `letterhead`, `addresses
 `folio`, `crest`, `margins`, `first-page-margins`, `font`, `font-size` — and its
 `<body>` is the document, written with the same TinyButStrong tags as the ODT
 template of that document type. Keep the field names identical, or the value
-never merges. A rich-text field needs `;strconv=no;protect=no` so its markup is
-drawn rather than escaped, and a repeated table row uses `block=tr`.
+never merges. A rich-text field needs `;strconv=no` so its markup is drawn
+rather than escaped, and a repeated table row uses `block=tr`. Do not add
+`protect=no`: it would leave a user's own text live as engine markup, and
+TinyButStrong's `file=` parameter would then read any path off the server.
 
 Choose the layout in the document type's **PDF layout** field. A type with none
 falls back to `generic.html`, which lists every field with its label.

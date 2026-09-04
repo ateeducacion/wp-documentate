@@ -153,8 +153,10 @@ A task is **not complete** if any of the following remain:
 - A layout lives in `templates/pdf/<slug>.html` and is chosen per document type.
 - Keep every field name identical to the ODT or DOCX template of that type; the
   schema comes from the office template, so a differing name never merges.
-- A `type='html'` field carries `;strconv=no;protect=no`, or its markup arrives
-  escaped and prints as visible tags.
+- A `type='html'` field carries `;strconv=no`, or its markup arrives escaped and
+  prints as visible tags. Never add `protect=no`: it disables bracket protection,
+  which is the only thing stopping a user's field value from being read as engine
+  markup — `file=` would then read any path off the server.
 - A repeated table row uses `block=tr`. `block=tbs:row` is an OpenTBS alias and
   is not registered for HTML layouts.
 
