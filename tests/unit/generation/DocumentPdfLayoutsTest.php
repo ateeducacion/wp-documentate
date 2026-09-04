@@ -268,6 +268,185 @@ class DocumentPdfLayoutsTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
+	 * The report prints its subject, its rich body and the signing office, on
+	 * the large letterhead.
+	 */
+	public function test_modelo_informe_layout_prints_the_subject_and_the_rich_body() {
+		$pdf = $this->render(
+			'modelo_informe.odt',
+			'modelo_informe',
+			'Informe sobre adaptaciones curriculares',
+			array(
+				'asunto'      => 'Remisión de informe sobre adaptaciones curriculares en centros de educación secundaria obligatoria',
+				'respuesta'   => '<p>En relación con el asunto indicado, y tras el análisis realizado por esta Dirección General, se informa lo siguiente:</p>'
+					. '<p><strong>PRIMERO.</strong> De conformidad con lo establecido en el artículo 71 de la Ley Orgánica 2/2006, de 3 de mayo, de Educación.</p>'
+					. '<p>Es cuanto se informa a los efectos oportunos.</p>',
+				'firma_cargo' => 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS, INCLUSIÓN E INNOVACIÓN',
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'Asunto: Remisión de informe sobre adaptaciones curriculares', 'The subject line should carry its fixed label and the merged subject.' );
+		$this->assertDrawn( $pdf, 'En relación con el asunto indicado', 'The rich body should be merged as text, not as escaped markup.' );
+		$this->assertDrawn( $pdf, 'PRIMERO.', 'The numbered points of the rich body should be merged.' );
+		$this->assertDrawn( $pdf, 'Es cuanto se informa a los efectos oportunos.', 'The closing of the rich body should be merged.' );
+		$this->assertDrawn( $pdf, 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS', 'The signing office should be merged.' );
+		$this->assertNotDrawn( $pdf, '<p>', 'The rich field carries strconv=no, so its markup should be rendered, never printed.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
+	 * The reply to a written request prints the addressee, the registry number
+	 * and the answer.
+	 */
+	public function test_respuesta_escrito_layout_prints_the_addressee_and_the_answer() {
+		$pdf = $this->render(
+			'respuesta_escrito.odt',
+			'respuesta_escrito',
+			'Respuesta a solicitud de información',
+			array(
+				'destinatario'       => 'D./D.ª Juan Rodríguez Martín',
+				'destinatario_email' => 'juan.rodriguez@example.es',
+				'asunto'             => 'Remisión de informe solicitado con referencia de expediente 2025/00123',
+				'numero_solicitud'   => '2025/00123',
+				'respuesta'          => 'se hace constar que esta Dirección General no dispone de antecedentes, datos ni información en relación con el caso referido.',
+				'firma_cargo'        => 'EL RESPONSABLE DEL SERVICIO DE ORDENACIÓN DE LAS ENSEÑANZAS Y EDUCACIÓN DE PERSONAS ADULTAS',
+			)
+		);
+
+		$this->assertDrawn( $pdf, 'DESTINATARIO/A: D./D.ª Juan Rodríguez Martín', 'The addressee should carry its fixed label and the merged name.' );
+		$this->assertDrawn( $pdf, 'juan.rodriguez@example.es', 'The address of the addressee should be merged.' );
+		$this->assertDrawn( $pdf, 'Asunto: Remisión de informe solicitado', 'The subject line should be merged.' );
+		$this->assertDrawn( $pdf, 'En relación a su solicitud con número de registro de entrada 2025/00123', 'The registry number should be merged into the fixed lead-in.' );
+		$this->assertDrawn( $pdf, 'no dispone de antecedentes, datos ni información', 'The answer should be merged.' );
+		$this->assertDrawn( $pdf, 'EL RESPONSABLE DEL SERVICIO DE ORDENACIÓN', 'The signing office should be merged.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
+	 * The out-of-pocket expenses form prints its inline letterhead, the
+	 * declaration and one table row per invoice.
+	 */
+	public function test_gastossuplidos_layout_prints_the_inline_letterhead_and_every_invoice() {
+		$pdf = $this->render(
+			'gastossuplidos.odt',
+			'gastossuplidos',
+			'Solicitud de reembolso de gastos de viaje',
+			array(
+				'nombre_completo' => 'María del Carmen García Hernández',
+				'dni'             => '43123456A',
+				'iban'            => 'ES9121000418450200051332',
+			),
+			array(
+				'gastos' => array(
+					array(
+						'proveedor' => 'Iberia LAE S.A.',
+						'cif'       => 'A28017648',
+						'factura'   => 'IBE-2025-00123',
+						'fecha'     => '2025-03-10',
+						'importe'   => '245.80',
+					),
+					array(
+						'proveedor' => 'Hotel Meliá Castilla',
+						'cif'       => 'A28011069',
+						'factura'   => 'FAC-2025-4567',
+						'fecha'     => '2025-03-12',
+						'importe'   => '312.50',
+					),
+					array(
+						'proveedor' => 'Taxi Madrid S.L.',
+						'cif'       => 'B12345678',
+						'factura'   => 'T-2025-0089',
+						'fecha'     => '2025-03-10',
+						'importe'   => '35.00',
+					),
+				),
+			)
+		);
+
+		$this->assertNotEmpty(
+			Documentate_Pdf_Test_Helper::image_ops( $pdf ),
+			'The layout carries its letterhead in the body, so an image should be placed on the page.'
+		);
+		$this->assertDrawn( $pdf, 'GASTOS SUPLIDOS', 'The first fixed heading should be printed.' );
+		$this->assertDrawn( $pdf, 'DECLARACIÓN FORMAL RESPONSABLE', 'The second fixed heading should be printed.' );
+		$this->assertDrawn( $pdf, 'D./Dña.: María Del Carmen García Hernández', 'The declaring person should be merged in title case, as ope=utf8,upperw asks.' );
+		$this->assertDrawn( $pdf, 'con DNI : 43123456A', 'The identity number should be merged.' );
+		$this->assertDrawn( $pdf, 'e IBAN: ES9121000418450200051332', 'The bank account should be merged.' );
+		$this->assertDrawn( $pdf, 'relativas a los gastos generados por Solicitud de reembolso de gastos de viaje', 'The title of the document should be merged into the declaration.' );
+		$this->assertDrawn( $pdf, 'N.º DE FACTURA', 'The invoice table should carry its fixed headings.' );
+
+		foreach ( array( 'Iberia LAE S.A.', 'Hotel Meliá Castilla', 'Taxi Madrid S.L.' ) as $supplier ) {
+			$this->assertDrawn( $pdf, $supplier, 'Every invoice should get a row of its own.' );
+		}
+		$this->assertSame( 3, $this->count_drawn( $pdf, array( 'IBE-2025-00123', 'FAC-2025-4567', 'T-2025-0089' ) ), 'Three invoices should draw three rows.' );
+		$this->assertDrawn( $pdf, '245.80 €', 'An amount should reach the page as it was typed, followed by the euro sign the ODT prints after the tag.' );
+		$this->assertDrawn( $pdf, 'Fdo.:', 'The signature line should close the form.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
+	 * The payment memorandum prints its inline letterhead, the heading built
+	 * from two fields and one table row per invoice.
+	 */
+	public function test_memoria_pago_cep_layout_prints_the_heading_and_every_invoice() {
+		$pdf = $this->render(
+			'memoria_pago_cep.odt',
+			'memoria_pago_cep',
+			'Memoria justificativa de pago de jornadas formativas',
+			array(
+				'cep'              => 'CEP de Santa Cruz de Tenerife',
+				'concepto'         => 'de varias facturas para sufragar los gastos de las jornadas de innovación pedagógica 2025',
+				'parrafo_jornadas' => 'Las jornadas de innovación pedagógica tienen como objetivo la formación del profesorado en metodologías activas de aprendizaje.',
+				'resolucion_num'   => '1539/2025',
+				'resolucion_fecha' => '15/02/2025',
+				'year'             => '2025',
+				'persona'          => 'COORDINADOR/A',
+			),
+			array(
+				'items' => array(
+					array(
+						'nombre'      => 'María García López',
+						'concepto'    => 'Material didáctico para talleres',
+						'num_factura' => 'FAC-2025-0112',
+						'importe'     => '245.80',
+					),
+					array(
+						'nombre'      => 'Suministros Educativos S.L.',
+						'concepto'    => 'Equipamiento audiovisual',
+						'num_factura' => 'SE-2025-0034',
+						'importe'     => '890.00',
+					),
+				),
+			)
+		);
+
+		$this->assertNotEmpty(
+			Documentate_Pdf_Test_Helper::image_ops( $pdf ),
+			'The layout carries its letterhead in the body, so an image should be placed on the page.'
+		);
+		$this->assertDrawn( $pdf, 'MEMORIA JUSTIFICATIVA DE LA DIRECCIÓN GENERAL', 'The fixed opening of the heading should be printed.' );
+		$this->assertDrawn( $pdf, 'PARA EL CEP DE SANTA CRUZ DE TENERIFE', 'The centre should be merged into the heading in upper case.' );
+		$this->assertDrawn( $pdf, 'DESTINADA A ORDENAR EL PAGO DE VARIAS FACTURAS', 'The purpose should be merged into the heading in upper case.' );
+		$this->assertDrawn( $pdf, 'Las jornadas de innovación pedagógica', 'The description of the activity should be merged.' );
+		$this->assertDrawn( $pdf, 'Según consta en la resolución nº 1539/2025 del 15/02/2025', 'The ruling that authorises the payment should be merged.' );
+		$this->assertDrawn( $pdf, 'durante el ejercicio 2025', 'The financial year should be merged.' );
+		$this->assertDrawn( $pdf, 'COORDINADOR/A', 'The first column heading is a field of its own, and should be merged.' );
+		$this->assertDrawn( $pdf, 'NºFACTURA', 'The invoice table should carry its fixed headings.' );
+
+		foreach ( array( 'María García López', 'Suministros Educativos S.L.' ) as $payee ) {
+			$this->assertDrawn( $pdf, $payee, 'Every invoice should get a row of its own.' );
+		}
+		$this->assertSame( 2, $this->count_drawn( $pdf, array( 'FAC-2025-0112', 'SE-2025-0034' ) ), 'Two invoices should draw two rows.' );
+		$this->assertDrawn( $pdf, '890.00 €', 'An amount should reach the page as it was typed, followed by the euro sign the ODT prints after the tag.' );
+		$this->assertDrawn( $pdf, 'EL DIRECTOR GENERAL DE ORDENACIÓN DE LAS ENSEÑANZAS', 'The signing office should close the memorandum.' );
+
+		$this->assertNothingUnmerged( $pdf );
+	}
+
+	/**
 	 * One supplier of the propuesta de gasto, with two concepts.
 	 *
 	 * @param string $name    Trading name of the supplier.
