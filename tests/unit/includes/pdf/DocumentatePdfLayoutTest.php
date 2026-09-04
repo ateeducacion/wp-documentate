@@ -139,6 +139,54 @@ class DocumentatePdfLayoutTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A layout whose first page is laid out differently states all four margins.
+	 */
+	public function test_first_page_margins_replace_all_four_margins() {
+		$path = $this->layout_file(
+			'<title>T</title>'
+			. '<meta name="documentate-margins" content="29 20 72 20">'
+			. '<meta name="documentate-first-page-margins" content="71 22.5 72 25">'
+		);
+
+		$options = Documentate_Pdf_Layout::for_file( $path )->options();
+
+		$this->assertSame( array( 71.0, 22.5, 72.0, 25.0 ), $options['first_page_margins'] );
+		$this->assertSame( array( 29.0, 20.0, 72.0, 20.0 ), $options['margins'] );
+	}
+
+	/**
+	 * The full first-page form wins over the bottom-only shorthand.
+	 */
+	public function test_first_page_margins_win_over_the_first_page_bottom_shorthand() {
+		$path = $this->layout_file(
+			'<title>T</title>'
+			. '<meta name="documentate-margins" content="25 20 25 20">'
+			. '<meta name="documentate-first-page-margins" content="71 20 60 20">'
+			. '<meta name="documentate-first-page-bottom" content="43">'
+		);
+
+		$options = Documentate_Pdf_Layout::for_file( $path )->options();
+
+		$this->assertSame( array( 71.0, 20.0, 60.0, 20.0 ), $options['first_page_margins'] );
+	}
+
+	/**
+	 * A malformed first-page margin list falls back to the bottom-only shorthand.
+	 */
+	public function test_malformed_first_page_margins_fall_back_to_the_shorthand() {
+		$path = $this->layout_file(
+			'<title>T</title>'
+			. '<meta name="documentate-margins" content="25 20 25 20">'
+			. '<meta name="documentate-first-page-margins" content="71 20 sesenta">'
+			. '<meta name="documentate-first-page-bottom" content="43">'
+		);
+
+		$options = Documentate_Pdf_Layout::for_file( $path )->options();
+
+		$this->assertSame( array( 25.0, 20.0, 43.0, 20.0 ), $options['first_page_margins'] );
+	}
+
+	/**
 	 * A file that cannot be read still yields a usable layout on the defaults.
 	 */
 	public function test_a_missing_file_yields_the_default_options() {

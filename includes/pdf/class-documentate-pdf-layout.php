@@ -382,23 +382,48 @@ class Documentate_Pdf_Layout {
 	 * @return array<int,float>
 	 */
 	private function margins( array $default ) {
-		$parts = preg_split( '/\s+/', $this->raw( 'margins' ), -1, PREG_SPLIT_NO_EMPTY );
+		$margins = $this->four_numbers( 'margins' );
+
+		return ( null === $margins ) ? $default : $margins;
+	}
+
+	/**
+	 * A meta holding four numbers separated by spaces.
+	 *
+	 * @param string $name Meta name without the prefix.
+	 * @return array<int,float>|null Null when the meta is missing or malformed.
+	 */
+	private function four_numbers( $name ) {
+		$parts = preg_split( '/\s+/', $this->raw( $name ), -1, PREG_SPLIT_NO_EMPTY );
 
 		if ( ! is_array( $parts ) || 4 !== count( $parts ) || 4 !== count( array_filter( $parts, 'is_numeric' ) ) ) {
-			return $default;
+			return null;
 		}
 
 		return array_map( 'floatval', $parts );
 	}
 
 	/**
-	 * The page margins of the first page, when the layout gives it a deeper
-	 * foot to leave room for a signature block or a footer letterhead.
+	 * The page margins of the first page, when it is not laid out like the rest.
+	 *
+	 * A first page carries the letterhead the others do without, and several
+	 * of the institutional templates give it a page setup of its own because
+	 * of that: a body starting below a tall logo, a deeper foot leaving room
+	 * for a signature block, or a different gutter altogether.
+	 *
+	 * `first-page-margins` states all four at once. `first-page-bottom` is the
+	 * shorthand for the common case of a deeper foot alone, and is read only
+	 * when the full form is absent.
 	 *
 	 * @param array<int,float> $margins Page margins the layout resolved to.
 	 * @return array<int,float>|null Null when the layout keeps the same margins throughout.
 	 */
 	private function first_page_margins( array $margins ) {
+		$first = $this->four_numbers( 'first-page-margins' );
+		if ( null !== $first ) {
+			return $first;
+		}
+
 		$bottom = $this->number( 'first-page-bottom', 0.0 );
 		if ( $bottom <= 0 ) {
 			return null;
