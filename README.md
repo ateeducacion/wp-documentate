@@ -8,7 +8,7 @@
 
 **Documentate** is a WordPress plugin for generating official resolutions and structured administrative documents from ODT/DOCX templates.
 
-It uses OpenTBS for template merging and supports conversion to PDF/DOCX via Collabora Online (server) or LibreOffice WASM (browser).
+It uses OpenTBS for template merging and draws the PDF natively on the server from an HTML layout, with Collabora Online (server) and LibreOffice WASM (browser) still selectable as alternative PDF engines.
 
 ## Demo
 
@@ -20,8 +20,9 @@ Try it in the browser with WordPress Playground (includes sample data; changes a
 
 - Document types (templates) defined as a custom taxonomy with schema-driven fields
 - Generation of ODT/DOCX from templates via OpenTBS
-- Optional conversion to PDF (and between office formats) with:
-  - **Collabora Online** (default, server-side)
+- PDF generation, from one of three engines:
+  - **Native PDF rendering** (default): drawn on the server from the HTML layout of the document type
+  - **Collabora Online** (server-side): converts the ODT/DOCX template
   - **LibreOffice WASM** in the browser (experimental, client-side)
 - Per-user scope filtering (hierarchical categories) for document visibility
 - Workflow, revisions, attachments, collaborative editing support
@@ -95,7 +96,8 @@ None of it reaches the release ZIP; `.gitattributes` marks it `export-ignore`.
 
 Selectable under **Settings → Conversion Engine**:
 
-- **Collabora Online** (recommended): server-side web service, reliable for batch/PDF generation.
+- **Native PDF rendering** (default): draws the PDF in PHP from the HTML layout the document type names. No external service, and no office template is opened.
+- **Collabora Online**: server-side web service that converts the rendered ODT/DOCX into a PDF.
 - **LibreOffice WASM** (experimental): runs entirely in the browser via [`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter). Large binaries are loaded from a CDN (configurable); requires cross-origin isolation headers (`COOP`/`COEP`). See [`admin/vendor/libreoffice-converter/README.md`](admin/vendor/libreoffice-converter/README.md).
 
 ## Access control

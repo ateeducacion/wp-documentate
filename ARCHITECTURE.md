@@ -6,7 +6,7 @@ This document provides a high-level overview of the **Documentate** WordPress pl
 
 **Documentate** is a WordPress plugin designed to generate official resolutions and structured documents. It uses a custom post type (`documentate_document`) to store document data, which is categorized by a custom taxonomy (`documentate_doc_type`).
 
-The core functionality involves taking structured data entered by users in WordPress, merging it into an `.odt` (OpenDocument Text) template using **OpenTBS**, and then optionally converting that document into `.docx` or `.pdf` formats using conversion engines: **Collabora Online** (server-side) or **LibreOffice WASM** in the browser (via [`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter)).
+The core functionality involves taking structured data entered by users in WordPress and merging it into an `.odt` or `.docx` template using **OpenTBS**. The PDF is drawn natively on the server from an HTML layout; a site may instead select **Collabora Online** (server-side) or **LibreOffice WASM** in the browser (via [`@matbee/libreoffice-converter`](https://www.npmjs.com/package/@matbee/libreoffice-converter)) to produce the PDF by converting the template.
 
 ## 2. Core Components
 
@@ -28,8 +28,8 @@ The core functionality involves taking structured data entered by users in WordP
 
 - **Location:** `includes/class-documentate-conversion-manager.php`, `includes/class-documentate-collabora-converter.php`, `includes/class-documentate-libreoffice-wasm-converter.php`.
 - **Flow:**
-  1. Once the `.odt` is generated, it often needs to be converted to `.pdf` (for preview) or `.docx`.
-  2. The `Documentate_Conversion_Manager` checks the plugin settings to determine the selected engine:
+  1. `Documentate_Conversion_Manager::get_engine()` names the engine, defaulting to `fpdf`. Under it, `generate_pdf()` draws the PDF natively and no converter is involved; the editable download is always the rendered template itself, never converted.
+  2. Under either of the other two, the rendered `.odt` or `.docx` is converted to `.pdf`:
      - **Collabora Online:** Makes a remote API call to a Collabora server to perform the conversion (server-side, recommended for background/batch generation).
      - **LibreOffice WASM (browser):** Runs `@matbee/libreoffice-converter` client-side. The conversion happens in a cross-origin isolated popup that loads plugin-local WASM assets (`admin/vendor/libreoffice-converter`). It is browser-only: there is no server-side path, and it requires COOP/COEP headers plus `SharedArrayBuffer`. See `admin/vendor/libreoffice-converter/README.md` for the large-asset handling.
 
