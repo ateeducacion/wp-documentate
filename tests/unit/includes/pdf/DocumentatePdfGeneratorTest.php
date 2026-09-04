@@ -352,6 +352,71 @@ class DocumentatePdfGeneratorTest extends Documentate_Generation_Test_Base {
 	}
 
 	/**
+	 * A number, a decimal, a zero and a boolean all reach the page.
+	 *
+	 * These fields do not arrive as strings: normalize_number_value() hands
+	 * back an int or a float and normalize_boolean_value() an int. A row that
+	 * only accepted strings would print the label of an amount with nothing
+	 * under it, so the same document would show a figure in its ODT download
+	 * and a gap in its PDF, with nothing reporting it. Zero is here on its own
+	 * account: it is a legitimate amount and a falsy guard would swallow it.
+	 */
+	public function test_a_number_a_zero_and_a_boolean_reach_the_page() {
+		$term_id = self::factory()->term->create( array( 'taxonomy' => 'documentate_doc_type' ) );
+
+		$storage = new Documentate\DocType\SchemaStorage();
+		$storage->save_schema(
+			$term_id,
+			array(
+				'version' => 2,
+				'fields'  => array(
+					array(
+						'name'  => 'importe',
+						'slug'  => 'importe',
+						'type'  => 'number',
+						'title' => 'Importe',
+					),
+					array(
+						'name'  => 'decimal',
+						'slug'  => 'decimal',
+						'type'  => 'number',
+						'title' => 'Decimal',
+					),
+					array(
+						'name'  => 'saldo',
+						'slug'  => 'saldo',
+						'type'  => 'number',
+						'title' => 'Saldo',
+					),
+					array(
+						'name'  => 'aprobado',
+						'slug'  => 'aprobado',
+						'type'  => 'boolean',
+						'title' => 'Aprobado',
+					),
+				),
+			)
+		);
+
+		$post = $this->create_document_with_data(
+			$term_id,
+			array(
+				'importe'  => '1234',
+				'decimal'  => '99,5',
+				'saldo'    => '0',
+				'aprobado' => 'si',
+			)
+		);
+
+		$texts = Documentate_Pdf_Test_Helper::texts( $this->pdf_bytes( $post ) );
+
+		$this->assertSame( '1234', $this->text_after( $texts, 'Importe' ) );
+		$this->assertSame( '99.5', $this->text_after( $texts, 'Decimal' ) );
+		$this->assertSame( '0', $this->text_after( $texts, 'Saldo' ) );
+		$this->assertSame( '1', $this->text_after( $texts, 'Aprobado' ) );
+	}
+
+	/**
 	 * Whatever goes wrong, the caller gets a WP_Error rather than a throwable.
 	 *
 	 * The export handlers and the AJAX endpoint write their answer into a
@@ -390,6 +455,26 @@ class DocumentatePdfGeneratorTest extends Documentate_Generation_Test_Base {
 		$this->assertWPError( $result );
 		$this->assertSame( 'documentate_pdf_no_type', $result->get_error_code() );
 		$this->assertFileDoesNotExist( Documentate_Document_Generator::build_output_path( $post, 'pdf' ) );
+	}
+
+	/**
+	 * The text drawn immediately after the given one.
+	 *
+	 * The generic layout draws a row as its label and then its value, and the
+	 * empty half of a row draws nothing at all, so the two are consecutive.
+	 * Reading the value this way pins it to its own label rather than to
+	 * anything else on the page that happens to carry the same characters —
+	 * the folio, for one, prints "1" in the footer.
+	 *
+	 * @param string[] $texts Texts in drawing order.
+	 * @param string   $label Text to look for.
+	 * @return string|null The next text, or null when the label was not drawn.
+	 */
+	private function text_after( array $texts, $label ) {
+		$at = array_search( $label, $texts, true );
+		$this->assertNotFalse( $at, 'The label "' . $label . '" should be drawn.' );
+
+		return isset( $texts[ $at + 1 ] ) ? $texts[ $at + 1 ] : null;
 	}
 
 	/**

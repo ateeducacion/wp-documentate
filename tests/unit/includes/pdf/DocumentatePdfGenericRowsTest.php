@@ -43,6 +43,42 @@ class DocumentatePdfGenericRowsTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A value that is not a string is still printed.
+	 *
+	 * A number field is normalised to an int or a float and a boolean field to
+	 * 1 or 0, so a row that kept only strings would silently drop them. Zero
+	 * is the one that a falsy guard would swallow, and zero is an amount.
+	 *
+	 * @dataProvider provide_non_string_values
+	 *
+	 * @param mixed  $value    Prepared field value.
+	 * @param string $expected Text the row should carry.
+	 */
+	public function test_a_value_that_is_not_a_string_is_still_printed( $value, $expected ) {
+		$row = Documentate_Pdf_Generic_Rows::scalar( 'Importe', $value, false );
+
+		$this->assertSame( $expected, $row['text'] );
+	}
+
+	/**
+	 * Values a normaliser hands back, and the text they should print as.
+	 *
+	 * @return array<string, array{0: mixed, 1: string}>
+	 */
+	public function provide_non_string_values() {
+		return array(
+			'integer'          => array( 1234, '1234' ),
+			'float'            => array( 99.5, '99.5' ),
+			'zero'             => array( 0, '0' ),
+			'boolean as one'   => array( 1, '1' ),
+			'boolean as zero'  => array( 0, '0' ),
+			'true'             => array( true, '1' ),
+			'nothing at all'   => array( null, '' ),
+			'an array of rows' => array( array( 'a' ), '' ),
+		);
+	}
+
+	/**
 	 * The header of a repeater table reads the labels of the item schema, in
 	 * the order the schema declares them.
 	 */

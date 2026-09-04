@@ -24,13 +24,20 @@ class Documentate_Pdf_Generic_Rows {
 	 * layout escapes the first and injects the second verbatim, so a rich
 	 * value put in the wrong one would print its own tags.
 	 *
+	 * A value does not have to arrive as a string. A number field is
+	 * normalised to an int or a float and a boolean field to 1 or 0, so every
+	 * scalar is cast rather than only strings being kept: dropping the others
+	 * would print the label of an amount with nothing under it, and the same
+	 * document would show a figure in its ODT and a gap in its PDF. Zero casts
+	 * to "0" and is printed, because zero is an amount like any other.
+	 *
 	 * @param string $label   Label the row is introduced by.
-	 * @param string $value   Prepared field value.
+	 * @param mixed  $value   Prepared field value: a string, a number or a boolean.
 	 * @param bool   $is_rich Whether the value is HTML that must be drawn as markup.
 	 * @return array{label:string,text:string,html:string}
 	 */
 	public static function scalar( $label, $value, $is_rich ) {
-		$value = is_string( $value ) ? $value : '';
+		$value = is_scalar( $value ) ? (string) $value : '';
 
 		return array(
 			'label' => (string) $label,
