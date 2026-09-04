@@ -1212,20 +1212,6 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox shows primary and secondary action rows.
-	 */
-	public function test_render_actions_metabox_action_rows() {
-		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
-
-		ob_start();
-		$this->helper->render_actions_metabox( $post );
-		$output = ob_get_clean();
-
-		$this->assertStringContainsString( 'documentate-actions-primary', $output );
-		$this->assertStringContainsString( 'documentate-actions-secondary', $output );
-	}
-
-	/**
 	 * Test build_action_attributes with special characters.
 	 */
 	public function test_build_action_attributes_special_chars() {
@@ -1871,16 +1857,59 @@ class DocumentateAdminHelperTest extends Documentate_Test_Base {
 	}
 
 	/**
-	 * Test render_actions_metabox shows secondary formats label.
+	 * Under the native engine the actions script must be told nothing about
+	 * browser conversion, not even the Playground fast path: the PDF is drawn
+	 * in PHP and there is nothing for the browser to convert.
 	 */
-	public function test_render_actions_metabox_shows_secondary_label() {
+	public function test_add_conversion_mode_config_is_silent_under_the_native_engine() {
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-conversion-manager.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-libreoffice-wasm-converter.php';
+		require_once plugin_dir_path( DOCUMENTATE_PLUGIN_FILE ) . 'includes/class-documentate-collabora-converter.php';
+
+		$reflection = new ReflectionClass( $this->helper );
+		$method = $reflection->getMethod( 'add_conversion_mode_config' );
+		$method->setAccessible( true );
+
+		$_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] = '1';
+
+		try {
+			update_option( 'documentate_settings', array(
+				'conversion_engine' => 'collabora',
+				'collabora_base_url' => 'https://collabora.example.org',
+			) );
+			$converter = $method->invoke( $this->helper, array() );
+
+			update_option( 'documentate_settings', array(
+				'conversion_engine' => 'fpdf',
+				'collabora_base_url' => 'https://collabora.example.org',
+			) );
+			$native = $method->invoke( $this->helper, array( 'test' => 'value' ) );
+		} finally {
+			unset( $_SERVER['HTTP_X_WORDPRESS_PLAYGROUND'] );
+		}
+
+		// A converter engine in Playground does take the Collabora fast path.
+		$this->assertArrayHasKey( 'collaboraPlayground', $converter );
+
+		$this->assertArrayNotHasKey( 'collaboraPlayground', $native );
+		$this->assertArrayNotHasKey( 'cdnMode', $native );
+		$this->assertSame( array( 'test' => 'value' ), $native, 'The config must be handed back untouched.' );
+	}
+
+	/**
+	 * Test render_actions_metabox leaves out the editable download block for a
+	 * document whose type has no template to hand over.
+	 */
+	public function test_render_actions_metabox_omits_the_editable_download_block() {
 		$post = $this->factory->post->create_and_get( array( 'post_type' => 'documentate_document' ) );
 
 		ob_start();
 		$this->helper->render_actions_metabox( $post );
 		$output = ob_get_clean();
 
-		$this->assertStringContainsString( 'Other download formats:', $output );
+		$this->assertStringContainsString( 'documentate-actions-primary', $output );
+		$this->assertStringNotContainsString( 'Editable download:', $output );
+		$this->assertStringNotContainsString( 'documentate-actions-secondary', $output );
 	}
 
 	/**

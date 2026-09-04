@@ -2,9 +2,10 @@
 /**
  * Document generator for Documentate based on OpenTBS templates.
  *
- * Generates DOCX/ODT using preconfigured templates via OpenTBS. PDF is drawn
- * natively by Documentate_Pdf_Generator, out of an HTML layout rather than out
- * of the office template.
+ * Generates DOCX/ODT using preconfigured templates via OpenTBS. PDF follows the
+ * engine the site selected: drawn natively by Documentate_Pdf_Generator out of
+ * an HTML layout, or converted from the office template by
+ * Documentate_Conversion_Manager.
  *
  * @package Documentate
  */
@@ -20,18 +21,17 @@ class Documentate_Document_Generator {
 	/**
 	 * Generate a DOCX file for a given Document post using a DOCX template.
 	 *
+	 * The editable download is offered in the format the document type has a
+	 * template for, and in no other: a type without a DOCX template reports
+	 * that instead of rendering the ODT one and converting it.
+	 *
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
 	public static function generate_docx( $post_id ) {
 		try {
 			$docx_template = self::get_template_path( $post_id, 'docx' );
-			if ( '' !== $docx_template ) {
-				return self::render_with_template( $post_id, $docx_template, 'docx' );
-			}
-
-			$odt_template = self::get_template_path( $post_id, 'odt' );
-			if ( '' === $odt_template ) {
+			if ( '' === $docx_template ) {
 				return new WP_Error(
 					'documentate_template_missing',
 					__(
@@ -41,29 +41,7 @@ class Documentate_Document_Generator {
 				);
 			}
 
-			$base_odt = self::render_with_template( $post_id, $odt_template, 'odt' );
-			if ( is_wp_error( $base_odt ) ) {
-				return $base_odt;
-			}
-
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-			if ( ! Documentate_Conversion_Manager::is_available() ) {
-				return new WP_Error(
-					'documentate_conversion_not_available',
-					Documentate_Conversion_Manager::get_unavailable_message(
-						'odt',
-						'docx',
-					)
-				);
-			}
-
-			$target = self::build_output_path( $post_id, 'docx' );
-			$result = Documentate_Conversion_Manager::convert( $base_odt, $target, 'docx', 'odt' );
-			if ( is_wp_error( $result ) ) {
-				return $result;
-			}
-
-			return $target;
+			return self::render_with_template( $post_id, $docx_template, 'docx' );
 		} catch ( \Throwable $e ) {
 			return new WP_Error( 'documentate_docx_error', $e->getMessage() );
 		}
@@ -72,18 +50,16 @@ class Documentate_Document_Generator {
 	/**
 	 * Generate an ODT file for a given Document post using an ODT template.
 	 *
+	 * The mirror image of generate_docx(): no ODT template means no ODT, not a
+	 * DOCX rendered and converted.
+	 *
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
 	public static function generate_odt( $post_id ) {
 		try {
 			$odt_template = self::get_template_path( $post_id, 'odt' );
-			if ( '' !== $odt_template ) {
-				return self::render_with_template( $post_id, $odt_template, 'odt' );
-			}
-
-			$docx_template = self::get_template_path( $post_id, 'docx' );
-			if ( '' === $docx_template ) {
+			if ( '' === $odt_template ) {
 				return new WP_Error(
 					'documentate_template_missing',
 					__(
@@ -93,29 +69,7 @@ class Documentate_Document_Generator {
 				);
 			}
 
-			$base_docx = self::render_with_template( $post_id, $docx_template, 'docx' );
-			if ( is_wp_error( $base_docx ) ) {
-				return $base_docx;
-			}
-
-			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
-			if ( ! Documentate_Conversion_Manager::is_available() ) {
-				return new WP_Error(
-					'documentate_conversion_not_available',
-					Documentate_Conversion_Manager::get_unavailable_message(
-						'docx',
-						'odt',
-					)
-				);
-			}
-
-			$target = self::build_output_path( $post_id, 'odt' );
-			$result = Documentate_Conversion_Manager::convert( $base_docx, $target, 'odt', 'docx' );
-			if ( is_wp_error( $result ) ) {
-				return $result;
-			}
-
-			return $target;
+			return self::render_with_template( $post_id, $odt_template, 'odt' );
 		} catch ( \Throwable $e ) {
 			return new WP_Error( 'documentate_odt_error', $e->getMessage() );
 		}
@@ -158,16 +112,104 @@ class Documentate_Document_Generator {
 	/**
 	 * Generate a PDF file for a given Document post.
 	 *
-	 * The PDF is drawn on the server out of the HTML layout the document type
-	 * names, so it needs neither an office template nor a conversion service.
+	 * Which route it takes is the site's choice. Under the native engine the
+	 * PDF is drawn here, out of the HTML layout the document type names, so it
+	 * needs neither an office template nor a conversion service. Under either
+	 * converter the old route stays: render the office template and hand the
+	 * result to Documentate_Conversion_Manager.
 	 *
 	 * @param int $post_id Document post ID.
 	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
 	 */
 	public static function generate_pdf( $post_id ) {
-		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-generator.php';
+		try {
+			require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-conversion-manager.php';
 
-		return Documentate_Pdf_Generator::generate( $post_id );
+			if ( Documentate_Conversion_Manager::ENGINE_FPDF === Documentate_Conversion_Manager::get_engine() ) {
+				require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-generator.php';
+
+				return Documentate_Pdf_Generator::generate( $post_id );
+			}
+
+			return self::convert_to_pdf( $post_id );
+		} catch ( \Throwable $e ) {
+			// The export handlers and the AJAX endpoint write their answer into
+			// a download or a JSON body, so nothing may escape as a fatal.
+			return new WP_Error( 'documentate_pdf_error', $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Produce the PDF by converting the rendered office document.
+	 *
+	 * The route a site keeps while it stays on Collabora Online or on the
+	 * in-browser LibreOffice WASM converter. Throwables are left to
+	 * generate_pdf(), which is the only caller.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return string|WP_Error Absolute path to generated file or WP_Error on failure.
+	 */
+	private static function convert_to_pdf( $post_id ) {
+		$source = self::render_pdf_source( $post_id );
+		if ( is_wp_error( $source ) ) {
+			return $source;
+		}
+
+		if ( ! Documentate_Conversion_Manager::is_available() ) {
+			return new WP_Error(
+				'documentate_conversion_not_available',
+				Documentate_Conversion_Manager::get_unavailable_message(
+					$source['format'],
+					'pdf',
+				)
+			);
+		}
+
+		$target = self::build_output_path( $post_id, 'pdf' );
+
+		$result = Documentate_Conversion_Manager::convert( $source['path'], $target, 'pdf', $source['format'] );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return $target;
+	}
+
+	/**
+	 * Render the office document a conversion to PDF starts from.
+	 *
+	 * @param int $post_id Document post ID.
+	 * @return array{path:string,format:string}|WP_Error The rendered source, or
+	 *                                                   why none could be made.
+	 */
+	private static function render_pdf_source( $post_id ) {
+		$odt_result = self::generate_odt( $post_id );
+		if ( ! is_wp_error( $odt_result ) ) {
+			return array(
+				'path' => $odt_result,
+				'format' => 'odt',
+			);
+		}
+
+		$docx_result = self::generate_docx( $post_id );
+		if ( ! is_wp_error( $docx_result ) ) {
+			return array(
+				'path' => $docx_result,
+				'format' => 'docx',
+			);
+		}
+
+		return new WP_Error(
+			'documentate_pdf_source_missing',
+			__(
+				'Could not generate the base document because the document type does not have a DOCX or ODT template configured.',
+				'documentate',
+			),
+			array(
+				'odt' => $odt_result,
+				'docx' => $docx_result,
+			),
+		);
 	}
 
 	/**

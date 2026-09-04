@@ -1,14 +1,15 @@
 # Retiring Collabora and the LibreOffice WASM converter
 
-The plugin draws PDFs natively. `Documentate_Document_Generator::generate_pdf()`
-hands the post to `Documentate_Pdf_Generator::generate()`, which renders an HTML
-layout with FPDF on the server. No conversion service is involved in producing a
-PDF any more.
+The plugin draws PDFs natively by default.
+`Documentate_Document_Generator::generate_pdf()` hands the post to
+`Documentate_Pdf_Generator::generate()`, which renders an HTML layout with FPDF
+on the server. No conversion service is involved in producing a PDF that way.
 
 Collabora Online and the in-browser LibreOffice WASM converter are still shipped
-and still selectable, on purpose. The native renderer was made the default while
-the two older engines stayed available, so a site that hits a layout problem can
-fall back without a release. This document is the shopping list for the day that
+and still selectable, on purpose. The `conversion_engine` setting carries three
+values (`fpdf`, the default and native, plus `collabora` and `wasm`) and
+`generate_pdf()` branches on it, so a site that hits a layout problem can fall
+back without a release. This document is the shopping list for the day that
 safety net is no longer wanted.
 
 **Nothing here is urgent.** Do not start until the conditions in the first
@@ -18,7 +19,7 @@ section hold.
 
 ## 1. When to do it
 
-Both must be true:
+All three must be true:
 
 - **Every document type has an HTML layout.** A type with no layout falls back to
   the generic one; that is acceptable for a while, but a deliberate layout per
@@ -27,13 +28,18 @@ Both must be true:
   `includes/pdf/class-documentate-pdf-layout.php:32`) on every term of the
   `documentate_doc_type` taxonomy on the production site, not just on the demo
   data.
+- **No production site has `conversion_engine` set to `collabora` or `wasm`.**
+  Read `documentate_settings` on each site: an absent key means the default,
+  which is already the native engine. A site that stored one of the other two
+  values chose it deliberately, and loses PDF generation the day that engine is
+  removed.
 - **The native engine has run a full document cycle in production without
   incident** — draft through área, gestión documental and administración, ending
   in a signed PDF — and no one has switched a site back to Collabora to get a
   document out.
 
-There is also one product decision to settle first, about office formats rather
-than PDF. Section 2.2 sets it out.
+Section 2.2 sets out what `generate_pdf()` looks like before you start, and what
+of it survives.
 
 ---
 
@@ -52,10 +58,10 @@ header. It has nothing to do with converting documents, and it has six callers:
 | Caller | Survives removal? |
 | --- | --- |
 | `includes/class-documentate-demo-data.php:57`, inside `should_allow_demo_seeding()` (method at 52-62) | **Yes — this is the trap** |
-| `includes/class-documentate-conversion-manager.php:122` | No, file is deleted |
+| `includes/class-documentate-conversion-manager.php:152` | No, file is deleted |
 | `includes/class-documentate-admin-helper.php:586` | No, the converter popup route goes |
-| `includes/class-documentate-admin-helper.php:768`, in `resolve_conversion_capabilities()` | No, method goes |
-| `includes/class-documentate-admin-helper.php:1334`, in `add_conversion_mode_config()` | No, method goes |
+| `includes/class-documentate-admin-helper.php:787`, in `resolve_conversion_capabilities()` | No, method goes |
+| `includes/class-documentate-admin-helper.php:1363`, in `add_conversion_mode_config()` | No, method goes |
 | `admin/class-documentate-admin-settings.php:118`, in `conversion_engine_render()` | No, field goes |
 
 Only the first one outlives the removal, and it is load-bearing:
@@ -81,35 +87,29 @@ anything to do with Collabora.
 (`test_should_allow_demo_seeding_in_playground`) covers this. It must still pass,
 against the relocated method.
 
-### 2.2 PDF is not the only thing the conversion manager does
+### 2.2 `generate_pdf()` branches, and only one branch is native
 
-`generate_pdf()` no longer branches — it is already fully native. But
-`Documentate_Conversion_Manager` is still on the critical path for **cross-format
-office generation**:
+`Documentate_Document_Generator::generate_pdf()`
+(`includes/class-documentate-document-generator.php:124`) reads the engine and
+splits: `fpdf` goes to `Documentate_Pdf_Generator::generate()`, anything else to
+`convert_to_pdf()` (line 152), which renders the office template through
+`render_pdf_source()` (line 185) and hands it to
+`Documentate_Conversion_Manager::convert()`.
 
-- `includes/class-documentate-document-generator.php:49-65` — `generate_docx()`
-  falls back to rendering the ODT template and converting ODT to DOCX when the
-  document type has only an ODT template.
-- `includes/class-documentate-document-generator.php:100-116` — `generate_odt()`
-  does the mirror image, DOCX to ODT.
+Removing the converters means deleting that second branch, `convert_to_pdf()`
+and `render_pdf_source()` with it, and letting `generate_pdf()` call the native
+generator unconditionally. Keep the `try`/`catch` around it: the export handlers
+and the AJAX endpoint write their answer into a download or a JSON body, and
+`test_a_throwable_from_anywhere_becomes_a_wp_error` in
+`tests/unit/includes/pdf/DocumentatePdfGeneratorTest.php` holds that line.
 
-So a document type configured with only one office template can today still
-produce the other format. Deleting the conversion manager removes that ability.
-
-Decide this explicitly before you start, because it is a product decision, not a
-cleanup:
-
-- **Option A (simplest, recommended).** Drop the fallbacks. `generate_docx()`
-  returns the existing `documentate_template_missing` error when there is no DOCX
-  template, and `generate_odt()` likewise. Every document type must then carry a
-  template in each format it is expected to emit. Check production first: a type
-  with only one office template will lose a format it currently offers.
-- **Option B.** Keep cross-format conversion by another route. That is new work
-  and out of scope for a removal.
-
-Whichever you pick, the caller-facing error strings and
-`Documentate_Admin_Helper::build_format_state()` (`includes/class-documentate-admin-helper.php:854`)
-need to agree with it, or the editor will offer a button that always fails.
+**The cross-format office fallback is already gone.** `generate_docx()`
+(line 31) and `generate_odt()` (line 59) render their own template or return
+`documentate_template_missing`. Neither converts, and neither mentions the
+conversion manager any more. Option A of what used to be a product decision here
+was taken when the engine became a setting, so nothing is left to decide: a
+document type offers the editable download in the format it has a template for,
+and in no other.
 
 ---
 
@@ -155,32 +155,41 @@ conversion code. Remove:
   `render_converter_page()` method it points at (starts at line 540). That method
   is the only reason the plugin sends COOP/COEP headers, and the only thing that
   includes the two converter popup templates.
-- `resolve_conversion_capabilities()` (starts at line 763) and its callers in
+- `resolve_conversion_capabilities()` (starts at line 771) and its callers in
   `build_actions_state()` (starts at line 727). The `ready` / `use_popup` /
   `needs_popup_base` triple collapses: with no converter, nothing is ready and
-  there is no popup.
-- `add_conversion_mode_config()` (starts at line 1332) entirely, and the call to
-  it at the end of `build_actions_script_config()` (starts at line 1246). Delete
+  there is no popup. Its first branch already returns that collapsed answer for
+  the native engine, and is what the whole method becomes.
+- `add_conversion_mode_config()` (starts at line 1355) entirely, and the call to
+  it at the end of `build_actions_script_config()` (starts at line 1269). Delete
   the three `require_once` lines for the conversion manager and the two
   converters at the top of that method.
 - The `loadingWasm`, `convertingBrowser` and `wasmError` strings in
-  `get_actions_script_strings()` (lines 1288-1290).
-- `build_pdf_message()` (starts at line 830) and `build_format_state()` (starts
-  at line 854) both take a `$can_convert` argument that becomes constant. Simplify
-  in line with the decision from section 2.2 rather than passing `false` around.
+  `get_actions_script_strings()` (lines 1311-1313).
+- `uses_native_pdf_engine()` (starts at line 760) and its three callers, in
+  `build_actions_state()`, `build_pdf_message()` and
+  `add_conversion_mode_config()`. With one engine left the question always has
+  the same answer.
+- `build_pdf_message()` (starts at line 849) keeps only its first branch: no
+  template, the message; a template, the empty string. The `$can_convert`
+  argument goes with the rest.
+- `own_format_state()` (starts at line 879) needs no change at all. It already
+  offers a format only when the document type has a template in it, and asks
+  nothing about conversion.
 
 ### 4.2 `admin/class-documentate-admin-settings.php`
 
 Remove the four settings, their labels, their render callbacks and their
-validators. Read the current file rather than trusting line numbers here — the
-`conversion_engine` field is being changed on this branch and will move.
+validators. `conversion_engine` now offers three radios, `fpdf` first and
+preselected on a site that never chose one; the whole field goes, since a single
+engine needs no picker.
 
 | Setting key | Render callback | Validator |
 | --- | --- | --- |
-| `conversion_engine` | `conversion_engine_render()` | `validate_conversion_settings()` (line 308) |
-| `collabora_base_url` | `collabora_base_url_render()` | `validate_collabora_settings()` (line 325) |
-| `collabora_lang` | `collabora_lang_render()` | `validate_collabora_settings()` (line 325) |
-| `collabora_disable_ssl` | `collabora_disable_ssl_render()` | `validate_collabora_settings()` (line 325) |
+| `conversion_engine` | `conversion_engine_render()` (line 113) | `validate_conversion_settings()` (line 309) |
+| `collabora_base_url` | `collabora_base_url_render()` | `validate_collabora_settings()` (line 326) |
+| `collabora_lang` | `collabora_lang_render()` | `validate_collabora_settings()` (line 326) |
+| `collabora_disable_ssl` | `collabora_disable_ssl_render()` | `validate_collabora_settings()` (line 326) |
 
 Both validators go entirely. Also drop the four label entries in the
 settings-labels array (lines 81-84) and the `validate_collabora_settings()` call
@@ -196,10 +205,10 @@ reads them.
 
 ### 4.3 `includes/class-documentate-document-generator.php`
 
-Apply the section 2.2 decision. If you took Option A, both
-`require_once .../class-documentate-conversion-manager.php` lines and the blocks
-around them disappear, and `generate_docx()` / `generate_odt()` end at their
-template-missing error.
+Delete `convert_to_pdf()` and `render_pdf_source()`, and with them the only
+`require_once .../class-documentate-conversion-manager.php` left in the file, at
+the top of `generate_pdf()`. `generate_docx()` and `generate_odt()` already end
+at their template-missing error and need no edit. See section 2.2.
 
 ### 4.4 `documentate.php`
 
@@ -350,10 +359,19 @@ Tests to **edit**, not delete — each still covers behaviour that survives:
   capability and converter page cases.
 - `tests/unit/includes/DocumentateActionsMetaboxStateTest.php` — the metabox
   state no longer depends on a converter being available; rewrite the
-  expectations rather than deleting the file.
-- `tests/unit/includes/DocumentateDocumentGeneratorConversionTest.php` — its
-  subject is the cross-format fallback from section 2.2. Under Option A it
-  becomes a test that the fallback is gone.
+  expectations rather than deleting the file. Its `set_conversion()` helper and
+  the three cases that drive the popup (`test_browser_wasm_engine_enables_popup_conversion`,
+  `test_source_format_is_not_flagged_for_popup_conversion` and
+  `test_native_engine_never_flags_the_browser_popup`) go with the converters;
+  everything about which format is offered survives untouched.
+- `tests/unit/includes/DocumentatePdfEngineSelectionTest.php` — **delete it.**
+  Its whole subject is the choice between the three engines. Before deleting,
+  move `test_native_engine_renders_the_pdf_without_any_http_request` somewhere
+  that survives: it is the only test asserting that generating a PDF reaches no
+  network at all, and that assertion is the point of the removal.
+- `tests/unit/includes/DocumentateDocumentGeneratorConversionTest.php` — **delete
+  it.** Every case in it pins the engine to Collabora and asserts the conversion
+  request; nothing in it outlives the engine.
 - `tests/unit/includes/DocumentateGenerateDocumentAjaxTest.php` — remove the
   `@covers Documentate_Conversion_Manager` annotation at line 11.
 - `tests/unit/includes/DocumentateDemoDataTest.php` — repoint the Playground case
