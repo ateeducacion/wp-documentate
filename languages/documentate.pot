@@ -180,6 +180,9 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
+msgid "Layout used to render the PDF. \"Generic\" lists every field."
+msgstr ""
+
 msgid "Text"
 msgstr ""
 
@@ -241,6 +244,9 @@ msgid "Select template"
 msgstr ""
 
 msgid "No template selected"
+msgstr ""
+
+msgid "PDF layout"
 msgstr ""
 
 msgid "Re-parse template"
@@ -780,9 +786,6 @@ msgstr ""
 msgid "Configure an ODT template in the selected document type."
 msgstr ""
 
-msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
-msgstr ""
-
 msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
 msgstr ""
 
@@ -899,24 +902,6 @@ msgid "Template pre-processing failed (visibility blocks)."
 msgstr ""
 
 msgid "Template pre-processing failed (placeholder normalization)."
-msgstr ""
-
-msgid "PDF layout not found."
-msgstr ""
-
-msgid "Could not process the visibility blocks of the layout."
-msgstr ""
-
-msgid "Could not scan the layout for unmatched fields."
-msgstr ""
-
-msgid "The PDF layout could not be merged."
-msgstr ""
-
-msgid "The document has no document type."
-msgstr ""
-
-msgid "The generated PDF could not be saved."
 msgstr ""
 
 msgid "ZipArchive is not available for rich text formatting."
@@ -1276,4 +1261,22 @@ msgid "New Type"
 msgstr ""
 
 msgid "Generated file not found."
+msgstr ""
+
+msgid "The document has no document type."
+msgstr ""
+
+msgid "The generated PDF could not be saved."
+msgstr ""
+
+msgid "PDF layout not found."
+msgstr ""
+
+msgid "Could not process the visibility blocks of the layout."
+msgstr ""
+
+msgid "Could not scan the layout for unmatched fields."
+msgstr ""
+
+msgid "The PDF layout could not be merged."
 msgstr ""

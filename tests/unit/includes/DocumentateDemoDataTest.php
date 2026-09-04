@@ -171,4 +171,40 @@ class DocumentateDemoDataTest extends WP_UnitTestCase {
 
 		$this->assertEmpty( username_exists( 'editor1' ) );
 	}
+
+	/**
+	 * Every seeded document type names the PDF layout it is drawn from.
+	 */
+	public function test_seeded_doc_types_carry_their_pdf_layout() {
+		update_option( 'documentate_seed_demo_documents', true );
+
+		Documentate_Demo_Data::ensure_default_media();
+		Documentate_Demo_Data::maybe_seed_default_doc_types();
+
+		$expected = array(
+			'resolucion-administrativa'            => 'resolucion',
+			'propuesta-gasto'                      => 'propuestagasto',
+			'hace-constar'                         => 'haceconstar',
+			'convocatoria-reunion'                 => 'convocatoriareunion',
+			'autorizacion-viaje'                   => 'autorizacionviaje',
+			'gastos-suplidos'                      => 'gastossuplidos',
+			'memoria-pago'                         => 'memoria_pago_cep',
+			'modelo-informe'                       => 'modelo_informe',
+			'respuesta-escrito'                    => 'respuesta_escrito',
+			'documentate-demo-wp-documentate-odt'  => 'generic',
+			'documentate-demo-wp-documentate-docx' => 'generic',
+		);
+
+		foreach ( $expected as $slug => $layout ) {
+			$term = get_term_by( 'slug', $slug, 'documentate_doc_type' );
+			$this->assertInstanceOf( WP_Term::class, $term, $slug . ' must be seeded.' );
+			$this->assertSame(
+				$layout,
+				get_term_meta( $term->term_id, Documentate_Pdf_Layout::META_KEY, true ),
+				$slug . ' must name its PDF layout.'
+			);
+		}
+
+		delete_option( 'documentate_seed_demo_documents' );
+	}
 }

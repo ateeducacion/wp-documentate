@@ -201,6 +201,7 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-admin-helper.php';
 
 		// Admin UI for document types (taxonomy meta for templates, fields, etc.).
+		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doc-type-pdf-layout-field.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doc-types-admin.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doctype-help-notice.php';
 

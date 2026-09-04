@@ -8,7 +8,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-08-17T09:59:02+00:00\n"
+"PO-Revision-Date: 2026-09-04T00:22:06+00:00\n"
 "Language: es_ES\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Domain: documentate\n"
@@ -181,6 +181,9 @@ msgstr "Añadir al documento"
 msgid "Remove"
 msgstr "Eliminar"
 
+msgid "Layout used to render the PDF. \"Generic\" lists every field."
+msgstr "Maqueta con la que se dibuja el PDF. «Genérica» lista todos los campos."
+
 msgid "Text"
 msgstr "Texto"
 
@@ -243,6 +246,9 @@ msgstr "Seleccionar plantilla"
 
 msgid "No template selected"
 msgstr "Ninguna plantilla seleccionada"
+
+msgid "PDF layout"
+msgstr "Maqueta PDF"
 
 msgid "Re-parse template"
 msgstr "Reanalizar plantilla"
@@ -781,9 +787,6 @@ msgstr "Configura una plantilla DOCX en el tipo de documento seleccionado."
 msgid "Configure an ODT template in the selected document type."
 msgstr "Configura una plantilla ODT en el tipo de documento seleccionado."
 
-msgid "Could not generate the base document because the document type does not have a DOCX or ODT template configured."
-msgstr "No se pudo generar el documento base porque el tipo de documento no tiene configurada una plantilla DOCX u ODT."
-
 msgid "PDF conversion is performed in the browser using LibreOffice WASM. Server-side or background PDF generation requires Collabora Online or another server-side service."
 msgstr "La conversión a PDF se realiza en el navegador mediante LibreOffice WASM. La generación de PDF en el servidor o en segundo plano requiere Collabora Online u otro servicio del lado del servidor."
 
@@ -901,18 +904,6 @@ msgstr "Falló el preprocesamiento de la plantilla (bloques de visibilidad)."
 
 msgid "Template pre-processing failed (placeholder normalization)."
 msgstr "Falló el preprocesamiento de la plantilla (normalización de marcadores)."
-
-msgid "PDF layout not found."
-msgstr "Maqueta PDF no encontrada."
-
-msgid "Could not process the visibility blocks of the layout."
-msgstr "No se pudieron procesar los bloques de visibilidad de la maqueta."
-
-msgid "Could not scan the layout for unmatched fields."
-msgstr "No se pudo analizar la maqueta en busca de campos sin datos."
-
-msgid "The PDF layout could not be merged."
-msgstr "No se pudo fusionar la maqueta del PDF."
 
 msgid "ZipArchive is not available for rich text formatting."
 msgstr "ZipArchive no está disponible para formato de texto enriquecido."
@@ -1278,3 +1269,15 @@ msgstr "El documento no tiene tipo de documento."
 
 msgid "The generated PDF could not be saved."
 msgstr "No se ha podido guardar el PDF generado."
+
+msgid "PDF layout not found."
+msgstr "Maqueta PDF no encontrada."
+
+msgid "Could not process the visibility blocks of the layout."
+msgstr "No se pudieron procesar los bloques de visibilidad de la maqueta."
+
+msgid "Could not scan the layout for unmatched fields."
+msgstr "No se pudo analizar la maqueta en busca de campos sin datos."
+
+msgid "The PDF layout could not be merged."
+msgstr "No se pudo fusionar la maqueta del PDF."
