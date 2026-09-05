@@ -166,11 +166,13 @@ class Documentate_Document_Generator {
 		}
 
 		$target = self::build_output_path( $post_id, 'pdf' );
+		Documentate_Private_Output::prepare( $target );
 
 		$result = Documentate_Conversion_Manager::convert( $source['path'], $target, 'pdf', $source['format'] );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
+		Documentate_Private_Output::prepare( $target );
 
 		return $target;
 	}
@@ -285,6 +287,7 @@ class Documentate_Document_Generator {
 		$fields = self::build_merge_fields( $post_id );
 		$rich_values = self::get_rich_field_values();
 		$path = self::build_output_path( $post_id, $template_format );
+		Documentate_Private_Output::prepare( $path );
 		$metadata = Document_Meta::get( $post_id );
 
 		if ( 'docx' === $template_format ) {
@@ -297,6 +300,7 @@ class Documentate_Document_Generator {
 			return $res;
 		}
 
+		Documentate_Private_Output::prepare( $path );
 		return $path;
 	}
 
@@ -930,13 +934,8 @@ class Documentate_Document_Generator {
 	 * @return string Absolute directory path.
 	 */
 	public static function ensure_output_dir() {
-		$upload_dir = wp_upload_dir();
-		$dir = trailingslashit( $upload_dir['basedir'] ) . 'documentate';
-		if ( ! is_dir( $dir ) ) {
-			wp_mkdir_p( $dir );
-		}
-
-		return $dir;
+		require_once __DIR__ . '/class-documentate-private-output.php';
+		return Documentate_Private_Output::directory();
 	}
 
 	/**

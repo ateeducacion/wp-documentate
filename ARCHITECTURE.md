@@ -35,6 +35,35 @@ The core functionality involves taking structured data entered by users in WordP
   5. `Documentate_Pdf_Generator` joins those and writes the file atomically.
 - **Adding a layout:** put `templates/pdf/<slug>.html` beside the others, keep every field name identical to the ODT template of the same document type, and choose it in the document type's *PDF layout* field. The renderer follows the templates' own metrics — single line spacing, no space between paragraphs, `#dee6ef` behind a heading cell — so a layout reproduces the template's blank lines as empty paragraphs and states a table's `style:width` and `fo:padding` with `width` and `cellpadding`, in millimetres. `docs/removing-collabora.md` records what to delete when the converters are eventually retired.
 
+The resolution layout uses its own ODT letterhead frame (`letterhead=resolution`)
+and justified rich-text sections. Paragraph alignment inherits from containers,
+unless the paragraph explicitly selects another alignment. Demo repeater JSON
+must be slashed at WordPress metadata and post-content write boundaries so that
+newlines and escaped quotes survive storage. Every vertical address band embeds
+the bundled Roboto Light (weight 300), selected after visual comparison with the
+published resolution. Its visible left edge is 7.09 mm from the page edge,
+matching the resolution ODT export (not the signed PDF's wider inset).
+Horizontal addresses retain Helvetica. Font assets, license,
+provenance and regeneration instructions live in `templates/pdf/fonts/roboto/`.
+
+The native `propuestagasto` layout selects `addresses=band-title` to align the
+upper end of the longest rotated address with the first-page body margin, while
+both address lines remain centred within the same frame. Other layouts
+retain the centred `band` option. Paragraph styles can declare `margin-left`,
+`margin-top` and `margin-bottom` in mm, cm or pt (nonnegative, at most 50 mm);
+left margins are also limited to half the active column. Fixed `line-height`
+values in points (4–60) inherit through containers and reproduce the measured
+ODT advances: resolution/authorization 14.5 pt, report/reply 15.85 pt,
+meeting notice 20.7 pt, expenses 18.95 pt (tables 14.5 pt), and payment memo
+11.4 pt (title 12.05 pt; table cells 11.55/10.4 pt). Layout-wide styles belong
+on an inner container because generation extracts the body's contents.
+`Documentate_Pdf_Paragraph_Style` resolves these independently of rendering.
+The same margins are
+used when measuring table cells and when drawing them. The expenditure layout
+uses these for its indented section labels and the ODT's 2.12 mm legal-paragraph
+spacing; supplier tables retain the `#dee6ef` fill and reserve their border inset.
+Footer page numbers sit on the outer edge: right on odd pages, left on even pages.
+
 ### 2.4. Document Conversion (alternative engines)
 
 - **Location:** `includes/class-documentate-conversion-manager.php`, `includes/class-documentate-collabora-converter.php`, `includes/class-documentate-libreoffice-wasm-converter.php`.

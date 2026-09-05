@@ -61,12 +61,12 @@ class Documentate_Pdf_Layout {
 	/**
 	 * Letterheads the document knows how to draw.
 	 */
-	const LETTERHEADS = array( 'none', 'standard', 'large' );
+	const LETTERHEADS = array( 'none', 'standard', 'large', 'resolution' );
 
 	/**
 	 * Places the document knows how to print the addresses in.
 	 */
-	const ADDRESSES = array( 'none', 'band', 'header', 'footer' );
+	const ADDRESSES = array( 'none', 'band', 'band-title', 'header', 'footer' );
 
 	/**
 	 * Places the document knows how to print the folio in.

@@ -8,7 +8,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "POT-Creation-Date: 2025-11-29T00:24:31+00:00\n"
-"PO-Revision-Date: 2026-09-04T02:07:40+00:00\n"
+"PO-Revision-Date: 2026-09-05T19:04:40+00:00\n"
 "Language: es_ES\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Domain: documentate\n"
@@ -947,6 +947,9 @@ msgstr "No se pudo analizar core.xml."
 msgid "cp:coreProperties element not found."
 msgstr "Elemento cp:coreProperties no encontrado."
 
+msgid "The generated PDF could not be saved."
+msgstr "No se ha podido guardar el PDF generado."
+
 msgid "You do not have permission to manage templates."
 msgstr "No tienes permiso para gestionar plantillas."
 
@@ -1269,9 +1272,6 @@ msgstr "Fichero generado no encontrado."
 
 msgid "The document has no document type."
 msgstr "El documento no tiene tipo de documento."
-
-msgid "The generated PDF could not be saved."
-msgstr "No se ha podido guardar el PDF generado."
 
 msgid "PDF layout not found."
 msgstr "Maqueta PDF no encontrada."

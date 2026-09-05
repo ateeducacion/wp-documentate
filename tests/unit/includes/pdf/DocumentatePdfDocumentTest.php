@@ -216,6 +216,27 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Footer numbers alternate at the outer margins, including two digits.
+	 */
+	public function test_footer_page_numbers_alternate_between_outer_margins() {
+		$pdf = $this->make( array( 'folio' => 'footer' ) );
+		for ( $page = 1; $page <= 10; ++$page ) {
+			$pdf->AddPage();
+		}
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+		$this->assertCount( 10, $ops );
+		foreach ( $ops as $op ) {
+			$x = $op['x'] * self::MM_PER_POINT;
+			if ( 0 === $op['page'] % 2 ) {
+				$this->assertEqualsWithDelta( 20.0, $x, 0.05 );
+			} else {
+				$width = $pdf->GetStringWidth( $op['text'] );
+				$this->assertEqualsWithDelta( 190.0, $x + $width, 0.05 );
+			}
+		}
+	}
+
+	/**
 	 * The address band runs up the left margin of the first page only.
 	 */
 	public function test_addresses_band_is_rotated_and_only_on_first_page() {
@@ -241,13 +262,44 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 
 		$this->assertCount( 2, $origins );
 		// FPDF puts the baseline 0.3 em past the cell origin, which the rotation
-		// turns into 0.79 mm to the right at 7.5 pt: 4.11 + 0.79 = 4.90 mm.
-		$this->assertEqualsWithDelta( 4.11, $origins[0]['x'], 0.05 );
-		$this->assertEqualsWithDelta( 7.13, $origins[1]['x'], 0.05 );
+		// turns into 0.79 mm to the right at 7.5 pt: 8.28 + 0.79 = 9.07 mm.
+		$this->assertEqualsWithDelta( 8.28, $origins[0]['x'], 0.05 );
+		$this->assertEqualsWithDelta( 11.30, $origins[1]['x'], 0.05 );
 		// Both cells run upwards from the foot of the frame the ODT declares,
 		// 298.48 mm long, which overhangs the sheet by 1.48 mm.
 		$this->assertEqualsWithDelta( 298.48, $origins[0]['y'], 0.05 );
 		$this->assertEqualsWithDelta( 298.48, $origins[1]['y'], 0.05 );
+	}
+
+	/**
+	 * The longest address meets the title while both lines share a centre.
+	 */
+	public function test_title_address_band_ends_at_the_first_page_title() {
+		$pdf = $this->make(
+			array(
+				'addresses'          => 'band-title',
+				'first_page_margins' => array( 52, 20, 43, 20 ),
+			)
+		);
+		$pdf->AddPage();
+		$pdf->AddPage();
+		$pdf->SetFont( Documentate_Pdf_Document::BAND_FONT, '', 7.5 );
+		$bytes   = $pdf->Output( 'S' );
+		$origins = $this->rotation_origins( $bytes );
+		$this->assertCount( 2, $origins, 'The band belongs on the first page only.' );
+
+		$widths = array();
+		foreach ( array( Documentate_Pdf_Document::ADDRESS_TENERIFE, Documentate_Pdf_Document::ADDRESS_LASPALMAS ) as $index => $address ) {
+			$widths[] = $pdf->GetStringWidth( Documentate_Pdf_Document::latin1( $address ) );
+		}
+		$longest = max( $widths );
+		$ops     = Documentate_Pdf_Test_Helper::text_ops( $bytes );
+		foreach ( $origins as $index => $origin ) {
+			$this->assertEqualsWithDelta( 8.28 + ( $index * 3.02 ), $origin['x'], 0.05 );
+			$this->assertEqualsWithDelta( 52.0, $origin['y'] - $longest, 0.05 );
+			$inset = ( $ops[ $index ]['x'] * self::MM_PER_POINT ) - $origin['x'];
+			$this->assertEqualsWithDelta( ( $longest - $widths[ $index ] ) / 2, $inset, 0.05 );
+		}
 	}
 
 	/**
@@ -276,11 +328,10 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 	/**
 	 * The addresses are set in a sans face, whichever face the body uses.
 	 *
-	 * Every template asks for a `swiss` family for its addresses — Univers,
-	 * Tahoma, Trebuchet MS — while the body of the same document is a serif.
+	 * Vertical variants embed Roboto Light; horizontal ones retain Helvetica.
 	 */
 	public function test_addresses_are_drawn_in_a_sans_face() {
-		foreach ( array( 'band', 'header', 'footer' ) as $variant ) {
+		foreach ( array( 'band', 'band-title', 'header', 'footer' ) as $variant ) {
 			$pdf = $this->make(
 				array(
 					'addresses' => $variant,
@@ -291,7 +342,13 @@ class DocumentatePdfDocumentTest extends WP_UnitTestCase {
 			$pdf->AddPage();
 			$bytes = $pdf->Output( 'S' );
 
-			$this->assertStringContainsString( 'Helvetica', $bytes, $variant . ': the addresses should be set in a sans face.' );
+			$vertical = in_array( $variant, array( 'band', 'band-title' ), true );
+			$this->assertStringContainsString( $vertical ? 'Roboto-Light' : 'Helvetica', $bytes, $variant );
+			if ( $vertical ) {
+				$this->assertStringContainsString( '/FontFile2', $bytes, 'The band font must be embedded.' );
+			} else {
+				$this->assertStringNotContainsString( 'Roboto-Light', $bytes, 'Horizontal addresses retain their existing font.' );
+			}
 		}
 	}
 

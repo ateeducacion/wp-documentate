@@ -11,6 +11,19 @@
 class DocumentateDemoDataTest extends WP_UnitTestCase {
 
 	/**
+	 * Preserve JSON escapes when saving multiline annex demo content.
+	 */
+	public function test_demo_annex_preserves_json_escapes() {
+		$post_id = self::factory()->post->create();
+		$items   = array( array( 'summary' => "<p>First.</p>\n<p>Second: \"quoted\".</p>" ) );
+		$method  = new ReflectionMethod( Documentate_Demo_Data::class, 'save_demo_fields' );
+		$method->setAccessible( true );
+		$method->invoke( null, $post_id, array( 'anexos' => array( 'type' => 'array', 'value' => $items ) ) );
+
+		$this->assertSame( $items, json_decode( get_post_meta( $post_id, 'documentate_field_anexos', true ), true ) );
+	}
+
+	/**
 	 * Admin user ID.
 	 *
 	 * @var int

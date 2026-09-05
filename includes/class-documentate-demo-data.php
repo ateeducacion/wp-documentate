@@ -898,7 +898,7 @@ class Documentate_Demo_Data {
 				wp_update_post(
 					array(
 						'ID' => $post_id,
-						'post_content' => $content,
+						'post_content' => wp_slash( $content ),
 					)
 				);
 			}
@@ -982,7 +982,7 @@ class Documentate_Demo_Data {
 				wp_update_post(
 					array(
 						'ID' => $post_id,
-						'post_content' => $content,
+						'post_content' => wp_slash( $content ),
 					)
 				);
 			}
@@ -1005,7 +1005,8 @@ class Documentate_Demo_Data {
 
 			if ( 'array' === $type ) {
 				$encoded = wp_json_encode( $value, JSON_UNESCAPED_UNICODE );
-				update_post_meta( $post_id, 'documentate_field_' . $slug, $encoded );
+				// Metadata writes unslash strings; preserve JSON escapes such as newlines.
+				update_post_meta( $post_id, 'documentate_field_' . $slug, wp_slash( $encoded ) );
 				$structured_fields[ $slug ] = array(
 					'type' => 'array',
 					'value' => $encoded,
@@ -1874,7 +1875,7 @@ class Documentate_Demo_Data {
 			wp_update_post(
 				array(
 					'ID'           => $post_id,
-					'post_content' => $content,
+					'post_content' => wp_slash( $content ),
 				)
 			);
 		}
@@ -1912,7 +1913,7 @@ class Documentate_Demo_Data {
 				if ( null === $entry ) {
 					continue;
 				}
-				update_post_meta( $post_id, 'documentate_field_' . $slug, $entry['value'] );
+				update_post_meta( $post_id, 'documentate_field_' . $slug, wp_slash( $entry['value'] ) );
 				$structured_fields[ $slug ] = $entry;
 				continue;
 			}

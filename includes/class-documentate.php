@@ -66,6 +66,8 @@ class Documentate {
 		$this->plugin_name = 'documentate';
 
 		$this->load_dependencies();
+		require_once __DIR__ . '/class-documentate-private-output.php';
+		add_action( 'init', array( 'Documentate_Private_Output', 'upgrade' ) );
 		$this->define_admin_hooks();
 	}
 
@@ -145,6 +147,7 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-text-layout.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-layout.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-table-writer.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-paragraph-style.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-html-writer.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-merger.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-generic-rows.php';

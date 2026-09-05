@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Informe-propuesta de gasto</title>
 <meta name="documentate-letterhead" content="standard">
-<meta name="documentate-addresses" content="band">
+<meta name="documentate-addresses" content="band-title">
 <meta name="documentate-folio" content="footer">
 <meta name="documentate-crest" content="1">
 <meta name="documentate-margins" content="52 20 43 20">
@@ -52,13 +52,17 @@
 <p style="text-align:justify"><strong>BLOQUE II: PROPUESTA ECONÓMICA NECESARIA PARA EL DESARROLLO DEL PROYECTO.</strong></p>
 <p style="text-align:justify"><strong>La estimación del gasto máximo que conllevará dicho proyecto EN EL PRESENTE EJERCICIO es de [gasto_letra] ([gasto_numero;frm='0.000,00 €']), con cargo a la partida presupuestaria [partida] con el siguiente desglose</strong>:</p>
 [onshow;block=begin;bloc=servicios]
+<p></p>
 <p style="text-align:justify">Para el desarrollo del proyecto es necesaria la contratación de los servicios e importes que se relacionan en virtud de los presupuestos presentados:</p>
 <p></p>
-<p><strong>SERVICIOS a contratar:</strong></p>
+<p style="margin-left:12.7mm"><strong>SERVICIOS a contratar:</strong></p>
+<p></p>
+<p></p>
 <p></p>
 [servicios;block=begin;sub1=conceptos]
-<table width="165mm">
-<col width="20%"><col width="36%"><col width="15%"><col width="14.5%"><col width="14.5%">
+<!-- Include the ODT's 0.75 pt cell border in the vertical inset. -->
+<table width="165mm" cellpadding="1.10">
+<col width="19.97%"><col width="39.27%"><col width="13.70%"><col width="13.5%"><col width="13.56%">
 <tr><th style="font-weight:normal">PROVEEDOR</th><td colspan="4">[servicios.proveedor]</td></tr>
 <tr><th style="font-weight:normal">CIF / NIF</th><td colspan="4">[servicios.cif]</td></tr>
 <tr><th style="font-weight:normal">CORREO</th><td colspan="4">[servicios.email]</td></tr>
@@ -96,18 +100,25 @@
 <td style="text-align:center"><strong>[servicios.total;frm='0.000,00 €']</strong></td>
 </tr>
 </table>
+<p></p>
 [servicios;block=end]
 <p></p>
 <p>[servicios_igic_exento]</p>
+<p></p>
+<p></p>
+<p></p>
+<p></p>
+<p></p>
 [onshow;block=end]
 [onshow;block=begin;bloc=suministros]
 <p style="text-align:justify">Para el desarrollo del proyecto es necesaria la contratación de los suministros que se relacionan que se relacionan en virtud de los presupuestos presentados:</p>
 <p></p>
-<p><strong>SUMINISTROS a contratar:</strong></p>
+<p style="margin-left:12.7mm"><strong>SUMINISTROS a contratar:</strong></p>
+<p></p>
 <p></p>
 [suministros;block=begin;sub1=conceptos]
-<table width="165mm">
-<col width="20%"><col width="36%"><col width="15%"><col width="14.5%"><col width="14.5%">
+<table width="165mm" cellpadding="1.10">
+<col width="19.97%"><col width="39.27%"><col width="13.70%"><col width="13.5%"><col width="13.56%">
 <tr><th style="font-weight:normal">PROVEEDOR</th><td colspan="4">[suministros.proveedor]</td></tr>
 <tr><th style="font-weight:normal">CIF / NIF</th><td colspan="4">[suministros.cif]</td></tr>
 <tr><th style="font-weight:normal">CORREO</th><td colspan="4">[suministros.email]</td></tr>
@@ -145,18 +156,22 @@
 <td style="text-align:center"><strong>[suministros.total;frm='0.000,00 €']</strong></td>
 </tr>
 </table>
+<p></p>
 [suministros;block=end]
 <p></p>
 <p>[suministros_igic_exento]</p>
+<p></p>
+<p></p>
 [onshow;block=end]
 [onshow;block=begin;bloc=expertos]
 <p style="text-align:justify">Para el desarrollo del proyecto es necesaria la designación de los siguientes expertos al no contar el centro directivo con personal suficiente y adecuado para su ejecución:</p>
 <p></p>
-<p><strong>PERSONAL experto a contratar:</strong></p>
+<p style="margin-left:12.7mm"><strong>PERSONAL experto a contratar:</strong></p>
+<p></p>
 <p></p>
 [expertos;block=begin;sub1=conceptos]
-<table width="165mm">
-<col width="20%"><col width="36%"><col width="15%"><col width="14.5%"><col width="14.5%">
+<table width="165mm" cellpadding="1.10">
+<col width="19.97%"><col width="39.27%"><col width="13.70%"><col width="13.5%"><col width="13.56%">
 <tr><th style="font-weight:normal">PROVEEDOR</th><td colspan="4">[expertos.proveedor]</td></tr>
 <tr><th style="font-weight:normal">CIF / NIF</th><td colspan="4">[expertos.cif]</td></tr>
 <tr><th style="font-weight:normal">CORREO</th><td colspan="4">[expertos.email]</td></tr>
@@ -194,14 +209,16 @@
 <td style="text-align:center"><strong>[expertos.total;frm='0.000,00 €']</strong></td>
 </tr>
 </table>
+<p></p>
 [expertos;block=end]
+<p></p>
 <p></p>
 [onshow;block=end]
 <p></p>
-<p style="text-align:justify">La forma de pago será de una sola vez, contra factura y una vez se lleve a cabo la entrega de los artículos que integran el suministro o el desarrollo del correspondiente servicio.</p>
-<p style="text-align:justify">El importe de cada servicio o suministro es inferior a quince mil (15.000,00.-) euros, por lo que se considera un contrato menor de acuerdo con lo dispuesto en el artículo 118 de la Ley 9/2017, de 8 de noviembre, de Contratos del Sector Público, por la que se transponen al ordenamiento jurídico español las Directivas del Parlamento Europeo y del Consejo 2014/23/UE y 2014/24/UE, de 26 de febrero de 2014 (LCSP), cuyo expediente de contratación sólo requiere de la aprobación del gasto y la incorporación al mismo de la factura correspondiente, tal y como dispone el mencionado artículo.</p>
-<p style="text-align:justify">Se ha comprobado que al contratista propuesto no se le han adjudicado en el presente ejercicio contratos menores con el mismo objeto que individual o conjuntamente superen el valor estimado de 15.000 euros.</p>
-<p style="text-align:justify">El órgano de contratación, que actúa en nombre de la Administración Pública de la Comunidad Autónoma de Canarias es la Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación, con arreglo a las facultades que le confiere el artículo 19.3 del Decreto 212/1991, de 11 de septiembre, de organización de los Departamentos de la Administración Autonómica de Canarias, hasta un máximo de 120.000,00 euros, cualquiera que sea el procedimiento de contratación.</p>
+<p style="text-align:justify;margin-bottom:2.12mm">La forma de pago será de una sola vez, contra factura y una vez se lleve a cabo la entrega de los artículos que integran el suministro o el desarrollo del correspondiente servicio.</p>
+<p style="text-align:justify;margin-bottom:2.12mm">El importe de cada servicio o suministro es inferior a quince mil (15.000,00.-) euros, por lo que se considera un contrato menor de acuerdo con lo dispuesto en el artículo 118 de la Ley 9/2017, de 8 de noviembre, de Contratos del Sector Público, por la que se transponen al ordenamiento jurídico español las Directivas del Parlamento Europeo y del Consejo 2014/23/UE y 2014/24/UE, de 26 de febrero de 2014 (LCSP), cuyo expediente de contratación sólo requiere de la aprobación del gasto y la incorporación al mismo de la factura correspondiente, tal y como dispone el mencionado artículo.</p>
+<p style="text-align:justify;margin-bottom:2.12mm">Se ha comprobado que al contratista propuesto no se le han adjudicado en el presente ejercicio contratos menores con el mismo objeto que individual o conjuntamente superen el valor estimado de 15.000 euros.</p>
+<p style="text-align:justify;margin-bottom:2.12mm">El órgano de contratación, que actúa en nombre de la Administración Pública de la Comunidad Autónoma de Canarias es la Dirección General de Ordenación de las Enseñanzas, Inclusión e Innovación, con arreglo a las facultades que le confiere el artículo 19.3 del Decreto 212/1991, de 11 de septiembre, de organización de los Departamentos de la Administración Autonómica de Canarias, hasta un máximo de 120.000,00 euros, cualquiera que sea el procedimiento de contratación.</p>
 <p style="text-align:justify">En consecuencia, y a tenor de lo establecido en el art. 27.1 a) del Decreto 212/1991, de 11 de septiembre, de organización de los Departamentos de la Administración Autonómica de Canarias, se eleva el presente informe propuesta.</p>
 <p></p>
 <p><strong>EL RESPONSABLE DEL SERVICIO DE ORDENACIÓN DE LAS ENSEÑANZAS</strong></p>

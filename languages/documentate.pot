@@ -3,7 +3,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Documentate – Document Generator 0.0.0\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/pdf-nativo-fpdf\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/documentate\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -946,6 +946,9 @@ msgstr ""
 msgid "cp:coreProperties element not found."
 msgstr ""
 
+msgid "The generated PDF could not be saved."
+msgstr ""
+
 msgid "You do not have permission to manage templates."
 msgstr ""
 
@@ -1267,9 +1270,6 @@ msgid "Generated file not found."
 msgstr ""
 
 msgid "The document has no document type."
-msgstr ""
-
-msgid "The generated PDF could not be saved."
 msgstr ""
 
 msgid "PDF layout not found."

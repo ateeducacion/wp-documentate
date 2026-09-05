@@ -312,6 +312,7 @@ class Documentate_Pdf_Html_Writer {
 				'space_before' => 0.0,
 				'space_after'  => self::PARA_SPACING,
 				'size'         => null,
+				'line_height'  => null,
 			)
 		);
 
@@ -569,7 +570,7 @@ class Documentate_Pdf_Html_Writer {
 				continue;
 			}
 
-			$this->marker( $ordered ? $number . '.' : self::BULLET, $outer, $style );
+			$this->marker( $ordered ? $number . '.' : self::BULLET, $outer, $style, $this->format( $child ) );
 			++$number;
 			$this->text_block( $child, $style, $this->format( $child ) );
 		}
@@ -584,14 +585,15 @@ class Documentate_Pdf_Html_Writer {
 	 * @param float               $indent Indent the marker sits at, in mm.
 	 * @param array<string,mixed> $style  Style the list inherits, so a marker
 	 *                                    in a bold cell is bold as well.
+	 * @param array               $format Paragraph spacing shared with the item.
 	 */
-	private function marker( $text, $indent, array $style ) {
+	private function marker( $text, $indent, array $style, array $format ) {
 		if ( $this->measuring ) {
 			return;
 		}
 
 		$this->pdf->apply_style( $style );
-		$height = $this->pdf->line_height();
+		$height = $format['line_height'] ?? $this->pdf->line_height();
 		$this->ensure_space( $height );
 
 		$x = $this->flow_x();
@@ -672,7 +674,7 @@ class Documentate_Pdf_Html_Writer {
 	private function draw_line( array $line, $width, array $format ) {
 		$size = $format['size'];
 		$this->pdf->apply_style( array( 'size' => $size ) );
-		$height = $this->pdf->line_height();
+		$height = $format['line_height'] ?? $this->pdf->line_height();
 
 		if ( $this->measuring ) {
 			$this->measured += $height;
@@ -862,9 +864,43 @@ class Documentate_Pdf_Html_Writer {
 	 */
 	private function format( DOMNode $node, $extra_indent = 0.0 ) {
 		return array(
-			'align'  => $node instanceof DOMElement ? $this->alignment( $node ) : 'L',
-			'indent' => $this->indent + $extra_indent,
+			'line_height'  => Documentate_Pdf_Paragraph_Style::line_height( $node ),
+			'align'        => $node instanceof DOMElement ? $this->alignment( $node ) : 'L',
+			'indent'       => $this->indent + $extra_indent + $this->paragraph_margin( $node, 'left' ),
+			'space_before' => $this->paragraph_margin( $node, 'top' ),
+			'space_after'  => $this->paragraph_margin( $node, 'bottom' ),
 		);
+	}
+
+	/**
+	 * Read an explicit paragraph margin in millimetres, centimetres or points.
+	 *
+	 * Negative, non-finite and oversized values are ignored so pasted content
+	 * cannot move backwards over earlier text or consume the whole column.
+	 *
+	 * @param DOMNode $node Node carrying the paragraph style.
+	 * @param string  $side Margin side: left, top or bottom.
+	 * @return float Margin in millimetres.
+	 */
+	private function paragraph_margin( DOMNode $node, $side ) {
+		if ( ! $node instanceof DOMElement ) {
+			return 0.0;
+		}
+
+		$pattern = '/(?:^|;)\s*margin-' . $side . '\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*(mm|cm|pt)\s*(?:;|$)/i';
+		if ( ! preg_match( $pattern, $node->getAttribute( 'style' ), $match ) ) {
+			return 0.0;
+		}
+
+		$units = array(
+			'mm' => 1.0,
+			'cm' => 10.0,
+			'pt' => Documentate_Pdf_Document::MM_PER_POINT,
+		);
+		$value = (float) $match[1] * $units[ strtolower( $match[2] ) ];
+		$limit = 'left' === $side ? min( 50.0, $this->flow_width() / 2 ) : 50.0;
+
+		return $value <= $limit ? $value : 0.0;
 	}
 
 	/**
@@ -880,7 +916,11 @@ class Documentate_Pdf_Html_Writer {
 			$align = strtolower( $match[1] );
 		}
 
-		return isset( self::ALIGNMENTS[ $align ] ) ? self::ALIGNMENTS[ $align ] : 'L';
+		if ( isset( self::ALIGNMENTS[ $align ] ) ) {
+			return self::ALIGNMENTS[ $align ];
+		}
+
+		return $el->parentNode instanceof DOMElement ? $this->alignment( $el->parentNode ) : 'L';
 	}
 
 	/**

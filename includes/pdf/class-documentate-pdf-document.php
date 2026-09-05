@@ -54,13 +54,19 @@ class Documentate_Pdf_Document extends FPDF {
 	const ADDRESS_LASPALMAS = 'Calle Granadera Canaria 2, Edf. Granadera Canaria Planta 1ª | CP 35071 Las Palmas de Gran Canaria | Tfno: 928 45 54 00 | Fax: 928 45 57 42';
 
 	/**
-	 * Face the address furniture is drawn in.
+	 * Face the horizontal address furniture is drawn in.
 	 *
 	 * Every template asks for a sans-serif for its addresses — Univers LT
 	 * Std 45 Light, Tahoma, Trebuchet MS, all `style:font-family-generic`
-	 * "swiss" — whatever serif the body of that layout uses.
+	 * "swiss" — whatever serif the body of that layout uses. Vertical bands
+	 * use the separately bundled BAND_FONT selected for their lighter weight.
 	 */
 	const ADDRESS_FONT = 'helvetica';
+
+	/**
+	 * Bundled light face shared by every vertical address band.
+	 */
+	const BAND_FONT = 'roboto-light';
 
 	/**
 	 * Point size of every address block.
@@ -71,6 +77,11 @@ class Documentate_Pdf_Document extends FPDF {
 	 * Letterhead frame «Imagen2» of propuestagasto.odt: x, y, width, height.
 	 */
 	const LETTERHEAD_STANDARD = array( 21.25, 19.4, 93.5, 21.7 );
+
+	/**
+	 * Resolution ODT image frame, relative to its 20 mm header origin.
+	 */
+	const LETTERHEAD_RESOLUTION = array( 17.37, 23.55, 97.01, 21.52 );
 
 	/**
 	 * Letterhead frame «image1.png» of modelo_informe.odt: x, y, width, height.
@@ -118,8 +129,11 @@ class Documentate_Pdf_Document extends FPDF {
 
 	/**
 	 * Baseline of the first band line, from the left edge of the page.
+	 *
+	 * With the bundled Roboto Light face, this places the visible band at
+	 * 7.09 mm, matching the resolution ODT export rather than the signed PDF.
 	 */
-	const BAND_BASELINE_X = 4.9;
+	const BAND_BASELINE_X = 9.07;
 
 	/**
 	 * Distance between the two band baselines.
@@ -183,7 +197,7 @@ class Documentate_Pdf_Document extends FPDF {
 	 *
 	 * @param array<string,mixed> $options Chrome and page options: `letterhead`
 	 *                                     (none|standard|large), `addresses`
-	 *                                     (none|band|header|footer), `folio`
+	 *                                     (none|band|band-title|header|footer), `folio`
 	 *                                     (none|header|footer), `crest` (bool),
 	 *                                     `margins` and `first_page_margins`
 	 *                                     as (top, right, bottom, left) in mm,
@@ -470,6 +484,9 @@ class Documentate_Pdf_Document extends FPDF {
 	 */
 	private function draw_letterhead() {
 		switch ( $this->options['letterhead'] ) {
+			case 'resolution':
+				$this->place_image( 'membrete.png', self::LETTERHEAD_RESOLUTION );
+				break;
 			case 'standard':
 				$this->place_image( 'membrete.png', self::LETTERHEAD_STANDARD );
 				break;
@@ -487,6 +504,9 @@ class Documentate_Pdf_Document extends FPDF {
 			case 'band':
 				$this->draw_address_band();
 				break;
+			case 'band-title':
+				$this->draw_title_address_band();
+				break;
 			case 'header':
 				$this->draw_header_addresses();
 				break;
@@ -500,11 +520,41 @@ class Documentate_Pdf_Document extends FPDF {
 	 * counter-clockwise about its own origin.
 	 */
 	private function draw_address_band() {
-		$this->SetFont( self::ADDRESS_FONT, '', self::ADDRESS_FONT_SIZE );
+		$this->select_band_font();
 		$baseline = 0.3 * $this->FontSize;
 
 		$this->rotated_text( self::BAND_BASELINE_X - $baseline, self::BAND_LENGTH, 90, self::ADDRESS_TENERIFE, self::BAND_LENGTH, 'C' );
 		$this->rotated_text( self::BAND_BASELINE_X + self::BAND_LINE_GAP - $baseline, self::BAND_LENGTH, 90, self::ADDRESS_LASPALMAS, self::BAND_LENGTH, 'C' );
+	}
+
+	/**
+	 * Align the longest address with the title, keeping both lines centred.
+	 *
+	 * The fixtures centre both paragraphs within one rotated frame. Use the
+	 * longest line as the common cell width and move the frame as a whole,
+	 * so only that line's upper end meets the first-page top margin.
+	 */
+	private function draw_title_address_band() {
+		$this->select_band_font();
+		$baseline = 0.3 * $this->FontSize;
+		$addresses = array( self::ADDRESS_TENERIFE, self::ADDRESS_LASPALMAS );
+		$width     = 0.0;
+		foreach ( $addresses as $address ) {
+			$width = max( $width, $this->GetStringWidth( self::latin1( $address ) ) );
+		}
+
+		foreach ( $addresses as $index => $address ) {
+			$x     = self::BAND_BASELINE_X + ( $index * self::BAND_LINE_GAP ) - $baseline;
+			$this->rotated_text( $x, $this->tMargin + $width, 90, $address, $width, 'C' );
+		}
+	}
+
+	/**
+	 * Load the bundled font from a fixed path, without system or network fonts.
+	 */
+	private function select_band_font() {
+		$this->AddFont( self::BAND_FONT, '', 'Roboto-Light.json', dirname( __DIR__, 2 ) . '/templates/pdf/fonts/roboto' );
+		$this->SetFont( self::BAND_FONT, '', self::ADDRESS_FONT_SIZE );
 	}
 
 	/**
@@ -564,7 +614,8 @@ class Documentate_Pdf_Document extends FPDF {
 	private function draw_footer_folio() {
 		$this->SetFont( $this->options['font'], '', $this->options['font_size'] );
 		$this->SetY( $this->PageBreakTrigger - self::FOLIO_FOOTER_LIFT );
-		$this->Cell( 0, self::FOLIO_FOOTER_HEIGHT, self::latin1( (string) $this->PageNo() ), 0, 0, 'R' );
+		$align = 0 === $this->PageNo() % 2 ? 'L' : 'R';
+		$this->Cell( 0, self::FOLIO_FOOTER_HEIGHT, self::latin1( (string) $this->PageNo() ), 0, 0, $align );
 	}
 
 	/**

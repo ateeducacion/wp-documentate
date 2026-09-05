@@ -75,6 +75,100 @@ class DocumentatePdfHtmlWriterTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * ODT line advances inherit through containers and match measured height.
+	 */
+	public function test_inherited_line_height_matches_drawing_and_measurement() {
+		$html   = '<div style="line-height:14.5pt"><p>Primero<br>Segundo</p><p style="line-height:20pt">Tercero<br>Cuarto</p></div>';
+		$pdf    = $this->document();
+		$writer = $this->writer( $pdf );
+		$height = $writer->measure_block( $this->column( $html ), 170.0 );
+		$start  = $pdf->GetY();
+		$writer->write( $html );
+		$this->assertEqualsWithDelta( 69.0 / self::POINTS_PER_MM, $height, 0.02 );
+		$this->assertEqualsWithDelta( $height, $pdf->GetY() - $start, 0.02 );
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+		$this->assertEqualsWithDelta( 14.5, $ops[0]['y'] - $ops[1]['y'], 0.02 );
+		$this->assertEqualsWithDelta( 20.0, $ops[2]['y'] - $ops[3]['y'], 0.02 );
+	}
+
+	/**
+	 * Invalid line heights cannot override a valid ancestor or the default.
+	 */
+	public function test_invalid_line_heights_fall_back_safely() {
+		foreach ( array( '-1pt', '0pt', '3pt', '61pt', 'NaNpt', '1e309pt', '115%' ) as $value ) {
+			foreach ( array( '', 'line-height:14.5pt' ) as $parent ) {
+				$plain = '<div style="' . $parent . '"><p>Uno<br>Dos</p></div>';
+				$html  = '<div style="' . $parent . '"><p style="line-height:' . $value . '">Uno<br>Dos</p></div>';
+				$this->assertSame(
+					Documentate_Pdf_Test_Helper::text_ops( $this->render( $plain ) ),
+					Documentate_Pdf_Test_Helper::text_ops( $this->render( $html ) )
+				);
+			}
+		}
+	}
+
+	/**
+	 * Line advance also applies inside lists and table cells, including markers.
+	 */
+	public function test_line_height_in_lists_and_tables() {
+		foreach ( array( '<ul><li>Uno<br>Dos</li></ul>', '<table><tr><td>Uno<br>Dos</td></tr></table>' ) as $content ) {
+			$html   = '<div style="line-height:20pt">' . $content . '</div>';
+			$pdf    = $this->document();
+			$writer = $this->writer( $pdf );
+			$height = $writer->measure_block( $this->column( $html ), 170.0 );
+			$start  = $pdf->GetY();
+			$writer->write( $html );
+			$this->assertEqualsWithDelta( $height, $pdf->GetY() - $start, 0.02 );
+			$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+			$one = array_values( array_filter( $ops, static fn( $op ) => 'Uno' === $op['text'] ) );
+			$two = array_values( array_filter( $ops, static fn( $op ) => 'Dos' === $op['text'] ) );
+			$this->assertEqualsWithDelta( 20.0, $one[0]['y'] - $two[0]['y'], 0.02 );
+		}
+	}
+
+	/**
+	 * A non-element has no paragraph style; inclusive limits are supported.
+	 */
+	public function test_line_height_accepts_only_bounded_element_values() {
+		$this->assertNull( Documentate_Pdf_Paragraph_Style::line_height( new DOMText( 'text' ) ) );
+		foreach ( array( 4, 60 ) as $points ) {
+			$element = $this->column( '<p style="line-height:' . $points . 'pt">Texto</p>' )->firstChild;
+			$this->assertEqualsWithDelta( $points / self::POINTS_PER_MM, Documentate_Pdf_Paragraph_Style::line_height( $element ), 0.001 );
+		}
+	}
+
+	/**
+	 * Explicit ODT paragraph margins affect drawing and measurement equally.
+	 */
+	public function test_paragraph_margins_match_drawn_and_measured_positions() {
+		$html   = '<p style="margin-left:12.7mm;margin-top:6pt;margin-bottom:0.212cm">Primero</p><p>Segundo</p>';
+		$pdf    = $this->document();
+		$writer = $this->writer( $pdf );
+		$height = $writer->measure_block( $this->column( $html ), 170.0 );
+		$start  = $pdf->GetY();
+		$writer->write( $html );
+		$this->assertEqualsWithDelta( $height, $pdf->GetY() - $start, 0.01 );
+
+		$ops = Documentate_Pdf_Test_Helper::text_ops( $pdf->Output( 'S' ) );
+		$this->assertEqualsWithDelta( 12.7 * self::POINTS_PER_MM, $ops[0]['x'] - $ops[1]['x'], 0.02 );
+		$this->assertEqualsWithDelta( 12.65 + ( 2.12 * self::POINTS_PER_MM ), $ops[0]['y'] - $ops[1]['y'], 0.02 );
+	}
+
+	/**
+	 * Unsupported or unsafe margins cannot displace or overlap paragraphs.
+	 */
+	public function test_invalid_paragraph_margins_are_ignored() {
+		$plain = $this->render( '<p>Texto</p><p>Segundo</p>' );
+		foreach ( array( '-3mm', '999mm', 'NaNmm', '2em', '1e309mm' ) as $value ) {
+			$html = '<p style="margin-left:' . $value . ';margin-top:' . $value . ';margin-bottom:' . $value . '">Texto</p><p>Segundo</p>';
+			$this->assertSame(
+				Documentate_Pdf_Test_Helper::text_ops( $plain ),
+				Documentate_Pdf_Test_Helper::text_ops( $this->render( $html ) )
+			);
+		}
+	}
+
+	/**
 	 * A long paragraph wraps over several lines and the next one follows it.
 	 */
 	public function test_paragraphs_flow_and_wrap() {
@@ -106,6 +200,17 @@ class DocumentatePdfHtmlWriterTest extends WP_UnitTestCase {
 
 		$this->assertMatchesRegularExpression( '/(?<![\d.])(?!0\.000 )\d+\.\d{3} Tw/', $bytes );
 		$this->assertStringContainsString( '0.000 Tw', $bytes );
+	}
+
+	/**
+	 * Rich paragraphs inherit alignment but retain explicit overrides.
+	 */
+	public function test_rich_paragraphs_inherit_alignment() {
+		$text = str_repeat( 'texto justificado ', 40 );
+		$bytes = $this->render( '<div style="text-align:justify"><p>' . $text . '</p></div>' );
+		$this->assertMatchesRegularExpression( '/(?<![\d.])(?!0\.000 )\d+\.\d{3} Tw/', $bytes );
+		$bytes = $this->render( '<div style="text-align:justify"><p style="text-align:left">' . $text . '</p></div>' );
+		$this->assertDoesNotMatchRegularExpression( '/(?<![\d.])(?!0\.000 )\d+\.\d{3} Tw/', $bytes );
 	}
 
 	/**
