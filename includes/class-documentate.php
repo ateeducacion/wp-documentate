@@ -66,6 +66,8 @@ class Documentate {
 		$this->plugin_name = 'documentate';
 
 		$this->load_dependencies();
+		require_once __DIR__ . '/class-documentate-private-output.php';
+		add_action( 'init', array( 'Documentate_Private_Output', 'upgrade' ) );
 		$this->define_admin_hooks();
 	}
 
@@ -140,6 +142,17 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-document-generator.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-opentbs.php';
 
+		// Native PDF renderer, built on the FPDF copy vendored under admin/vendor.
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-document.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-text-layout.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-layout.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-table-writer.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-paragraph-style.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-html-writer.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-merger.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-generic-rows.php';
+		require_once plugin_dir_path( __DIR__ ) . 'includes/pdf/class-documentate-pdf-generator.php';
+
 		if ( class_exists( '\Documentate\Document\Meta\Document_Meta_Box' ) ) {
 			$document_meta_box = new \Documentate\Document\Meta\Document_Meta_Box();
 			$document_meta_box->register();
@@ -191,6 +204,7 @@ class Documentate {
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-documentate-admin-helper.php';
 
 		// Admin UI for document types (taxonomy meta for templates, fields, etc.).
+		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doc-type-pdf-layout-field.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doc-types-admin.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-documentate-doctype-help-notice.php';
 

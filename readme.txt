@@ -14,16 +14,23 @@ Generate official resolutions and structured administrative documents from ODT/D
 
 Documentate is a WordPress plugin developed by the ATE to create official resolutions and structured administrative documents from ODT/DOCX templates.
 
-It uses OpenTBS to merge the document data into the template and can optionally convert the result to PDF/DOCX with Collabora Online (server-side) or LibreOffice WASM (in the browser).
+It uses OpenTBS to merge the document data into the template, and draws the PDF natively on the server from an HTML layout. Collabora Online (server-side) and LibreOffice WASM (in the browser) remain selectable as alternative PDF engines.
 
 ### Features
 
 - **Document types (templates)** defined as a custom taxonomy with schema-driven fields.
 - **ODT/DOCX generation** from templates via OpenTBS.
-- **Optional conversion to PDF** (and between office formats) with Collabora Online (server) or LibreOffice WASM (browser, experimental).
+- **Native PDF generation** from an HTML layout per document type, with no external service; Collabora Online (server) or LibreOffice WASM (browser, experimental) can be selected instead.
 - **Per-user scope filtering** (hierarchical categories) to control document visibility.
 - **Workflow, revisions, attachments and collaborative editing.**
 - **Multisite compatible.**
+
+### Third-party libraries
+
+The plugin bundles these, each under its own licence:
+
+- FPDF by Olivier Plathey (http://www.fpdf.org/), which draws the PDF. It declares the GD and zlib PHP extensions as requirements.
+- TinyButStrong and OpenTBS by Skrol29 (https://www.tinybutstrong.com/), which merge a document's fields into its template.
 
 == Installation ==
 
@@ -34,8 +41,8 @@ It uses OpenTBS to merge the document data into the template and can optionally 
 
 == Frequently Asked Questions ==
 
-= Which conversion engines are supported? =
-Collabora Online (server-side, recommended) and LibreOffice WASM (in the browser, experimental).
+= Which PDF engines are supported? =
+Native PDF rendering (default, no external service), Collabora Online (server-side) and LibreOffice WASM (in the browser, experimental).
 
 = How is document visibility controlled? =
 Through a per-user scope (hierarchical categories). Administrators see every document; other users only see documents in their scope and its subcategories.
