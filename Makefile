@@ -88,9 +88,13 @@ tests: test
 
 # The WP test bootstrap reinstalls the tests database: two PHPUnit runs at
 # once corrupt each other. Refuse to start while another run is alive.
+# Scoped to this plugin: only a run against *our* tests database is a hazard,
+# and every process of a `wp-env run` tree carries the --env-cwd path, so an
+# unscoped pattern also matched another checkout's PHPUnit on the same machine
+# and refused to start over a run that shares nothing with this one.
 # Keep the guard on its own recipe line: joined to the command that names
 # ./vendor/bin/phpunit it would match its own shell under procps pgrep (Linux).
-PHPUNIT_GUARD = if pgrep -f 'vendor/bin/[p]hpunit' >/dev/null 2>&1; then echo 'PHPUnit ya está en ejecución'; exit 1; fi
+PHPUNIT_GUARD = if pgrep -f 'plugins/documentate.*vendor/bin/[p]hpunit' >/dev/null 2>&1; then echo 'PHPUnit ya está en ejecución para documentate'; exit 1; fi
 
 # Run unit tests with PHPUnit. Use FILE or FILTER (or both).
 test: start-docker-if-not-running
