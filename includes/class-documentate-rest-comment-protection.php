@@ -21,6 +21,27 @@ defined( 'ABSPATH' ) || exit();
  */
 class Documentate_REST_Comment_Protection {
 	/**
+	 * Read methods the comments controller answers on a single-comment route.
+	 *
+	 * WordPress dispatches HEAD through the GET handler, so both have to be
+	 * refused together or a HEAD request confirms the comment behind the
+	 * protected post type.
+	 *
+	 * @var string[]
+	 */
+	private const READ_METHODS = array( 'GET', 'HEAD' );
+
+	/**
+	 * Write methods the comments controller answers on a single-comment route.
+	 *
+	 * `WP_REST_Server::EDITABLE` is "POST, PUT, PATCH", so an update of a
+	 * single comment arrives just as often as a POST as it does as a PUT.
+	 *
+	 * @var string[]
+	 */
+	private const WRITE_METHODS = array( 'POST', 'PUT', 'PATCH', 'DELETE' );
+
+	/**
 	 * The post types to protect.
 	 *
 	 * @access private
@@ -132,6 +153,13 @@ class Documentate_REST_Comment_Protection {
 	/**
 	 * Block access to single comments on protected post types for unauthenticated users.
 	 *
+	 * The route is the one the client asked for, verbatim but for its trailing
+	 * slash, while `WP_REST_Server::dispatch()` matches it against the
+	 * registered routes case-insensitively. A guard that compares the two
+	 * case-sensitively therefore stands aside for `/wp/v2/Comments/12` and
+	 * lets the request reach the core controller, so every comparison here is
+	 * case-insensitive too.
+	 *
 	 * @param mixed           $result  Dispatch result, will be used if not null.
 	 * @param WP_REST_Server  $server  Server instance.
 	 * @param WP_REST_Request $request Request used to generate the response.
@@ -145,8 +173,14 @@ class Documentate_REST_Comment_Protection {
 		$route = $request->get_route();
 		$method = strtoupper( $request->get_method() );
 
-		// Block unauthenticated creation on protected post types.
-		if ( str_starts_with( $route, '/wp/v2/comments' ) && 'POST' === $method ) {
+		// Block unauthenticated creation on protected post types. Anchored:
+		// the collection route is the only one that carries a "post" param,
+		// and an unanchored prefix would also swallow /wp/v2/comments/12.
+		if ( preg_match( '#^/wp/v2/comments/?$#i', $route ) ) {
+			if ( 'POST' !== $method ) {
+				return $result;
+			}
+
 			$post_id = (int) $request->get_param( 'post' );
 			if ( $post_id && in_array( get_post_type( $post_id ), $this->protected_post_types, true ) ) {
 				return new WP_Error(
@@ -159,7 +193,7 @@ class Documentate_REST_Comment_Protection {
 		}
 
 		// Handle single comment routes.
-		if ( preg_match( '#^/wp/v2/comments/(?P<id>\d+)#', $route, $matches ) ) {
+		if ( preg_match( '#^/wp/v2/comments/(?P<id>\d+)(?:/|$)#i', $route, $matches ) ) {
 			$comment_id = (int) $matches['id'];
 			$comment = get_comment( $comment_id );
 
@@ -172,7 +206,7 @@ class Documentate_REST_Comment_Protection {
 				return $result;
 			}
 
-			if ( 'GET' === $method ) {
+			if ( in_array( $method, self::READ_METHODS, true ) ) {
 				return new WP_Error(
 					'rest_forbidden_comment',
 					'No estás autorizado para acceder a este recurso.',
@@ -180,7 +214,7 @@ class Documentate_REST_Comment_Protection {
 				);
 			}
 
-			if ( in_array( $method, array( 'PUT', 'PATCH', 'DELETE' ), true ) ) {
+			if ( in_array( $method, self::WRITE_METHODS, true ) ) {
 				return new WP_Error(
 					'rest_cannot_edit_comment',
 					'No estás autorizado para acceder a este recurso.',
@@ -229,15 +263,17 @@ class Documentate_REST_Comment_Protection {
 		}
 
 		// This hook runs on all authenticated REST requests. We must check if this is a comment modification request.
+		// Matched case-insensitively: WordPress routes /wp/v2/Comments/12 to the
+		// same handler as the canonical spelling.
 		$request_uri = ! empty( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
-		if ( ! preg_match( '#/wp/v2/comments/(?P<id>\d+)#', $request_uri, $matches ) ) {
+		if ( ! preg_match( '#/wp/v2/comments/(?P<id>\d+)#i', $request_uri, $matches ) ) {
 			return $result;
 		}
 
 		$request_method = ! empty( $_SERVER['REQUEST_METHOD'] )
 			? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) )
 			: '';
-		if ( ! in_array( $request_method, array( 'PUT', 'PATCH', 'DELETE' ), true ) ) {
+		if ( ! in_array( $request_method, self::WRITE_METHODS, true ) ) {
 			return $result;
 		}
 

@@ -528,4 +528,273 @@ class DocumentateRestCommentProtectionTest extends WP_UnitTestCase {
 
 		$this->assertSame( $prepared, $result );
 	}
+	// =========================================================================
+	// ROUTE-MATCHING REGRESSIONS
+	//
+	// WP_REST_Server::dispatch() matches the requested path against the
+	// registered routes with preg_match( '@^' . $route . '$@i', ... ), while
+	// WP_REST_Request::get_route() returns the path the client asked for
+	// verbatim. A guard that compares the two case-sensitively — or that
+	// treats /wp/v2/comments as a prefix — lets the request through to the
+	// core controller.
+	// =========================================================================
+
+	/**
+	 * Create an approved comment on the protected fixture post type.
+	 *
+	 * @return int Comment ID.
+	 */
+	private function create_protected_comment() {
+		return (int) wp_insert_comment(
+			array(
+				'comment_post_ID'  => $this->protected_post_id,
+				'comment_content'  => 'Protected activity',
+				'user_id'          => $this->admin_user_id,
+				'comment_approved' => 1,
+			)
+		);
+	}
+
+	/**
+	 * Rebuild the REST server so the protection hooks are on rest_pre_dispatch.
+	 *
+	 * @return void
+	 */
+	private function boot_rest_server() {
+		$GLOBALS['wp_rest_server'] = null;
+		rest_get_server();
+	}
+
+	/**
+	 * A capitalised route reaches the same controller, so it must be refused too.
+	 */
+	public function test_protect_single_comment_access_blocks_get_on_case_variant() {
+		wp_set_current_user( $this->admin_user_id );
+		$this->protection->register_rest_comment_protection_hooks();
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'GET', "/wp/v2/Comments/{$comment_id}" );
+		$result  = $this->protection->protect_single_comment_access( null, rest_get_server(), $request );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_forbidden_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * WordPress dispatches HEAD through the GET handler of the same route.
+	 */
+	public function test_protect_single_comment_access_blocks_head_on_protected() {
+		wp_set_current_user( $this->admin_user_id );
+		$this->protection->register_rest_comment_protection_hooks();
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'HEAD', "/wp/v2/comments/{$comment_id}" );
+		$result  = $this->protection->protect_single_comment_access( null, rest_get_server(), $request );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_forbidden_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * WP_REST_Server::EDITABLE is "POST, PUT, PATCH": a POST to a single-comment
+	 * route is an update, not a creation, and must be refused as one.
+	 */
+	public function test_protect_single_comment_access_blocks_post_update_on_protected() {
+		wp_set_current_user( $this->admin_user_id );
+		$this->protection->register_rest_comment_protection_hooks();
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/comments/{$comment_id}" );
+		$request->set_param( 'content', 'rewritten' );
+		$result = $this->protection->protect_single_comment_access( null, rest_get_server(), $request );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_cannot_edit_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * The same update, spelled with a capital, is refused the same way.
+	 */
+	public function test_protect_single_comment_access_blocks_post_update_on_case_variant() {
+		wp_set_current_user( $this->admin_user_id );
+		$this->protection->register_rest_comment_protection_hooks();
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/Comments/{$comment_id}" );
+		$result  = $this->protection->protect_single_comment_access( null, rest_get_server(), $request );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_cannot_edit_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * Creation on the collection is refused whatever the spelling of the route.
+	 */
+	public function test_protect_single_comment_access_blocks_create_on_case_variant() {
+		wp_set_current_user( 0 );
+		$this->protection->register_rest_comment_protection_hooks();
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/Comments' );
+		$request->set_param( 'post', $this->protected_post_id );
+
+		$result = $this->protection->protect_single_comment_access( null, rest_get_server(), $request );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_cannot_create_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * Schema discovery carries no comment data and stays reachable.
+	 */
+	public function test_protect_single_comment_access_leaves_options_alone() {
+		wp_set_current_user( $this->admin_user_id );
+		$this->protection->register_rest_comment_protection_hooks();
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'OPTIONS', "/wp/v2/comments/{$comment_id}" );
+		$result  = $this->protection->protect_single_comment_access( null, rest_get_server(), $request );
+
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * End to end through WP_REST_Server::dispatch(): the capitalised route is
+	 * routed to the comments controller and must not answer with the comment.
+	 */
+	public function test_rest_dispatch_denies_anonymous_on_case_variant_route() {
+		wp_set_current_user( $this->admin_user_id );
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+		$this->boot_rest_server();
+
+		$response = rest_do_request( new WP_REST_Request( 'GET', "/wp/v2/Comments/{$comment_id}" ) );
+		$data     = $response->get_data();
+
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertArrayNotHasKey( 'content', $data );
+		$this->assertStringNotContainsString( 'Protected activity', wp_json_encode( $data ) );
+	}
+
+	/**
+	 * The canonical spelling behaves identically: same status, same silence.
+	 *
+	 * The collection is covered by test_filter_comment_collection_query(); it
+	 * is not asserted through the dispatcher here because this suite runs a
+	 * second protection instance beside the one the plugin creates at load,
+	 * and the two stack their comments_clauses joins.
+	 */
+	public function test_rest_dispatch_denies_anonymous_on_canonical_route() {
+		wp_set_current_user( $this->admin_user_id );
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+		$this->boot_rest_server();
+
+		$response = rest_do_request( new WP_REST_Request( 'GET', "/wp/v2/comments/{$comment_id}" ) );
+
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertStringNotContainsString( 'Protected activity', wp_json_encode( $response->get_data() ) );
+	}
+
+	/**
+	 * A POST update through the real dispatcher does not reach the controller.
+	 */
+	public function test_rest_dispatch_denies_anonymous_post_update() {
+		wp_set_current_user( $this->admin_user_id );
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+		$this->boot_rest_server();
+
+		$request = new WP_REST_Request( 'POST', "/wp/v2/comments/{$comment_id}" );
+		$request->set_param( 'content', 'rewritten by an anonymous visitor' );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 401, $response->get_status() );
+		$this->assertSame( 'Protected activity', get_comment( $comment_id )->comment_content );
+	}
+
+	/**
+	 * Authorized users keep reading the activity they are entitled to.
+	 */
+	public function test_rest_dispatch_allows_authorized_user() {
+		wp_set_current_user( $this->admin_user_id );
+		$comment_id = $this->create_protected_comment();
+		$this->boot_rest_server();
+
+		$response = rest_do_request( new WP_REST_Request( 'GET', "/wp/v2/comments/{$comment_id}" ) );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertStringContainsString( 'Protected activity', $data['content']['rendered'] );
+	}
+
+	/**
+	 * Comments on ordinary posts are public and stay public, both spellings.
+	 */
+	public function test_rest_dispatch_keeps_public_comments_readable() {
+		wp_set_current_user( $this->admin_user_id );
+		$comment_id = (int) wp_insert_comment(
+			array(
+				'comment_post_ID'  => $this->regular_post_id,
+				'comment_content'  => 'Public note',
+				'comment_approved' => 1,
+			)
+		);
+
+		wp_set_current_user( 0 );
+		$this->boot_rest_server();
+
+		foreach ( array( 'comments', 'Comments' ) as $segment ) {
+			$response = rest_do_request( new WP_REST_Request( 'GET', "/wp/v2/{$segment}/{$comment_id}" ) );
+
+			$this->assertSame( 200, $response->get_status(), "Route /wp/v2/{$segment} must stay public." );
+			$this->assertStringContainsString( 'Public note', $response->get_data()['content']['rendered'] );
+		}
+	}
+
+	/**
+	 * The authentication-errors guard covers POST updates and capitalised URIs.
+	 */
+	public function test_protect_comment_modification_blocks_post_update_on_case_variant() {
+		wp_set_current_user( $this->admin_user_id );
+		$this->protection->register_rest_comment_protection_hooks();
+		$comment_id = $this->create_protected_comment();
+
+		wp_set_current_user( 0 );
+
+		$_SERVER['REQUEST_URI']    = "/wp-json/wp/v2/Comments/{$comment_id}";
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
+		$result = $this->protection->protect_comment_modification( null );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'rest_cannot_edit_comment', $result->get_error_code() );
+	}
+
+	/**
+	 * An error raised by another authentication filter survives this one.
+	 */
+	public function test_protect_comment_modification_preserves_existing_error() {
+		wp_set_current_user( 0 );
+		$this->protection->register_rest_comment_protection_hooks();
+
+		$_SERVER['REQUEST_URI']    = '/wp-json/wp/v2/Comments/1';
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
+		$existing = new WP_Error( 'rest_cookie_invalid_nonce', 'Cookie check failed' );
+
+		$this->assertSame( $existing, $this->protection->protect_comment_modification( $existing ) );
+	}
 }

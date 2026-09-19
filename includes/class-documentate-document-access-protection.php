@@ -178,8 +178,11 @@ class Documentate_Document_Access_Protection {
 
 		$route = $request->get_route();
 
-		// Block direct access to document endpoints (shouldn't exist but extra safety).
-		if ( preg_match( '#^/wp/v2/' . self::POST_TYPE . '(?:/|$)#', $route ) ) {
+		// Block direct access to document endpoints (shouldn't exist but extra
+		// safety). Case-insensitive: WP_REST_Server::dispatch() matches the
+		// requested path against the registered routes with the /i flag, so a
+		// case-sensitive guard would stand aside for /wp/v2/Posts/12.
+		if ( preg_match( '#^/wp/v2/' . self::POST_TYPE . '(?:/|$)#i', $route ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				'No estás autorizado para acceder a este recurso.',
@@ -188,7 +191,7 @@ class Documentate_Document_Access_Protection {
 		}
 
 		// Block access to single posts by ID if they are our post type.
-		if ( preg_match( '#^/wp/v2/posts/(\d+)#', $route, $matches ) ) {
+		if ( preg_match( '#^/wp/v2/posts/(\d+)#i', $route, $matches ) ) {
 			$post_id = (int) $matches[1];
 			if ( get_post_type( $post_id ) === self::POST_TYPE ) {
 				return new WP_Error(
