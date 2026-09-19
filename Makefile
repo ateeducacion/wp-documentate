@@ -208,6 +208,37 @@ capturas: start-docker-if-not-running setup-e2e-env
 	@DOCUMENTATE_URL=http://localhost:$(DOCKER_PORT) node scripts/capturas.mjs
 	@echo "Informe: $(CURDIR)/capturas/informe.html"
 
+# Comprueba el guion que mantiene la rama de galerías, contra un repositorio
+# desnudo propio: hace force-push, así que conviene probarlo y no leerlo.
+test-galeria:
+	@bash tests/scripts/galeria-capturas.test.sh
+
+# Recomprime las capturas en el sitio: pngquant las lleva a paleta (las
+# pantallas son planas y aguantan bien, −71 %) y oxipng, si está, reempaqueta
+# sin pérdida por encima (−73 % entre las dos). Cada una es opcional y se usa
+# la que haya: oxipng no está en los repositorios de Ubuntu, así que en CI
+# corre sola pngquant, y en un portátil con las dos se aprovechan las dos. Sin
+# ninguna, avisa y sigue: el informe se ve igual. La usa el flujo de Capturas
+# antes de subir nada. No recorta ni reescala; solo cambia la codificación.
+#
+# Todo en una sola línea de receta: make abre un shell por línea, así que un
+# "exit 0" repartido solo terminaría su propia línea y la receta seguiría.
+optimizar-capturas:
+	@if [ ! -d capturas/img ]; then \
+		echo "No hay capturas/img; ejecuta make capturas."; \
+	elif ! command -v pngquant > /dev/null 2>&1 && ! command -v oxipng > /dev/null 2>&1; then \
+		echo "Sin pngquant ni oxipng: se dejan las capturas tal cual."; \
+	else \
+		echo "Antes:   $$(du -sh capturas/img | cut -f1)"; \
+		if command -v pngquant > /dev/null 2>&1; then \
+			pngquant --quality=60-85 --speed 1 --skip-if-larger --force --ext .png capturas/img/*.png || true; \
+		else echo "  (sin pngquant)"; fi; \
+		if command -v oxipng > /dev/null 2>&1; then \
+			oxipng -o 4 --strip safe -q capturas/img/*.png || true; \
+		else echo "  (sin oxipng)"; fi; \
+		echo "Después: $$(du -sh capturas/img | cut -f1)"; \
+	fi
+
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
 flush-permalinks:
@@ -404,6 +435,8 @@ help:
 	@echo "  test-e2e-wasm      - Run the LibreOffice-WASM E2E spec (opt-in, slow)"
 	@echo "  test-e2e-visual    - Run E2E tests with visual UI (Docker)"
 	@echo "  capturas           - Walk the whole cycle and write capturas/informe.html"
+	@echo "  optimizar-capturas - Recompress capturas/img (pngquant + oxipng)"
+	@echo "  test-galeria       - Check the per-PR screenshot gallery script"
 	@echo "                       SOLO=escritorio|movil (one screen size only)"
 	@echo ""
 	@echo "Packaging & Updates:"
