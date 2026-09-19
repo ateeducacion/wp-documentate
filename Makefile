@@ -208,6 +208,11 @@ capturas: start-docker-if-not-running setup-e2e-env
 	@DOCUMENTATE_URL=http://localhost:$(DOCKER_PORT) node scripts/capturas.mjs
 	@echo "Informe: $(CURDIR)/capturas/informe.html"
 
+# Comprueba el guion que mantiene la rama de galerías, contra un repositorio
+# desnudo propio: hace force-push, así que conviene probarlo y no leerlo.
+test-galeria:
+	@bash tests/scripts/galeria-capturas.test.sh
+
 # Recomprime las capturas en el sitio: pngquant las lleva a paleta (las
 # pantallas son planas y aguantan bien, −71 %) y oxipng, si está, reempaqueta
 # sin pérdida por encima (−73 % entre las dos). Cada una es opcional y se usa
