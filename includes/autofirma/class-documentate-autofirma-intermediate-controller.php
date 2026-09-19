@@ -187,7 +187,7 @@ final class Documentate_AutoFirma_Intermediate_Controller {
 		}
 
 		$route_prefix = '/' . self::REST_NAMESPACE . '/autofirma/intermediate/';
-		if ( 0 !== strpos( (string) $request->get_route(), $route_prefix ) ) {
+		if ( 0 !== stripos( (string) $request->get_route(), $route_prefix ) ) {
 			return $served;
 		}
 

@@ -598,6 +598,46 @@ class DocumentateDocumentAccessProtectionTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * WordPress matches REST routes case-insensitively, so /wp/v2/Posts/12
+	 * reaches the same controller as the canonical spelling and the guard has
+	 * to refuse it too.
+	 */
+	public function test_rest_api_blocks_single_document_access_on_case_variant() {
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'GET', '/wp/v2/Posts/' . $this->document_id );
+		$result  = $this->protection->block_rest_access( null, new WP_REST_Server(), $request );
+
+		$this->assertInstanceOf( 'WP_Error', $result );
+		$this->assertEquals( 'rest_forbidden', $result->get_error_code() );
+	}
+
+	/**
+	 * Same for the document route itself.
+	 */
+	public function test_rest_api_blocks_document_route_on_case_variant() {
+		wp_set_current_user( $this->subscriber_user_id );
+
+		$request = new WP_REST_Request( 'GET', '/wp/v2/Documentate_Document' );
+		$result  = $this->protection->block_rest_access( null, new WP_REST_Server(), $request );
+
+		$this->assertInstanceOf( 'WP_Error', $result );
+		$this->assertEquals( 'rest_forbidden', $result->get_error_code() );
+	}
+
+	/**
+	 * A capitalised route to an ordinary post is still not ours to block.
+	 */
+	public function test_rest_api_allows_regular_post_access_on_case_variant() {
+		wp_set_current_user( 0 );
+
+		$request = new WP_REST_Request( 'GET', '/wp/v2/Posts/' . $this->regular_post_id );
+		$result  = $this->protection->block_rest_access( null, new WP_REST_Server(), $request );
+
+		$this->assertNull( $result, 'Regular posts should not be blocked.' );
+	}
+
+	/**
 	 * Test that REST API does not block access to regular posts.
 	 */
 	public function test_rest_api_allows_regular_post_access() {
