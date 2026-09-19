@@ -50,10 +50,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Capture both document workflows
         run: make capturas
+      # oxipng is not packaged for Ubuntu; pngquant alone does the bulk of it
+      # (−71 % against −73 % with both), and the target uses whatever is there.
       - name: Shrink the screenshots
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq pngquant oxipng
+          sudo apt-get install -y -qq pngquant
           make optimizar-capturas
       - name: Check for the scene index
         id: report

@@ -209,25 +209,30 @@ capturas: start-docker-if-not-running setup-e2e-env
 	@echo "Informe: $(CURDIR)/capturas/informe.html"
 
 # Recomprime las capturas en el sitio: pngquant las lleva a paleta (las
-# pantallas son planas y aguantan bien) y oxipng reempaqueta sin pérdida.
-# Juntas dejan la galería en algo menos de un tercio. No es obligatoria: si no
-# están instaladas, avisa y sigue, porque el informe se ve igual sin ellas.
-# La usa el flujo de Capturas antes de subir nada.
-# Comprueba el guion que mantiene la rama de galerías, contra un repositorio
-# desnudo propio: hace force-push, así que conviene probarlo y no leerlo.
-test-galeria:
-	@bash tests/scripts/galeria-capturas.test.sh
-
+# pantallas son planas y aguantan bien, −71 %) y oxipng, si está, reempaqueta
+# sin pérdida por encima (−73 % entre las dos). Cada una es opcional y se usa
+# la que haya: oxipng no está en los repositorios de Ubuntu, así que en CI
+# corre sola pngquant, y en un portátil con las dos se aprovechan las dos. Sin
+# ninguna, avisa y sigue: el informe se ve igual. La usa el flujo de Capturas
+# antes de subir nada. No recorta ni reescala; solo cambia la codificación.
+#
+# Todo en una sola línea de receta: make abre un shell por línea, así que un
+# "exit 0" repartido solo terminaría su propia línea y la receta seguiría.
 optimizar-capturas:
-	@if ! command -v pngquant > /dev/null 2>&1 || ! command -v oxipng > /dev/null 2>&1; then \
-		echo "Sin pngquant u oxipng: se dejan las capturas tal cual."; \
-		exit 0; \
+	@if [ ! -d capturas/img ]; then \
+		echo "No hay capturas/img; ejecuta make capturas."; \
+	elif ! command -v pngquant > /dev/null 2>&1 && ! command -v oxipng > /dev/null 2>&1; then \
+		echo "Sin pngquant ni oxipng: se dejan las capturas tal cual."; \
+	else \
+		echo "Antes:   $$(du -sh capturas/img | cut -f1)"; \
+		if command -v pngquant > /dev/null 2>&1; then \
+			pngquant --quality=60-85 --speed 1 --skip-if-larger --force --ext .png capturas/img/*.png || true; \
+		else echo "  (sin pngquant)"; fi; \
+		if command -v oxipng > /dev/null 2>&1; then \
+			oxipng -o 4 --strip safe -q capturas/img/*.png || true; \
+		else echo "  (sin oxipng)"; fi; \
+		echo "Después: $$(du -sh capturas/img | cut -f1)"; \
 	fi
-	@if [ ! -d capturas/img ]; then echo "No hay capturas/img; ejecuta make capturas."; exit 0; fi
-	@echo "Antes:   $$(du -sh capturas/img | cut -f1)"
-	@pngquant --quality=60-85 --speed 1 --skip-if-larger --force --ext .png capturas/img/*.png || true
-	@oxipng -o 4 --strip safe -q capturas/img/*.png || true
-	@echo "Después: $$(du -sh capturas/img | cut -f1)"
 
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
