@@ -208,6 +208,27 @@ capturas: start-docker-if-not-running setup-e2e-env
 	@DOCUMENTATE_URL=http://localhost:$(DOCKER_PORT) node scripts/capturas.mjs
 	@echo "Informe: $(CURDIR)/capturas/informe.html"
 
+# Recomprime las capturas en el sitio: pngquant las lleva a paleta (las
+# pantallas son planas y aguantan bien) y oxipng reempaqueta sin pérdida.
+# Juntas dejan la galería en algo menos de un tercio. No es obligatoria: si no
+# están instaladas, avisa y sigue, porque el informe se ve igual sin ellas.
+# La usa el flujo de Capturas antes de subir nada.
+# Comprueba el guion que mantiene la rama de galerías, contra un repositorio
+# desnudo propio: hace force-push, así que conviene probarlo y no leerlo.
+test-galeria:
+	@bash tests/scripts/galeria-capturas.test.sh
+
+optimizar-capturas:
+	@if ! command -v pngquant > /dev/null 2>&1 || ! command -v oxipng > /dev/null 2>&1; then \
+		echo "Sin pngquant u oxipng: se dejan las capturas tal cual."; \
+		exit 0; \
+	fi
+	@if [ ! -d capturas/img ]; then echo "No hay capturas/img; ejecuta make capturas."; exit 0; fi
+	@echo "Antes:   $$(du -sh capturas/img | cut -f1)"
+	@pngquant --quality=60-85 --speed 1 --skip-if-larger --force --ext .png capturas/img/*.png || true
+	@oxipng -o 4 --strip safe -q capturas/img/*.png || true
+	@echo "Después: $$(du -sh capturas/img | cut -f1)"
+
 # ─── WP-CLI helpers (Docker) ─────────────────────────────────────────────────
 
 flush-permalinks:
@@ -404,6 +425,8 @@ help:
 	@echo "  test-e2e-wasm      - Run the LibreOffice-WASM E2E spec (opt-in, slow)"
 	@echo "  test-e2e-visual    - Run E2E tests with visual UI (Docker)"
 	@echo "  capturas           - Walk the whole cycle and write capturas/informe.html"
+	@echo "  optimizar-capturas - Recompress capturas/img (pngquant + oxipng)"
+	@echo "  test-galeria       - Check the per-PR screenshot gallery script"
 	@echo "                       SOLO=escritorio|movil (one screen size only)"
 	@echo ""
 	@echo "Packaging & Updates:"

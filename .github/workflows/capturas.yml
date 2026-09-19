@@ -3,6 +3,7 @@ name: Capturas
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     paths-ignore:
       - '**.md'
   workflow_dispatch:
@@ -16,6 +17,7 @@ permissions:
 
 jobs:
   capture:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     outputs:
@@ -40,12 +42,19 @@ jobs:
           npm ci
       - name: Check gallery generation
         run: node --test tests/scripts/screenshot-gallery.test.cjs
+      - name: Check the gallery branch script
+        run: make test-galeria
       - name: Start WordPress
         run: npx wp-env start --config=.wp-env.docker.json
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Capture both document workflows
         run: make capturas
+      - name: Shrink the screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pngquant oxipng
+          make optimizar-capturas
       - name: Check for the scene index
         id: report
         if: ${{ !cancelled() && hashFiles('capturas/indice.json') != '' }}
@@ -83,24 +92,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          BRANCH="feature/pr-${PR_NUMBER}-screenshots"
-          DEST="${RUNNER_TEMP}/screenshots"
-          git init -q -b "${BRANCH}" "${DEST}"
-          git -C "${DEST}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
           gh auth setup-git
-          PREVIOUS=$(git -C "${DEST}" ls-remote origin "refs/heads/${BRANCH}" | cut -f1)
-          cp -R capturas/. "${DEST}/"
-          git -C "${DEST}" add .
-          git -C "${DEST}" -c user.name='github-actions[bot]' \
-            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -q -m "Screenshots for PR #${PR_NUMBER} at ${HEAD_SHA}"
-          # This dedicated output branch keeps only the current gallery.
-          git -C "${DEST}" push --force-with-lease="refs/heads/${BRANCH}:${PREVIOUS}" \
-            origin "HEAD:refs/heads/${BRANCH}"
-          echo "sha=$(git -C "${DEST}" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          SHA=$(scripts/galeria-capturas.sh publish "${PR_NUMBER}" capturas)
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
       - name: Update the PR gallery
         uses: actions/github-script@v9
         env:
@@ -111,7 +107,7 @@ jobs:
             const { gallery, MARKER } = require('./scripts/screenshot-gallery.cjs');
             const pr = context.payload.pull_request;
             const shots = JSON.parse(fs.readFileSync('capturas/indice.json', 'utf8'));
-            const base = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/${process.env.SCREENSHOTS_SHA}/`;
+            const base = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/${process.env.SCREENSHOTS_SHA}/pr-${pr.number}/`;
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const body = gallery(shots, { base, sha: pr.head.sha, run });
             const comments = await github.paginate(github.rest.issues.listComments, {
@@ -123,3 +119,35 @@ jobs:
             } else {
               await github.rest.issues.createComment({ ...context.repo, issue_number: pr.number, body });
             }
+
+  # A closed pull request keeps no gallery: the directory goes, and so does the
+  # branch the old per-PR scheme left behind.
+  cleanup:
+    if: >-
+      github.event_name == 'pull_request' && github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # The base branch, not the pull request: its merge ref may be gone once
+      # the PR is closed, and this job writes to the repository, so the script
+      # it runs has to be the reviewed one.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+      - name: Drop the gallery of this pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          scripts/galeria-capturas.sh remove "${PR_NUMBER}"
+          LEGACY="feature/pr-${PR_NUMBER}-screenshots"
+          if git ls-remote --exit-code --heads origin "${LEGACY}" > /dev/null 2>&1; then
+            git push -q origin --delete "${LEGACY}"
+            echo "Removed the legacy branch ${LEGACY}."
+          fi
