@@ -4,12 +4,16 @@ name: CI
 on:
   pull_request:
     paths-ignore:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
       - '**.md'
       - '.github/*.md'
   push:
     branches:
       - 'main'
     paths-ignore:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
       - '**.md'
       - '.github/*.md'
   # The LibreOffice-WASM conversion spec downloads a browser bundle and needs a
