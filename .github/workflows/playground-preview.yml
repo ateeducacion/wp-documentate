@@ -3,6 +3,9 @@ name: Playground preview
 
 on:
   pull_request:
+    paths-ignore:
+      - '.agents/skills/**'
+      - '.claude/skills/**'
     types: [opened, synchronize, reopened]
 
 permissions:
