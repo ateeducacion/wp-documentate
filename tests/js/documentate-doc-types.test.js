@@ -6,7 +6,8 @@
  * per field. P2 added the rol key: the entries revisión fills in
  * carry a badge, the área ones do not.
  */
-const jQuery = require( 'jquery' );
+import jQuery from 'jquery';
+import { describe, expect, it, vi } from 'vitest';
 
 /**
  * Minimal stand-ins for the globals wp-admin provides.
@@ -56,17 +57,16 @@ async function render( schema ) {
 		} );
 
 	// The script reads the globals wp-admin defines, so they are put where it
-	// looks for them and the file is required rather than evaluated as a
-	// string: isolateModules re-runs it on every call, the way the browser
-	// does on a fresh page, and the coverage report sees it.
+	// looks for them and the file is imported rather than evaluated as a
+	// string: resetting the registry re-runs it on every call, the way the
+	// browser does on a fresh page, and the coverage report sees it.
 	global.jQuery = jQuery;
 	global.wp = {};
 	global._ = { escape };
 	global.documentateDocTypes = config();
 
-	jest.isolateModules( () => {
-		require( '../../admin/js/documentate-doc-types.js' );
-	} );
+	vi.resetModules();
+	await import( '../../admin/js/documentate-doc-types.js' );
 
 	// jQuery resolves its ready Deferred through two timer turns.
 	await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );

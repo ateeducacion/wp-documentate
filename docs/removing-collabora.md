@@ -464,7 +464,7 @@ npm run test:unit-js
 make test-e2e
 ```
 
-There is no `npm test` script in this repo; the Jest suite runs through
+There is no `npm test` script in this repo; the Vitest suite runs through
 `test:unit-js`.
 
 and boot the Playground preview once, to confirm demo seeding survived the

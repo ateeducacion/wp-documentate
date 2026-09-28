@@ -1,14 +1,16 @@
-const $ = require('jquery');
+import $ from 'jquery';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-beforeEach(() => {
+beforeEach(async () => {
 	$(document).off('submit', '#post');
 	global.jQuery = $;
 	document.body.innerHTML = `<div class="wrap"><h1>Documento</h1></div><form id="post">
 		<div class="documentate-rich-editor-wrap" data-required="true"><textarea id="rich"></textarea></div>
 		<textarea id="row" class="documentate-array-rich" required>Contenido</textarea></form>`;
-	document.querySelector('form').reportValidity = jest.fn(() => true);
+	document.querySelector('form').reportValidity = vi.fn(() => true);
 	delete window.tinyMCE;
-	jest.isolateModules(() => require('../../admin/js/documentate-admin.js'));
+	vi.resetModules();
+	await import('../../admin/js/documentate-admin.js');
 });
 
 afterEach(() => {
@@ -30,7 +32,7 @@ it('validates native constraints before rich fields', () => {
 });
 
 it('rejects empty classic and repeated rich fields and reuses the notice', () => {
-	window.tinyMCE = { triggerSave: jest.fn(), get: jest.fn(() => ({ save: jest.fn() })) };
+	window.tinyMCE = { triggerSave: vi.fn(), get: vi.fn(() => ({ save: vi.fn() })) };
 	expect(submit().defaultPrevented).toBe(true);
 	expect(document.querySelector('.documentate-rich-editor-wrap').classList.contains('documentate-rich-required-error')).toBe(true);
 	expect(document.getElementById('documentate-required-notice').textContent).toContain('Rellena todos');

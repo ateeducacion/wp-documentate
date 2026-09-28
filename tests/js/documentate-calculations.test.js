@@ -6,6 +6,8 @@
  * (.documentate-array-item) holding concepto rows (.documentate-subarray-item)
  * plus the provider amounts, and the gasto_numero scalar field.
  */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 /**
  * Markup of one concepto row.
  *
@@ -99,13 +101,12 @@ const NO_PROVIDERS = `
 /**
  * Evaluate the module against the current DOM.
  */
-function load() {
-	// isolateModules re-evaluates the file on every call, the way the browser
-	// runs it on a fresh page — and unlike new Function( source ) it goes
-	// through the module registry, so the coverage report sees it.
-	jest.isolateModules( () => {
-		require( '../../admin/js/documentate-calculations.js' );
-	} );
+async function load() {
+	// Resetting the registry re-evaluates the file on every call, the way the
+	// browser runs it on a fresh page — and unlike new Function( source ) it
+	// goes through the module graph, so the coverage report sees it.
+	vi.resetModules();
+	await import( '../../admin/js/documentate-calculations.js' );
 }
 
 /**
@@ -123,8 +124,8 @@ beforeEach( () => {
 } );
 
 describe( 'row and provider totals', () => {
-	it( 'computes row totals, bruto and total on load and locks them', () => {
-		load();
+	it( 'computes row totals, bruto and total on load and locks them', async () => {
+		await load();
 
 		const t0 = input( 'tpl_fields[servicios][0][conceptos][0][total]' );
 		const t1 = input( 'tpl_fields[servicios][0][conceptos][1][total]' );
@@ -140,15 +141,15 @@ describe( 'row and provider totals', () => {
 		expect( input( 'tpl_fields[servicios][0][igic]' ).readOnly ).toBe( false );
 	} );
 
-	it( 'leaves blank rows and blank providers empty so they are not saved', () => {
-		load();
+	it( 'leaves blank rows and blank providers empty so they are not saved', async () => {
+		await load();
 
 		expect( input( 'tpl_fields[servicios][0][conceptos][2][total]' ).value ).toBe( '' );
 		expect( input( 'tpl_fields[suministros][0][bruto]' ).value ).toBe( '' );
 		expect( input( 'tpl_fields[suministros][0][total]' ).value ).toBe( '' );
 	} );
 
-	it( 'keeps a row whose total was typed by hand and adds it to the bruto', () => {
+	it( 'keeps a row whose total was typed by hand and adds it to the bruto', async () => {
 		document.body.innerHTML = `
 			<form id="post">
 				${ repeater( 'expertos', [
@@ -158,7 +159,7 @@ describe( 'row and provider totals', () => {
 				] ) }
 				${ EXPENSE_FIELD }
 			</form>`;
-		load();
+		await load();
 
 		const total = input( 'tpl_fields[expertos][0][conceptos][0][total]' );
 		expect( total.value ).toBe( '300' );
@@ -169,8 +170,8 @@ describe( 'row and provider totals', () => {
 		expect( input( 'documentate_field_gasto_numero' ).value ).toBe( '300.00' );
 	} );
 
-	it( 'gives a computed total back to the user when its row is emptied', () => {
-		load();
+	it( 'gives a computed total back to the user when its row is emptied', async () => {
+		await load();
 
 		const cantidad = input( 'tpl_fields[servicios][0][conceptos][0][cantidad]' );
 		const unitario = input( 'tpl_fields[servicios][0][conceptos][0][unitario]' );
@@ -187,8 +188,8 @@ describe( 'row and provider totals', () => {
 		expect( input( 'tpl_fields[servicios][0][bruto]' ).value ).toBe( '1021.00' );
 	} );
 
-	it( 'writes a summary line on every provider card in es-ES', () => {
-		load();
+	it( 'writes a summary line on every provider card in es-ES', async () => {
+		await load();
 
 		const lines = Array.from( document.querySelectorAll( '.documentate-proveedor-resumen' ) ).map( ( n ) => n.textContent );
 		expect( lines ).toEqual( [
@@ -197,7 +198,7 @@ describe( 'row and provider totals', () => {
 		] );
 	} );
 
-	it( 'uses the <summary> when the card is wrapped in details.documentate-proveedor', () => {
+	it( 'uses the <summary> when the card is wrapped in details.documentate-proveedor', async () => {
 		const item = document.querySelector( '[data-array-field="servicios"] .documentate-array-item' );
 		const details = document.createElement( 'details' );
 		details.className = 'documentate-proveedor';
@@ -205,14 +206,14 @@ describe( 'row and provider totals', () => {
 		item.parentNode.insertBefore( details, item );
 		details.appendChild( item );
 
-		load();
+		await load();
 
 		expect( details.querySelector( 'summary' ).textContent ).toBe( 'Servicio 1 · Acme · 2 conceptos · 1028,00 €' );
 		expect( item.querySelector( '.documentate-proveedor-resumen' ) ).toBeNull();
 	} );
 
-	it( 'recalculates on input and on row buttons', () => {
-		load();
+	it( 'recalculates on input and on row buttons', async () => {
+		await load();
 
 		const cantidad = input( 'tpl_fields[servicios][0][conceptos][0][cantidad]' );
 		cantidad.value = '3';
@@ -234,8 +235,8 @@ describe( 'row and provider totals', () => {
 } );
 
 describe( 'summary card and gasto_numero', () => {
-	it( 'builds the summary before gasto_numero and writes the grand total', () => {
-		load();
+	it( 'builds the summary before gasto_numero and writes the grand total', async () => {
+		await load();
 
 		const gasto = input( 'documentate_field_gasto_numero' );
 		const summary = document.querySelector( '.documentate-resumen' );
@@ -250,18 +251,18 @@ describe( 'summary card and gasto_numero', () => {
 		expect( gasto.getAttribute( 'data-calculado' ) ).toBe( '1' );
 	} );
 
-	it( 'fills an existing .dcta-resumen card instead of creating one', () => {
+	it( 'fills an existing .dcta-resumen card instead of creating one', async () => {
 		document.body.insertAdjacentHTML( 'afterbegin', '<div class="dcta-resumen"></div>' );
-		load();
+		await load();
 
 		expect( document.querySelectorAll( '.dcta-resumen' ).length ).toBe( 1 );
 		expect( document.querySelector( '.dcta-resumen' ).textContent ).toContain( '1028,00 €' );
 	} );
 
-	it( 'keeps a hand-typed gasto_numero editable when no provider has conceptos', () => {
+	it( 'keeps a hand-typed gasto_numero editable when no provider has conceptos', async () => {
 		document.body.innerHTML = `<form>${ repeater( 'servicios', [ provider( 'servicios', 0, {}, [ {} ] ) ] ) }${ EXPENSE_FIELD }</form>`;
 		input( 'documentate_field_gasto_numero' ).value = '99';
-		load();
+		await load();
 
 		const gasto = input( 'documentate_field_gasto_numero' );
 		expect( gasto.value ).toBe( '99' );
@@ -272,10 +273,10 @@ describe( 'summary card and gasto_numero', () => {
 		expect( document.querySelector( 'dd.documentate-resumen-total' ).textContent ).toBe( 'Sin proveedores todavía' );
 	} );
 
-	it( 'takes gasto_numero over again as soon as a concepto row is filled', () => {
+	it( 'takes gasto_numero over again as soon as a concepto row is filled', async () => {
 		document.body.innerHTML = `<form>${ repeater( 'servicios', [ provider( 'servicios', 0, {}, [ {} ] ) ] ) }${ EXPENSE_FIELD }</form>`;
 		input( 'documentate_field_gasto_numero' ).value = '99';
-		load();
+		await load();
 
 		const cantidad = input( 'tpl_fields[servicios][0][conceptos][0][cantidad]' );
 		cantidad.value = '2';
@@ -290,9 +291,9 @@ describe( 'summary card and gasto_numero', () => {
 		expect( gasto.getAttribute( 'data-calculado' ) ).toBe( '1' );
 	} );
 
-	it( 'does nothing when the document has no provider repeaters', () => {
+	it( 'does nothing when the document has no provider repeaters', async () => {
 		document.body.innerHTML = NO_PROVIDERS;
-		load();
+		await load();
 
 		expect( document.querySelector( '.documentate-resumen' ) ).toBeNull();
 		expect( document.querySelector( '.documentate-proveedor-resumen' ) ).toBeNull();
@@ -304,8 +305,8 @@ describe( 'summary card and gasto_numero', () => {
 } );
 
 describe( 'helpers', () => {
-	it( 'parses Spanish and plain numbers', () => {
-		load();
+	it( 'parses Spanish and plain numbers', async () => {
+		await load();
 		const { toNumber } = window.documentateCalculations;
 
 		expect( toNumber( '1234.5' ) ).toBe( 1234.5 );
@@ -316,8 +317,8 @@ describe( 'helpers', () => {
 		expect( toNumber( null ) ).toBe( 0 );
 	} );
 
-	it( 'formats amounts in es-ES with two decimals', () => {
-		load();
+	it( 'formats amounts in es-ES with two decimals', async () => {
+		await load();
 
 		// Spanish groups thousands from five digits on ("1234,50" but "12.345,50").
 		expect( window.documentateCalculations.formatAmount( 12345.5 ) ).toBe( '12.345,50 €' );

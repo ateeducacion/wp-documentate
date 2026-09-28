@@ -63,7 +63,7 @@ They are vendored verbatim from upstream: never reformat or edit them in place.
 - **SQL**: always use `$wpdb->prepare()`.
 - **UI text**: Spanish; all code, comments, and docblocks in English.
   Identifiers are English too — file, class, method, property, variable and
-  test names (PHPUnit methods, Jest `it()`, Playwright `test()`) — while CSS
+  test names (PHPUnit methods, Vitest `it()`, Playwright `test()`) — while CSS
   classes, `data-*` attributes, query args and stored keys (meta, options,
   capabilities, `en_gestion`) are contracts and are never renamed for
   language reasons. See *Coding Expectations → Language* in `AGENTS.md`.

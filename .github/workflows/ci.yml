@@ -90,6 +90,13 @@ jobs:
       - name: Check complexity budget (PHPMD)
         run: make phpmd
 
+      # Vitest 5 and @wordpress/scripts 36 need a recent Node 22 (see their
+      # engines), which the runner's preinstalled Node does not guarantee.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -98,7 +105,7 @@ jobs:
       - name: Run JavaScript unit tests
         run: npm run test:unit-js
 
-      # The jest run enforces its own per-module floors (tests/js/jest.config.js);
+      # The Vitest run enforces its own per-module floors (vitest.config.mjs);
       # the report is kept as an artifact so a JS coverage drop can be read
       # without rerunning the suite.
       - name: Upload JavaScript coverage report

@@ -1,6 +1,7 @@
 /**
  * Unit tests for the Documentate LibreOffice WASM browser converter wrapper.
  */
+import { describe, expect, it, vi } from 'vitest';
 import {
 	createLibreOfficeWasmConverter,
 	DocumentateWasmError,
@@ -23,14 +24,14 @@ function makeWrapper( overrides = {}, extra = {} ) {
 			calls.push( 'construct' );
 			instances.push( this );
 
-			this.initialize = jest.fn( async () => {
+			this.initialize = vi.fn( async () => {
 				calls.push( 'initialize' );
 				if ( overrides.initError ) {
 					throw overrides.initError;
 				}
 			} );
 
-			this.convert = jest.fn( async ( data, opts, filename ) => {
+			this.convert = vi.fn( async ( data, opts, filename ) => {
 				calls.push( 'convert' );
 				this.lastConvert = { data, opts, filename };
 				if ( overrides.convertError ) {
@@ -46,11 +47,11 @@ function makeWrapper( overrides = {}, extra = {} ) {
 				);
 			} );
 
-			this.dispose = jest.fn();
+			this.dispose = vi.fn();
 		}
 	}
 
-	const createWasmPaths = jest.fn( ( base ) => ( {
+	const createWasmPaths = vi.fn( ( base ) => ( {
 		sofficeJs: base + 'soffice.js',
 		sofficeWasm: base + 'soffice.wasm',
 		sofficeData: base + 'soffice.data',

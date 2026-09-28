@@ -8,7 +8,8 @@
  * "nothing happened". The rest of the buttons only set #post_status before
  * submitting, and getting that wrong sends a document to the wrong place.
  */
-const jQuery = require( 'jquery' );
+import jQuery from 'jquery';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const POST_ID = 42;
 
@@ -70,9 +71,9 @@ function buttonMarkup( id, data = {} ) {
 /**
  * Run the module against the current DOM with a given configuration.
  *
- * isolateModules re-evaluates the file on every call, the way the browser runs
- * it on a fresh page — and unlike new Function( source ) it goes through the
- * module registry, so the coverage report sees it.
+ * Resetting the registry re-evaluates the file on every call, the way the
+ * browser runs it on a fresh page — and unlike new Function( source ) it goes
+ * through the module graph, so the coverage report sees it.
  *
  * @param {Object} config The documentateWorkflow global.
  * @return {Promise<void>} Resolves once jQuery's ready queue has drained.
@@ -93,9 +94,8 @@ async function boot( config = {} ) {
 		...config,
 	};
 
-	jest.isolateModules( () => {
-		require( '../../admin/js/documentate-workflow.js' );
-	} );
+	vi.resetModules();
+	await import( '../../admin/js/documentate-workflow.js' );
 
 	// jQuery resolves its ready Deferred through two timer turns.
 	await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
@@ -130,8 +130,8 @@ beforeAll( () => {
 beforeEach( () => {
 	submits = 0;
 	document.body.innerHTML = '';
-	window.alert = jest.fn();
-	window.confirm = jest.fn( () => true );
+	window.alert = vi.fn();
+	window.confirm = vi.fn( () => true );
 
 	// jsdom throws "not implemented" on a real form submit.
 	window.HTMLFormElement.prototype.submit = function () {
@@ -224,7 +224,7 @@ describe( 'the buttons of each status', () => {
 	it( 'does nothing when the confirmation is dismissed', async () => {
 		document.body.innerHTML = renderScreen( buttonMarkup( 'documentate-pass-admin' ) );
 		await boot( { postStatus: 'en_gestion', isEnGestion: true } );
-		window.confirm = jest.fn( () => false );
+		window.confirm = vi.fn( () => false );
 
 		clickOn( 'documentate-pass-admin' );
 
