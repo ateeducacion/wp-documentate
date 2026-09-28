@@ -163,7 +163,7 @@ No changes to the generation layer or the workflow.
 
 ## Testing
 
-- **Jest** — `isDirty()` after `input` on a plain field, after TinyMCE `Dirty`,
+- **Vitest** — `isDirty()` after `input` on a plain field, after TinyMCE `Dirty`,
   after changes to classic editor fields; starts clean; `sessionStorage` TTL; gate passes
   through when clean. Plus one test that evaluates the guard and
   `documentate-actions` in load order and asserts the resumed action reaches

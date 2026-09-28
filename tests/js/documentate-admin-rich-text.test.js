@@ -7,7 +7,8 @@
  * tag-stripping regex silently got wrong: numeric entities, '>' inside an
  * attribute value, and comments.
  */
-const { extractPlainText } = require( '../../admin/js/documentate-admin.js' );
+import { describe, expect, it, vi } from 'vitest';
+import { extractPlainText } from '../../admin/js/documentate-admin.js';
 
 describe( 'extractPlainText', () => {
 	describe( 'treats visually empty markup as empty', () => {
@@ -49,7 +50,7 @@ describe( 'extractPlainText', () => {
 	} );
 
 	it( 'does not execute scripts in the parsed markup', () => {
-		const spy = jest.fn();
+		const spy = vi.fn();
 		global.__documentateXssProbe = spy;
 
 		extractPlainText(

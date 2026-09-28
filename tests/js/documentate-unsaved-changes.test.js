@@ -9,6 +9,9 @@
  * failure violated — plain fields count as changes, and a change blocks the
  * action — plus the save-and-resume handshake.
  */
+import jQuery from 'jquery';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
 const POST_ID = 42;
 const STORAGE_KEY = `documentate_pending_action_${ POST_ID }`;
 
@@ -44,17 +47,16 @@ const instances = [];
 /**
  * Evaluate one browser module against the current DOM.
  *
- * isolateModules re-evaluates the file on every call, the way the browser runs
- * it on a fresh page — and unlike new Function( source ) it goes through the
- * module registry, so the coverage report sees it.
+ * Resetting the registry re-evaluates the file on every call, the way the
+ * browser runs it on a fresh page — and unlike new Function( source ) it goes
+ * through the module graph, so the coverage report sees it.
  *
  * @param {string} path Path of the module, relative to this file.
- * @return {void}
+ * @return {Promise<void>} Resolves once the module has been evaluated.
  */
-function loadModule( path ) {
-	jest.isolateModules( () => {
-		require( path );
-	} );
+async function loadModule( path ) {
+	vi.resetModules();
+	await import( /* @vite-ignore */ path );
 }
 
 /**
@@ -66,7 +68,7 @@ function loadModule( path ) {
  * @return {Promise<void>} Resolves once jQuery's ready callbacks have run.
  */
 async function loadGuard() {
-	loadModule( '../../admin/js/documentate-unsaved-changes.js' );
+	await loadModule( '../../admin/js/documentate-unsaved-changes.js' );
 	// jQuery defers ready callbacks by a tick when the document is already loaded.
 	await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
 	instances.push( window.documentateUnsavedChanges );
@@ -100,7 +102,7 @@ function unload() {
 }
 
 beforeAll( () => {
-	global.jQuery = require( 'jquery' );
+	global.jQuery = jQuery;
 	global.$ = global.jQuery;
 } );
 
@@ -112,13 +114,13 @@ beforeEach( () => {
 
 	// jsdom does not implement form submission; the guard only needs to know it
 	// was requested.
-	submitSpy = jest.fn();
+	submitSpy = vi.fn();
 	document.getElementById( 'post' ).submit = submitSpy;
 
 	// Stands in for the documentate-actions handler the guard gates. It is
 	// delegated on the action attribute, like the real one, so clicks on the
 	// dialog's own buttons are not mistaken for the action running.
-	downstream = jest.fn();
+	downstream = vi.fn();
 	downstreamListener = ( event ) => {
 		if ( event.target.closest( '[data-documentate-action]' ) ) {
 			downstream( event );
@@ -188,7 +190,7 @@ describe( 'dirty detection', () => {
 	it( 'notices a TinyMCE editor reporting itself dirty', async () => {
 		const handlers = {};
 		window.tinyMCE = {
-			on: jest.fn(),
+			on: vi.fn(),
 			editors: [
 				{
 					initialized: true,
@@ -289,7 +291,7 @@ describe( 'the form of the front-end application', () => {
 			formSelector: 'form.dcta-editor',
 			strings: {},
 		};
-		submitSpy = jest.fn();
+		submitSpy = vi.fn();
 		document.querySelector( 'form.dcta-editor' ).submit = submitSpy;
 	} );
 
@@ -397,8 +399,8 @@ describe( 'save and resume', () => {
 	it( 'flushes TinyMCE before submitting', async () => {
 		// jQuery's submit trigger calls the native form.submit(), which skips
 		// TinyMCE's own submit listener, so the editors must be flushed by hand.
-		const triggerSave = jest.fn();
-		window.tinyMCE = { on: jest.fn(), editors: [], triggerSave };
+		const triggerSave = vi.fn();
+		window.tinyMCE = { on: vi.fn(), editors: [], triggerSave };
 
 		await loadGuard();
 		window.documentateUnsavedChanges.markDirty();
@@ -472,7 +474,7 @@ describe( 'resume against the real action handler', () => {
 			strings: {},
 		};
 
-		ajaxSpy = jest.fn();
+		ajaxSpy = vi.fn();
 		global.jQuery.ajax = ajaxSpy;
 	} );
 
@@ -493,8 +495,8 @@ describe( 'resume against the real action handler', () => {
 	 * @return {Promise<void>} Resolves once the ready queue has drained.
 	 */
 	async function loadPage() {
-		loadModule( '../../admin/js/documentate-unsaved-changes.js' );
-		loadModule( '../../admin/js/documentate-actions.js' );
+		await loadModule( '../../admin/js/documentate-unsaved-changes.js' );
+		await loadModule( '../../admin/js/documentate-actions.js' );
 		await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
 		instances.push( window.documentateUnsavedChanges );
 	}

@@ -51,6 +51,7 @@
 /phpunit.xml.dist
 /renovate.json
 /scripts
+/vitest.config.mjs
 
 # Tests and everything they write
 /artifacts

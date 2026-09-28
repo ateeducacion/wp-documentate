@@ -76,15 +76,16 @@
   - no `@covers` annotations pointing at code the test does not exercise.
 - If a branch is hard to reach, refactor the code so it becomes testable
   (extract the pure part, inject the dependency) instead of excluding it.
-- **JavaScript is measured by jest, not by Codecov.** `npm run test:unit-js`
+- **JavaScript is measured by Vitest, not by Codecov.** `npm run test:unit-js`
   collects coverage for `admin/js/documentate-*.js` and `public/js/*.js` and
   fails when a module its suite owns falls below the floor in
-  `tests/js/jest.config.js`; the report lands in `artifacts/coverage-js/`.
-  A jest test only shows up in that report when it loads the module with
-  `require()` (or `jest.isolateModules()` for the IIFEs that need a fresh
-  evaluation per test) — `new Function( source )()` reports 0 %. Touching a
-  browser module means adding or extending its jest test and, when it gains
-  one, its floor.
+  `vitest.config.mjs`; the report lands in `artifacts/coverage-js/`.
+  A test only shows up in that report when it loads the module with
+  `import` (or `vi.resetModules()` + `await import()` for the IIFEs that need a
+  fresh evaluation per test) — `new Function( source )()` reports 0 %. Touching
+  a browser module means adding or extending its Vitest test and, when it gains
+  one, its floor. Import `describe`, `it`, `expect` and `vi` from `vitest`; the
+  suite does not enable globals.
 - Untestable-by-design code (`exit`, `wp_die` with output, external
   processes) is a narrow exception: keep it in the thinnest possible wrapper
   and test everything around it.

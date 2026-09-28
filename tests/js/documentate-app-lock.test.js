@@ -1,4 +1,5 @@
-const $ = require('jquery');
+import $ from 'jquery';
+import { beforeEach, expect, it, vi } from 'vitest';
 
 beforeEach(() => {
 	$(document).off('.documentateLock');
@@ -7,18 +8,19 @@ beforeEach(() => {
 		<dialog id="dcta-lock-dialog"><span id="dcta-lock-owner"></span></dialog></div>
 		<form class="dcta-editor"><input value="Unsaved text"></form>`;
 	global.jQuery = $;
-	global.wp = { heartbeat: { interval: jest.fn() } };
+	global.wp = { heartbeat: { interval: vi.fn() } };
 	global.documentateAppLock = { ajaxUrl: '/wp-admin/admin-ajax.php' };
-	navigator.sendBeacon = jest.fn();
-	document.querySelector('dialog').showModal = jest.fn();
+	navigator.sendBeacon = vi.fn();
+	document.querySelector('dialog').showModal = vi.fn();
 });
 
-function boot() {
-	jest.isolateModules(() => require('../../public/js/documentate-app-lock.js'));
+async function boot() {
+	vi.resetModules();
+	await import('../../public/js/documentate-app-lock.js');
 }
 
-it('uses core Heartbeat to refresh ownership and releases the latest token', () => {
-	boot();
+it('uses core Heartbeat to refresh ownership and releases the latest token', async () => {
+	await boot();
 	const outgoing = {};
 	$(document).trigger('heartbeat-send', [outgoing]);
 	expect(outgoing['wp-refresh-post-lock']).toEqual({ post_id: 42, lock: '100:7' });
@@ -36,8 +38,8 @@ it('uses core Heartbeat to refresh ownership and releases the latest token', () 
 	$(window).trigger($.Event('pageshow', { originalEvent: { persisted: false } }));
 });
 
-it('freezes the losing editor without deleting unsaved data or reclaiming the lock', () => {
-	boot();
+it('freezes the losing editor without deleting unsaved data or reclaiming the lock', async () => {
+	await boot();
 	$(document).trigger('heartbeat-tick', [{'wp-refresh-post-lock': { lock_error: { name: '<Otro editor>' } }}]);
 	expect(document.querySelector('form').inert).toBe(true);
 	expect(document.querySelector('input').value).toBe('Unsaved text');
@@ -57,28 +59,28 @@ it('freezes the losing editor without deleting unsaved data or reclaiming the lo
 	expect(navigator.sendBeacon).not.toHaveBeenCalled();
 });
 
-it('leaves expiration to WordPress when sendBeacon is unavailable', () => {
+it('leaves expiration to WordPress when sendBeacon is unavailable', async () => {
 	delete navigator.sendBeacon;
-	boot();
+	await boot();
 	expect(() => $(window).trigger('pagehide')).not.toThrow();
 });
 
-it.each(['', '<div id="dcta-edit-lock" data-lock=""></div>'])('does not renew a lock on a blocked or unrelated view', (html) => {
+it.each(['', '<div id="dcta-edit-lock" data-lock=""></div>'])('does not renew a lock on a blocked or unrelated view', async (html) => {
 	document.body.innerHTML = html;
-	boot();
+	await boot();
 	expect(wp.heartbeat.interval).not.toHaveBeenCalled();
 });
 
 
-it('does not recreate a lock after submitting a workflow transition', () => {
-	boot();
+it('does not recreate a lock after submitting a workflow transition', async () => {
+	await boot();
 	document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 	$(window).trigger('pagehide');
 	expect(navigator.sendBeacon).not.toHaveBeenCalled();
 });
 
-it('still releases on navigation after validation prevents submission', () => {
-	boot();
+it('still releases on navigation after validation prevents submission', async () => {
+	await boot();
 	document.querySelector('form').addEventListener('submit', (event) => event.preventDefault());
 	document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 	$(window).trigger('pagehide');

@@ -6,6 +6,8 @@
  * rail, the inline <details> fallback, the file dropzone and the type select
  * of the "new document" form.
  */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 const DIALOGS = `
 	<dialog class="dcta-dialogo" id="dcta-dialogo-motivo">
 		<h2 class="dcta-dialogo-titulo">Devolver el documento</h2>
@@ -110,13 +112,12 @@ function stubDialogs() {
 /**
  * Evaluate the module against the current DOM.
  */
-function load() {
-	// isolateModules re-evaluates the file on every call, the way the browser
-	// runs it on a fresh page — and unlike new Function( source ) it goes
-	// through the module registry, so the coverage report sees it.
-	jest.isolateModules( () => {
-		require( '../../public/js/documentate-app.js' );
-	} );
+async function load() {
+	// Resetting the registry re-evaluates the file on every call, the way the
+	// browser runs it on a fresh page — and unlike new Function( source ) it
+	// goes through the module graph, so the coverage report sees it.
+	vi.resetModules();
+	await import( '../../public/js/documentate-app.js' );
 }
 
 /**
@@ -124,10 +125,10 @@ function load() {
  *
  * @param {string} buttons Transition buttons of the rail.
  */
-function mountEditor( buttons ) {
+async function mountEditor( buttons ) {
 	document.body.innerHTML = editor( buttons );
 	stubDialogs();
-	load();
+	await load();
 }
 
 /**
@@ -147,8 +148,8 @@ function chooseFile( name, size ) {
 }
 
 describe( 'return dialog', () => {
-	it( 'opens with the key of the button and enables only its own reason box', () => {
-		mountEditor(
+	it( 'opens with the key of the button and enables only its own reason box', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="devolver_area" data-motivo="1">Devolver al área</button>'
 		);
 
@@ -164,8 +165,8 @@ describe( 'return dialog', () => {
 		expect( dialog.querySelector( '.dcta-dialogo-destinos' ).hidden ).toBe( true );
 	} );
 
-	it( 'disables the no-JavaScript fallback so only one reason is posted', () => {
-		mountEditor(
+	it( 'disables the no-JavaScript fallback so only one reason is posted', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="devolver_area" data-motivo="1">Devolver al área</button>'
 		);
 
@@ -175,8 +176,8 @@ describe( 'return dialog', () => {
 		expect( details.querySelector( 'button' ).disabled ).toBe( true );
 	} );
 
-	it( 'shows the destinations when the document can go back to two places', () => {
-		mountEditor(
+	it( 'shows the destinations when the document can go back to two places', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="devolver_area" data-motivo="1" data-destinos="1">Devolver…</button>'
 		);
 
@@ -191,8 +192,8 @@ describe( 'return dialog', () => {
 		expect( document.getElementById( 'dcta-dialogo-motivo-clave' ).disabled ).toBe( true );
 	} );
 
-	it( 'lets the return through even when required fields are empty', () => {
-		mountEditor(
+	it( 'lets the return through even when required fields are empty', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="devolver_area" data-motivo="1">Devolver al área</button>'
 		);
 
@@ -205,8 +206,8 @@ describe( 'return dialog', () => {
 		expect( document.getElementById( 'dcta-app-form' ).noValidate ).toBe( true );
 	} );
 
-	it( 'disables everything again when it is cancelled', () => {
-		mountEditor(
+	it( 'disables everything again when it is cancelled', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="devolver_area" data-motivo="1">Devolver al área</button>'
 		);
 
@@ -232,8 +233,8 @@ describe( 'confirmation dialog', () => {
 		document.querySelector( '[name="documentate_app_nombre"]' ).value = 'Material aulas';
 	}
 
-	it( 'asks the question of the button and carries its key', () => {
-		mountEditor(
+	it( 'asks the question of the button and carries its key', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="enviar_gestion" data-confirmar="¿Enviar el documento a revisión?">Enviar a gestión</button>'
 		);
 		fillRequiredFields();
@@ -251,8 +252,8 @@ describe( 'confirmation dialog', () => {
 		expect( document.getElementById( 'dcta-dialogo-confirmar-clave' ).disabled ).toBe( false );
 	} );
 
-	it( 'submits straight away when the transition has nothing to confirm', () => {
-		mountEditor(
+	it( 'submits straight away when the transition has nothing to confirm', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="pasar_admin" data-confirmar="">Pasar a administración</button>'
 		);
 
@@ -264,15 +265,15 @@ describe( 'confirmation dialog', () => {
 		expect( document.getElementById( 'dcta-dialogo-confirmar' ).open ).toBeFalsy();
 	} );
 
-	it( 'lets the browser point at an invalid field instead of opening', () => {
-		mountEditor(
+	it( 'lets the browser point at an invalid field instead of opening', async () => {
+		await mountEditor(
 			'<button type="submit" name="documentate_app_transicion" value="enviar_gestion" data-confirmar="¿Enviar el documento a revisión?">Enviar a gestión</button>'
 		);
 
 		// The required internal name is empty: nothing outside a modal dialog
 		// can be focused, so the question must not be asked yet.
 		const form = document.getElementById( 'dcta-app-form' );
-		form.reportValidity = jest.fn().mockReturnValue( false );
+		form.reportValidity = vi.fn().mockReturnValue( false );
 
 		document
 			.querySelector( '[data-confirmar]' )
@@ -284,8 +285,8 @@ describe( 'confirmation dialog', () => {
 } );
 
 describe( 'document file', () => {
-	beforeEach( () => {
-		mountEditor( '' );
+	beforeEach( async () => {
+		await mountEditor( '' );
 	} );
 
 	it( 'reveals the dropzone and hides the plain input', () => {
@@ -297,7 +298,7 @@ describe( 'document file', () => {
 
 	it( 'opens the file picker from the button', () => {
 		const input = document.getElementById( 'documentate-app-adjunto' );
-		input.click = jest.fn();
+		input.click = vi.fn();
 
 		document
 			.querySelector( '[data-dcta-elegir]' )
@@ -360,8 +361,8 @@ function dropFile( name, accepts ) {
 }
 
 describe( 'dropped file', () => {
-	beforeEach( () => {
-		mountEditor( '' );
+	beforeEach( async () => {
+		await mountEditor( '' );
 	} );
 
 	it( 'announces the file the input accepted', () => {
@@ -375,7 +376,7 @@ describe( 'dropped file', () => {
 	it( 'announces the drop so the unsaved-changes guard sees it', () => {
 		// The assignment to input.files fires nothing on its own, and the guard
 		// that warns before leaving the editor listens for change on the form.
-		const seen = jest.fn();
+		const seen = vi.fn();
 		document.addEventListener( 'change', seen );
 
 		dropFile( 'resolucion.pdf', true );
@@ -396,9 +397,9 @@ describe( 'dropped file', () => {
 } );
 
 describe( 'new document form', () => {
-	beforeEach( () => {
+	beforeEach( async () => {
 		document.body.innerHTML = NEW_DOCUMENT;
-		load();
+		await load();
 	} );
 
 	it( 'says nothing until a type is chosen', () => {
@@ -445,9 +446,9 @@ const LIST = `
 /**
  * Build a list and run the module on it.
  */
-function mountList() {
+async function mountList() {
 	document.body.innerHTML = LIST;
-	load();
+	await load();
 }
 
 /**
@@ -475,16 +476,16 @@ function visibleRows() {
 }
 
 describe( 'quick filter', () => {
-	it( 'shows the box only when the script runs', () => {
+	it( 'shows the box only when the script runs', async () => {
 		document.body.innerHTML = LIST;
 		expect( document.querySelector( '[data-dcta-busqueda]' ).hidden ).toBe( true );
 
-		load();
+		await load();
 		expect( document.querySelector( '[data-dcta-busqueda]' ).hidden ).toBe( false );
 	} );
 
-	it( 'narrows the rows as you type and counts what is left', () => {
-		mountList();
+	it( 'narrows the rows as you type and counts what is left', async () => {
+		await mountList();
 
 		typeInFilter( 'jornadas' );
 		expect( visibleRows() ).toEqual( [
@@ -495,8 +496,8 @@ describe( 'quick filter', () => {
 		);
 	} );
 
-	it( 'matches the type and the status too, ignoring accents', () => {
-		mountList();
+	it( 'matches the type and the status too, ignoring accents', async () => {
+		await mountList();
 
 		typeInFilter( 'gestion' );
 		expect( visibleRows() ).toEqual( [
@@ -509,8 +510,8 @@ describe( 'quick filter', () => {
 		] );
 	} );
 
-	it( 'says so when nothing matches, and restores the list when cleared', () => {
-		mountList();
+	it( 'says so when nothing matches, and restores the list when cleared', async () => {
+		await mountList();
 
 		typeInFilter( 'nada de nada' );
 		expect( visibleRows() ).toEqual( [] );
@@ -525,17 +526,17 @@ describe( 'quick filter', () => {
 		expect( document.querySelector( '[data-dcta-pie]' ).textContent ).toBe( '3 documentos' );
 	} );
 
-	it( 'does nothing on a page without a list', () => {
+	it( 'does nothing on a page without a list', async () => {
 		document.body.innerHTML = '<div class="dcta-hoja"></div>';
-		expect( () => load() ).not.toThrow();
+		await expect( load() ).resolves.toBeUndefined();
 	} );
 
-	it( 'keeps the truncation warning of a capped list in every count', () => {
+	it( 'keeps the truncation warning of a capped list in every count', async () => {
 		document.body.innerHTML = LIST.replace(
 			'data-dcta-pie-total="3">3 documentos',
 			'data-dcta-pie-total="500">mostrando 3 de 500 documentos · afina con los filtros'
 		);
-		load();
+		await load();
 
 		typeInFilter( 'jornadas' );
 		expect( document.querySelector( '[data-dcta-pie]' ).textContent ).toBe(
@@ -551,10 +552,10 @@ describe( 'quick filter', () => {
 		);
 	} );
 
-	it( 'is set up once however often the module runs', () => {
-		mountList();
-		load();
-		load();
+	it( 'is set up once however often the module runs', async () => {
+		await mountList();
+		await load();
+		await load();
 
 		typeInFilter( 'nada de nada' );
 		expect( document.querySelectorAll( '.dcta-vacio' ) ).toHaveLength( 1 );
@@ -586,37 +587,37 @@ describe( 'área filter', () => {
 		select.dispatchEvent( new window.Event( 'change' ) );
 	}
 
-	it( 'submits on change and hides the button it replaces', () => {
+	it( 'submits on change and hides the button it replaces', async () => {
 		document.body.innerHTML = AREAS;
 		const form = document.querySelector( '[data-dcta-areas]' );
-		form.submit = jest.fn();
+		form.submit = vi.fn();
 
 		// Without the script the button is the only way to filter, so it is
 		// there until the script takes over.
 		expect( document.querySelector( '.dcta-areas-ok' ).hidden ).toBe( false );
 
-		load();
+		await load();
 
 		expect( document.querySelector( '.dcta-areas-ok' ).hidden ).toBe( true );
 		chooseArea( '12' );
 		expect( form.submit ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'is wired once however often the module runs', () => {
+	it( 'is wired once however often the module runs', async () => {
 		document.body.innerHTML = AREAS;
 		const form = document.querySelector( '[data-dcta-areas]' );
-		form.submit = jest.fn();
+		form.submit = vi.fn();
 
-		load();
-		load();
+		await load();
+		await load();
 		chooseArea( '12' );
 
 		expect( form.submit ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'does nothing on a page without the filter', () => {
+	it( 'does nothing on a page without the filter', async () => {
 		document.body.innerHTML = '<div class="dcta-filtros"></div>';
 
-		expect( () => load() ).not.toThrow();
+		await expect( load() ).resolves.toBeUndefined();
 	} );
 } );
