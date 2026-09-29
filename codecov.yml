@@ -11,6 +11,11 @@ coverage:
         target: 90%
         threshold: 0%
 
+comment:
+  # `header` prints the project total and its change against the base; without
+  # it the comment only reports the patch. `flags` splits PHP and JavaScript.
+  layout: "header, diff, flags, files, footer"
+
 # Two reports arrive per commit, each under its own flag: `php` (PHPUnit) and
 # `js` (Vitest, the browser modules). Codecov sums them, so the targets above
 # count PHP and JavaScript together.
