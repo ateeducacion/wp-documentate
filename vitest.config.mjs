@@ -13,12 +13,12 @@
  *   that must be re-evaluated per test). A test that evaluates the source with
  *   `new Function( source )` reports 0 % however thorough it is, so tests are
  *   written the first way.
- * - The report is not uploaded to Codecov. Most of admin/js is wp-admin glue
- *   exercised by the Playwright suite, which produces no coverage data, so
- *   folding these files into the 90 % project gate of codecov.yml would say
- *   they are untested when they are not. The floors below are the gate
- *   instead: they fail `npm run test:unit-js` — and with it CI — when the
- *   modules the unit suite owns lose coverage.
+ * - The report is also uploaded to Codecov under the `js` flag and summed with
+ *   the PHP one, but only for the modules the unit suite owns: the rest of
+ *   admin/js is wp-admin glue exercised by the Playwright suite, which produces
+ *   no coverage data, so codecov.yml ignores it. The floors below still gate
+ *   each owned module: they fail `npm run test:unit-js` — and with it CI —
+ *   when one loses coverage.
  */
 import { defineConfig } from 'vitest/config';
 

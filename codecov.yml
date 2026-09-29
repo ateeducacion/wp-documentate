@@ -11,12 +11,15 @@ coverage:
         target: 90%
         threshold: 0%
 
-# JavaScript is measured by Vitest, not here: vitest.config.mjs collects
-# coverage for the browser modules and fails the run when the ones its suite
-# owns lose it. Their report is deliberately not merged into the targets above
-# — most of admin/js is wp-admin glue exercised by the Playwright suite, which
-# produces no coverage data at all, so folding those files in would report them
-# as untested and turn a PHP gate into a number nobody can act on.
+# Two reports arrive per commit, each under its own flag: `php` (PHPUnit) and
+# `js` (Vitest, the browser modules). Codecov sums them, so the targets above
+# count PHP and JavaScript together.
+#
+# The JavaScript that counts is the modules the unit suite owns — the ones with
+# a floor in vitest.config.mjs. The rest of admin/js is wp-admin glue exercised
+# by the Playwright suite, which produces no coverage data, so it is ignored
+# below rather than reported as untested. A new module counts by default: give
+# it unit tests, or list it here if it belongs to the Playwright suite.
 
 ignore:
   # Third-party sources are copied into the distributable plugin during the
@@ -28,3 +31,12 @@ ignore:
   - "admin/js/vendor/**/*"
   - "admin/js/documentate-autofirma.js"
   - "admin/js/documentate-autofirma.js.map"
+
+  # wp-admin glue covered by the Playwright suite, not by the unit tests.
+  - "admin/js/documentate-actions.js"
+  - "admin/js/documentate-annexes.js"
+  - "admin/js/documentate-attachments-metabox.js"
+  - "admin/js/documentate-doc-types.js"
+  - "admin/js/documentate-law-editor.js"
+  - "admin/js/documentate-revisions.js"
+  - "admin/js/documentate-title.js"
