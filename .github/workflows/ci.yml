@@ -192,6 +192,22 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: artifacts/coverage/clover.xml
+          flags: php
+          # Only this file: without it the uploader searches the workspace and
+          # also sends the Vitest lcov.info, unflagged and in full.
+          disable_search: true
+          fail_ci_if_error: false
+
+      # The Vitest report of the browser modules, under its own flag. Codecov
+      # sums both uploads, so the project and patch targets count PHP and the
+      # JavaScript the unit suite owns together (see codecov.yml).
+      - name: Upload JavaScript coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: artifacts/coverage-js/lcov.info
+          flags: js
+          disable_search: true
           fail_ci_if_error: false
 
   e2e:

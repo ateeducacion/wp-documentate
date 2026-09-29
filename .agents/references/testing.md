@@ -76,10 +76,14 @@
   - no `@covers` annotations pointing at code the test does not exercise.
 - If a branch is hard to reach, refactor the code so it becomes testable
   (extract the pure part, inject the dependency) instead of excluding it.
-- **JavaScript is measured by Vitest, not by Codecov.** `npm run test:unit-js`
+- **JavaScript is measured by Vitest.** `npm run test:unit-js`
   collects coverage for `admin/js/documentate-*.js` and `public/js/*.js` and
   fails when a module its suite owns falls below the floor in
-  `vitest.config.mjs`; the report lands in `artifacts/coverage-js/`.
+  `vitest.config.mjs`; the report lands in `artifacts/coverage-js/` and is
+  uploaded to Codecov under the `js` flag, summed with PHP. Codecov counts
+  only the modules the suite owns: the Playwright-covered wp-admin glue is
+  listed in the `ignore` block of `codecov.yml`, and a new module counts
+  until it is tested or listed there.
   A test only shows up in that report when it loads the module with
   `import` (or `vi.resetModules()` + `await import()` for the IIFEs that need a
   fresh evaluation per test) — `new Function( source )()` reports 0 %. Touching
