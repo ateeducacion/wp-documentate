@@ -279,7 +279,7 @@ check-plugin: check-docker start-docker-if-not-running
 	@echo "Running WordPress Plugin Check..."
 	@TMPFILE=$$(mktemp); \
 	$(WP_CLI) plugin check documentate \
-		--exclude-directories=tests \
+		--exclude-directories=tests,.claude,.agents \
 		--exclude-checks=file_type,image_functions \
 		--ignore-warnings \
 		--color 2>&1 | tee $$TMPFILE; \
