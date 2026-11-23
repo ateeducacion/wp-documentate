@@ -39,7 +39,7 @@
     $ta.on('input', function () {
       $title.val($ta.val());
       // Clear error state on input
-      if ($.trim($ta.val()) !== '') {
+      if (String($ta.val() || '').trim() !== '') {
         $ta.removeClass('documentate-title-invalid');
         $error.hide();
       }
@@ -54,7 +54,7 @@
       $title.val($ta.val());
 
       // Validate title is not empty
-      if ($.trim($ta.val()) === '') {
+      if (String($ta.val() || '').trim() === '') {
         e.preventDefault();
         $ta.addClass('documentate-title-invalid');
         $error.show();
