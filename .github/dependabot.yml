@@ -50,6 +50,12 @@ updates:
     # Playwright runner cannot load. Upstream shipped a compiled entry point
     # again in 1.50.0 (exports "." -> ./build/index.js), so the cap no longer
     # applies and both packages track latest again.
+    ignore:
+      # In production the plugin loads the jQuery bundled with WordPress
+      # (dependency 'jquery'); the npm package is only for the vitest
+      # tests. Moving to a new major only when WordPress ships it.
+      - dependency-name: "jquery"
+        update-types: ["version-update:semver-major"]
     groups:
       # vite, vitest and @vitest/* share the lockfile: one pull request.
       vite:

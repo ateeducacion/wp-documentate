@@ -177,7 +177,7 @@
 				return;
 			}
 
-			if (!$reason.length || $.trim($reason.val()) === '') {
+			if (!$reason.length || String($reason.val() || '').trim() === '') {
 				var strings = this.config.strings || {};
 				window.alert(strings.reasonRequired || 'Escribe el motivo de la devolución.');
 				$reason.trigger('focus');
